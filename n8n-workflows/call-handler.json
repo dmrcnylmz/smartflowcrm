@@ -1,0 +1,75 @@
+{
+  "name": "Call Handler - Main Router",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "call-handler"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.intent }}",
+              "value2": "randevu"
+            }
+          ]
+        }
+      },
+      "id": "switch-intent",
+      "name": "Intent Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://frontend:3000/api/webhook/call",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "callSid",
+              "value": "={{ $json.callSid }}"
+            },
+            {
+              "name": "from",
+              "value": "={{ $json.from }}"
+            },
+            {
+              "name": "transcript",
+              "value": "={{ $json.transcript }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-post-firestore",
+      "name": "Save to Firestore",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 200]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Intent Router", "type": "main", "index": 0 }]]
+    },
+    "Intent Router": {
+      "main": [
+        [
+          { "node": "Save to Firestore", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}
+

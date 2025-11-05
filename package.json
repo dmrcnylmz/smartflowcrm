@@ -1,26 +1,62 @@
 {
   "name": "smartflow-crm",
-  "version": "0.1.0",
+  "version": "1.0.0",
+  "description": "AI destekli çağrı yönetimi, randevu takibi ve müşteri hizmetleri otomasyonu",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dmrcnylmz/smartflowcrm.git"
+  },
+  "keywords": [
+    "crm",
+    "ai",
+    "customer-service",
+    "nextjs",
+    "firebase",
+    "workflow-automation"
+  ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "rm -f .next/dev/lock 2>/dev/null; PORT=3002 next dev",
+    "dev:3000": "rm -f .next/dev/lock 2>/dev/null; PORT=3000 next dev",
+    "dev:3001": "rm -f .next/dev/lock 2>/dev/null; TURBOPACK=0 PORT=3001 next dev",
+    "dev:3002": "rm -f .next/dev/lock 2>/dev/null; PORT=3002 next dev",
+    "dev:clean": "rm -rf .next && PORT=3002 next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint .",
+    "setup:firestore": "node scripts/setupFirestore.mjs",
+    "seed": "tsx scripts/seed-data.ts"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "firebase": "^11.1.0",
+    "lucide-react": "^0.552.0",
+    "next": "16.0.1",
     "react": "19.2.0",
+    "react-day-picker": "^9.11.1",
     "react-dom": "19.2.0",
-    "next": "16.0.1"
+    "recharts": "^2.15.0",
+    "styled-jsx": "^5.1.7",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
+    "autoprefixer": "^10.4.21",
     "eslint": "^9",
-    "eslint-config-next": "16.0.1"
+    "eslint-config-next": "16.0.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.7.0",
+    "typescript": "^5"
   }
 }

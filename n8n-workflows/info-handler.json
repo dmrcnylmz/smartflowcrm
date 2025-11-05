@@ -1,0 +1,83 @@
+{
+  "name": "Info Request Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "webhookId": "info-handler"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://frontend:3000/api/ai/rag-search",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.transcript }}"
+            },
+            {
+              "name": "generateAnswer",
+              "value": "true"
+            }
+          ]
+        }
+      },
+      "id": "rag-search",
+      "name": "RAG Search FAQ",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://frontend:3000/api/tickets",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "info"
+            },
+            {
+              "name": "customerId",
+              "value": "={{ $json.customerId }}"
+            },
+            {
+              "name": "topic",
+              "value": "={{ $json.intent.summary }}"
+            },
+            {
+              "name": "details",
+              "value": "={{ $json.transcript }}"
+            }
+          ]
+        }
+      },
+      "id": "create-info-request",
+      "name": "Create Info Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "RAG Search FAQ", "type": "main", "index": 0 }]]
+    },
+    "RAG Search FAQ": {
+      "main": [[{ "node": "Create Info Request", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}
+
