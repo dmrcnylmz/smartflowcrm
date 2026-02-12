@@ -40,6 +40,8 @@ next-env.d.ts
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+service-account-key.json
+*-service-account*.json
 
 # IDE
 .vscode/

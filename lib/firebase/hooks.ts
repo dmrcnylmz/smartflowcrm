@@ -1,17 +1,29 @@
 import { useEffect, useState, useMemo } from 'react';
 import { collection, query, onSnapshot, QueryConstraint, orderBy, limit as firestoreLimit, where, Timestamp } from 'firebase/firestore';
 import { db } from './config';
+import {
+  demoCustomers,
+  demoAppointments,
+  demoComplaints,
+  demoCallLogs,
+  demoInfoRequests,
+  demoActivityLogs,
+  demoDb
+} from './demo-data';
+
+// Demo mode flag - set to true when Firebase fails
+let useDemoMode = false;
 
 export function useFirestoreCollection<T>(
   collectionName: string,
-  constraints: QueryConstraint[] = []
+  constraints: QueryConstraint[] = [],
+  demoData: T[] = []
 ) {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   // Memoize query to avoid unnecessary recreations
-  // Note: constraints array reference should be stable
   const q = useMemo(() => {
     try {
       return query(collection(db, collectionName), ...constraints);
@@ -22,15 +34,26 @@ export function useFirestoreCollection<T>(
   }, [collectionName, constraints]);
 
   useEffect(() => {
+    // If demo mode is active, use demo data directly
+    if (useDemoMode) {
+      console.log(`📋 Demo mode: Using demo data for ${collectionName}`);
+      setData(demoData);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!q) {
-      setError(new Error(`Invalid query for ${collectionName}`));
+      // Fallback to demo data
+      console.log(`📋 Query failed, using demo data for ${collectionName}`);
+      setData(demoData);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setError(null);
-    
+
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -43,14 +66,22 @@ export function useFirestoreCollection<T>(
         setError(null);
       },
       (err) => {
-        console.error(`Firestore ${collectionName} error:`, err);
-        setError(err as Error);
+        console.warn(`⚠️ Firestore ${collectionName} error:`, err.message);
+        // Switch to demo mode on permission error
+        if (err.message?.includes('permission') || err.code === 'permission-denied') {
+          console.log(`📋 Switching to demo mode for ${collectionName}`);
+          useDemoMode = true;
+          setData(demoData);
+          setError(null);
+        } else {
+          setError(err as Error);
+        }
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [q, collectionName]);
+  }, [q, collectionName, demoData]);
 
   return { data, loading, error };
 }
@@ -64,7 +95,9 @@ export function useActivityLogs(limitCount: number = 20) {
     firestoreLimit(limitCount),
   ], [limitCount]);
 
-  return useFirestoreCollection<import('./types').ActivityLog>('activity_logs', constraints);
+  const demoData = useMemo(() => demoActivityLogs.slice(0, limitCount), [limitCount]);
+
+  return useFirestoreCollection<import('./types').ActivityLog>('activity_logs', constraints, demoData);
 }
 
 /**
@@ -78,7 +111,7 @@ export function useCalls(options?: {
 }) {
   const constraints = useMemo(() => {
     const cons: QueryConstraint[] = [];
-    
+
     if (options?.dateFrom) {
       cons.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
     }
@@ -88,9 +121,9 @@ export function useCalls(options?: {
     if (options?.status) {
       cons.push(where('status', '==', options.status));
     }
-    
+
     cons.push(orderBy('createdAt', 'desc'));
-    
+
     if (options?.limitCount) {
       cons.push(firestoreLimit(options.limitCount));
     }
@@ -103,7 +136,7 @@ export function useCalls(options?: {
     options?.limitCount,
   ]);
 
-  return useFirestoreCollection<import('./types').CallLog>('calls', constraints);
+  return useFirestoreCollection<import('./types').CallLog>('calls', constraints, demoCallLogs);
 }
 
 /**
@@ -112,17 +145,24 @@ export function useCalls(options?: {
 export function useComplaints(status?: string) {
   const constraints = useMemo(() => {
     const cons: QueryConstraint[] = [];
-    
+
     if (status) {
       cons.push(where('status', '==', status));
     }
-    
+
     cons.push(orderBy('createdAt', 'desc'));
 
     return cons;
   }, [status]);
 
-  return useFirestoreCollection<import('./types').Complaint>('complaints', constraints);
+  const demoData = useMemo(() => {
+    if (status) {
+      return demoComplaints.filter(c => c.status === status);
+    }
+    return demoComplaints;
+  }, [status]);
+
+  return useFirestoreCollection<import('./types').Complaint>('complaints', constraints, demoData);
 }
 
 /**
@@ -136,7 +176,7 @@ export function useAppointments(options?: {
 }) {
   const constraints = useMemo(() => {
     const cons: QueryConstraint[] = [];
-    
+
     if (options?.dateFrom) {
       cons.push(where('dateTime', '>=', Timestamp.fromDate(options.dateFrom)));
     }
@@ -146,9 +186,9 @@ export function useAppointments(options?: {
     if (options?.status) {
       cons.push(where('status', '==', options.status));
     }
-    
+
     cons.push(orderBy('dateTime', 'asc'));
-    
+
     if (options?.limitCount) {
       cons.push(firestoreLimit(options.limitCount));
     }
@@ -161,7 +201,7 @@ export function useAppointments(options?: {
     options?.limitCount,
   ]);
 
-  return useFirestoreCollection<import('./types').Appointment>('appointments', constraints);
+  return useFirestoreCollection<import('./types').Appointment>('appointments', constraints, demoAppointments);
 }
 
 /**
@@ -176,7 +216,11 @@ export function useCustomers(limitCount?: number) {
     return cons;
   }, [limitCount]);
 
-  return useFirestoreCollection<import('./types').Customer>('customers', constraints);
+  const demoData = useMemo(() => {
+    return limitCount ? demoCustomers.slice(0, limitCount) : demoCustomers;
+  }, [limitCount]);
+
+  return useFirestoreCollection<import('./types').Customer>('customers', constraints, demoData);
 }
 
 /**
@@ -190,7 +234,7 @@ export function useInfoRequests(options?: {
 }) {
   const constraints = useMemo(() => {
     const cons: QueryConstraint[] = [];
-    
+
     if (options?.dateFrom) {
       cons.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
     }
@@ -200,9 +244,9 @@ export function useInfoRequests(options?: {
     if (options?.status) {
       cons.push(where('status', '==', options.status));
     }
-    
+
     cons.push(orderBy('createdAt', 'desc'));
-    
+
     if (options?.limitCount) {
       cons.push(firestoreLimit(options.limitCount));
     }
@@ -215,6 +259,11 @@ export function useInfoRequests(options?: {
     options?.limitCount,
   ]);
 
-  return useFirestoreCollection<import('./types').InfoRequest>('info_requests', constraints);
+  return useFirestoreCollection<import('./types').InfoRequest>('info_requests', constraints, demoInfoRequests);
 }
 
+// Export demo mode utilities
+export { demoDb, useDemoMode };
+export function isDemoModeActive() {
+  return useDemoMode;
+}

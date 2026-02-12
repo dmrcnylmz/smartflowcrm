@@ -1,19 +1,23 @@
 // AI Intent Router
-// Keyword-based detection with LLM fallback
+// Keyword-based detection with LLM fallback (Ollama)
+
+import { detectIntentWithOllama, isOllamaAvailable } from './ollama';
 
 const INTENT_KEYWORDS: Record<string, string[]> = {
-  randevu: ['randevu', 'appointment', 'tarih', 'saat', 'görüşme', 'buluşma'],
-  sikayet: ['şikayet', 'complaint', 'sorun', 'problem', 'memnun değil', 'kötü'],
-  bilgi: ['bilgi', 'info', 'nedir', 'nasıl', 'ne zaman', 'soru', 'öğrenmek'],
-  iptal: ['iptal', 'cancel', 'vazgeç'],
+  randevu: ['randevu', 'appointment', 'tarih', 'saat', 'görüşme', 'buluşma', 'rezervasyon'],
+  sikayet: ['şikayet', 'complaint', 'sorun', 'problem', 'memnun değil', 'kötü', 'berbat', 'rezalet'],
+  bilgi: ['bilgi', 'info', 'nedir', 'nasıl', 'ne zaman', 'soru', 'öğrenmek', 'fiyat', 'ücret'],
+  iptal: ['iptal', 'cancel', 'vazgeç', 'istemiyorum'],
 };
 
 export interface IntentResult {
   intent: string;
   confidence: number;
   summary: string;
+  method: 'keyword' | 'llm';
 }
 
+// Keyword-based intent detection
 export async function detectIntent(text: string): Promise<IntentResult> {
   const lowerText = text.toLowerCase();
 
@@ -24,7 +28,8 @@ export async function detectIntent(text: string): Promise<IntentResult> {
         return {
           intent,
           confidence: 0.85,
-          summary: `Detected "${intent}" intent from keyword: ${keyword}`,
+          summary: `Keyword ile tespit edildi: "${keyword}"`,
+          method: 'keyword',
         };
       }
     }
@@ -34,39 +39,52 @@ export async function detectIntent(text: string): Promise<IntentResult> {
   return {
     intent: 'unknown',
     confidence: 0.3,
-    summary: 'No clear intent detected',
+    summary: 'Belirsiz intent',
+    method: 'keyword',
   };
 }
 
-// LLM-based intent detection (optional, requires Ollama or OpenAI)
-export async function detectIntentWithLLM(text: string): Promise<IntentResult> {
+// LLM-based intent detection with Ollama
+export async function detectIntentWithLLM(
+  text: string,
+  model: string = 'llama3'
+): Promise<IntentResult> {
   try {
-    // Check if we have an LLM provider configured
-    const provider = process.env.LLM_PROVIDER || 'none';
-    
-    if (provider === 'none') {
-      // Fallback to keyword detection
+    // Check if Ollama is available
+    const ollamaAvailable = await isOllamaAvailable();
+
+    if (!ollamaAvailable) {
+      console.log('Ollama not available, falling back to keyword detection');
       return await detectIntent(text);
     }
 
-    // TODO: Implement LLM-based detection
-    // For now, fallback to keyword detection
-    return await detectIntent(text);
+    // Use Ollama for intent detection
+    const result = await detectIntentWithOllama(text, model);
+
+    return {
+      intent: result.intent,
+      confidence: result.confidence,
+      summary: result.summary,
+      method: 'llm',
+    };
   } catch (error) {
     console.error('LLM intent detection error:', error);
+    // Fallback to keyword detection on error
     return await detectIntent(text);
   }
 }
 
-// Main routing function (alias for compatibility)
+// Main routing function
 export async function routeIntent(
   text: string,
   useLLM: boolean = false,
-  provider: string = 'local'
+  provider: string = 'ollama'
 ): Promise<IntentResult> {
-  if (useLLM) {
+  if (useLLM && provider === 'ollama') {
     return await detectIntentWithLLM(text);
   }
   return await detectIntent(text);
 }
 
+// Export for backward compatibility
+export { isOllamaAvailable } from './ollama';

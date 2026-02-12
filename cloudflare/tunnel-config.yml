@@ -1,0 +1,40 @@
+# Cloudflare Tunnel Configuration
+# For exposing GPU server and n8n securely
+
+# ============================================
+# TUNNEL CONFIGURATION
+# ============================================
+# Run: cloudflared tunnel create smartflow
+# This creates credentials file at ~/.cloudflared/<tunnel-id>.json
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /root/.cloudflared/YOUR_TUNNEL_ID.json
+
+# ============================================
+# INGRESS RULES
+# ============================================
+ingress:
+  # Personaplex Voice AI (GPU Server)
+  - hostname: voice.smartflow.example.com
+    service: http://localhost:8998
+    originRequest:
+      noTLSVerify: true
+      # WebSocket support
+      http2Origin: true
+  
+  # Personaplex WebSocket
+  - hostname: voice-ws.smartflow.example.com
+    service: http://localhost:8998
+    originRequest:
+      # Enable WebSocket
+      http2Origin: true
+      connectTimeout: 30s
+  
+  # n8n Automation (if on same server)
+  - hostname: n8n.smartflow.example.com
+    service: http://localhost:5678
+    originRequest:
+      noTLSVerify: true
+  
+  # Catch-all (required)
+  - service: http_status:404

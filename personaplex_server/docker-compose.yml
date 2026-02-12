@@ -1,0 +1,51 @@
+version: "3.8"
+
+services:
+  personaplex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: personaplex-gpu
+    restart: unless-stopped
+
+    # GPU access
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+    ports:
+      - "8998:8998"
+
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8998
+      - DEVICE=cuda
+      - MAX_SESSIONS=${MAX_SESSIONS:-4}
+      - SESSION_TIMEOUT=${SESSION_TIMEOUT:-300}
+      - PERSONAPLEX_API_KEY=${PERSONAPLEX_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+
+    volumes:
+      # Model cache (persist downloaded models)
+      - huggingface_cache:/home/personaplex/.cache/huggingface
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8998/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  huggingface_cache:

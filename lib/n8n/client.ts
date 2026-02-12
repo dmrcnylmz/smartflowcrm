@@ -2,6 +2,7 @@
 const N8N_BASE_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook';
 
 export interface WebhookPayload {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -17,6 +18,7 @@ export const N8N_WORKFLOW_IDS = {
 export async function sendWebhook(
   workflowPath: string,
   payload: WebhookPayload
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   try {
     const url = `${N8N_BASE_URL}/${workflowPath}`;
@@ -37,32 +39,33 @@ export async function sendWebhook(
     }
 
     return await response.json();
-  } catch (error: any) {
-    console.warn(`n8n webhook error (${workflowPath}):`, error.message);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`n8n webhook error (${workflowPath}):`, errorMessage);
     // Don't throw error - n8n might not be running in dev mode
-    return { success: false, error: error.message };
+    return { success: false, error: errorMessage };
   }
 }
 
 // Generic trigger function
-export async function triggerN8NWebhook(workflowId: string, data: any) {
+export async function triggerN8NWebhook(workflowId: string, data: WebhookPayload) {
   return await sendWebhook(workflowId, data);
 }
 
 // Specific webhook functions (for backward compatibility)
-export async function triggerCallWorkflow(data: any) {
+export async function triggerCallWorkflow(data: WebhookPayload) {
   return await sendWebhook(N8N_WORKFLOW_IDS.CALL_HANDLER, data);
 }
 
-export async function triggerAppointmentWorkflow(data: any) {
+export async function triggerAppointmentWorkflow(data: WebhookPayload) {
   return await sendWebhook(N8N_WORKFLOW_IDS.APPOINTMENT_FLOW, data);
 }
 
-export async function triggerComplaintWorkflow(data: any) {
+export async function triggerComplaintWorkflow(data: WebhookPayload) {
   return await sendWebhook(N8N_WORKFLOW_IDS.COMPLAINT_TRACKER, data);
 }
 
-export async function triggerInfoWorkflow(data: any) {
+export async function triggerInfoWorkflow(data: WebhookPayload) {
   return await sendWebhook(N8N_WORKFLOW_IDS.INFO_HANDLER, data);
 }
 

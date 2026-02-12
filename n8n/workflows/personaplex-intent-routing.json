@@ -1,0 +1,259 @@
+{
+    "name": "Personaplex Voice Intent Routing",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-intent",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook_trigger",
+            "name": "Voice Intent Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.PERSONAPLEX_URL }}/infer",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "X-API-Key",
+                            "value": "={{ $env.PERSONAPLEX_API_KEY }}"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "text",
+                            "value": "={{ $json.text }}"
+                        },
+                        {
+                            "name": "persona",
+                            "value": "={{ $json.persona || 'default' }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "timeout": 30000
+                }
+            },
+            "id": "personaplex_infer",
+            "name": "Personaplex Inference",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.intent }}",
+                            "operation": "equals",
+                            "value2": "appointment"
+                        }
+                    ]
+                }
+            },
+            "id": "route_appointment",
+            "name": "Is Appointment?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                680,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.intent }}",
+                            "operation": "equals",
+                            "value2": "complaint"
+                        }
+                    ]
+                }
+            },
+            "id": "route_complaint",
+            "name": "Is Complaint?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                680,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://firestore.googleapis.com/v1/projects/{{ $env.FIREBASE_PROJECT_ID }}/databases/(default)/documents/appointments",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "oAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"fields\": {\n    \"customerPhone\": { \"stringValue\": \"{{ $json.customer_phone }}\" },\n    \"dateTime\": { \"timestampValue\": \"{{ $json.datetime }}\" },\n    \"status\": { \"stringValue\": \"scheduled\" },\n    \"source\": { \"stringValue\": \"voice_ai\" },\n    \"voiceSessionId\": { \"stringValue\": \"{{ $json.session_id }}\" }\n  }\n}",
+                "options": {}
+            },
+            "id": "create_appointment",
+            "name": "Create Appointment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                900,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://firestore.googleapis.com/v1/projects/{{ $env.FIREBASE_PROJECT_ID }}/databases/(default)/documents/complaints",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "oAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"fields\": {\n    \"customerPhone\": { \"stringValue\": \"{{ $json.customer_phone }}\" },\n    \"description\": { \"stringValue\": \"{{ $json.response_text }}\" },\n    \"status\": { \"stringValue\": \"open\" },\n    \"source\": { \"stringValue\": \"voice_ai\" },\n    \"voiceSessionId\": { \"stringValue\": \"{{ $json.session_id }}\" },\n    \"priority\": { \"stringValue\": \"medium\" }\n  }\n}",
+                "options": {}
+            },
+            "id": "create_complaint",
+            "name": "Create Complaint",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                900,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://firestore.googleapis.com/v1/projects/{{ $env.FIREBASE_PROJECT_ID }}/databases/(default)/documents/callLogs",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "oAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"fields\": {\n    \"customerPhone\": { \"stringValue\": \"{{ $json.customer_phone }}\" },\n    \"duration\": { \"integerValue\": \"{{ $json.duration || 0 }}\" },\n    \"status\": { \"stringValue\": \"answered\" },\n    \"intent\": { \"stringValue\": \"{{ $json.intent }}\" },\n    \"transcript\": { \"stringValue\": \"{{ $json.text }}\" },\n    \"summary\": { \"stringValue\": \"{{ $json.response_text }}\" },\n    \"voiceSessionId\": { \"stringValue\": \"{{ $json.session_id }}\" },\n    \"aiPersona\": { \"stringValue\": \"{{ $json.persona }}\" },\n    \"direction\": { \"stringValue\": \"inbound\" },\n    \"createdAt\": { \"timestampValue\": \"{{ $now.toISO() }}\" }\n  }\n}",
+                "options": {}
+            },
+            "id": "save_call_log",
+            "name": "Save Call Log",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1120,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"intent\": \"{{ $json.intent }}\",\n  \"response\": \"{{ $json.response_text }}\",\n  \"session_id\": \"{{ $json.session_id }}\"\n}"
+            },
+            "id": "respond_success",
+            "name": "Respond Success",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1340,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Voice Intent Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Personaplex Inference",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Personaplex Inference": {
+            "main": [
+                [
+                    {
+                        "node": "Is Appointment?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Is Complaint?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Save Call Log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Appointment?": {
+            "main": [
+                [
+                    {
+                        "node": "Create Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Complaint?": {
+            "main": [
+                [
+                    {
+                        "node": "Create Complaint",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Call Log": {
+            "main": [
+                [
+                    {
+                        "node": "Respond Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        "voice",
+        "personaplex",
+        "crm"
+    ],
+    "triggerCount": 1
+}

@@ -10,9 +10,20 @@ export interface CallLog {
   status: 'answered' | 'missed' | 'rejected';
   intent?: string;
   summary?: string;
+  transcript?: string; // Call transcript
+  notes?: string; // Call notes
   direction?: 'inbound' | 'outbound'; // Call direction
   timestamp?: Timestamp; // Alternative to createdAt (for compatibility)
   createdAt: Timestamp; // Primary timestamp field
+  // Personaplex Voice AI fields
+  voiceSessionId?: string;      // Personaplex session ID
+  aiPersona?: string;           // AI persona used (default, support, sales)
+  audioRecordingUrl?: string;   // Firebase Storage recording URL
+  voiceMetrics?: {
+    latency: number;            // Average response latency (ms)
+    turnCount: number;          // Number of conversation turns
+    interruptionCount?: number; // Number of interruptions handled
+  };
 }
 
 export interface Appointment {
@@ -41,6 +52,7 @@ export interface Complaint {
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   assignedTo?: string;
   resolution?: string;
+  notes?: string; // Complaint notes
   slaDeadline?: Timestamp;
   createdAt: Timestamp;
   resolvedAt?: Timestamp;

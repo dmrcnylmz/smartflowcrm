@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: call-center
+  labels:
+    app: call-center
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: call-center
+  template:
+    metadata:
+      labels:
+        app: call-center
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3456"
+        prometheus.io/path: "/metrics"
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: call-center
+          image: call-center:latest
+          ports:
+            - containerPort: 3456
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3456"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: call-center-config
+                  key: REDIS_URL
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: call-center-secrets
+                  key: ENCRYPTION_KEY
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: call-center-secrets
+                  key: JWT_SECRET
+            - name: WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: WORKER_CAPACITY
+              value: "100"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3456
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3456
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 5"]
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: call-center
+  labels:
+    app: call-center
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3456
+      protocol: TCP
+      name: http
+  selector:
+    app: call-center
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: call-center-lb
+  labels:
+    app: call-center
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 3456
+      protocol: TCP
+      name: http
+  selector:
+    app: call-center
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: call-center-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: call-center
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: call-center-config
+data:
+  REDIS_URL: "redis://redis-service:6379"
+  NODE_ENV: "production"
+  WORKER_CAPACITY: "100"

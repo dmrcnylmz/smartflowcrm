@@ -4,6 +4,7 @@ import {
   getDocs, 
   getDoc,
   doc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -29,12 +30,17 @@ function buildQuery(collectionName: string, constraints: QueryConstraint[]) {
 
 // Call Logs
 export async function getCallLogs(options?: { 
+  customerId?: string;
   dateFrom?: Date; 
   dateTo?: Date; 
   status?: string;
   limitCount?: number;
 }) {
   const constraints: QueryConstraint[] = [];
+  
+  if (options?.customerId) {
+    constraints.push(where('customerId', '==', options.customerId));
+  }
   
   if (options?.dateFrom) {
     constraints.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
@@ -62,6 +68,12 @@ export async function addCallLog(data: Omit<CallLog, 'id' | 'createdAt'>) {
     ...data,
     createdAt: Timestamp.now(),
   });
+}
+
+export async function updateCallLog(id: string, data: Partial<CallLog>) {
+  const docRef = doc(db, 'calls', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await updateDoc(docRef, data as any);
 }
 
 // Appointments
@@ -107,7 +119,13 @@ export async function createAppointment(data: Omit<Appointment, 'id' | 'createdA
 
 export async function updateAppointment(id: string, data: Partial<Appointment>) {
   const docRef = doc(db, 'appointments', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await updateDoc(docRef, data as any);
+}
+
+export async function deleteAppointment(id: string) {
+  const docRef = doc(db, 'appointments', id);
+  await deleteDoc(docRef);
 }
 
 // Complaints
@@ -142,6 +160,7 @@ export async function createComplaint(data: Omit<Complaint, 'id' | 'createdAt'>)
 
 export async function updateComplaint(id: string, data: Partial<Complaint>) {
   const docRef = doc(db, 'complaints', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await updateDoc(docRef, data as any);
 }
 
@@ -177,6 +196,7 @@ export async function createInfoRequest(data: Omit<InfoRequest, 'id' | 'createdA
 
 export async function updateInfoRequest(id: string, data: Partial<InfoRequest>) {
   const docRef = doc(db, 'info_requests', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await updateDoc(docRef, data as any);
 }
 
@@ -244,6 +264,7 @@ export async function createCustomer(data: Omit<Customer, 'id' | 'createdAt'>) {
 
 export async function updateCustomer(id: string, data: Partial<Customer>) {
   const docRef = doc(db, 'customers', id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await updateDoc(docRef, data as any);
 }
 

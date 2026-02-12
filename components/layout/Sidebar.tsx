@@ -2,17 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Phone, 
-  Calendar, 
-  FileText, 
-  AlertCircle, 
-  Users, 
+import {
+  LayoutDashboard,
+  Phone,
+  Calendar,
+  FileText,
+  AlertCircle,
+  Users,
   BarChart3,
-  Settings 
+  Settings,
+  LogOut,
+  User
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/firebase/auth-context';
+import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,6 +31,15 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+
+  async function handleLogout() {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
 
   return (
     <aside className="w-64 bg-card border-r border-border flex flex-col">
@@ -55,7 +68,34 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User Profile & Logout */}
+      {user && (
+        <div className="p-4 border-t border-border">
+          <div className="flex items-center gap-3 px-3 py-2 mb-2">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {user.displayName || 'Kullanıcı'}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user.email}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
+            onClick={handleLogout}
+          >
+            <LogOut className="h-4 w-4" />
+            Çıkış Yap
+          </Button>
+        </div>
+      )}
     </aside>
   );
 }
-
