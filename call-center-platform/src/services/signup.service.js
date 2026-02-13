@@ -17,7 +17,7 @@ const { generateToken, generateRefreshToken } = require('../middleware/auth');
 const { logger: rootLogger } = require('../utils/logger');
 const logger = rootLogger.child({ component: 'signup' });
 
-const TRIAL_DAYS = 14;
+const TRIAL_DAYS = 3;
 
 class SignupService {
     /**

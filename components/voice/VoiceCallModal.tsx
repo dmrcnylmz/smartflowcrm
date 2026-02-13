@@ -91,11 +91,13 @@ export function VoiceCallModal({
         setCallDuration(0);
 
         try {
-            // Check server availability first
-            const statusRes = await fetch('/api/voice/session?action=status');
+            // Check server availability first (use public health endpoint)
+            const statusRes = await fetch('/api/voice/health');
             const status = await statusRes.json();
 
-            if (!status.available) {
+            // Accept both 'healthy' and 'ok' status, including mock/demo mode
+            const isAvailable = status.status === 'healthy' || status.status === 'ok' || status.personaplex === true;
+            if (!isAvailable) {
                 throw new Error('Personaplex sunucusu erişilemez durumda');
             }
 
@@ -136,7 +138,28 @@ export function VoiceCallModal({
             };
 
             client.onTranscriptUpdate = (turn) => {
-                setTranscript(prev => [...prev, turn]);
+                setTranscript(prev => {
+                    // If this is an interim user result (ends with ...), 
+                    // replace the last interim entry instead of adding
+                    if (turn.speaker === 'user' && turn.text.endsWith('...')) {
+                        const lastIdx = prev.length - 1;
+                        if (lastIdx >= 0 && prev[lastIdx].speaker === 'user' && prev[lastIdx].text.endsWith('...')) {
+                            const updated = [...prev];
+                            updated[lastIdx] = turn;
+                            return updated;
+                        }
+                    }
+                    // If this is a final user result, remove the last interim
+                    if (turn.speaker === 'user' && !turn.text.endsWith('...')) {
+                        const lastIdx = prev.length - 1;
+                        if (lastIdx >= 0 && prev[lastIdx].speaker === 'user' && prev[lastIdx].text.endsWith('...')) {
+                            const updated = [...prev];
+                            updated[lastIdx] = turn;
+                            return updated;
+                        }
+                    }
+                    return [...prev, turn];
+                });
             };
 
             client.onError = (err) => {
@@ -310,8 +333,8 @@ export function VoiceCallModal({
                                                 )}
                                             </div>
                                             <div className={`max-w-[80%] rounded-lg px-3 py-2 ${turn.speaker === 'assistant'
-                                                    ? 'bg-blue-500 text-white'
-                                                    : 'bg-muted'
+                                                ? 'bg-blue-500 text-white'
+                                                : 'bg-muted'
                                                 }`}>
                                                 <p className="text-sm">{turn.text}</p>
                                             </div>

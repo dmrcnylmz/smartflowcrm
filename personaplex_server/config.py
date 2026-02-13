@@ -58,6 +58,31 @@ Her zaman Türkçe konuş ve nazik ol. Kısa ve öz cevaplar ver."""
         )
 
 
+@dataclass
+class WebhookConfig:
+    """Configuration for n8n webhook integration and context injection."""
+    
+    # n8n webhook base URL
+    n8n_webhook_url: str = os.getenv("N8N_WEBHOOK_URL", "")
+    
+    # n8n callback path (appended to base URL when call ends)
+    n8n_callback_path: str = os.getenv("N8N_CALLBACK_PATH", "/webhook/call-ended")
+    
+    # Context Sidecar API
+    context_api_port: int = int(os.getenv("CONTEXT_API_PORT", "8999"))
+    context_api_host: str = os.getenv("CONTEXT_API_HOST", "0.0.0.0")
+    
+    # Context TTL (seconds) — how long injected context stays valid
+    context_ttl_sec: int = int(os.getenv("CONTEXT_TTL_SEC", "1800"))  # 30 min
+    
+    # Moshi server URL (for sidecar to check moshi health)
+    moshi_url: str = os.getenv("MOSHI_URL", "http://localhost:8998")
+    
+    @classmethod
+    def from_env(cls) -> "WebhookConfig":
+        return cls()
+
+
 # SmartFlow CRM specific personas
 PERSONAS = {
     "default": {

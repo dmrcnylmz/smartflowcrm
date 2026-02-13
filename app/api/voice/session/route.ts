@@ -1,10 +1,12 @@
 // Voice Session API - Manages Personaplex sessions
+// With Context Injection support for n8n webhooks
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, RATE_LIMITS, rateLimitExceeded, getRateLimitHeaders } from '@/lib/voice/rate-limit';
 import { voiceLogger, metrics, METRICS, withTiming } from '@/lib/voice/logging';
 
 // Environment configuration
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
+const PERSONAPLEX_CONTEXT_URL = process.env.PERSONAPLEX_CONTEXT_URL || 'http://localhost:8999';
 const PERSONAPLEX_API_KEY = process.env.PERSONAPLEX_API_KEY || '';
 
 // Helper to add API key header
@@ -18,7 +20,23 @@ function getHeaders(): HeadersInit {
     return headers;
 }
 
-// GET: Get Personaplex status or list personas
+// Helper to fetch context from sidecar
+async function fetchContext(sessionId: string): Promise<Record<string, unknown> | null> {
+    try {
+        const response = await fetch(`${PERSONAPLEX_CONTEXT_URL}/context/${sessionId}`, {
+            headers: getHeaders(),
+            signal: AbortSignal.timeout(3000),
+        });
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch {
+        // Context API unavailable — non-blocking
+    }
+    return null;
+}
+
+// GET: Get Personaplex status, list personas, or query context
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action') || 'status';
@@ -65,6 +83,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(data);
         }
 
+        // Query context for a session
+        if (action === 'context') {
+            const sessionId = searchParams.get('session_id');
+            if (!sessionId) {
+                return NextResponse.json({ error: 'session_id required' }, { status: 400 });
+            }
+            const context = await fetchContext(sessionId);
+            return NextResponse.json(context || { session_id: sessionId, context_count: 0, contexts: [], merged: {} });
+        }
+
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
     } catch (error) {
@@ -85,8 +113,15 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const action = body.action || 'save';
 
-        // Proxy text inference to Personaplex
+        // Proxy text inference to Personaplex (with context enrichment)
         if (action === 'infer') {
+            // Fetch any injected context for this session
+            const sessionId = body.session_id;
+            let injectedContext = null;
+            if (sessionId) {
+                injectedContext = await fetchContext(sessionId);
+            }
+
             const response = await fetch(`${PERSONAPLEX_URL}/infer`, {
                 method: 'POST',
                 headers: getHeaders(),
@@ -102,7 +137,16 @@ export async function POST(request: NextRequest) {
                 throw new Error('Inference failed');
             }
 
-            return NextResponse.json(await response.json());
+            const inferResult = await response.json();
+
+            // Merge injected context into the response
+            const contextData = injectedContext as Record<string, unknown> | null;
+            const contextCount = Number(contextData?.context_count ?? 0);
+            return NextResponse.json({
+                ...inferResult,
+                context: contextData?.merged || null,
+                context_available: contextCount > 0,
+            });
         }
 
         // Save session to Firestore

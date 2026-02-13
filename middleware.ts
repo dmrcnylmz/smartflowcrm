@@ -25,6 +25,10 @@ const PUBLIC_API_PATHS = [
     '/api/voice/pipeline',
     '/api/voice/test',
     '/api/voice/mock',
+    '/api/voice/infer',
+    '/api/voice/ws-proxy',
+    '/api/voice/connect',
+    '/api/voice/tts',
     '/api/ai/status',
 ];
 

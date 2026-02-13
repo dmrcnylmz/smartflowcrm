@@ -1,5 +1,6 @@
 # Personaplex Production Server
 # FastAPI + WebSocket for real-time voice AI
+# With Context Injection support for n8n webhooks
 
 import asyncio
 import json
@@ -9,7 +10,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Dict, Optional, List
+from typing import Any, Dict, Optional, List
 from dataclasses import dataclass, asdict, field
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends, Header
@@ -49,6 +50,11 @@ class Settings:
     
     # HuggingFace
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+    
+    # Context Injection
+    CONTEXT_API_URL: str = os.getenv("CONTEXT_API_URL", "http://localhost:8999")
+    N8N_WEBHOOK_URL: str = os.getenv("N8N_WEBHOOK_URL", "")
+    N8N_CALLBACK_PATH: str = os.getenv("N8N_CALLBACK_PATH", "/webhook/call-ended")
 
 settings = Settings()
 
@@ -133,10 +139,14 @@ class VoiceSession:
     persona: str
     created_at: datetime
     transcript: List[Dict] = field(default_factory=list)
+    context: Dict[str, Any] = field(default_factory=dict)  # Injected context from n8n
+    context_types_used: List[str] = field(default_factory=list)  # Track which context types were used
     audio_chunks_in: int = 0
     audio_chunks_out: int = 0
     is_active: bool = True
     last_activity: datetime = field(default_factory=datetime.now)
+    customer_phone: Optional[str] = None
+    customer_name: Optional[str] = None
 
 class SessionManager:
     def __init__(self, max_sessions: int):
@@ -509,6 +519,34 @@ async def websocket_endpoint(websocket: WebSocket):
                             })
                             await websocket.send_json({"type": "transcript_ack"})
                         
+                        elif action == "inject_context":
+                            # Context injection from n8n via sidecar
+                            ctx_type = data.get("context_type", "custom")
+                            ctx_data = data.get("context_data", {})
+                            session.context[ctx_type] = ctx_data
+                            if ctx_type not in session.context_types_used:
+                                session.context_types_used.append(ctx_type)
+                            logger.info(f"Context injected: session={session.session_id} type={ctx_type}")
+                            await websocket.send_json({
+                                "type": "context_injected",
+                                "context_type": ctx_type,
+                                "keys": list(ctx_data.keys()),
+                            })
+                        
+                        elif action == "get_context":
+                            # Return currently injected context
+                            await websocket.send_json({
+                                "type": "context_data",
+                                "context": session.context,
+                                "types_used": session.context_types_used,
+                            })
+                        
+                        elif action == "set_customer":
+                            # Set customer info for the session
+                            session.customer_phone = data.get("phone")
+                            session.customer_name = data.get("name")
+                            await websocket.send_json({"type": "customer_set"})
+                        
                         elif action == "end":
                             break
                 
@@ -527,10 +565,32 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         if session:
             summary = await session_manager.end(session.session_id)
+            
+            # Send n8n callback if configured
+            if settings.N8N_WEBHOOK_URL and summary:
+                try:
+                    import httpx
+                    callback_url = f"{settings.N8N_WEBHOOK_URL.rstrip('/')}{settings.N8N_CALLBACK_PATH}"
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        await client.post(callback_url, json={
+                            "session_id": session.session_id,
+                            "event": "call_ended",
+                            "duration_seconds": summary.get("duration_seconds", 0),
+                            "transcript": summary.get("transcript", []),
+                            "context_used": session.context_types_used,
+                            "customer_phone": session.customer_phone,
+                            "customer_name": session.customer_name,
+                            "timestamp": datetime.now().isoformat(),
+                        })
+                        logger.info(f"n8n callback sent for session {session.session_id}")
+                except Exception as cb_err:
+                    logger.error(f"n8n callback failed: {cb_err}")
+            
             try:
                 await websocket.send_json({
                     "type": "session_ended",
-                    "summary": summary
+                    "summary": summary,
+                    "context_used": session.context_types_used,
                 })
             except:
                 pass

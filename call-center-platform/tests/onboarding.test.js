@@ -148,7 +148,7 @@ describe('Self-Service Signup', () => {
         })).toThrow();
     });
 
-    it('should create trial subscription with 14-day expiry', () => {
+    it('should create trial subscription with 3-day expiry', () => {
         const signupService = require('../src/services/signup.service');
         const result = signupService.signup({
             companyName: 'TrialCorp',
@@ -166,8 +166,8 @@ describe('Self-Service Signup', () => {
 
         const trialEnd = new Date(sub.trial_ends_at);
         const daysDiff = Math.round((trialEnd - new Date()) / (1000 * 60 * 60 * 24));
-        expect(daysDiff).toBeGreaterThanOrEqual(13);
-        expect(daysDiff).toBeLessThanOrEqual(14);
+        expect(daysDiff).toBeGreaterThanOrEqual(2);
+        expect(daysDiff).toBeLessThanOrEqual(3);
     });
 });
 
@@ -741,7 +741,7 @@ describe('Full Onboarding Flow (Integration)', () => {
         expect(limits.plan).toBe('free_trial');
     });
 
-    it('should handle complete lifecycle: signup → use → limit → upgrade', () => {
+    it('should handle complete lifecycle: signup → use → limit → upgrade', async () => {
         const signupService = require('../src/services/signup.service');
         const subscriptionService = require('../src/services/subscription.service');
         const billingService = require('../src/services/billing.service');
@@ -766,7 +766,7 @@ describe('Full Onboarding Flow (Integration)', () => {
         expect(limits.allowed).toBe(false);
 
         // Simulate upgrade via webhook
-        subscriptionService.handleWebhook({
+        await subscriptionService.handleWebhook({
             type: 'checkout.session.completed',
             data: {
                 object: {
@@ -781,6 +781,6 @@ describe('Full Onboarding Flow (Integration)', () => {
         limits = subscriptionService.checkLimits(signup.tenant.id);
         expect(limits.allowed).toBe(true);
         expect(limits.plan).toBe('starter');
-        expect(limits.limits.minutes.max).toBe(500);
+        expect(limits.limits.minutes.included).toBe(500);
     });
 });

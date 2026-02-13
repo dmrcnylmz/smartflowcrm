@@ -1,0 +1,301 @@
+{
+    "name": "Context Injection — Fatura & Randevu",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "call-context",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "webhook_call_context",
+            "name": "Call Context Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "call-context"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.query_type }}",
+                            "operation": "equals",
+                            "value2": "invoice"
+                        }
+                    ]
+                }
+            },
+            "id": "check_invoice",
+            "name": "Fatura Sorgusu mu?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                480,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.query_type }}",
+                            "operation": "equals",
+                            "value2": "appointment"
+                        }
+                    ]
+                }
+            },
+            "id": "check_appointment",
+            "name": "Randevu Sorgusu mu?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                480,
+                500
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/context",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.session_id }}\",\n  \"type\": \"invoice\",\n  \"data\": {\n    \"customer_name\": \"{{ $json.customer_name || 'Bilinmeyen' }}\",\n    \"customer_phone\": \"{{ $json.customer_phone || '' }}\",\n    \"amount\": \"{{ $json.amount || '0' }}\",\n    \"currency\": \"{{ $json.currency || 'TRY' }}\",\n    \"due_date\": \"{{ $json.due_date || '' }}\",\n    \"invoice_no\": \"{{ $json.invoice_no || '' }}\",\n    \"status\": \"{{ $json.payment_status || 'unpaid' }}\"\n  },\n  \"priority\": \"high\",\n  \"source\": \"n8n\"\n}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "inject_invoice",
+            "name": "Fatura Context Inject",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                720,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/context",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.session_id }}\",\n  \"type\": \"appointment\",\n  \"data\": {\n    \"customer_name\": \"{{ $json.customer_name || 'Bilinmeyen' }}\",\n    \"date\": \"{{ $json.appointment_date || '' }}\",\n    \"time\": \"{{ $json.appointment_time || '' }}\",\n    \"doctor\": \"{{ $json.doctor_name || '' }}\",\n    \"location\": \"{{ $json.location || '' }}\",\n    \"status\": \"{{ $json.appointment_status || 'scheduled' }}\",\n    \"notes\": \"{{ $json.notes || '' }}\"\n  },\n  \"priority\": \"normal\",\n  \"source\": \"n8n\"\n}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "inject_appointment",
+            "name": "Randevu Context Inject",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                720,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"type\": \"invoice\",\n  \"session_id\": \"{{ $json.session_id }}\",\n  \"message\": \"Fatura bilgisi görüşmeye enjekte edildi\"\n}"
+            },
+            "id": "respond_invoice",
+            "name": "Fatura Yanıt",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                960,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"type\": \"appointment\",\n  \"session_id\": \"{{ $json.session_id }}\",\n  \"message\": \"Randevu bilgisi görüşmeye enjekte edildi\"\n}"
+            },
+            "id": "respond_appointment",
+            "name": "Randevu Yanıt",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                960,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": false,\n  \"error\": \"Bilinmeyen sorgu tipi: {{ $json.query_type }}\"\n}",
+                "options": {
+                    "responseCode": 400
+                }
+            },
+            "id": "respond_unknown",
+            "name": "Bilinmeyen Sorgu",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                720,
+                600
+            ]
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "call-ended",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "webhook_call_ended",
+            "name": "Call Ended Callback",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                800
+            ],
+            "webhookId": "call-ended"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://firestore.googleapis.com/v1/projects/smartflowcrm/databases/(default)/documents/callLogs",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "oAuth2Api",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"fields\": {\n    \"customerPhone\": { \"stringValue\": \"{{ $json.customer_phone || '' }}\" },\n    \"customerName\": { \"stringValue\": \"{{ $json.customer_name || 'Bilinmeyen' }}\" },\n    \"duration\": { \"integerValue\": \"{{ Math.round($json.duration_seconds || 0) }}\" },\n    \"status\": { \"stringValue\": \"answered\" },\n    \"intent\": { \"stringValue\": \"{{ $json.intent_summary || 'unknown' }}\" },\n    \"transcript\": { \"stringValue\": \"{{ JSON.stringify($json.transcript || []) }}\" },\n    \"contextUsed\": { \"stringValue\": \"{{ ($json.context_used || []).join(', ') }}\" },\n    \"voiceSessionId\": { \"stringValue\": \"{{ $json.session_id }}\" },\n    \"direction\": { \"stringValue\": \"inbound\" },\n    \"source\": { \"stringValue\": \"personaplex_voice\" },\n    \"createdAt\": { \"timestampValue\": \"{{ $now.toISO() }}\" }\n  }\n}",
+                "options": {}
+            },
+            "id": "save_call_log_callback",
+            "name": "Save Call Log (Callback)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                520,
+                800
+            ]
+        }
+    ],
+    "connections": {
+        "Call Context Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Fatura Sorgusu mu?",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Randevu Sorgusu mu?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fatura Sorgusu mu?": {
+            "main": [
+                [
+                    {
+                        "node": "Fatura Context Inject",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Bilinmeyen Sorgu",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Randevu Sorgusu mu?": {
+            "main": [
+                [
+                    {
+                        "node": "Randevu Context Inject",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Bilinmeyen Sorgu",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fatura Context Inject": {
+            "main": [
+                [
+                    {
+                        "node": "Fatura Yanıt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Randevu Context Inject": {
+            "main": [
+                [
+                    {
+                        "node": "Randevu Yanıt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Call Ended Callback": {
+            "main": [
+                [
+                    {
+                        "node": "Save Call Log (Callback)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "staticData": null,
+    "tags": [
+        "voice",
+        "context-injection",
+        "call-center"
+    ],
+    "triggerCount": 2
+}

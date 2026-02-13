@@ -1,5 +1,10 @@
 /**
- * Subscription Routes — Plans, Checkout & Webhooks
+ * Subscription Routes — Revenue Activation Layer
+ * 
+ * Endpoints for plan listing, checkout, billing portal,
+ * usage limits, invoices, and Stripe webhooks.
+ * 
+ * PRICING RULE: All responses show minutes only. No tokens.
  */
 const express = require('express');
 const router = express.Router();
@@ -7,11 +12,9 @@ const { authMiddleware, requireRole } = require('../middleware/auth');
 const subscriptionService = require('../services/subscription.service');
 
 /**
- * @swagger
- * /api/subscription/plans:
- *   get:
- *     summary: List available subscription plans
- *     tags: [Subscription]
+ * GET /api/subscription/plans
+ * List available plans — public, no auth required.
+ * Returns: included_minutes, overage_per_minute, price. No tokens.
  */
 router.get('/plans', (req, res) => {
     try {
@@ -23,16 +26,12 @@ router.get('/plans', (req, res) => {
 });
 
 /**
- * @swagger
- * /api/subscription/current:
- *   get:
- *     summary: Get current tenant subscription
- *     tags: [Subscription]
- *     security: [{ bearerAuth: [] }]
+ * GET /api/subscription/current
+ * Get current subscription — sanitized (no tokens).
  */
 router.get('/current', authMiddleware, (req, res) => {
     try {
-        const sub = subscriptionService.getCurrentSubscription(req.tenantId);
+        const sub = subscriptionService.getCurrentSubscriptionPublic(req.tenantId);
         if (!sub) return res.json({ subscription: null, message: 'No active subscription' });
         const limits = subscriptionService.checkLimits(req.tenantId);
         res.json({ subscription: sub, limits });
@@ -42,12 +41,8 @@ router.get('/current', authMiddleware, (req, res) => {
 });
 
 /**
- * @swagger
- * /api/subscription/limits:
- *   get:
- *     summary: Check current plan limits and usage
- *     tags: [Subscription]
- *     security: [{ bearerAuth: [] }]
+ * GET /api/subscription/limits
+ * Check current plan limits and usage — minutes only.
  */
 router.get('/limits', authMiddleware, (req, res) => {
     try {
@@ -59,12 +54,9 @@ router.get('/limits', authMiddleware, (req, res) => {
 });
 
 /**
- * @swagger
- * /api/subscription/checkout:
- *   post:
- *     summary: Create Stripe Checkout session for plan upgrade
- *     tags: [Subscription]
- *     security: [{ bearerAuth: [] }]
+ * POST /api/subscription/checkout
+ * Create Stripe Checkout session for subscription/upgrade.
+ * Includes metered overage price + proration on upgrades.
  */
 router.post('/checkout', authMiddleware, requireRole('admin'), async (req, res) => {
     try {
@@ -78,11 +70,35 @@ router.post('/checkout', authMiddleware, requireRole('admin'), async (req, res) 
 });
 
 /**
- * @swagger
- * /api/subscription/webhook:
- *   post:
- *     summary: Stripe webhook handler
- *     tags: [Subscription]
+ * POST /api/subscription/portal
+ * Create Stripe Customer Portal session for self-service billing management.
+ * Tenants can: update payment method, change plan, view invoices, cancel.
+ */
+router.post('/portal', authMiddleware, requireRole('admin'), async (req, res) => {
+    try {
+        const result = await subscriptionService.createPortalSession(req.tenantId);
+        res.json(result);
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/subscription/invoices
+ * Get invoice history from Stripe.
+ */
+router.get('/invoices', authMiddleware, requireRole('admin'), async (req, res) => {
+    try {
+        const result = await subscriptionService.getInvoices(req.tenantId);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/subscription/webhook
+ * Stripe webhook handler — handles all subscription lifecycle events.
  */
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
@@ -101,23 +117,6 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         res.json({ received: true });
     } catch (err) {
         res.status(400).json({ error: err.message });
-    }
-});
-
-/**
- * @swagger
- * /api/subscription/invoices:
- *   get:
- *     summary: Get invoice history
- *     tags: [Subscription]
- *     security: [{ bearerAuth: [] }]
- */
-router.get('/invoices', authMiddleware, requireRole('admin'), async (req, res) => {
-    try {
-        const result = await subscriptionService.getInvoices(req.tenantId);
-        res.json(result);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
     }
 });
 

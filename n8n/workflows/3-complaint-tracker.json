@@ -1,0 +1,85 @@
+{
+    "name": "🔴 Complaint Tracker — Şikayet Takip",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "complaint-tracker",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "wh-complaint",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "complaint-tracker"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/context",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"type\": \"complaint\",\n  \"data\": {\n    \"customer_name\": \"{{ $json.arguments?.customer_name || '' }}\",\n    \"customer_phone\": \"{{ $json.arguments?.customer_phone || '' }}\",\n    \"category\": \"{{ $json.arguments?.category || 'general' }}\",\n    \"description\": \"{{ $json.arguments?.description || '' }}\",\n    \"severity\": \"{{ $json.arguments?.severity || 'medium' }}\",\n    \"status\": \"open\",\n    \"tenant_id\": \"{{ $json.tenantId || '' }}\"\n  },\n  \"priority\": \"urgent\",\n  \"source\": \"n8n_complaint\"\n}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "ctx-complaint",
+            "name": "Save Complaint",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"action\": \"complaint_created\",\n  \"message\": \"Şikayetiniz kaydedildi, en kısa sürede ilgilenilecektir\"\n}"
+            },
+            "id": "res-complaint",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                760,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Save Complaint",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Complaint": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "pinData": {},
+    "tags": []
+}

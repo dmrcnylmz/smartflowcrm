@@ -1,12 +1,22 @@
-// n8n Webhook Client
-const N8N_BASE_URL = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook';
+// Context API Direct Client
+// Bypasses n8n — sends tool calls directly to Context API on Personaplex server
+const CONTEXT_API_URL = process.env.PERSONAPLEX_CONTEXT_URL || process.env.CONTEXT_API_URL || 'http://localhost:8999';
 
 export interface WebhookPayload {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
-// n8n Workflow IDs for webhook paths
+// Tool name → context type mapping
+const TOOL_TYPE_MAP: Record<string, { type: string; priority: string }> = {
+  'call-handler': { type: 'call_start', priority: 'high' },
+  'appointment-flow': { type: 'appointment', priority: 'high' },
+  'complaint-tracker': { type: 'complaint', priority: 'urgent' },
+  'info-handler': { type: 'info_request', priority: 'normal' },
+  'daily-report': { type: 'daily_report', priority: 'normal' },
+};
+
+// Kept for backward compatibility
 export const N8N_WORKFLOW_IDS = {
   CALL_HANDLER: 'call-handler',
   APPOINTMENT_FLOW: 'appointment-flow',
@@ -15,58 +25,89 @@ export const N8N_WORKFLOW_IDS = {
   DAILY_REPORT: 'daily-report',
 } as const;
 
+/**
+ * Send tool call directly to Context API /webhook/context endpoint.
+ */
 export async function sendWebhook(
-  workflowPath: string,
+  toolName: string,
   payload: WebhookPayload
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
+  const mapping = TOOL_TYPE_MAP[toolName] || { type: toolName, priority: 'normal' };
+
+  const contextPayload = {
+    session_id: payload.sessionId,
+    type: mapping.type,
+    data: {
+      ...payload.arguments,
+      tenant_id: payload.tenantId,
+      tool_name: toolName,
+      timestamp: payload.timestamp,
+    },
+    priority: mapping.priority,
+    source: 'voice_pipeline',
+  };
+
   try {
-    const url = `${N8N_BASE_URL}/${workflowPath}`;
-    console.log(`Triggering n8n webhook: ${url}`);
-    
+    const url = `${CONTEXT_API_URL}/webhook/context`;
+    console.log(`[ContextAPI] Sending ${mapping.type} → ${url}`);
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(contextPayload),
     });
 
     if (!response.ok) {
-      console.warn(`n8n webhook returned ${response.status}: ${response.statusText}`);
-      // Don't throw error - n8n might not be running in dev mode
+      console.warn(`[ContextAPI] ${response.status}: ${response.statusText}`);
       return { success: false, status: response.status };
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log(`[ContextAPI] ✅ ${mapping.type} saved (session=${payload.sessionId})`);
+    return result;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(`n8n webhook error (${workflowPath}):`, errorMessage);
-    // Don't throw error - n8n might not be running in dev mode
-    return { success: false, error: errorMessage };
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`[ContextAPI] Error (${toolName}):`, msg);
+    return { success: false, error: msg };
   }
 }
 
-// Generic trigger function
-export async function triggerN8NWebhook(workflowId: string, data: WebhookPayload) {
-  return await sendWebhook(workflowId, data);
+// Also log call_start event for call-handler
+async function logEvent(payload: WebhookPayload) {
+  try {
+    await fetch(`${CONTEXT_API_URL}/webhook/event`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: payload.sessionId,
+        event: 'call_start',
+        customer_phone: payload.arguments?.customer_phone || '',
+        customer_name: payload.arguments?.customer_name || '',
+      }),
+    });
+  } catch {
+    // non-critical
+  }
 }
 
-// Specific webhook functions (for backward compatibility)
-export async function triggerCallWorkflow(data: WebhookPayload) {
-  return await sendWebhook(N8N_WORKFLOW_IDS.CALL_HANDLER, data);
+/**
+ * Main entry point — replaces triggerN8NWebhook.
+ * Kept same function signature for backward compatibility.
+ */
+export async function triggerN8NWebhook(toolName: string, data: WebhookPayload) {
+  const result = await sendWebhook(toolName, data);
+
+  // For call-handler, also fire the event endpoint
+  if (toolName === 'call-handler') {
+    await logEvent(data);
+  }
+
+  return result;
 }
 
-export async function triggerAppointmentWorkflow(data: WebhookPayload) {
-  return await sendWebhook(N8N_WORKFLOW_IDS.APPOINTMENT_FLOW, data);
-}
-
-export async function triggerComplaintWorkflow(data: WebhookPayload) {
-  return await sendWebhook(N8N_WORKFLOW_IDS.COMPLAINT_TRACKER, data);
-}
-
-export async function triggerInfoWorkflow(data: WebhookPayload) {
-  return await sendWebhook(N8N_WORKFLOW_IDS.INFO_HANDLER, data);
-}
-
-
+// Backward-compatible named exports
+export const triggerCallWorkflow = (data: WebhookPayload) => sendWebhook('call-handler', data);
+export const triggerAppointmentWorkflow = (data: WebhookPayload) => sendWebhook('appointment-flow', data);
+export const triggerComplaintWorkflow = (data: WebhookPayload) => sendWebhook('complaint-tracker', data);
+export const triggerInfoWorkflow = (data: WebhookPayload) => sendWebhook('info-handler', data);
