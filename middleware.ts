@@ -168,6 +168,13 @@ export async function middleware(req: NextRequest) {
                 if (result.payload.email) {
                     response.headers.set('x-user-email', result.payload.email);
                 }
+                // Forward tenant context from JWT custom claims
+                if (result.payload.tenantId) {
+                    response.headers.set('x-user-tenant', result.payload.tenantId);
+                }
+                if (result.payload.role) {
+                    response.headers.set('x-user-role', result.payload.role);
+                }
             }
             return response;
         }

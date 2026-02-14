@@ -28,6 +28,10 @@ export interface TokenPayload {
     iss: string;
     /** Subject — same as uid */
     sub: string;
+    /** Tenant ID (from Firebase custom claims) */
+    tenantId?: string;
+    /** User role within tenant (from Firebase custom claims) */
+    role?: string;
 }
 
 export interface VerifyResult {
