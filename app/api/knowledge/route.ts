@@ -10,16 +10,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
 
+export const dynamic = 'force-dynamic';
+
+/** Resolve tenant: prefer x-user-tenant, fallback to x-user-uid */
+function getTenantId(request: NextRequest): string | null {
+    return request.headers.get('x-user-tenant')
+        || request.headers.get('x-user-uid')
+        || null;
+}
+
 // =============================================
 // POST: Ingest a new document
 // =============================================
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
             return NextResponse.json(
-                { error: 'Tenant context required' },
+                { error: 'Authentication required' },
                 { status: 403 },
             );
         }
@@ -61,10 +70,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
             return NextResponse.json(
-                { error: 'Tenant context required' },
+                { error: 'Authentication required' },
                 { status: 403 },
             );
         }
@@ -111,10 +120,10 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
             return NextResponse.json(
-                { error: 'Tenant context required' },
+                { error: 'Authentication required' },
                 { status: 403 },
             );
         }

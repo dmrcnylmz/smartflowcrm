@@ -12,6 +12,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-dynamic';
+
+/** Resolve tenant: prefer x-user-tenant, fallback to x-user-uid */
+function getTenantId(request: NextRequest): string | null {
+    return request.headers.get('x-user-tenant')
+        || request.headers.get('x-user-uid')
+        || null;
+}
+
 // =============================================
 // Firestore helpers
 // =============================================
@@ -36,9 +45,9 @@ function tenantAgents(tenantId: string) {
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
         }
 
         const body = await request.json();
@@ -98,9 +107,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
         }
 
         const agentId = request.nextUrl.searchParams.get('id');
@@ -134,9 +143,9 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
+        const tenantId = getTenantId(request);
         if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
         }
 
         const { id } = await request.json();
