@@ -1,8 +1,11 @@
 // Voice Infer API — OpenAI GPT-Powered Intelligent Conversation
-// Replaces keyword-based responses with real AI conversation
+// With Circuit Breaker, Response Cache, and GPU Manager integration
 // STT (browser) → GPT-4o-mini (here) → TTS (browser)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { gpuCircuitBreaker, openaiCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { gpuManager } from '@/lib/voice/gpu-manager';
+import { inferCache, buildInferCacheKey, type CachedInferResponse } from '@/lib/voice/response-cache';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
@@ -33,6 +36,8 @@ if (typeof setInterval !== 'undefined') {
                 conversationStore.delete(id);
             }
         }
+        // Also purge expired cache entries
+        inferCache.purgeExpired();
     }, CLEANUP_INTERVAL);
 }
 
@@ -104,60 +109,98 @@ function parseIntentFromResponse(text: string): {
 }
 
 // =============================================
-// OpenAI API Call
+// OpenAI API Call (wrapped with Circuit Breaker)
 // =============================================
 async function callOpenAI(
     messages: ConversationEntry[],
 ): Promise<string> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages,
-            max_tokens: 150,
-            temperature: 0.7,
-            top_p: 0.9,
-        }),
-        signal: AbortSignal.timeout(8000),
+    return openaiCircuitBreaker.execute(async () => {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages,
+                max_tokens: 150,
+                temperature: 0.7,
+                top_p: 0.9,
+            }),
+            signal: AbortSignal.timeout(8000),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenAI API error ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || 'Üzgünüm, yanıt oluşturamadım.';
     });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OpenAI API error ${response.status}: ${errorText}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || 'Üzgünüm, yanıt oluşturamadım.';
 }
 
 // =============================================
 // Fallback: Call RunPod Personaplex server
+// (wrapped with Circuit Breaker + GPU Manager)
 // =============================================
 async function callPersonaplex(
     text: string,
     persona: string,
     language: string,
 ): Promise<any> {
-    const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    };
-    const apiKey = process.env.PERSONAPLEX_API_KEY;
-    if (apiKey) headers['X-API-Key'] = apiKey;
+    return gpuCircuitBreaker.execute(async () => {
+        // Ensure GPU is awake before calling
+        const isReady = await gpuManager.ensureReady();
+        if (!isReady) {
+            throw new Error('GPU not ready after wake attempt');
+        }
 
-    const res = await fetch(`${PERSONAPLEX_URL}/infer`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ text, persona, language }),
-        signal: AbortSignal.timeout(5000),
+        const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        };
+        const apiKey = process.env.PERSONAPLEX_API_KEY;
+        if (apiKey) headers['X-API-Key'] = apiKey;
+
+        const res = await fetch(`${PERSONAPLEX_URL}/infer`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ text, persona, language }),
+            signal: AbortSignal.timeout(5000),
+        });
+
+        if (!res.ok) throw new Error(`Personaplex ${res.status}`);
+        return res.json();
     });
+}
 
-    if (!res.ok) throw new Error(`Personaplex ${res.status}`);
-    return res.json();
+// =============================================
+// Fallback response when all backends are down
+// =============================================
+function getGracefulFallbackResponse(
+    language: string,
+    sessionId: string,
+): {
+    session_id: string;
+    intent: string;
+    confidence: number;
+    response_text: string;
+    latency_ms: number;
+    source: string;
+} {
+    const isEnglish = language === 'en';
+    return {
+        session_id: sessionId,
+        intent: 'system_error',
+        confidence: 1.0,
+        response_text: isEnglish
+            ? 'I apologize, we are experiencing a brief technical issue. Please try again in a moment, or I can connect you with a human agent.'
+            : 'Özür dilerim, kısa bir teknik sorun yaşıyoruz. Lütfen bir dakika sonra tekrar deneyin veya sizi bir müşteri temsilcisine bağlayabilirim.',
+        latency_ms: 0,
+        source: 'graceful-fallback',
+    };
 }
 
 // =============================================
@@ -185,8 +228,26 @@ export async function POST(request: NextRequest) {
         // Determine session ID
         const sessionId = session_id || `anon-${Date.now()}`;
 
+        // --- CHECK RESPONSE CACHE FIRST ---
+        const cacheKey = buildInferCacheKey(text, persona, language);
+        const cachedResponse = inferCache.get(cacheKey);
+
+        if (cachedResponse) {
+            const latencyMs = performance.now() - startMs;
+            console.log(
+                `[Voice Infer] CACHE HIT | session=${sessionId} intent=${cachedResponse.intent} latency=${latencyMs.toFixed(0)}ms`,
+            );
+            return NextResponse.json({
+                ...cachedResponse,
+                session_id: sessionId,
+                latency_ms: latencyMs,
+                source: 'cache',
+                cached: true,
+            });
+        }
+
         // ---- Try OpenAI First ----
-        if (OPENAI_API_KEY) {
+        if (OPENAI_API_KEY && !openaiCircuitBreaker.isOpen()) {
             try {
                 // Get or create conversation
                 let session = conversationStore.get(sessionId);
@@ -212,7 +273,7 @@ export async function POST(request: NextRequest) {
                     ];
                 }
 
-                // Call OpenAI
+                // Call OpenAI (through circuit breaker)
                 const rawResponse = await callOpenAI(session.messages);
 
                 // Parse intent from response
@@ -227,7 +288,7 @@ export async function POST(request: NextRequest) {
                     `[Voice Infer] GPT | session=${sessionId} turn=${session.turnCount} intent=${intent} conf=${confidence} latency=${latencyMs.toFixed(0)}ms`,
                 );
 
-                return NextResponse.json({
+                const result = {
                     session_id: sessionId,
                     intent,
                     confidence,
@@ -235,29 +296,72 @@ export async function POST(request: NextRequest) {
                     latency_ms: latencyMs,
                     source: 'openai-gpt',
                     turn: session.turnCount,
-                });
+                };
+
+                // Cache the response
+                inferCache.set(cacheKey, {
+                    ...result,
+                    cached: true,
+                } as CachedInferResponse);
+
+                return NextResponse.json(result);
             } catch (openaiError) {
-                console.error('[Voice Infer] OpenAI failed, falling back to Personaplex:', openaiError);
+                const isCircuitOpen = openaiError instanceof CircuitOpenError;
+                console.error(
+                    `[Voice Infer] OpenAI failed${isCircuitOpen ? ' (circuit OPEN)' : ''}, falling back:`,
+                    isCircuitOpen ? openaiError.message : openaiError,
+                );
                 // Fall through to Personaplex fallback
             }
         }
 
         // ---- Fallback: Personaplex keyword-based ----
-        try {
-            const data = await callPersonaplex(text, persona, language);
-            const latencyMs = performance.now() - startMs;
-            return NextResponse.json({
-                ...data,
-                latency_ms: latencyMs,
-                source: 'personaplex-keyword',
-            });
-        } catch (fallbackError) {
-            console.error('[Voice Infer] Both OpenAI and Personaplex failed:', fallbackError);
-            return NextResponse.json(
-                { error: 'All inference backends failed' },
-                { status: 503 },
-            );
+        if (!gpuCircuitBreaker.isOpen()) {
+            try {
+                const data = await callPersonaplex(text, persona, language);
+                const latencyMs = performance.now() - startMs;
+
+                const result = {
+                    ...data,
+                    latency_ms: latencyMs,
+                    source: 'personaplex-keyword',
+                };
+
+                // Cache the response
+                inferCache.set(cacheKey, {
+                    session_id: sessionId,
+                    intent: data.intent || 'unknown',
+                    confidence: data.confidence || 0.5,
+                    response_text: data.response_text || '',
+                    latency_ms: latencyMs,
+                    source: 'personaplex-keyword',
+                    cached: true,
+                } as CachedInferResponse);
+
+                return NextResponse.json(result);
+            } catch (fallbackError) {
+                const isCircuitOpen = fallbackError instanceof CircuitOpenError;
+                console.error(
+                    `[Voice Infer] Personaplex failed${isCircuitOpen ? ' (circuit OPEN)' : ''}:`,
+                    isCircuitOpen ? fallbackError.message : fallbackError,
+                );
+            }
         }
+
+        // ---- All backends failed: Graceful degradation ----
+        console.warn('[Voice Infer] All backends unavailable — returning graceful fallback');
+        const fallbackResponse = getGracefulFallbackResponse(language, sessionId);
+        const latencyMs = performance.now() - startMs;
+
+        return NextResponse.json({
+            ...fallbackResponse,
+            latency_ms: latencyMs,
+            circuit_breaker: {
+                openai: openaiCircuitBreaker.getStats(),
+                gpu: gpuCircuitBreaker.getStats(),
+            },
+        });
+
     } catch (error) {
         console.error('[Voice Infer] Request error:', error);
         return NextResponse.json(
@@ -265,4 +369,18 @@ export async function POST(request: NextRequest) {
             { status: 500 },
         );
     }
+}
+
+// =============================================
+// GET: Status endpoint for debugging
+// =============================================
+export async function GET() {
+    return NextResponse.json({
+        cache: inferCache.getStats(),
+        circuitBreakers: {
+            openai: openaiCircuitBreaker.getStats(),
+            gpu: gpuCircuitBreaker.getStats(),
+        },
+        gpu: gpuManager.getStatus(),
+    });
 }
