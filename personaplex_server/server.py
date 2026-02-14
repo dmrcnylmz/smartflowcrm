@@ -98,12 +98,14 @@ class TranscriptTurn(BaseModel):
     timestamp: str
 
 # ============================================
-# PERSONAS (Turkish CRM)
+# PERSONAS (Turkish & English CRM)
 # ============================================
 
 PERSONAS = {
+    # --- Turkish Personas ---
     "default": {
         "name": "Asistan",
+        "language": "tr",
         "system_prompt": """Sen SmartFlow CRM için Türkçe müşteri hizmetleri asistanısın.
 Görevlerin:
 - Müşterilere nazik ve profesyonel yardım
@@ -115,6 +117,7 @@ Her zaman Türkçe konuş, kısa ve öz cevap ver.""",
     },
     "support": {
         "name": "Teknik Destek",
+        "language": "tr",
         "system_prompt": """Sen SmartFlow CRM teknik destek asistanısın.
 Teknik sorunları çöz, sabırlı ol, adım adım rehberlik yap.
 Karmaşık konuları basit anlat.""",
@@ -122,9 +125,39 @@ Karmaşık konuları basit anlat.""",
     },
     "sales": {
         "name": "Satış",
+        "language": "tr",
         "system_prompt": """Sen SmartFlow CRM satış asistanısın.
 Ürün/hizmet bilgisi ver, ikna edici ol ama baskıcı olma.
 Müşterinin ihtiyaçlarını dinle.""",
+        "voice_style": "energetic"
+    },
+    # --- English Personas ---
+    "default_en": {
+        "name": "Assistant",
+        "language": "en",
+        "system_prompt": """You are a customer service assistant for SmartFlow CRM.
+Your responsibilities:
+- Help customers politely and professionally
+- Schedule/modify/cancel appointments
+- Record and track complaints
+- Respond to information requests
+Always speak in English, give concise and clear answers.""",
+        "voice_style": "professional"
+    },
+    "support_en": {
+        "name": "Tech Support",
+        "language": "en",
+        "system_prompt": """You are a technical support assistant for SmartFlow CRM.
+Solve technical issues, be patient, guide step by step.
+Explain complex topics simply.""",
+        "voice_style": "calm"
+    },
+    "sales_en": {
+        "name": "Sales",
+        "language": "en",
+        "system_prompt": """You are a sales assistant for SmartFlow CRM.
+Provide product/service information, be persuasive but not pushy.
+Listen to customer needs.""",
         "voice_style": "energetic"
     }
 }
@@ -255,33 +288,56 @@ class ModelManager:
             logger.error(f"Model load failed: {e}")
             raise
     
-    async def infer_text(self, text: str, persona: str) -> Dict:
-        """Text-based inference for intent detection"""
+    async def infer_text(self, text: str, persona: str, language: str = "tr") -> Dict:
+        """Text-based inference for intent detection (bilingual TR/EN)"""
         start = time.time()
         
-        # TODO: Replace with actual model inference
-        # For now, simple keyword-based intent detection
-        intent = "unknown"
-        confidence = 0.5
-        response = "Anlıyorum, size nasıl yardımcı olabilirim?"
+        # Determine language from persona or explicit parameter
+        persona_info = PERSONAS.get(persona, {})
+        lang = persona_info.get("language", language)
         
         text_lower = text.lower()
-        if any(w in text_lower for w in ["randevu", "görüşme", "tarih", "saat"]):
-            intent = "appointment"
-            confidence = 0.9
-            response = "Randevu talebinizi aldım. Hangi tarih ve saat uygun olur?"
-        elif any(w in text_lower for w in ["şikayet", "sorun", "problem", "memnun değil"]):
-            intent = "complaint"
-            confidence = 0.85
-            response = "Yaşadığınız sorunu anlıyorum. Detayları alabilir miyim?"
-        elif any(w in text_lower for w in ["bilgi", "fiyat", "nasıl", "nedir"]):
-            intent = "info_request"
-            confidence = 0.8
-            response = "Size bu konuda bilgi verebilirim."
-        elif any(w in text_lower for w in ["iptal", "vazgeç", "istemiyorum"]):
-            intent = "cancellation"
-            confidence = 0.9
-            response = "İptal talebinizi not aldım."
+        intent = "unknown"
+        confidence = 0.5
+        
+        if lang == "en":
+            # English keyword-based intent detection
+            response = "I understand, how can I help you?"
+            if any(w in text_lower for w in ["appointment", "meeting", "schedule", "date", "time"]):
+                intent = "appointment"
+                confidence = 0.9
+                response = "I've received your appointment request. What date and time works for you?"
+            elif any(w in text_lower for w in ["complaint", "issue", "problem", "not satisfied", "unhappy"]):
+                intent = "complaint"
+                confidence = 0.85
+                response = "I understand your concern. Can you provide more details?"
+            elif any(w in text_lower for w in ["info", "information", "price", "how", "what is", "cost"]):
+                intent = "info_request"
+                confidence = 0.8
+                response = "I can provide you with information on that."
+            elif any(w in text_lower for w in ["cancel", "nevermind", "don't want", "remove"]):
+                intent = "cancellation"
+                confidence = 0.9
+                response = "I've noted your cancellation request."
+        else:
+            # Turkish keyword-based intent detection
+            response = "Anlıyorum, size nasıl yardımcı olabilirim?"
+            if any(w in text_lower for w in ["randevu", "görüşme", "tarih", "saat"]):
+                intent = "appointment"
+                confidence = 0.9
+                response = "Randevu talebinizi aldım. Hangi tarih ve saat uygun olur?"
+            elif any(w in text_lower for w in ["şikayet", "sorun", "problem", "memnun değil"]):
+                intent = "complaint"
+                confidence = 0.85
+                response = "Yaşadığınız sorunu anlıyorum. Detayları alabilir miyim?"
+            elif any(w in text_lower for w in ["bilgi", "fiyat", "nasıl", "nedir"]):
+                intent = "info_request"
+                confidence = 0.8
+                response = "Size bu konuda bilgi verebilirim."
+            elif any(w in text_lower for w in ["iptal", "vazgeç", "istemiyorum"]):
+                intent = "cancellation"
+                confidence = 0.9
+                response = "İptal talebinizi not aldım."
         
         latency_ms = (time.time() - start) * 1000
         
@@ -289,7 +345,8 @@ class ModelManager:
             "intent": intent,
             "confidence": confidence,
             "response_text": response,
-            "latency_ms": latency_ms
+            "latency_ms": latency_ms,
+            "language": lang
         }
     
     async def process_audio(self, audio_chunk: bytes, session: VoiceSession) -> Optional[bytes]:
@@ -387,14 +444,15 @@ async def health_check():
     )
 
 @app.get("/personas")
-async def list_personas():
-    """List available voice personas"""
-    return {
-        "personas": [
-            {"id": k, "name": v["name"], "style": v["voice_style"]}
-            for k, v in PERSONAS.items()
-        ]
-    }
+async def list_personas(language: str = None):
+    """List available voice personas, optionally filtered by language"""
+    personas_list = [
+        {"id": k, "name": v["name"], "style": v["voice_style"], "language": v.get("language", "tr")}
+        for k, v in PERSONAS.items()
+    ]
+    if language:
+        personas_list = [p for p in personas_list if p["language"] == language]
+    return {"personas": personas_list}
 
 @app.post("/infer", response_model=InferResponse, dependencies=[Depends(verify_api_key)])
 async def text_inference(request: InferRequest):
@@ -405,7 +463,7 @@ async def text_inference(request: InferRequest):
     session = await session_manager.create(request.persona)
     
     try:
-        result = await model_manager.infer_text(request.text, request.persona)
+        result = await model_manager.infer_text(request.text, request.persona, request.language)
         
         # Record in transcript
         session.transcript.append({

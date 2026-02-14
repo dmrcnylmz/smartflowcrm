@@ -18,6 +18,7 @@ import {
     Loader2,
     AlertCircle,
     Volume2,
+    Globe,
 } from 'lucide-react';
 
 interface VoiceCallModalProps {
@@ -30,6 +31,40 @@ interface VoiceCallModalProps {
 }
 
 type CallState = 'idle' | 'connecting' | 'connected' | 'ending' | 'error';
+type Language = 'tr' | 'en';
+
+const LABELS = {
+    tr: {
+        title: 'Sesli AI Görüşme',
+        ready: 'Hazır',
+        connecting: 'Bağlanıyor...',
+        active: 'Aktif',
+        error: 'Hata',
+        audioSignal: 'Ses Sinyali',
+        conversation: 'Konuşma',
+        startSpeaking: 'Konuşmaya başlayın...',
+        waitForCall: 'Görüşme başladığında konuşma burada görünecek',
+        instructions: 'Sesli AI görüşmesi başlatmak için yeşil butona tıklayın.',
+        micRequired: 'Mikrofon izni gereklidir.',
+        serverUnavailable: 'Personaplex sunucusu erişilemez durumda',
+        connectionError: 'Bağlantı hatası',
+    },
+    en: {
+        title: 'Voice AI Call',
+        ready: 'Ready',
+        connecting: 'Connecting...',
+        active: 'Active',
+        error: 'Error',
+        audioSignal: 'Audio Signal',
+        conversation: 'Conversation',
+        startSpeaking: 'Start speaking...',
+        waitForCall: 'Transcript will appear here when the call starts',
+        instructions: 'Click the green button to start a Voice AI call.',
+        micRequired: 'Microphone permission is required.',
+        serverUnavailable: 'Personaplex server is unreachable',
+        connectionError: 'Connection error',
+    }
+};
 
 export function VoiceCallModal({
     open,
@@ -47,7 +82,10 @@ export function VoiceCallModal({
     const [audioData, setAudioData] = useState<Float32Array | undefined>();
     const [error, setError] = useState<string | null>(null);
     const [callDuration, setCallDuration] = useState(0);
+    const [language, setLanguage] = useState<Language>('tr');
     const [persona, setPersona] = useState('default');
+
+    const labels = LABELS[language];
 
     const clientRef = useRef<PersonaplexClient | null>(null);
     const visualizerRef = useRef<AudioVisualizer | null>(null);
@@ -98,8 +136,13 @@ export function VoiceCallModal({
             // Accept both 'healthy' and 'ok' status, including mock/demo mode
             const isAvailable = status.status === 'healthy' || status.status === 'ok' || status.personaplex === true;
             if (!isAvailable) {
-                throw new Error('Personaplex sunucusu erişilemez durumda');
+                throw new Error(labels.serverUnavailable);
             }
+
+            // Map persona based on language
+            const effectivePersona = language === 'en' && !persona.endsWith('_en')
+                ? `${persona}_en`
+                : persona;
 
             // Initialize client
             const serverUrl = process.env.NEXT_PUBLIC_PERSONAPLEX_URL || 'http://localhost:8998';
@@ -169,7 +212,7 @@ export function VoiceCallModal({
 
             // Connect and start session
             await client.connect();
-            client.startSession(persona);
+            client.startSession(effectivePersona);
 
             // Start audio capture
             await client.startAudioCapture();
@@ -188,10 +231,10 @@ export function VoiceCallModal({
 
         } catch (err) {
             console.error('Failed to start call:', err);
-            setError(err instanceof Error ? err.message : 'Bağlantı hatası');
+            setError(err instanceof Error ? err.message : labels.connectionError);
             setCallState('error');
         }
-    }, [customerId, customerName, customerPhone, persona, onCallEnd, onOpenChange]);
+    }, [customerId, customerName, customerPhone, persona, language, labels, onCallEnd, onOpenChange]);
 
     const endCall = useCallback(() => {
         setCallState('ending');
@@ -234,7 +277,7 @@ export function VoiceCallModal({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-green-500" />
-                        Sesli AI Görüşme
+                        {labels.title}
                         {customerName && (
                             <Badge variant="secondary">{customerName}</Badge>
                         )}
@@ -246,33 +289,65 @@ export function VoiceCallModal({
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             {callState === 'idle' && (
-                                <Badge variant="secondary">Hazır</Badge>
+                                <Badge variant="secondary">{labels.ready}</Badge>
                             )}
                             {callState === 'connecting' && (
                                 <Badge variant="secondary" className="animate-pulse">
                                     <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    Bağlanıyor...
+                                    {labels.connecting}
                                 </Badge>
                             )}
                             {callState === 'connected' && (
                                 <Badge className="bg-green-500">
                                     <span className="animate-pulse mr-1">●</span>
-                                    Aktif
+                                    {labels.active}
                                 </Badge>
                             )}
                             {callState === 'error' && (
                                 <Badge variant="destructive">
                                     <AlertCircle className="h-3 w-3 mr-1" />
-                                    Hata
+                                    {labels.error}
                                 </Badge>
                             )}
                         </div>
 
-                        {callState === 'connected' && (
-                            <div className="text-2xl font-mono font-bold text-green-500">
-                                {formatDuration(callDuration)}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-3">
+                            {/* Language Selector */}
+                            {callState === 'idle' && (
+                                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                                    <button
+                                        onClick={() => setLanguage('tr')}
+                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${language === 'tr'
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        🇹🇷 TR
+                                    </button>
+                                    <button
+                                        onClick={() => setLanguage('en')}
+                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${language === 'en'
+                                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        🇬🇧 EN
+                                    </button>
+                                </div>
+                            )}
+                            {callState === 'connected' && (
+                                <div className="flex items-center gap-1">
+                                    <Globe className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium">{language === 'tr' ? '🇹🇷' : '🇬🇧'}</span>
+                                </div>
+                            )}
+
+                            {callState === 'connected' && (
+                                <div className="text-2xl font-mono font-bold text-green-500">
+                                    {formatDuration(callDuration)}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Error Message */}
@@ -290,7 +365,7 @@ export function VoiceCallModal({
                     {/* Audio Visualization */}
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Ses Sinyali</span>
+                            <span className="text-sm text-muted-foreground">{labels.audioSignal}</span>
                             {callState === 'connected' && (
                                 <div className="flex items-center gap-2">
                                     <Volume2 className="h-4 w-4 text-muted-foreground" />
@@ -308,14 +383,14 @@ export function VoiceCallModal({
 
                     {/* Transcript */}
                     <div className="space-y-2">
-                        <span className="text-sm text-muted-foreground">Konuşma</span>
+                        <span className="text-sm text-muted-foreground">{labels.conversation}</span>
                         <Card className="h-48 overflow-y-auto">
                             <CardContent className="pt-4 space-y-3">
                                 {transcript.length === 0 ? (
                                     <p className="text-muted-foreground text-center py-8">
                                         {callState === 'connected'
-                                            ? 'Konuşmaya başlayın...'
-                                            : 'Görüşme başladığında konuşma burada görünecek'}
+                                            ? labels.startSpeaking
+                                            : labels.waitForCall}
                                     </p>
                                 ) : (
                                     transcript.map((turn, index) => (
@@ -394,9 +469,9 @@ export function VoiceCallModal({
                     {/* Instructions */}
                     {callState === 'idle' && (
                         <p className="text-center text-sm text-muted-foreground">
-                            Sesli AI görüşmesi başlatmak için yeşil butona tıklayın.
+                            {labels.instructions}
                             <br />
-                            Mikrofon izni gereklidir.
+                            {labels.micRequired}
                         </p>
                     )}
                 </div>
