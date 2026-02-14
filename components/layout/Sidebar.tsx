@@ -10,6 +10,8 @@ import {
   AlertCircle,
   Users,
   BarChart3,
+  Database,
+  Bot,
   Settings,
   LogOut,
   User
@@ -26,6 +28,8 @@ const navItems = [
   { href: '/complaints', label: 'Şikayetler', icon: AlertCircle },
   { href: '/customers', label: 'Müşteriler', icon: Users },
   { href: '/reports', label: 'Raporlar', icon: BarChart3 },
+  { href: '/knowledge', label: 'Bilgi Tabanı', icon: Database },
+  { href: '/agents', label: 'Asistanlar', icon: Bot },
   { href: '/admin', label: 'Ayarlar', icon: Settings },
 ];
 
