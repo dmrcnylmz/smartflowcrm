@@ -7,29 +7,42 @@
 
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
 
 let adminApp: App | null = null;
 let adminAuth: Auth | null = null;
 
 function getServiceAccountCredential() {
-    // Option 1: Inline JSON from env var (for cloud deployments like Cloud Run)
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    if (serviceAccountJson) {
+    // Option 1: Inline JSON from env var (for cloud deployments like Vercel)
+    const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (serviceAccountEnv) {
         try {
-            return cert(JSON.parse(serviceAccountJson));
-        } catch {
-            console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON');
+            // Handle potentially base64 encoded strings
+            const jsonString = serviceAccountEnv.trim().startsWith('{')
+                ? serviceAccountEnv
+                : Buffer.from(serviceAccountEnv, 'base64').toString('utf-8');
+
+            const certData = JSON.parse(jsonString);
+
+            // Fix private keys with escaped newlines (common Vercel env var issue)
+            if (certData.private_key) {
+                certData.private_key = certData.private_key.replace(/\\n/g, '\n');
+            }
+
+            return cert(certData);
+        } catch (err) {
+            console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY environment variable:', err);
         }
     }
 
-    // Option 2: File path (for local development)
+    // Option 2: File path (for local development only, avoided in production)
     const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH;
-    if (keyPath) {
+    if (keyPath && process.env.NODE_ENV !== 'production') {
         try {
-            const absolutePath = resolve(process.cwd(), keyPath);
-            const keyFile = JSON.parse(readFileSync(absolutePath, 'utf-8'));
+            // Dynamic import or require inside function to prevent Vercel full path tracing
+            const fs = require('fs');
+            const path = require('path');
+            const absolutePath = path.resolve(process.cwd(), keyPath);
+            const keyFile = JSON.parse(fs.readFileSync(absolutePath, 'utf-8'));
             return cert(keyFile);
         } catch (err) {
             console.error('Failed to read service account key file:', err);
