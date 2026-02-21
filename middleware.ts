@@ -21,6 +21,7 @@ if (typeof setInterval !== 'undefined') {
 /** API routes that do NOT require authentication */
 const PUBLIC_API_PATHS = [
     '/api/webhook',
+    '/api/health',
     '/api/voice/health',
     '/api/voice/pipeline',
     '/api/voice/test',
@@ -30,7 +31,25 @@ const PUBLIC_API_PATHS = [
     '/api/voice/connect',
     '/api/voice/tts',
     '/api/ai/status',
+    '/api/twilio/incoming',
+    '/api/twilio/status',
 ];
+
+/** Allowed origins for CORS */
+const ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    process.env.NEXT_PUBLIC_APP_URL,
+].filter(Boolean) as string[];
+
+/** Security headers applied to all responses */
+const SECURITY_HEADERS: Record<string, string> = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()',
+};
 
 /** Page routes that are public (no login required) */
 const PUBLIC_PAGE_PATHS = ['/login'];
@@ -89,7 +108,27 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // 2. API route handling
+    // 2. CORS handling for API routes
+    if (pathname.startsWith('/api')) {
+        const origin = req.headers.get('origin') || '';
+        const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || !origin;
+
+        // Handle preflight
+        if (req.method === 'OPTIONS') {
+            return new NextResponse(null, {
+                status: 204,
+                headers: {
+                    'Access-Control-Allow-Origin': isAllowedOrigin ? origin : ALLOWED_ORIGINS[0],
+                    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+                    'Access-Control-Max-Age': '86400',
+                    ...SECURITY_HEADERS,
+                },
+            });
+        }
+    }
+
+    // 3. API route handling
     if (pathname.startsWith('/api')) {
         const isPublicApi = PUBLIC_API_PATHS.some(
             (p) => pathname === p || pathname.startsWith(p + '/'),
@@ -157,6 +196,10 @@ export async function middleware(req: NextRequest) {
 
             // Forward verified user info to API routes via headers
             const response = NextResponse.next();
+            // Security headers
+            for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+                response.headers.set(key, value);
+            }
             response.headers.set('X-RateLimit-Limit', maxReqs.toString());
             response.headers.set('X-RateLimit-Remaining', remaining.toString());
             response.headers.set(
@@ -181,6 +224,10 @@ export async function middleware(req: NextRequest) {
 
         // Add rate limit headers to successful responses
         const response = NextResponse.next();
+        // Add security headers
+        for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+            response.headers.set(key, value);
+        }
         response.headers.set('X-RateLimit-Limit', maxReqs.toString());
         response.headers.set('X-RateLimit-Remaining', remaining.toString());
         response.headers.set(

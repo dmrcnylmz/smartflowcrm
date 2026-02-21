@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Phone, AlertCircle, Calendar } from 'lucide-react';
+import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
 import { getCallLogs } from '@/lib/firebase/db';
 import { getComplaints } from '@/lib/firebase/db';
 import { getAppointments } from '@/lib/firebase/db';
@@ -354,6 +355,11 @@ export default function DashboardPage() {
             );
           })
         )}
+      </div>
+
+      {/* Voice AI GPU Status */}
+      <div className="mb-6">
+        <VoiceAIStatus />
       </div>
 
       {/* Error Message */}

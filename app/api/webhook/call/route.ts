@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addCallLog, addActivityLog, getCustomerByPhone, createCustomer, getCustomer } from '@/lib/firebase/db';
 import { Timestamp } from 'firebase/firestore';
+import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerPhone, customerName, duration, status, intent, summary, direction = 'inbound' } = body;
 
-    if (!customerPhone) {
-      return NextResponse.json({ error: 'customerPhone is required' }, { status: 400 });
-    }
+    const validation = requireFields(body, ['customerPhone']);
+    if (validation) return errorResponse(validation);
+
+    const { customerPhone, customerName, duration, status, intent, summary, direction = 'inbound' } = body;
 
     // Get or create customer
     let customer = await getCustomerByPhone(customerPhone);
@@ -19,7 +22,6 @@ export async function POST(request: NextRequest) {
         phone: customerPhone,
         email: '',
       });
-      // Fetch the created customer to get all fields including createdAt
       const createdCustomer = await getCustomer(newCustomerRef.id);
       if (!createdCustomer) {
         throw new Error('Failed to retrieve created customer');
@@ -52,10 +54,8 @@ export async function POST(request: NextRequest) {
       callLogId: callLog.id,
       customerId: customer.id,
       message: 'Call logged successfully',
-    });
+    }, { status: 201 });
   } catch (error: unknown) {
-    console.error('Webhook error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return handleApiError(error, 'Webhook Call');
   }
 }

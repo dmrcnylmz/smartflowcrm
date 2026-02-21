@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,19 +47,14 @@ function tenantAgents(tenantId: string) {
 export async function POST(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const body = await request.json();
-        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive } = body;
+        const validation = requireFields(body, ['name', 'systemPrompt']);
+        if (validation) return errorResponse(validation);
 
-        if (!name || !systemPrompt) {
-            return NextResponse.json(
-                { error: 'name and systemPrompt are required' },
-                { status: 400 },
-            );
-        }
+        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive } = body;
 
         const agentData = {
             name,
@@ -74,11 +70,9 @@ export async function POST(request: NextRequest) {
         let agentId = id;
 
         if (id) {
-            // Update existing
-            await tenantAgents(tenantId).doc(id).update(agentData);
+            await tenantAgents(tenantId!).doc(id).update(agentData);
         } else {
-            // Create new
-            const ref = tenantAgents(tenantId).doc();
+            const ref = tenantAgents(tenantId!).doc();
             agentId = ref.id;
             await ref.set({
                 ...agentData,
@@ -93,11 +87,7 @@ export async function POST(request: NextRequest) {
         }, { status: id ? 200 : 201 });
 
     } catch (error) {
-        console.error('[Agents API] Error:', error);
-        return NextResponse.json(
-            { error: 'Agent operation failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Agents POST');
     }
 }
 
@@ -108,32 +98,26 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const agentId = request.nextUrl.searchParams.get('id');
 
         if (agentId) {
-            const doc = await tenantAgents(tenantId).doc(agentId).get();
+            const doc = await tenantAgents(tenantId!).doc(agentId).get();
             if (!doc.exists) {
-                return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
+                return errorResponse(createApiError('NOT_FOUND', 'Agent bulunamadı'));
             }
             return NextResponse.json({ id: doc.id, ...doc.data() });
         }
 
-        // List all agents
-        const snap = await tenantAgents(tenantId).orderBy('createdAt', 'desc').get();
+        const snap = await tenantAgents(tenantId!).orderBy('createdAt', 'desc').get();
         const agents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         return NextResponse.json({ agents, count: agents.length });
 
     } catch (error) {
-        console.error('[Agents API] Error:', error);
-        return NextResponse.json(
-            { error: 'Agent fetch failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Agents GET');
     }
 }
 
@@ -144,24 +128,18 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Authentication required' }, { status: 403 });
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
-        const { id } = await request.json();
-        if (!id) {
-            return NextResponse.json({ error: 'id is required' }, { status: 400 });
-        }
+        const body = await request.json();
+        const validation = requireFields(body, ['id']);
+        if (validation) return errorResponse(validation);
 
-        await tenantAgents(tenantId).doc(id).delete();
+        await tenantAgents(tenantId!).doc(body.id).delete();
 
-        return NextResponse.json({ message: `Agent ${id} deleted` });
+        return NextResponse.json({ message: `Agent ${body.id} deleted` });
 
     } catch (error) {
-        console.error('[Agents API] Error:', error);
-        return NextResponse.json(
-            { error: 'Agent delete failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Agents DELETE');
     }
 }

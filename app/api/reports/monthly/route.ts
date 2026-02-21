@@ -9,6 +9,8 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { startOfMonth, endOfMonth, subMonths, format, eachWeekOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

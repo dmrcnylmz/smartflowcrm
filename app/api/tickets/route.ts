@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createComplaint, 
-  getComplaints, 
+import {
+  createComplaint,
+  getComplaints,
   updateComplaint,
   createInfoRequest,
   getInfoRequests,
   updateInfoRequest,
 } from '@/lib/firebase/db';
+import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
+
+export const dynamic = 'force-dynamic';
 
 // GET /api/tickets?type=complaint|info&customerId=&status=
 export async function GET(request: NextRequest) {
@@ -30,11 +33,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(infoRequests);
     }
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Tickets GET');
   }
 }
 
@@ -44,22 +43,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type = 'complaint', customerId, ...data } = body;
 
-    if (!customerId) {
-      return NextResponse.json(
-        { error: 'Missing customerId' },
-        { status: 400 }
-      );
-    }
+    const custValidation = requireFields({ customerId }, ['customerId']);
+    if (custValidation) return errorResponse(custValidation);
 
     let ticketId: string;
 
     if (type === 'complaint') {
-      if (!data.category || !data.description) {
-        return NextResponse.json(
-          { error: 'Missing required fields: category, description' },
-          { status: 400 }
-        );
-      }
+      const fieldValidation = requireFields(data, ['category', 'description']);
+      if (fieldValidation) return errorResponse(fieldValidation);
+
       const complaintRef = await createComplaint({
         customerId,
         category: data.category,
@@ -69,12 +61,9 @@ export async function POST(request: NextRequest) {
       });
       ticketId = complaintRef.id;
     } else {
-      if (!data.topic || !data.details) {
-        return NextResponse.json(
-          { error: 'Missing required fields: topic, details' },
-          { status: 400 }
-        );
-      }
+      const fieldValidation = requireFields(data, ['topic', 'details']);
+      if (fieldValidation) return errorResponse(fieldValidation);
+
       const infoRequestRef = await createInfoRequest({
         customerId,
         topic: data.topic,
@@ -85,13 +74,9 @@ export async function POST(request: NextRequest) {
       ticketId = infoRequestRef.id;
     }
 
-    return NextResponse.json({ success: true, ticketId, type });
+    return NextResponse.json({ success: true, ticketId, type }, { status: 201 });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Tickets POST');
   }
 }
 
@@ -101,12 +86,8 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { id, type = 'complaint', ...updateData } = body;
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing ticket id' },
-        { status: 400 }
-      );
-    }
+    const validation = requireFields({ id }, ['id']);
+    if (validation) return errorResponse(validation);
 
     if (type === 'complaint') {
       await updateComplaint(id, updateData);
@@ -116,11 +97,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Tickets PATCH');
   }
 }
-

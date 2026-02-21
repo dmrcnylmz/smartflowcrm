@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createAppointment, 
-  getAppointments, 
-  updateAppointment 
+import {
+  createAppointment,
+  getAppointments,
+  updateAppointment
 } from '@/lib/firebase/db';
 import { Timestamp } from 'firebase/firestore';
+import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,56 +26,40 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(appointments);
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Appointments GET');
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerId, dateTime, durationMin = 30, notes, googleCalendarEventId } = body;
 
-    if (!customerId || !dateTime) {
-      return NextResponse.json(
-        { error: 'Missing required fields: customerId, dateTime' },
-        { status: 400 }
-      );
-    }
+    const validation = requireFields(body, ['customerId', 'dateTime']);
+    if (validation) return errorResponse(validation);
 
     const appointmentId = await createAppointment({
-      customerId,
-      dateTime: Timestamp.fromDate(new Date(dateTime)),
-      durationMin,
+      customerId: body.customerId,
+      dateTime: Timestamp.fromDate(new Date(body.dateTime)),
+      durationMin: body.durationMin || 30,
       status: 'scheduled',
-      notes,
-      googleCalendarEventId,
+      notes: body.notes,
+      googleCalendarEventId: body.googleCalendarEventId,
     });
 
-    return NextResponse.json({ success: true, appointmentId });
+    return NextResponse.json({ success: true, appointmentId }, { status: 201 });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Appointments POST');
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, ...updateData } = body;
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Missing appointment id' },
-        { status: 400 }
-      );
-    }
+    const validation = requireFields(body, ['id']);
+    if (validation) return errorResponse(validation);
+
+    const { id, ...updateData } = body;
 
     // Convert dateTime string to Timestamp if provided
     if (updateData.dateTime) {
@@ -83,11 +70,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'Appointments PATCH');
   }
 }
-

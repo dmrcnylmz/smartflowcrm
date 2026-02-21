@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
+import { handleApiError, requireAuth, requireFields, errorResponse } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,41 +27,27 @@ function getTenantId(request: NextRequest): string | null {
 export async function POST(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 403 },
-            );
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const body = await request.json();
-        const { type, content, filename } = body;
-
-        if (!type || !content) {
-            return NextResponse.json(
-                { error: 'type and content are required. type: text|url|pdf' },
-                { status: 400 },
-            );
-        }
+        const validation = requireFields(body, ['type', 'content']);
+        if (validation) return errorResponse(validation);
 
         const source: DocumentSource = {
-            type,
-            content,
-            filename,
+            type: body.type,
+            content: body.content,
+            filename: body.filename,
         };
 
-        const result = await ingestDocument(tenantId, source);
+        const result = await ingestDocument(tenantId!, source);
 
         return NextResponse.json(result, {
             status: result.status === 'error' ? 500 : 201,
         });
 
     } catch (error) {
-        console.error('[KB API] Ingest error:', error);
-        return NextResponse.json(
-            { error: 'Ingestion failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Knowledge POST');
     }
 }
 
@@ -71,46 +58,28 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 403 },
-            );
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const query = request.nextUrl.searchParams.get('query');
         const action = request.nextUrl.searchParams.get('action');
 
-        // Query mode: retrieve relevant chunks
         if (query) {
             const topK = parseInt(request.nextUrl.searchParams.get('topK') || '5');
-            const results = await queryKnowledgeBase(tenantId, query, topK);
-            return NextResponse.json({
-                query,
-                results,
-                count: results.length,
-            });
+            const results = await queryKnowledgeBase(tenantId!, query, topK);
+            return NextResponse.json({ query, results, count: results.length });
         }
 
-        // Stats mode
         if (action === 'stats') {
-            const stats = await getKBStats(tenantId);
+            const stats = await getKBStats(tenantId!);
             return NextResponse.json(stats);
         }
 
-        // List mode: return all documents
-        const documents = await listKBDocuments(tenantId);
-        return NextResponse.json({
-            documents,
-            count: documents.length,
-        });
+        const documents = await listKBDocuments(tenantId!);
+        return NextResponse.json({ documents, count: documents.length });
 
     } catch (error) {
-        console.error('[KB API] Query error:', error);
-        return NextResponse.json(
-            { error: 'Query failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Knowledge GET');
     }
 }
 
@@ -121,32 +90,18 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     try {
         const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 403 },
-            );
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
-        const { documentId } = await request.json();
-        if (!documentId) {
-            return NextResponse.json(
-                { error: 'documentId is required' },
-                { status: 400 },
-            );
-        }
+        const body = await request.json();
+        const validation = requireFields(body, ['documentId']);
+        if (validation) return errorResponse(validation);
 
-        await deleteKBDocument(tenantId, documentId);
+        await deleteKBDocument(tenantId!, body.documentId);
 
-        return NextResponse.json({
-            message: `Document ${documentId} deleted successfully`,
-        });
+        return NextResponse.json({ message: `Document ${body.documentId} deleted` });
 
     } catch (error) {
-        console.error('[KB API] Delete error:', error);
-        return NextResponse.json(
-            { error: 'Delete failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Knowledge DELETE');
     }
 }

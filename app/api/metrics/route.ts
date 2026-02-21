@@ -1,40 +1,47 @@
-// Metrics API Endpoint
-// Exposes Prometheus-compatible metrics
+/**
+ * Monitoring Metrics API
+ * 
+ * GET /api/metrics
+ * 
+ * Returns application health metrics, error counts, and
+ * performance data from the monitoring singleton.
+ * Protected — requires auth.
+ */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { metrics } from '@/lib/voice/logging';
+import { NextResponse } from 'next/server';
+import { monitor } from '@/lib/utils/monitoring';
 
-// Basic auth check (optional, for production security)
-function checkAuth(req: NextRequest): boolean {
-    const authHeader = req.headers.get('authorization');
-    const metricsToken = process.env.METRICS_TOKEN;
+export const dynamic = 'force-dynamic';
 
-    if (!metricsToken) return true; // No auth configured
+export async function GET() {
+    try {
+        const summary = monitor.getHealthSummary();
+        const metrics = monitor.getMetrics();
 
-    if (!authHeader) return false;
+        // Build system info
+        const memUsage = process.memoryUsage?.() || {};
 
-    const [type, token] = authHeader.split(' ');
-    return type === 'Bearer' && token === metricsToken;
-}
-
-export async function GET(req: NextRequest) {
-    // Check auth
-    if (!checkAuth(req)) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            health: summary,
+            system: {
+                nodeVersion: process.version,
+                platform: process.platform,
+                memoryMB: {
+                    rss: Math.round((memUsage.rss || 0) / 1024 / 1024),
+                    heapUsed: Math.round((memUsage.heapUsed || 0) / 1024 / 1024),
+                    heapTotal: Math.round((memUsage.heapTotal || 0) / 1024 / 1024),
+                },
+                uptime: Math.round(process.uptime?.() || 0),
+            },
+            recentMetrics: metrics.slice(-20), // Last 20 performance entries
+        });
+    } catch (error) {
+        console.error('[Metrics API] Error:', error);
+        return NextResponse.json(
+            { error: 'Metrics unavailable' },
+            { status: 500 },
+        );
     }
-
-    const format = req.nextUrl.searchParams.get('format') || 'prometheus';
-
-    if (format === 'json') {
-        return NextResponse.json(metrics.getMetrics());
-    }
-
-    // Prometheus format
-    const prometheusMetrics = metrics.getPrometheusMetrics();
-
-    return new NextResponse(prometheusMetrics, {
-        headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-        },
-    });
 }

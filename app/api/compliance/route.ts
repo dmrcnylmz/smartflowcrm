@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { queryAuditLogs, redactPII, recordConsent, getRetentionPolicy, type AuditAction } from '@/lib/compliance/audit';
+import { handleApiError, requireAuth, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,16 +26,15 @@ function getDb() {
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-user-tenant');
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const action = request.nextUrl.searchParams.get('action') as AuditAction | null;
         const userId = request.nextUrl.searchParams.get('userId');
         const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50', 10);
         const includeRetention = request.nextUrl.searchParams.get('retention') === 'true';
 
-        const logs = await queryAuditLogs(getDb(), tenantId, {
+        const logs = await queryAuditLogs(getDb(), tenantId!, {
             action: action || undefined,
             userId: userId || undefined,
             limit,
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
         let retention = undefined;
         if (includeRetention) {
-            retention = await getRetentionPolicy(getDb(), tenantId);
+            retention = await getRetentionPolicy(getDb(), tenantId!);
         }
 
         return NextResponse.json({
@@ -52,11 +52,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Compliance API] Error:', error);
-        return NextResponse.json(
-            { error: 'Audit query failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Compliance GET');
     }
 }
 
@@ -66,24 +62,22 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-user-tenant');
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-        }
+        const authErr = requireAuth(tenantId);
+        if (authErr) return errorResponse(authErr);
 
         const body = await request.json();
         const { operation } = body;
 
         if (operation === 'redact') {
-            const { text } = body;
-            if (!text) {
-                return NextResponse.json({ error: 'text is required' }, { status: 400 });
-            }
-            const result = redactPII(text);
+            const validation = requireFields(body, ['text']);
+            if (validation) return errorResponse(validation);
+
+            const result = redactPII(body.text);
             return NextResponse.json(result);
         }
 
         if (operation === 'consent') {
-            const consentId = await recordConsent(getDb(), tenantId, {
+            const consentId = await recordConsent(getDb(), tenantId!, {
                 userId: body.userId,
                 callerPhone: body.callerPhone,
                 callRecording: body.callRecording ?? false,
@@ -94,13 +88,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ consentId, message: 'Consent recorded' }, { status: 201 });
         }
 
-        return NextResponse.json({ error: 'Unknown operation' }, { status: 400 });
+        return errorResponse(createApiError('VALIDATION_ERROR', 'Bilinmeyen operation. Geçerli: redact, consent'));
 
     } catch (error) {
-        console.error('[Compliance API] Error:', error);
-        return NextResponse.json(
-            { error: 'Compliance operation failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Compliance POST');
     }
 }

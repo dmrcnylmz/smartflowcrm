@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
 import {
     Bot,
     Plus,
@@ -20,6 +21,7 @@ import {
     Sparkles,
     Volume2,
     AlertTriangle,
+    MessageCircle,
     Zap,
     Globe,
     Code2,
@@ -197,6 +199,7 @@ export default function AgentsPage() {
 
     // Delete state
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [testingAgent, setTestingAgent] = useState<Agent | null>(null);
 
     // ─────────────────────────────────────────────
     // Data fetching
@@ -484,6 +487,15 @@ export default function AgentsPage() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
+                                        className="gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
+                                        onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); }}
+                                    >
+                                        <MessageCircle className="h-3 w-3" />
+                                        Test Et
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
                                         className="gap-1"
                                         onClick={(e) => { e.stopPropagation(); handleEdit(agent); }}
                                     >
@@ -535,8 +547,8 @@ export default function AgentsPage() {
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id as typeof activeTab)}
                                         className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === tab.id
-                                                ? 'border-violet-500 text-violet-500'
-                                                : 'border-transparent text-muted-foreground hover:text-foreground'
+                                            ? 'border-violet-500 text-violet-500'
+                                            : 'border-transparent text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
                                         <Icon className="h-4 w-4" />
@@ -912,6 +924,14 @@ export default function AgentsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Voice Test Modal */}
+            <VoiceTestModal
+                isOpen={!!testingAgent}
+                onClose={() => setTestingAgent(null)}
+                tenantId="default"
+                agentName={testingAgent?.name || 'SmartFlow AI'}
+            />
         </div>
     );
 }

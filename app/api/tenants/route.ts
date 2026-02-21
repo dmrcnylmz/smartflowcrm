@@ -15,6 +15,7 @@ import {
     assignUserToTenant,
 } from '@/lib/tenant/admin';
 import type { TenantConfig } from '@/lib/tenant/types';
+import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
 
 // =============================================
 // POST: Create new tenant + assign creator
@@ -23,24 +24,15 @@ import type { TenantConfig } from '@/lib/tenant/types';
 export async function POST(request: NextRequest) {
     try {
         const userId = request.headers.get('x-user-uid');
-        if (!userId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 401 },
-            );
-        }
+        const authErr = requireAuth(userId);
+        if (authErr) return errorResponse(authErr);
 
         const body = await request.json();
+        const validation = requireFields(body, ['companyName']);
+        if (validation) return errorResponse(validation);
+
         const { companyName, sector, language, agent, business, voice } = body;
 
-        if (!companyName) {
-            return NextResponse.json(
-                { error: 'companyName is required' },
-                { status: 400 },
-            );
-        }
-
-        // Create tenant with defaults
         const tenantData: Omit<TenantConfig, 'id' | 'createdAt' | 'updatedAt'> = {
             companyName,
             sector: sector || '',
@@ -81,9 +73,7 @@ export async function POST(request: NextRequest) {
         };
 
         const tenantId = await createTenant(tenantData);
-
-        // Assign the creating user as owner
-        await assignUserToTenant(userId, tenantId, 'owner');
+        await assignUserToTenant(userId!, tenantId, 'owner');
 
         return NextResponse.json({
             tenantId,
@@ -92,11 +82,7 @@ export async function POST(request: NextRequest) {
         }, { status: 201 });
 
     } catch (error) {
-        console.error('[Tenant API] Create error:', error);
-        return NextResponse.json(
-            { error: 'Failed to create tenant', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Tenants POST');
     }
 }
 
@@ -107,37 +93,24 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
     try {
         const userId = request.headers.get('x-user-uid');
-        if (!userId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 401 },
-            );
-        }
+        const authErr = requireAuth(userId);
+        if (authErr) return errorResponse(authErr);
 
         const tenantId = request.nextUrl.searchParams.get('tenantId');
 
         if (tenantId) {
-            // Get specific tenant
             const tenant = await getTenant(tenantId);
             if (!tenant) {
-                return NextResponse.json(
-                    { error: 'Tenant not found' },
-                    { status: 404 },
-                );
+                return errorResponse(createApiError('NOT_FOUND', 'Tenant bulunamadı'));
             }
             return NextResponse.json(tenant);
         }
 
-        // List all tenants (admin function)
         const tenants = await listTenants();
         return NextResponse.json({ tenants, count: tenants.length });
 
     } catch (error) {
-        console.error('[Tenant API] Get error:', error);
-        return NextResponse.json(
-            { error: 'Failed to get tenants', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Tenants GET');
     }
 }
 
@@ -151,30 +124,20 @@ export async function PUT(request: NextRequest) {
         const userTenant = request.headers.get('x-user-tenant');
         const userRole = request.headers.get('x-user-role');
 
-        if (!userId) {
-            return NextResponse.json(
-                { error: 'Authentication required' },
-                { status: 401 },
-            );
-        }
+        const authErr = requireAuth(userId);
+        if (authErr) return errorResponse(authErr);
 
         const body = await request.json();
         const { tenantId, ...updates } = body;
 
         const targetTenant = tenantId || userTenant;
         if (!targetTenant) {
-            return NextResponse.json(
-                { error: 'tenantId is required' },
-                { status: 400 },
-            );
+            return errorResponse(createApiError('VALIDATION_ERROR', 'tenantId gerekli'));
         }
 
         // Only owner/admin can update tenant config
         if (userRole !== 'owner' && userRole !== 'admin') {
-            return NextResponse.json(
-                { error: 'Only owners and admins can update tenant configuration' },
-                { status: 403 },
-            );
+            return errorResponse(createApiError('AUTH_ERROR', 'Yalnızca owner ve admin tenant ayarlarını güncelleyebilir'));
         }
 
         await updateTenant(targetTenant, updates);
@@ -184,10 +147,6 @@ export async function PUT(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Tenant API] Update error:', error);
-        return NextResponse.json(
-            { error: 'Failed to update tenant', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'Tenants PUT');
     }
 }

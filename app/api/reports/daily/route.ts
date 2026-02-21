@@ -8,6 +8,8 @@ import {
 import { toDate } from '@/lib/utils/date-helpers';
 import { demoCallLogs, demoComplaints, demoInfoRequests, demoAppointments } from '@/lib/firebase/demo-data';
 
+export const dynamic = 'force-dynamic';
+
 // Demo mode detection
 let useDemoMode = false;
 
