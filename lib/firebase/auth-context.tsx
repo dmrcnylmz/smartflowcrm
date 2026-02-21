@@ -9,6 +9,8 @@ import {
     signOut as firebaseSignOut,
     sendPasswordResetEmail,
     updateProfile,
+    GoogleAuthProvider,
+    signInWithPopup
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -17,6 +19,7 @@ interface AuthContextType {
     loading: boolean;
     error: string | null;
     signIn: (email: string, password: string) => Promise<void>;
+    signInWithGoogle: () => Promise<void>;
     signUp: (email: string, password: string, displayName?: string) => Promise<void>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
@@ -44,6 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setError(null);
             setLoading(true);
             await signInWithEmailAndPassword(auth, email, password);
+        } catch (err: unknown) {
+            const errorMessage = getErrorMessage(err);
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const signInWithGoogle = async () => {
+        try {
+            setError(null);
+            setLoading(true);
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(auth, provider);
         } catch (err: unknown) {
             const errorMessage = getErrorMessage(err);
             setError(errorMessage);
@@ -101,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 loading,
                 error,
                 signIn,
+                signInWithGoogle,
                 signUp,
                 signOut,
                 resetPassword,
