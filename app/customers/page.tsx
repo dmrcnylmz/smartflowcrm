@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportCustomers, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X } from 'lucide-react';
+import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createCustomer, getCallLogs, getAppointments, getComplaints, getInfoRequests, updateCustomer } from '@/lib/firebase/db';
 import { useCustomers } from '@/lib/firebase/hooks';
@@ -54,9 +54,10 @@ function CustomersPageContent() {
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.set('search', searchTerm);
-      
+
       const newUrl = params.toString() ? `?${params.toString()}` : '/customers';
       const currentUrl = window.location.pathname + window.location.search;
+      // In Next 13 App Route this works via window history push without reload
       if (currentUrl !== newUrl) {
         window.history.replaceState({}, '', newUrl);
       }
@@ -121,7 +122,7 @@ function CustomersPageContent() {
     });
     setDetailDialogOpen(true);
     setLoadingHistory(true);
-    
+
     try {
       const [calls, appointments, complaints, infoRequests] = await Promise.all([
         getCallLogs({ customerId: customer.id, limitCount: 10 }),
@@ -129,7 +130,7 @@ function CustomersPageContent() {
         getComplaints({ customerId: customer.id }),
         getInfoRequests({ customerId: customer.id }),
       ]);
-      
+
       setCustomerHistory({ calls, appointments, complaints, infoRequests });
     } catch (error) {
       console.error('History load error:', error);
@@ -145,7 +146,7 @@ function CustomersPageContent() {
 
   async function handleEditSave() {
     if (!selectedCustomer) return;
-    
+
     try {
       await updateCustomer(selectedCustomer.id, {
         name: editFormData.name,
@@ -154,6 +155,16 @@ function CustomersPageContent() {
         notes: editFormData.notes || undefined,
       });
       setEditMode(false);
+
+      // Update local state optimistic
+      setSelectedCustomer({
+        ...selectedCustomer,
+        name: editFormData.name,
+        phone: editFormData.phone,
+        email: editFormData.email || undefined,
+        notes: editFormData.notes || undefined,
+      });
+
       toast({
         title: 'Başarılı!',
         description: 'Müşteri bilgileri güncellendi',
@@ -197,7 +208,7 @@ function CustomersPageContent() {
   function handleExport(format: 'csv' | 'excel' | 'pdf') {
     const exportData = exportCustomers(filteredCustomers);
     const filename = `musteriler-${new Date().toISOString().split('T')[0]}`;
-    
+
     switch (format) {
       case 'csv':
         exportToCSV(exportData, filename);
@@ -209,7 +220,7 @@ function CustomersPageContent() {
         exportToPDF(exportData, filename, 'Müşteri Listesi');
         break;
     }
-    
+
     toast({
       title: 'Başarılı!',
       description: `${format.toUpperCase()} dosyası indirildi`,
@@ -220,237 +231,303 @@ function CustomersPageContent() {
   // Stats
   const totalCustomers = customers.length;
   const customersWithEmail = customers.filter(c => c.email).length;
+  const newCustomersThisWeeek = customers.filter(c => {
+    const diff = new Date().getTime() - toDate(c.createdAt).getTime();
+    return diff < 1000 * 60 * 60 * 24 * 7;
+  }).length;
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Müşteriler</h1>
-          <p className="text-muted-foreground">Müşteri listesi ve detayları</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <Users className="h-8 w-8 text-primary" />
+            Müşteri Portföyü
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Müşterilerinizi yönetin, etkileşim geçmişlerini inceleyin.
+          </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Yeni Müşteri
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Yeni Müşteri Ekle</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">İsim *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Telefon *</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">E-posta</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="notes">Notlar</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Oluştur
+        <div className="flex gap-3">
+          {filteredCustomers.length > 0 && (
+            <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
+              <SelectTrigger className="w-[140px] bg-background shadow-sm rounded-xl">
+                <SelectValue placeholder="Dışa Aktar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="csv">CSV İndir</SelectItem>
+                <SelectItem value="excel">Excel İndir</SelectItem>
+                <SelectItem value="pdf">PDF İndir</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow gap-2">
+                <Plus className="h-4 w-4" />
+                Yeni Müşteri
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Yeni Müşteri Ekle</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">İsim Soyisim *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                    placeholder="Müşteri Adı"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefon *</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    required
+                    placeholder="+905554443322"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-posta</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="ornek@mail.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Özel Notlar</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Müşteri için kısa bir not ekleyin..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+                <Button type="submit" className="w-full mt-4 rounded-xl">
+                  Kaydet
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Toplam Müşteri</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Toplam Müşteri</CardTitle>
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalCustomers}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">E-posta Kayıtlı</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{customersWithEmail}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              %{totalCustomers > 0 ? Math.round((customersWithEmail / totalCustomers) * 100) : 0}
+            <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">{totalCustomers}</div>
+            <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-2 font-medium flex items-center gap-1">
+              <Activity className="h-3 w-3" />
+              Giderek büyüyen portföy
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Kayıtlı Telefon</CardTitle>
-            <PhoneIcon className="h-4 w-4 text-muted-foreground" />
+        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Yeni Müşteriler</CardTitle>
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
+              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalCustomers}</div>
+            <div className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">+{newCustomersThisWeeek}</div>
+            <p className="text-xs text-indigo-600/80 dark:text-indigo-400 mt-2 font-medium flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              Son 7 gün içerisinde eklendi
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">İletişim Kalitesi</CardTitle>
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
+              <Mail className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
+              %{totalCustomers > 0 ? Math.round((customersWithEmail / totalCustomers) * 100) : 0}
+            </div>
+            <p className="text-xs text-emerald-600/80 dark:text-emerald-400 mt-2 font-medium">
+              E-posta bilgisi olan müşterilerin oranı
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Müşteri Listesi</CardTitle>
-            <div className="flex items-center gap-2">
-              {filteredCustomers.length > 0 && (
-                <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue placeholder="Export" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="csv">CSV İndir</SelectItem>
-                    <SelectItem value="excel">Excel İndir</SelectItem>
-                    <SelectItem value="pdf">PDF İndir</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-              {searchTerm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearFilters}
-                  className="gap-2"
-                >
-                  <X className="h-4 w-4" />
-                  Filtreleri Temizle
-                </Button>
-              )}
-            </div>
-          </div>
-          {/* Search */}
-          <div className="relative mt-4">
+      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm">
+        <div className="p-4 border-b bg-muted/20 flex flex-col md:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="İsim, telefon veya e-posta ile ara..."
+              placeholder="İsim, telefon veya e-posta ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              className="pl-10 rounded-xl bg-background border-border/60 focus-visible:ring-primary/20"
             />
           </div>
-        </CardHeader>
-        <CardContent>
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearFilters}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Temizle
+            </Button>
+          )}
+        </div>
+
+        <CardContent className="p-0">
           {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 8 }).map((_, i) => (
+            <div className="p-6 space-y-4">
+              {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="flex space-x-4">
+                  <Skeleton className="h-12 flex-[2]" />
                   <Skeleton className="h-12 flex-1" />
                   <Skeleton className="h-12 flex-1" />
-                  <Skeleton className="h-12 flex-1" />
+                  <Skeleton className="h-12 flex-1 hidden md:block" />
                 </div>
               ))}
             </div>
           ) : customersError ? (
-            <div className="flex items-center justify-center py-8 text-destructive">
-              <AlertCircle className="mr-2 h-5 w-5" />
-              <span>
-                {customersError.message?.includes('permission') 
-                  ? 'Firebase izin hatası. Security rules kontrol edin.'
+            <div className="flex flex-col items-center justify-center py-12 text-destructive">
+              <AlertCircle className="mb-3 h-10 w-10 opacity-80" />
+              <span className="font-medium text-lg">
+                {customersError.message?.includes('permission')
+                  ? 'Erişim yetkiniz bulunmamaktadır.'
                   : 'Müşteriler yüklenirken hata oluştu.'}
               </span>
             </div>
           ) : paginatedCustomers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchTerm ? 'Arama kriterine uygun müşteri bulunamadı' : 'Henüz müşteri yok'}
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-center">
+              <Users className="h-12 w-12 mb-4 opacity-20" />
+              <p className="text-lg font-medium text-foreground">
+                {searchTerm ? 'Müşteri Bulunamadı' : 'Henüz Müşteri Yok'}
+              </p>
+              <p className="text-sm mt-1 max-w-sm">
+                {searchTerm ? 'Arama kriterlerinize uygun sonuç bulamadık. Lütfen farklı kelimeler deneyin.' : 'Sisteme kayıtlı müşteri yok. Sağ üst köşeden "Yeni Müşteri" butonuna tıklayarak ekleme yapabilirsiniz.'}
+              </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>İsim</TableHead>
-                  <TableHead>Telefon</TableHead>
-                  <TableHead>E-posta</TableHead>
-                  <TableHead>Oluşturulma</TableHead>
-                  <TableHead>Durum</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCustomers.map((customer) => (
-                  <TableRow 
-                    key={customer.id}
-                    className="cursor-pointer hover:bg-accent"
-                    onClick={() => handleCustomerClick(customer)}
-                  >
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell>{customer.phone}</TableCell>
-                    <TableCell>{customer.email || '-'}</TableCell>
-                    <TableCell>
-                      {format(toDate(customer.createdAt), 'PP', { locale: tr })}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="default">Aktif</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          {!loading && paginatedCustomers.length > 0 && (
-            <PaginationControls
-              currentLimit={limit}
-              totalItems={totalAvailable}
-              filteredItems={filteredCustomers.length}
-              onLimitChange={handleLimitChange}
-              onLoadMore={handleLoadMore}
-              hasMore={hasMore}
-            />
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="font-semibold text-foreground/80 pl-6 shrink-0 min-w-[200px]">Müşteri Profil</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 shrink-0 min-w-[150px]">İletişim Türü</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 hidden md:table-cell">Kayıt Tarihi</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 text-right pr-6">Aksiyon</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer) => (
+                      <TableRow
+                        key={customer.id}
+                        className="cursor-pointer group hover:bg-muted/30 transition-colors"
+                        onClick={() => handleCustomerClick(customer)}
+                      >
+                        <TableCell className="pl-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-foreground">{customer.name}</span>
+                            <span className="text-xs text-muted-foreground mt-0.5 max-w-[200px] truncate">{customer.notes || 'Not eklenmemiş.'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="text-sm flex items-center gap-2 text-foreground break-all">
+                              <PhoneIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+                              {customer.phone}
+                            </span>
+                            {customer.email && (
+                              <span className="text-xs flex items-center gap-2 text-muted-foreground max-w-[200px] truncate">
+                                <Mail className="h-3 w-3 shrink-0" />
+                                {customer.email}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell text-muted-foreground/80 text-sm">
+                          {format(toDate(customer.createdAt), 'dd MMM yyyy', { locale: tr })}
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="p-4 border-t bg-muted/10 flex justify-center">
+                {!loading && paginatedCustomers.length > 0 && (
+                  <PaginationControls
+                    currentLimit={limit}
+                    totalItems={totalAvailable}
+                    filteredItems={filteredCustomers.length}
+                    onLimitChange={handleLimitChange}
+                    onLoadMore={handleLoadMore}
+                    hasMore={hasMore}
+                  />
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
-      {/* Müşteri Detay Modal */}
+      {/* Modern Customer Detail Drawer-like Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-2xl">
-                {selectedCustomer?.name || 'Müşteri Detayları'}
-              </DialogTitle>
+        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden bg-background rounded-2xl shadow-2xl">
+          <DialogHeader className="p-6 pb-0">
+            <div className="flex items-center justify-between pb-4 border-b border-border/40">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold">
+                  {selectedCustomer?.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <DialogTitle className="text-2xl font-bold">
+                    {selectedCustomer?.name || 'Müşteri Detayları'}
+                  </DialogTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Müşteri Profili ve Geçmişi</p>
+                </div>
+              </div>
               <div className="flex gap-2">
                 {!editMode && (
                   <Button
                     variant="outline"
-                    size="sm"
+                    className="rounded-xl shadow-sm gap-2"
                     onClick={() => setEditMode(true)}
                   >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Düzenle
+                    <Edit className="h-4 w-4" />
+                    Bilgileri Düzenle
                   </Button>
                 )}
                 {editMode && (
                   <>
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      className="rounded-xl"
                       onClick={() => {
                         setEditMode(false);
                         if (selectedCustomer) {
@@ -465,10 +542,7 @@ function CustomersPageContent() {
                     >
                       İptal
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleEditSave}
-                    >
+                    <Button className="rounded-xl shadow-sm shadow-primary/20" onClick={handleEditSave}>
                       Kaydet
                     </Button>
                   </>
@@ -478,276 +552,215 @@ function CustomersPageContent() {
           </DialogHeader>
 
           {selectedCustomer && (
-            <div className="space-y-6 mt-4">
-              {/* Müşteri Bilgileri */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Müşteri Bilgileri</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <div className="flex flex-col md:flex-row h-full max-h-[80vh] overflow-hidden">
+              {/* Left Side: Info */}
+              <div className="w-full md:w-1/3 bg-muted/10 p-6 overflow-y-auto border-r border-border/40">
+                <div className="space-y-6">
                   {editMode ? (
-                    <div className="space-y-4">
+                    <div className="space-y-4 bg-background p-4 rounded-xl shadow-sm border border-border/50">
                       <div>
-                        <Label htmlFor="edit-name">İsim *</Label>
+                        <Label htmlFor="edit-name" className="text-xs text-muted-foreground">İsim *</Label>
                         <Input
                           id="edit-name"
+                          className="mt-1"
                           value={editFormData.name}
                           onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                           required
                         />
                       </div>
                       <div>
-                        <Label htmlFor="edit-phone">Telefon *</Label>
+                        <Label htmlFor="edit-phone" className="text-xs text-muted-foreground">Telefon *</Label>
                         <Input
                           id="edit-phone"
+                          className="mt-1"
                           value={editFormData.phone}
                           onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
                           required
                         />
                       </div>
                       <div>
-                        <Label htmlFor="edit-email">E-posta</Label>
+                        <Label htmlFor="edit-email" className="text-xs text-muted-foreground">E-posta</Label>
                         <Input
                           id="edit-email"
                           type="email"
+                          className="mt-1"
                           value={editFormData.email}
                           onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                         />
                       </div>
                       <div>
-                        <Label htmlFor="edit-notes">Notlar</Label>
+                        <Label htmlFor="edit-notes" className="text-xs text-muted-foreground">Notlar</Label>
                         <Textarea
                           id="edit-notes"
+                          className="mt-1 min-h-[120px]"
                           value={editFormData.notes}
                           onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
                         />
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-muted-foreground">İsim</Label>
-                        <p className="font-medium">{selectedCustomer.name}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">Telefon</Label>
-                        <p className="font-medium">{selectedCustomer.phone}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">E-posta</Label>
-                        <p className="font-medium">{selectedCustomer.email || '-'}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground">Kayıt Tarihi</Label>
-                        <p className="font-medium">
-                          {format(toDate(selectedCustomer.createdAt), 'PPp', { locale: tr })}
-                        </p>
-                      </div>
-                      {selectedCustomer.notes && (
-                        <div className="col-span-2">
-                          <Label className="text-muted-foreground">Notlar</Label>
-                          <p className="font-medium">{selectedCustomer.notes}</p>
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Telefon</p>
+                            <p className="text-foreground font-medium mt-0.5">{selectedCustomer.phone}</p>
+                          </div>
                         </div>
-                      )}
+                        <div className="flex items-start gap-3">
+                          <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">E-posta</p>
+                            <p className="text-foreground font-medium mt-0.5">{selectedCustomer.email || 'Belirtilmemiş'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Sisteme Kayıt Tarihi</p>
+                            <p className="text-foreground font-medium mt-0.5">
+                              {format(toDate(selectedCustomer.createdAt), 'dd MMMM yyyy', { locale: tr })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2 flex items-center gap-2">
+                          <FileText className="h-3.5 w-3.5" /> Özel Not
+                        </p>
+                        {selectedCustomer.notes ? (
+                          <p className="text-sm text-foreground/80 leading-relaxed bg-background p-3 rounded-xl border shadow-sm">{selectedCustomer.notes}</p>
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">Müşteri için eklenmiş bir not bulunmuyor.</p>
+                        )}
+                      </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-
-              {/* İstatistikler */}
-              <div className="grid grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Çağrılar</p>
-                        <p className="text-2xl font-bold">{customerHistory.calls.length}</p>
-                      </div>
-                      <Phone className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Randevular</p>
-                        <p className="text-2xl font-bold">{customerHistory.appointments.length}</p>
-                      </div>
-                      <Calendar className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Şikayetler</p>
-                        <p className="text-2xl font-bold">{customerHistory.complaints.length}</p>
-                      </div>
-                      <AlertTriangle className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Bilgi Talepleri</p>
-                        <p className="text-2xl font-bold">{customerHistory.infoRequests.length}</p>
-                      </div>
-                      <FileText className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
+                </div>
               </div>
 
-              {/* Geçmiş */}
-              {loadingHistory ? (
-                <div className="text-center py-8">
-                  <Skeleton className="h-8 w-full mb-4" />
-                  <Skeleton className="h-8 w-full mb-4" />
-                  <Skeleton className="h-8 w-full" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Son Çağrılar */}
-                  {customerHistory.calls.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Phone className="h-5 w-5" />
-                          Son Çağrılar
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {customerHistory.calls.slice(0, 5).map((call) => (
-                            <div key={call.id} className="flex items-center justify-between p-2 border rounded">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {format(toDate(call.timestamp || call.createdAt), 'PPp', { locale: tr })}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {call.intent || 'Intent yok'} • {call.durationSec || 0}s
-                                </p>
-                              </div>
-                              <Badge variant={call.status === 'answered' ? 'default' : 'destructive'}>
-                                {call.status === 'answered' ? 'Yanıtlandı' : 'Kaçırıldı'}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+              {/* Right Side: Activity */}
+              <div className="w-full md:w-2/3 p-6 overflow-y-auto bg-background bg-grid-slate-100/30 dark:bg-grid-slate-900/30">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" /> Müşteri Aktivite Geçmişi
+                </h3>
 
-                  {/* Randevular */}
-                  {customerHistory.appointments.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Calendar className="h-5 w-5" />
-                          Randevular
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {customerHistory.appointments.slice(0, 5).map((apt) => (
-                            <div key={apt.id} className="flex items-center justify-between p-2 border rounded">
+                {loadingHistory ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-[80px] w-full rounded-xl" />
+                    <Skeleton className="h-[80px] w-full rounded-xl" />
+                    <Skeleton className="h-[80px] w-full rounded-xl" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Summary Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      {(customerHistory.calls.length > 0) && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 border-none px-3 py-1">
+                          {customerHistory.calls.length} Çağrı
+                        </Badge>
+                      )}
+                      {(customerHistory.appointments.length > 0) && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 border-none px-3 py-1">
+                          {customerHistory.appointments.length} Randevu
+                        </Badge>
+                      )}
+                      {(customerHistory.complaints.length > 0) && (
+                        <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 border-none px-3 py-1">
+                          {customerHistory.complaints.length} Şikayet
+                        </Badge>
+                      )}
+                      {(customerHistory.infoRequests.length > 0) && (
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-none px-3 py-1">
+                          {customerHistory.infoRequests.length} Talep
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Appointments First */}
+                      {customerHistory.appointments.length > 0 && customerHistory.appointments.map(apt => (
+                        <div key={apt.id} className="relative pl-6 pb-2 before:content-[''] before:absolute before:left-[11px] before:top-6 before:bottom-[-8px] before:w-[2px] before:bg-border last:before:hidden">
+                          <div className="absolute left-0 top-1 h-6 w-6 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center border-2 border-background z-10 shadow-sm">
+                            <Calendar className="h-3 w-3" />
+                          </div>
+                          <div className="bg-card border shadow-sm rounded-xl p-4">
+                            <div className="flex justify-between items-start mb-2">
                               <div>
-                                <p className="text-sm font-medium">
-                                  {format(toDate(apt.dateTime), 'PPp', { locale: tr })}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {apt.durationMin} dk • {apt.notes || 'Not yok'}
-                                </p>
+                                <p className="font-semibold text-sm">Randevu: {apt.notes || 'Randevu Oluşturuldu'}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(apt.dateTime), 'dd MMMM yyyy HH:mm', { locale: tr })} ({apt.durationMin} dk)</p>
                               </div>
-                              <Badge variant={apt.status === 'scheduled' ? 'default' : apt.status === 'completed' ? 'default' : 'secondary'}>
+                              <Badge variant={apt.status === 'scheduled' ? 'default' : apt.status === 'completed' ? 'secondary' : 'destructive'} className="shadow-none">
                                 {apt.status === 'scheduled' ? 'Planlandı' : apt.status === 'completed' ? 'Tamamlandı' : 'İptal'}
                               </Badge>
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                      ))}
 
-                  {/* Şikayetler */}
-                  {customerHistory.complaints.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <AlertTriangle className="h-5 w-5" />
-                          Şikayetler
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {customerHistory.complaints.slice(0, 5).map((complaint) => (
-                            <div key={complaint.id} className="flex items-center justify-between p-2 border rounded">
+                      {/* Calls */}
+                      {customerHistory.calls.length > 0 && customerHistory.calls.map(call => (
+                        <div key={call.id} className="relative pl-6 pb-2 before:content-[''] before:absolute before:left-[11px] before:top-6 before:bottom-[-8px] before:w-[2px] before:bg-border last:before:hidden">
+                          <div className="absolute left-0 top-1 h-6 w-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center border-2 border-background z-10 shadow-sm">
+                            <Phone className="h-3 w-3" />
+                          </div>
+                          <div className="bg-card border shadow-sm rounded-xl p-4">
+                            <div className="flex justify-between items-start">
                               <div>
-                                <p className="text-sm font-medium">
-                                  {format(toDate(complaint.createdAt), 'PPp', { locale: tr })}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {complaint.category || 'Kategori yok'} • {complaint.description || 'Açıklama yok'}
-                                </p>
+                                <p className="font-semibold text-sm">Telefon Görüşmesi</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(call.timestamp || call.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
+                                {call.intent && <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1"><Badge variant="outline" className="text-[10px] h-5">{call.intent}</Badge></p>}
                               </div>
-                              <Badge variant={complaint.status === 'resolved' ? 'default' : 'destructive'}>
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge variant={call.status === 'answered' ? 'default' : 'destructive'} className="shadow-none bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/50 dark:text-blue-300">
+                                  {call.status === 'answered' ? 'Yanıtlandı' : 'Ulaşılamadı'}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground font-medium">{call.durationSec || 0} saniye</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Complaints */}
+                      {customerHistory.complaints.length > 0 && customerHistory.complaints.map(complaint => (
+                        <div key={complaint.id} className="relative pl-6 pb-2 before:content-[''] before:absolute before:left-[11px] before:top-6 before:bottom-[-8px] before:w-[2px] before:bg-border last:before:hidden">
+                          <div className="absolute left-0 top-1 h-6 w-6 rounded-full bg-red-100 text-red-600 flex items-center justify-center border-2 border-background z-10 shadow-sm">
+                            <AlertTriangle className="h-3 w-3" />
+                          </div>
+                          <div className="bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 shadow-sm rounded-xl p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <div>
+                                <p className="font-semibold text-sm text-red-900 dark:text-red-300">Şikayet: {complaint.category}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(complaint.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
+                              </div>
+                              <Badge variant={complaint.status === 'resolved' ? 'outline' : 'destructive'} className="shadow-none">
                                 {complaint.status === 'resolved' ? 'Çözüldü' : complaint.status === 'investigating' ? 'İşlemde' : 'Açık'}
                               </Badge>
                             </div>
-                          ))}
+                            <p className="text-sm mt-3 text-red-800/80 dark:text-red-200/80 italic">"{complaint.description}"</p>
+                          </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                      ))}
 
-                  {/* Bilgi Talepleri */}
-                  {customerHistory.infoRequests.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <FileText className="h-5 w-5" />
-                          Bilgi Talepleri
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {customerHistory.infoRequests.slice(0, 5).map((req) => (
-                            <div key={req.id} className="flex items-center justify-between p-2 border rounded">
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {format(toDate(req.createdAt), 'PPp', { locale: tr })}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {req.topic || 'Konu yok'} • {req.details || 'Detay yok'}
-                                </p>
-                              </div>
-                              <Badge variant={req.status === 'answered' ? 'default' : 'secondary'}>
-                                {req.status === 'answered' ? 'Yanıtlandı' : req.status === 'closed' ? 'Kapatıldı' : 'Beklemede'}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
-                  {/* Boş Durum */}
-                  {customerHistory.calls.length === 0 &&
-                   customerHistory.appointments.length === 0 &&
-                   customerHistory.complaints.length === 0 &&
-                   customerHistory.infoRequests.length === 0 && (
-                    <Card>
-                      <CardContent className="py-8 text-center text-muted-foreground">
-                        Bu müşteri için henüz aktivite kaydı yok
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
+                      {/* Empty State */}
+                      {customerHistory.calls.length === 0 &&
+                        customerHistory.appointments.length === 0 &&
+                        customerHistory.complaints.length === 0 &&
+                        customerHistory.infoRequests.length === 0 && (
+                          <div className="text-center py-12 px-4 rounded-xl border border-dashed border-border/60 bg-muted/10">
+                            <Clock className="mx-auto h-8 w-8 text-muted-foreground/40 mb-3" />
+                            <p className="text-sm font-medium text-foreground">Aktivite Geçmişi Boş</p>
+                            <p className="text-xs text-muted-foreground mt-1 max-w-[250px] mx-auto">Bu müşteriyle henüz herhangi bir işlem (çağrı, randevu, şikayet) kaydedilmemiş.</p>
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
@@ -763,4 +776,3 @@ export default function CustomersPage() {
     </Suspense>
   );
 }
-
