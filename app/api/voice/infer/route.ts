@@ -228,6 +228,42 @@ export async function POST(request: NextRequest) {
         // Determine session ID
         const sessionId = session_id || `anon-${Date.now()}`;
 
+        // --- MOCK MODE OVERRIDE ---
+        if (process.env.PERSONAPLEX_MOCK_MODE === 'true') {
+            const lowerText = text.toLowerCase();
+            let intent = 'unknown';
+            let response_text = 'Simülasyon modundayız. Size nasıl yardımcı olabilirim?';
+
+            // Simplified Intent Matching for Mock Mode
+            if (/randevu|tarih|saat|görüşme/.test(lowerText)) {
+                intent = 'appointment';
+                response_text = 'Tabii, randevu oluşturabilirim. Hangi gün ve saat uygun olur?';
+            } else if (/şikayet|sorun|problem|memnun/.test(lowerText)) {
+                intent = 'complaint';
+                response_text = 'Yaşadığınız sorun için üzgünüm. Detayları alabilir miyim?';
+            } else if (/bilgi|fiyat|nasıl|nedir/.test(lowerText)) {
+                intent = 'info_request';
+                response_text = 'Fiyat bilgisi için size yardımcı olabilirim. Hangi ürün/hizmet ile ilgileniyorsunuz?';
+            } else if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
+                intent = 'greeting';
+                response_text = 'Merhaba! SmartFlow CRM\'e hoş geldiniz. Size nasıl yardımcı olabilirim?';
+            }
+
+            const latencyMs = performance.now() - startMs;
+            console.log(`[Voice Infer] MOCK MODE | session=${sessionId} intent=${intent} latency=${latencyMs.toFixed(0)}ms`);
+
+            return NextResponse.json({
+                session_id: sessionId,
+                intent,
+                confidence: 0.95,
+                response_text,
+                latency_ms: latencyMs + 100, // add some artificial delay
+                source: 'mock-engine',
+                cached: false,
+                mode: 'mock'
+            });
+        }
+
         // --- CHECK RESPONSE CACHE FIRST ---
         const cacheKey = buildInferCacheKey(text, persona, language);
         const cachedResponse = inferCache.get(cacheKey);

@@ -14,7 +14,8 @@ import {
   Bot,
   Settings,
   LogOut,
-  User
+  User,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/firebase/auth-context';
@@ -27,6 +28,7 @@ const navItems = [
   { href: '/tickets', label: 'Biletler', icon: FileText },
   { href: '/complaints', label: 'Şikayetler', icon: AlertCircle },
   { href: '/customers', label: 'Müşteriler', icon: Users },
+  { href: '/billing', label: 'Faturalandırma', icon: CreditCard },
   { href: '/reports', label: 'Raporlar', icon: BarChart3 },
   { href: '/knowledge', label: 'Bilgi Tabanı', icon: Database },
   { href: '/agents', label: 'Asistanlar', icon: Bot },
