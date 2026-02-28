@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
 import {
     Bot,
@@ -187,6 +189,7 @@ const DEFAULT_AGENT: Omit<Agent, 'id'> = {
 
 export default function AgentsPage() {
     const { toast } = useToast();
+    const authFetch = useAuthFetch();
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -207,14 +210,14 @@ export default function AgentsPage() {
 
     const fetchAgents = useCallback(async () => {
         try {
-            const res = await fetch('/api/agents');
+            const res = await authFetch('/api/agents');
             if (!res.ok) throw new Error('Failed to fetch agents');
             const data = await res.json();
             setAgents(data.agents || []);
         } catch (err) {
             console.error('Agents fetch error:', err);
         }
-    }, []);
+    }, [authFetch]);
 
     useEffect(() => {
         fetchAgents().finally(() => setLoading(false));
@@ -261,7 +264,7 @@ export default function AgentsPage() {
 
         setSaving(true);
         try {
-            const res = await fetch('/api/agents', {
+            const res = await authFetch('/api/agents', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -301,7 +304,7 @@ export default function AgentsPage() {
     async function handleDelete(agentId: string) {
         setDeletingId(agentId);
         try {
-            const res = await fetch('/api/agents', {
+            const res = await authFetch('/api/agents', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: agentId }),
@@ -389,9 +392,9 @@ export default function AgentsPage() {
     // ─────────────────────────────────────────────
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="animate-fade-in-down mb-8">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-3">

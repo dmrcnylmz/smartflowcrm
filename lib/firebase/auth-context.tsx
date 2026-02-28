@@ -10,7 +10,9 @@ import {
     sendPasswordResetEmail,
     updateProfile,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -34,6 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        // Handle redirect result (fallback for popup-blocked)
+        getRedirectResult(auth).catch(() => {
+            // Silently ignore - no redirect was pending
+        });
+
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setUser(user);
             setLoading(false);
@@ -61,7 +68,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setError(null);
             setLoading(true);
             const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
+            provider.setCustomParameters({ prompt: 'select_account' });
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (popupErr: unknown) {
+                // If popup is blocked or closed, fallback to redirect
+                const code = popupErr && typeof popupErr === 'object' && 'code' in popupErr
+                    ? (popupErr as { code: string }).code : '';
+                if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+                    await signInWithRedirect(auth, provider);
+                    return;
+                }
+                throw popupErr;
+            }
         } catch (err: unknown) {
             const errorMessage = getErrorMessage(err);
             setError(errorMessage);
@@ -152,8 +171,14 @@ function getErrorMessage(error: unknown): string {
             'auth/too-many-requests': 'Çok fazla başarısız deneme. Lütfen daha sonra tekrar deneyin.',
             'auth/network-request-failed': 'Ağ bağlantısı hatası. İnternet bağlantınızı kontrol edin.',
             'auth/invalid-credential': 'E-posta veya şifre hatalı.',
+            'auth/popup-blocked': 'Popup engellendi. Lütfen tarayıcınızda popup izni verin.',
+            'auth/popup-closed-by-user': 'Google giriş penceresi kapatıldı.',
+            'auth/cancelled-popup-request': 'Giriş işlemi iptal edildi.',
+            'auth/unauthorized-domain': 'Bu alan adı Firebase\'de yetkilendirilmemiş. Firebase Console > Authentication > Settings > Authorized domains kontrol edin.',
+            'auth/operation-not-allowed': 'Google girişi etkin değil. Firebase Console > Authentication > Sign-in method > Google\'ı etkinleştirin.',
+            'auth/internal-error': 'Kimlik doğrulama servisi hatası. Lütfen tekrar deneyin.',
         };
-        return messages[code] || 'Bir hata oluştu. Lütfen tekrar deneyin.';
+        return messages[code] || `Bir hata oluştu (${code}). Lütfen tekrar deneyin.`;
     }
     return 'Bir hata oluştu. Lütfen tekrar deneyin.';
 }

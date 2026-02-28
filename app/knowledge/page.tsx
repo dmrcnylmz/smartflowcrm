@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import {
     BookOpen,
     Upload,
@@ -26,6 +29,9 @@ import {
     Sparkles,
     MessageSquare,
     ChevronRight,
+    FileUp,
+    File,
+    X,
 } from 'lucide-react';
 
 // =============================================
@@ -59,11 +65,20 @@ interface QueryResult {
 }
 
 // =============================================
+// Constants
+// =============================================
+
+const ACCEPTED_FILE_TYPES = '.pdf,.txt,.md,.csv,.json,.log';
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+// =============================================
 // Component
 // =============================================
 
 export default function KnowledgeBasePage() {
     const { toast } = useToast();
+    const authFetch = useAuthFetch();
     const [documents, setDocuments] = useState<KBDocument[]>([]);
     const [stats, setStats] = useState<KBStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -71,10 +86,13 @@ export default function KnowledgeBasePage() {
     const [queryDialogOpen, setQueryDialogOpen] = useState(false);
 
     // Add source state
-    const [addType, setAddType] = useState<'text' | 'url'>('text');
+    const [addType, setAddType] = useState<'text' | 'url' | 'file'>('text');
     const [addContent, setAddContent] = useState('');
     const [addFilename, setAddFilename] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [ingesting, setIngesting] = useState(false);
+    const [dragActive, setDragActive] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Query state
     const [queryText, setQueryText] = useState('');
@@ -90,40 +108,88 @@ export default function KnowledgeBasePage() {
 
     const fetchDocuments = useCallback(async () => {
         try {
-            const res = await fetch('/api/knowledge');
+            const res = await authFetch('/api/knowledge');
             if (!res.ok) throw new Error('Failed to fetch documents');
             const data = await res.json();
             setDocuments(data.documents || []);
         } catch (err) {
             console.error('KB fetch error:', err);
         }
-    }, []);
+    }, [authFetch]);
 
     const fetchStats = useCallback(async () => {
         try {
-            const res = await fetch('/api/knowledge?action=stats');
+            const res = await authFetch('/api/knowledge?action=stats');
             if (!res.ok) throw new Error('Failed to fetch stats');
             const data = await res.json();
             setStats(data);
         } catch (err) {
             console.error('KB stats error:', err);
         }
-    }, []);
+    }, [authFetch]);
 
     useEffect(() => {
         Promise.all([fetchDocuments(), fetchStats()]).finally(() => setLoading(false));
     }, [fetchDocuments, fetchStats]);
 
     // ─────────────────────────────────────────────
+    // File Handling
+    // ─────────────────────────────────────────────
+
+    function handleFileSelect(file: File) {
+        if (file.size > MAX_FILE_SIZE) {
+            toast({
+                title: 'Dosya Çok Büyük',
+                description: `Maksimum dosya boyutu ${MAX_FILE_SIZE_MB}MB. Seçilen dosya: ${(file.size / 1024 / 1024).toFixed(1)}MB`,
+                variant: 'error',
+            });
+            return;
+        }
+
+        setSelectedFile(file);
+        if (!addFilename) {
+            setAddFilename(file.name.replace(/\.[^/.]+$/, ''));
+        }
+    }
+
+    function handleDrop(e: React.DragEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileSelect(files[0]);
+        }
+    }
+
+    function handleDragOver(e: React.DragEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(true);
+    }
+
+    function handleDragLeave(e: React.DragEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragActive(false);
+    }
+
+    // ─────────────────────────────────────────────
     // Actions
     // ─────────────────────────────────────────────
 
     async function handleIngest() {
+        if (addType === 'file') {
+            if (!selectedFile) return;
+            return handleFileIngest();
+        }
+
         if (!addContent.trim()) return;
 
         setIngesting(true);
         try {
-            const res = await fetch('/api/knowledge', {
+            const res = await authFetch('/api/knowledge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -147,9 +213,7 @@ export default function KnowledgeBasePage() {
                     description: `"${result.title}" başarıyla eklendi (${result.chunkCount} parça)`,
                     variant: 'success',
                 });
-                setAddDialogOpen(false);
-                setAddContent('');
-                setAddFilename('');
+                resetAddDialog();
                 await Promise.all([fetchDocuments(), fetchStats()]);
             }
         } catch (err) {
@@ -164,10 +228,63 @@ export default function KnowledgeBasePage() {
         }
     }
 
+    async function handleFileIngest() {
+        if (!selectedFile) return;
+
+        setIngesting(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            if (addFilename) {
+                formData.append('filename', addFilename);
+            }
+
+            const res = await authFetch('/api/knowledge', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const result = await res.json();
+
+            if (result.status === 'error') {
+                toast({
+                    title: 'İçe Aktarma Hatası',
+                    description: result.error || 'Dosya işlenirken bir hata oluştu',
+                    variant: 'error',
+                });
+            } else {
+                toast({
+                    title: 'Başarılı!',
+                    description: `"${result.title}" başarıyla yüklendi (${result.chunkCount} parça)`,
+                    variant: 'success',
+                });
+                resetAddDialog();
+                await Promise.all([fetchDocuments(), fetchStats()]);
+            }
+        } catch (err) {
+            toast({
+                title: 'Hata',
+                description: 'Dosya yüklenirken bir hata oluştu',
+                variant: 'error',
+            });
+            console.error('File ingest error:', err);
+        } finally {
+            setIngesting(false);
+        }
+    }
+
+    function resetAddDialog() {
+        setAddDialogOpen(false);
+        setAddContent('');
+        setAddFilename('');
+        setSelectedFile(null);
+        setAddType('text');
+    }
+
     async function handleDelete(documentId: string) {
         setDeletingId(documentId);
         try {
-            const res = await fetch('/api/knowledge', {
+            const res = await authFetch('/api/knowledge', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ documentId }),
@@ -199,7 +316,7 @@ export default function KnowledgeBasePage() {
 
         setQuerying(true);
         try {
-            const res = await fetch(`/api/knowledge?query=${encodeURIComponent(queryText)}&topK=5`);
+            const res = await authFetch(`/api/knowledge?query=${encodeURIComponent(queryText)}&topK=5`);
             if (!res.ok) throw new Error('Query failed');
             const data = await res.json();
             setQueryResults(data.results || []);
@@ -223,6 +340,7 @@ export default function KnowledgeBasePage() {
         switch (type) {
             case 'url': return <Globe className="h-4 w-4" />;
             case 'pdf': return <FileText className="h-4 w-4" />;
+            case 'file': return <File className="h-4 w-4" />;
             default: return <BookOpen className="h-4 w-4" />;
         }
     }
@@ -246,14 +364,22 @@ export default function KnowledgeBasePage() {
         return '-';
     }
 
+    function formatFileSize(bytes: number): string {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    const canSubmit = addType === 'file' ? !!selectedFile : addContent.trim().length > 0;
+
     // ─────────────────────────────────────────────
     // Render
     // ─────────────────────────────────────────────
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8">
             {/* Header */}
-            <div className="mb-8">
+            <div className="animate-fade-in-down mb-8">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -420,7 +546,7 @@ export default function KnowledgeBasePage() {
             </Card>
 
             {/* ─── Add Source Dialog ─── */}
-            <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <Dialog open={addDialogOpen} onOpenChange={(open) => { if (!open) resetAddDialog(); else setAddDialogOpen(true); }}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
@@ -428,7 +554,7 @@ export default function KnowledgeBasePage() {
                             Kaynak Ekle
                         </DialogTitle>
                         <DialogDescription>
-                            Bilgi tabanına yeni bir kaynak ekleyin. Metin, URL veya PDF desteklenir.
+                            Bilgi tabanına yeni bir kaynak ekleyin. Metin, URL veya dosya yükleme desteklenir.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -438,7 +564,7 @@ export default function KnowledgeBasePage() {
                             <Button
                                 variant={addType === 'text' ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => setAddType('text')}
+                                onClick={() => { setAddType('text'); setSelectedFile(null); }}
                                 className="gap-2"
                             >
                                 <BookOpen className="h-4 w-4" />
@@ -447,11 +573,20 @@ export default function KnowledgeBasePage() {
                             <Button
                                 variant={addType === 'url' ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => setAddType('url')}
+                                onClick={() => { setAddType('url'); setSelectedFile(null); }}
                                 className="gap-2"
                             >
                                 <Globe className="h-4 w-4" />
                                 URL
+                            </Button>
+                            <Button
+                                variant={addType === 'file' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => { setAddType('file'); setAddContent(''); }}
+                                className="gap-2"
+                            >
+                                <FileUp className="h-4 w-4" />
+                                Dosya Yükle
                             </Button>
                         </div>
 
@@ -467,7 +602,7 @@ export default function KnowledgeBasePage() {
                             />
                         </div>
 
-                        {/* Content */}
+                        {/* Content Area */}
                         {addType === 'text' ? (
                             <div>
                                 <Label htmlFor="kb-content">İçerik</Label>
@@ -480,10 +615,10 @@ export default function KnowledgeBasePage() {
                                     className="mt-1 font-mono text-sm"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    {addContent.length} karakter • ~{Math.ceil(addContent.length / 4)} token
+                                    {addContent.length} karakter &bull; ~{Math.ceil(addContent.length / 4)} token
                                 </p>
                             </div>
-                        ) : (
+                        ) : addType === 'url' ? (
                             <div>
                                 <Label htmlFor="kb-url">Web Sayfası URL</Label>
                                 <Input
@@ -498,19 +633,89 @@ export default function KnowledgeBasePage() {
                                     Sayfa içeriği otomatik olarak çekilecek ve işlenecektir.
                                 </p>
                             </div>
+                        ) : (
+                            /* File Upload Zone */
+                            <div>
+                                <Label>Dosya</Label>
+                                <div
+                                    className={`mt-1 relative border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer
+                                        ${dragActive
+                                            ? 'border-indigo-500 bg-indigo-500/10'
+                                            : selectedFile
+                                                ? 'border-emerald-500/50 bg-emerald-500/5'
+                                                : 'border-muted-foreground/20 hover:border-indigo-500/50 hover:bg-indigo-500/5'
+                                        }`}
+                                    onDrop={handleDrop}
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept={ACCEPTED_FILE_TYPES}
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleFileSelect(file);
+                                        }}
+                                    />
+
+                                    {selectedFile ? (
+                                        <div className="space-y-3">
+                                            <div className="h-12 w-12 rounded-xl bg-emerald-500/20 flex items-center justify-center mx-auto">
+                                                <CheckCircle className="h-6 w-6 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-sm">{selectedFile.name}</p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    {formatFileSize(selectedFile.size)} &bull; {selectedFile.type || 'Bilinmeyen tür'}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-400 hover:text-red-500"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedFile(null);
+                                                    if (fileInputRef.current) fileInputRef.current.value = '';
+                                                }}
+                                            >
+                                                <X className="h-4 w-4 mr-1" />
+                                                Dosyayı Kaldır
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 flex items-center justify-center mx-auto">
+                                                <FileUp className="h-6 w-6 text-indigo-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium">
+                                                    {dragActive ? 'Dosyayı buraya bırakın' : 'Dosya sürükleyin veya tıklayın'}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    PDF, TXT, MD, CSV desteklenir &bull; Maks. {MAX_FILE_SIZE_MB}MB
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         )}
 
                         {/* Submit */}
                         <div className="flex justify-end gap-3">
                             <Button
                                 variant="outline"
-                                onClick={() => setAddDialogOpen(false)}
+                                onClick={resetAddDialog}
                             >
                                 İptal
                             </Button>
                             <Button
                                 onClick={handleIngest}
-                                disabled={ingesting || !addContent.trim()}
+                                disabled={ingesting || !canSubmit}
                                 className="gap-2 bg-indigo-600 hover:bg-indigo-700"
                             >
                                 {ingesting ? (
@@ -521,7 +726,7 @@ export default function KnowledgeBasePage() {
                                 ) : (
                                     <>
                                         <Upload className="h-4 w-4" />
-                                        Ekle ve İşle
+                                        {addType === 'file' ? 'Yükle ve İşle' : 'Ekle ve İşle'}
                                     </>
                                 )}
                             </Button>
@@ -580,10 +785,10 @@ export default function KnowledgeBasePage() {
                                             </Badge>
                                             <Badge
                                                 className={`text-xs ${result.score > 0.7
-                                                        ? 'bg-emerald-500/20 text-emerald-400'
-                                                        : result.score > 0.5
-                                                            ? 'bg-amber-500/20 text-amber-400'
-                                                            : 'bg-gray-500/20 text-gray-400'
+                                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                                    : result.score > 0.5
+                                                        ? 'bg-amber-500/20 text-amber-400'
+                                                        : 'bg-gray-500/20 text-gray-400'
                                                     }`}
                                             >
                                                 {(result.score * 100).toFixed(0)}% eşleşme

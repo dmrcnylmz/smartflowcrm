@@ -1,14 +1,14 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Phone, AlertCircle, Calendar } from 'lucide-react';
+import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
-import { getCallLogs } from '@/lib/firebase/db';
-import { getComplaints } from '@/lib/firebase/db';
-import { getAppointments } from '@/lib/firebase/db';
+import { getCallLogs, getComplaints, getAppointments } from '@/lib/firebase/db';
 import { useActivityLogs } from '@/lib/firebase/hooks';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import type { CallLog, Complaint, Appointment } from '@/lib/firebase/types';
 import { format, subDays } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
@@ -51,7 +51,16 @@ const generateDemoData = () => {
   return { demoCalls, demoComplaints, demoAppointments };
 };
 
+// Auto-refresh intervals
+const REFRESH_INTERVALS = [
+  { label: 'Kapalı', value: 0 },
+  { label: '30 sn', value: 30000 },
+  { label: '1 dk', value: 60000 },
+  { label: '5 dk', value: 300000 },
+];
+
 export default function DashboardPage() {
+  const authFetch = useAuthFetch();
   const [stats, setStats] = useState({
     todayCalls: 0,
     missedCalls: 0,
@@ -59,7 +68,12 @@ export default function DashboardPage() {
     upcomingAppointments: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshInterval, setRefreshInterval] = useState(60000); // 1 minute default
+  const [isLive, setIsLive] = useState(true);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [chartData, setChartData] = useState<{
     calls: CallLog[];
     complaints: Complaint[];
@@ -157,9 +171,69 @@ export default function DashboardPage() {
     }));
   }, [chartData.appointments]);
 
+  // Try server-side dashboard API first, fallback to client-side
+  const loadFromServerAPI = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await authFetch('/api/dashboard');
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (!data.kpis) return false;
+
+      setStats({
+        todayCalls: data.kpis.todayCalls || 0,
+        missedCalls: data.kpis.missedCalls || 0,
+        openComplaints: data.kpis.openComplaints || 0,
+        upcomingAppointments: data.kpis.upcomingAppointments || 0,
+      });
+
+      // Convert server data to chart format if available
+      if (data.callTrend && Array.isArray(data.callTrend)) {
+        // Server trend data is already summarized
+      }
+
+      setLastUpdated(new Date());
+      setIsLive(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [authFetch]);
+
+  // Manual refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    const serverOk = await loadFromServerAPI();
+    if (!serverOk) {
+      await loadDashboardData();
+    }
+    setRefreshing(false);
+  }, [loadFromServerAPI]);
+
+  // Auto-refresh timer
+  useEffect(() => {
+    if (refreshTimerRef.current) {
+      clearInterval(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    if (refreshInterval > 0) {
+      refreshTimerRef.current = setInterval(() => {
+        handleRefresh();
+      }, refreshInterval);
+    }
+
+    return () => {
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
+  }, [refreshInterval, handleRefresh]);
+
   useEffect(() => {
     loadDashboardData();
-  }, []);
+    // Also try server API for stats
+    loadFromServerAPI();
+  }, [loadFromServerAPI]);
 
   async function loadDashboardData() {
     try {
@@ -238,7 +312,6 @@ export default function DashboardPage() {
         upcomingAppointments: upcoming.length,
       });
 
-      // Store data for charts
       setChartData({
         calls: allCalls,
         complaints: allComplaints,
@@ -285,6 +358,7 @@ export default function DashboardPage() {
       }
     } finally {
       setLoading(false);
+      setLastUpdated(new Date());
     }
   }
 
@@ -292,220 +366,298 @@ export default function DashboardPage() {
     {
       title: 'Bugünkü Çağrılar',
       value: stats.todayCalls,
-      icon: Phone,
-      color: 'text-blue-600',
+      icon: PhoneIncoming,
+      gradient: 'from-blue-500/20 to-blue-600/5',
+      iconColor: 'text-blue-500 bg-blue-500/10',
+      trend: '+12%',
+      trendUp: true,
     },
     {
       title: 'Kaçırılan Çağrılar',
       value: stats.missedCalls,
-      icon: AlertCircle,
-      color: 'text-red-600',
+      icon: Phone,
+      gradient: 'from-rose-500/20 to-rose-600/5',
+      iconColor: 'text-rose-500 bg-rose-500/10',
+      trend: '-2.4%',
+      trendUp: true,
     },
     {
       title: 'Açık Şikayetler',
       value: stats.openComplaints,
-      icon: AlertCircle,
-      color: 'text-orange-600',
+      icon: MessageSquareWarning,
+      gradient: 'from-amber-500/20 to-amber-600/5',
+      iconColor: 'text-amber-500 bg-amber-500/10',
+      trend: '+5%',
+      trendUp: false,
     },
     {
       title: 'Yaklaşan Randevular',
       value: stats.upcomingAppointments,
       icon: Calendar,
-      color: 'text-green-600',
+      gradient: 'from-emerald-500/20 to-emerald-600/5',
+      iconColor: 'text-emerald-500 bg-emerald-500/10',
+      trend: '+18%',
+      trendUp: true,
     },
   ];
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Genel bakış ve istatistikler</p>
+    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+            Genel Bakış
+          </h1>
+          <p className="text-muted-foreground mt-2 text-base md:text-lg">
+            Sistemin anlık durumu ve özet istatistikler.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Live indicator */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {isLive ? (
+              <Wifi className="h-3.5 w-3.5 text-emerald-500" />
+            ) : (
+              <WifiOff className="h-3.5 w-3.5 text-amber-500" />
+            )}
+            {lastUpdated && (
+              <span>
+                {format(lastUpdated, 'HH:mm:ss', { locale: tr })}
+              </span>
+            )}
+          </div>
+
+          {/* Auto-refresh selector */}
+          <select
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            className="text-xs h-8 rounded-lg border bg-background px-2 text-muted-foreground"
+          >
+            {REFRESH_INTERVALS.map(opt => (
+              <option key={opt.value} value={opt.value}>
+                {opt.value === 0 ? 'Manuel' : `⟳ ${opt.label}`}
+              </option>
+            ))}
+          </select>
+
+          {/* Manual refresh button */}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border bg-background hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Yenile
+          </button>
+
+          <VoiceAIStatus />
+        </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
+          <AlertCircle className="h-5 w-5" />
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {loading ? (
-          // Skeleton loading for KPI cards
           Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4 rounded" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-16" />
-              </CardContent>
-            </Card>
+            <Skeleton key={i} className="h-[160px] rounded-3xl" />
           ))
         ) : (
-          kpiCards.map((card) => {
+          kpiCards.map((card, idx) => {
             const Icon = card.icon;
             return (
-              <Card key={card.title}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {card.title}
-                  </CardTitle>
-                  <Icon className={`h-4 w-4 ${card.color}`} />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{card.value}</div>
-                </CardContent>
-              </Card>
+              <div
+                key={card.title}
+                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up`}
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`p-3 rounded-2xl ${card.iconColor}`}>
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div className={`flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-full ${card.trendUp ? 'text-emerald-600 bg-emerald-500/10' : 'text-rose-600 bg-rose-500/10'}`}>
+                    {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                    {card.trend}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-muted-foreground font-medium mb-1">{card.title}</h3>
+                  <div className="text-4xl font-bold tracking-tight text-foreground">
+                    {card.value}
+                  </div>
+                </div>
+              </div>
             );
           })
         )}
       </div>
 
-      {/* Voice AI GPU Status */}
-      <div className="mb-6">
-        <VoiceAIStatus />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Main Chart - Call Trends */}
+        <div className="xl:col-span-2 animate-fade-in-up stagger-5">
+          <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden h-full hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl">Son 7 Gün Çağrı Trendi</CardTitle>
+              <CardDescription>Gelen, yanıtlanan ve kaçırılan çağrıların günlük değişimi.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loading ? (
+                <Skeleton className="h-[350px] w-full rounded-xl" />
+              ) : (
+                <div className="h-[350px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={callTrendData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                      <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#888' }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888' }} dx={-10} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                      <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                      <Line type="monotone" dataKey="çağrılar" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="yanıtlanan" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="kaçırılan" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Complaints Pie Chart */}
+        <div className="xl:col-span-1 animate-fade-in-up stagger-6">
+          <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl h-full flex flex-col hover-lift">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl">Şikayet Kategorileri</CardTitle>
+              <CardDescription>Aktif ve geçmiş şikayetlerin dağılımı</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col justify-center pt-0">
+              {loading ? (
+                <Skeleton className="h-[250px] w-full rounded-full" />
+              ) : (
+                <div className="h-[300px] w-full mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={complaintCategoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        labelLine={false}
+                      >
+                        {complaintCategoryColors}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+                        itemStyle={{ color: '#fff' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <Card className="mb-6 border-destructive">
-          <CardContent className="pt-6">
-            <div className="text-center text-destructive">
-              <AlertCircle className="h-5 w-5 inline-block mr-2" />
-              <p>{error}</p>
-              <p className="text-sm mt-2 text-muted-foreground">
-                Firebase bağlantınızı kontrol edin (.env.local dosyası)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Son 7 Gün Çağrı Trendi */}
-        <Card>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* Appointment Bar Chart */}
+        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up stagger-7">
           <CardHeader>
-            <CardTitle>Son 7 Gün Çağrı Trendi</CardTitle>
+            <CardTitle className="text-xl">Randevu Durumları</CardTitle>
+            <CardDescription>Son 7 gündeki randevuların işlem durumu</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[300px] w-full rounded-xl" />
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={callTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="çağrılar" stroke="#3b82f6" strokeWidth={2} />
-                  <Line type="monotone" dataKey="yanıtlanan" stroke="#10b981" strokeWidth={2} />
-                  <Line type="monotone" dataKey="kaçırılan" stroke="#ef4444" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={appointmentStatusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={40}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#888' }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888' }} dx={-10} />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
+                      itemStyle={{ color: '#fff' }}
+                    />
+                    <Bar dataKey="value" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Şikayet Kategorileri */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Şikayet Kategorileri</CardTitle>
+        {/* Activity Logs */}
+        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up stagger-8">
+          <CardHeader className="bg-primary/5 border-b border-border/50">
+            <CardTitle className="text-xl">Son Aktiviteler</CardTitle>
+            <CardDescription>Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>
           </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-[300px] w-full" />
+          <CardContent className="p-0 flex-1 overflow-auto max-h-[400px]">
+            {(loading || activityLoading) ? (
+              <div className="p-6 space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-4 p-3 border-b border-white/5 last:border-0">
+                    <Skeleton className="h-10 w-10 rounded-full shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : activityError ? (
+              <div className="flex justify-center items-center h-full min-h-[200px] text-destructive">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                Aktivite logları yüklenemedi
+              </div>
+            ) : activity.length === 0 ? (
+              <div className="flex justify-center items-center h-full min-h-[200px] text-muted-foreground">
+                Henüz aktivite bulunmuyor
+              </div>
             ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={complaintCategoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
+              <div className="divide-y divide-white/5">
+                {activity.map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors"
                   >
-                    {complaintCategoryColors}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                      {log.type.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{log.desc}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(toDate(log.createdAt), 'dd MMM HH:mm', { locale: tr })}
+                      </p>
+                    </div>
+                    <div className="shrink-0 bg-secondary px-2.5 py-1 rounded-full text-[10px] font-medium tracking-wider uppercase">
+                      {log.type}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      {/* Randevu Durumu */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Randevu Durumu</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <Skeleton className="h-[300px] w-full" />
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={appointmentStatusData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#3b82f6" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Son Aktiviteler</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {(loading || activityLoading) ? (
-            <div className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-start gap-4 p-3 rounded-lg">
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <Skeleton className="h-6 w-16 rounded" />
-                </div>
-              ))}
-            </div>
-          ) : activityError ? (
-            <div className="text-center py-4 text-destructive text-sm">
-              Aktivite logları yüklenemedi
-            </div>
-          ) : activity.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground">
-              Henüz aktivite yok
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {activity.map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-4 p-3 rounded-lg hover:bg-accent"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{log.desc}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {format(toDate(log.createdAt), 'PPpp', { locale: tr })}
-                    </p>
-                  </div>
-                  <span className="text-xs px-2 py-1 bg-muted rounded">
-                    {log.type}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
-

@@ -1,12 +1,14 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -21,6 +23,16 @@ export default function LoginPage() {
     const [registerData, setRegisterData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
     const [resetEmail, setResetEmail] = useState('');
     const [formError, setFormError] = useState<string | null>(null);
+    const [rememberMe, setRememberMe] = useState(false);
+
+    // Load saved email from localStorage on mount
+    useEffect(() => {
+        const savedEmail = localStorage.getItem('smartflow_remembered_email');
+        if (savedEmail) {
+            setLoginData(prev => ({ ...prev, email: savedEmail }));
+            setRememberMe(true);
+        }
+    }, []);
 
     async function handleLogin(e: React.FormEvent) {
         e.preventDefault();
@@ -33,6 +45,12 @@ export default function LoginPage() {
         }
 
         try {
+            // Save or clear remembered email
+            if (rememberMe) {
+                localStorage.setItem('smartflow_remembered_email', loginData.email);
+            } else {
+                localStorage.removeItem('smartflow_remembered_email');
+            }
             await signIn(loginData.email, loginData.password);
             router.push('/');
         } catch {
@@ -100,8 +118,10 @@ export default function LoginPage() {
 
     if (showResetPassword) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-                <Card className="w-full max-w-md">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950 p-4 relative overflow-hidden">
+                <div className="absolute top-1/4 -left-32 w-64 h-64 rounded-full bg-blue-400/20 blur-3xl animate-float" />
+                <div className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-indigo-400/15 blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+                <Card className="w-full max-w-md relative z-10 shadow-2xl border-white/20 dark:border-white/10 backdrop-blur-sm animate-scale-in">
                     <CardHeader className="text-center">
                         <CardTitle className="text-2xl">Şifre Sıfırlama</CardTitle>
                         <CardDescription>
@@ -143,7 +163,9 @@ export default function LoginPage() {
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="reset-email"
+                                            name="email"
                                             type="email"
+                                            autoComplete="email"
                                             placeholder="ornek@email.com"
                                             value={resetEmail}
                                             onChange={(e) => setResetEmail(e.target.value)}
@@ -178,13 +200,18 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-            <Card className="w-full max-w-md">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950 p-4 relative overflow-hidden">
+            {/* Animated background orbs */}
+            <div className="absolute top-1/4 -left-32 w-64 h-64 rounded-full bg-blue-400/20 blur-3xl animate-float" />
+            <div className="absolute bottom-1/4 -right-32 w-80 h-80 rounded-full bg-indigo-400/15 blur-3xl animate-float" style={{ animationDelay: '1.5s' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-purple-400/10 blur-3xl animate-pulse-soft" />
+
+            <Card className="w-full max-w-md relative z-10 shadow-2xl border-white/20 dark:border-white/10 backdrop-blur-sm animate-scale-in">
                 <CardHeader className="text-center">
-                    <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
+                    <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 animate-float">
                         <span className="text-2xl text-white font-bold">SF</span>
                     </div>
-                    <CardTitle className="text-2xl">SmartFlow CRM</CardTitle>
+                    <CardTitle className="text-2xl text-gradient">SmartFlow CRM</CardTitle>
                     <CardDescription>
                         AI destekli çağrı yönetimi ve müşteri hizmetleri platformu
                     </CardDescription>
@@ -197,7 +224,7 @@ export default function LoginPage() {
                         </TabsList>
 
                         <TabsContent value="login">
-                            <form onSubmit={handleLogin} className="space-y-4">
+                            <form onSubmit={handleLogin} className="space-y-4" autoComplete="on">
                                 {(error || formError) && (
                                     <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
                                         <AlertCircle className="h-4 w-4" />
@@ -211,7 +238,9 @@ export default function LoginPage() {
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="login-email"
+                                            name="email"
                                             type="email"
+                                            autoComplete="email"
                                             placeholder="ornek@email.com"
                                             value={loginData.email}
                                             onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
@@ -226,13 +255,26 @@ export default function LoginPage() {
                                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="login-password"
+                                            name="password"
                                             type="password"
+                                            autoComplete="current-password"
                                             placeholder="••••••••"
                                             value={loginData.password}
                                             onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                                             className="pl-10"
                                         />
                                     </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Checkbox
+                                        id="remember-me"
+                                        checked={rememberMe}
+                                        onCheckedChange={(checked) => setRememberMe(checked === true)}
+                                    />
+                                    <Label htmlFor="remember-me" className="text-sm font-normal text-muted-foreground cursor-pointer">
+                                        Beni Hatırla
+                                    </Label>
                                 </div>
 
                                 <Button type="submit" className="w-full" disabled={loading}>
@@ -293,7 +335,7 @@ export default function LoginPage() {
                         </TabsContent>
 
                         <TabsContent value="register">
-                            <form onSubmit={handleRegister} className="space-y-4">
+                            <form onSubmit={handleRegister} className="space-y-4" autoComplete="on">
                                 {(error || formError) && (
                                     <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive text-sm">
                                         <AlertCircle className="h-4 w-4" />
@@ -307,7 +349,9 @@ export default function LoginPage() {
                                         <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="register-name"
+                                            name="name"
                                             type="text"
+                                            autoComplete="name"
                                             placeholder="Ad Soyad"
                                             value={registerData.name}
                                             onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
@@ -322,7 +366,9 @@ export default function LoginPage() {
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="register-email"
+                                            name="email"
                                             type="email"
+                                            autoComplete="email"
                                             placeholder="ornek@email.com"
                                             value={registerData.email}
                                             onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
@@ -337,7 +383,9 @@ export default function LoginPage() {
                                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="register-password"
+                                            name="new-password"
                                             type="password"
+                                            autoComplete="new-password"
                                             placeholder="••••••••"
                                             value={registerData.password}
                                             onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
@@ -352,7 +400,9 @@ export default function LoginPage() {
                                         <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="register-confirm-password"
+                                            name="confirm-password"
                                             type="password"
+                                            autoComplete="new-password"
                                             placeholder="••••••••"
                                             value={registerData.confirmPassword}
                                             onChange={(e) => setRegisterData({ ...registerData, confirmPassword: e.target.value })}

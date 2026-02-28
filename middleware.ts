@@ -33,12 +33,20 @@ const PUBLIC_API_PATHS = [
     '/api/ai/status',
     '/api/twilio/incoming',
     '/api/twilio/status',
+    '/api/twilio/gather',
+    '/api/twilio/recording',
+    '/api/billing/webhook',
+    '/api/automation',
+    '/api/cron/appointment-reminders',
+    '/api/monitoring/errors',
 ];
 
 /** Allowed origins for CORS */
 const ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:3001',
+    'http://localhost:3009',
+    'http://127.0.0.1:3009',
     process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 
@@ -49,10 +57,11 @@ const SECURITY_HEADERS: Record<string, string> = {
     'X-XSS-Protection': '1; mode=block',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()',
+    'X-DNS-Prefetch-Control': 'on',
 };
 
 /** Page routes that are public (no login required) */
-const PUBLIC_PAGE_PATHS = ['/login'];
+const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy'];
 
 /** Rate limit: 100 req/min for general API, 10 req/min for auth-sensitive */
 const RATE_LIMIT_WINDOW_MS = 60_000;
