@@ -1,127 +1,73 @@
-// Personaplex Intent Integration
-// Analyzes voice transcripts for intent detection
+/**
+ * Personaplex Intent Detection
+ * Uses the Personaplex RunPod-based voice AI for intent classification.
+ */
 
-import { detectIntent, detectIntentWithLLM, type IntentResult } from './router';
+const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || '';
+const PERSONAPLEX_CONTEXT_URL = process.env.PERSONAPLEX_CONTEXT_URL || '';
+const PERSONAPLEX_API_KEY = process.env.PERSONAPLEX_API_KEY || '';
 
-export interface VoiceMetadata {
-    sessionId: string;
-    persona: string;
-    duration: number;
-    turnCount: number;
-    avgLatency?: number;
-}
-
-export interface VoiceIntentResult extends IntentResult {
-    voiceMetadata?: VoiceMetadata;
-    fullTranscript: string;
-    keyPhrases: string[];
+export interface PersonaplexIntentResult {
+  intent: string;
+  confidence: number;
+  entities?: Record<string, string>;
+  language?: string;
 }
 
 /**
- * Extract key phrases from transcript for better intent detection
+ * Check if Personaplex service is available.
  */
-function extractKeyPhrases(transcript: string): string[] {
-    const phrases: string[] = [];
+export async function isPersonaplexAvailable(): Promise<boolean> {
+  if (!PERSONAPLEX_URL) return false;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(`${PERSONAPLEX_URL}/health`, {
+      signal: controller.signal,
+      headers: PERSONAPLEX_API_KEY ? { 'Authorization': `Bearer ${PERSONAPLEX_API_KEY}` } : {},
+    });
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
-    // Common intent indicators in Turkish
-    const patterns = [
-        /randevu\s+\w+/gi,
-        /iptal\s+\w+/gi,
-        /şikayet\s+\w+/gi,
-        /problem\s+\w+/gi,
-        /bilgi\s+\w+/gi,
-        /yardım\s+\w+/gi,
-        /fiyat\s+\w+/gi,
-        /ücret\s+\w+/gi,
-    ];
-
-    for (const pattern of patterns) {
-        const matches = transcript.match(pattern);
-        if (matches) {
-            phrases.push(...matches);
-        }
+/**
+ * Detect intent using Personaplex.
+ */
+export async function detectIntentWithPersonaplex(
+  text: string
+): Promise<PersonaplexIntentResult> {
+  if (!PERSONAPLEX_URL) {
+    return { intent: 'unknown', confidence: 0 };
+  }
+  
+  try {
+    const response = await fetch(`${PERSONAPLEX_CONTEXT_URL}/intent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(PERSONAPLEX_API_KEY ? { 'Authorization': `Bearer ${PERSONAPLEX_API_KEY}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    });
+    
+    if (!response.ok) {
+      return { intent: 'unknown', confidence: 0 };
     }
-
-    return [...new Set(phrases)]; // Remove duplicates
-}
-
-/**
- * Analyze voice transcript and detect intent
- */
-export async function analyzeVoiceTranscript(
-    transcript: string,
-    metadata?: VoiceMetadata,
-    useLLM: boolean = false
-): Promise<VoiceIntentResult> {
-    // Clean transcript - remove speaker labels if present
-    const cleanTranscript = transcript
-        .replace(/^(user|assistant|müşteri|asistan):\s*/gmi, '')
-        .trim();
-
-    // Extract key phrases
-    const keyPhrases = extractKeyPhrases(cleanTranscript);
-
-    // Detect intent
-    let intentResult: IntentResult;
-
-    if (useLLM) {
-        intentResult = await detectIntentWithLLM(cleanTranscript);
-    } else {
-        intentResult = await detectIntent(cleanTranscript);
-    }
-
+    
+    const data = await response.json();
     return {
-        ...intentResult,
-        voiceMetadata: metadata,
-        fullTranscript: transcript,
-        keyPhrases,
+      intent: data.intent || 'unknown',
+      confidence: data.confidence || 0,
+      entities: data.entities,
+      language: data.language,
     };
-}
-
-/**
- * Summarize a voice conversation transcript
- */
-export function summarizeConversation(
-    transcript: string,
-    intent: string
-): string {
-    const lines = transcript.split('\n').filter(l => l.trim());
-    const turnCount = lines.length;
-
-    // Create a brief summary based on intent
-    const intentSummaries: Record<string, string> = {
-        randevu: 'Randevu talebi görüşmesi',
-        sikayet: 'Şikayet bildirimi görüşmesi',
-        bilgi: 'Bilgi talebi görüşmesi',
-        iptal: 'İptal talebi görüşmesi',
-        unknown: 'Genel görüşme',
-    };
-
-    const baseDescription = intentSummaries[intent] || intentSummaries.unknown;
-
-    return `${baseDescription}. ${turnCount} konuşma dönüşü.`;
-}
-
-/**
- * Process and save voice call result to Firestore
- */
-export async function processVoiceCallResult(
-    sessionId: string,
-    transcript: string,
-    metadata: VoiceMetadata,
-    customerId?: string
-): Promise<{
-    intent: VoiceIntentResult;
-    summary: string;
-}> {
-    // Analyze transcript
-    const intent = await analyzeVoiceTranscript(transcript, metadata, true);
-
-    // Generate summary
-    const summary = summarizeConversation(transcript, intent.intent);
-
-    return {
-        intent,
-        summary,
-    };
+  } catch (error) {
+    console.error('[Personaplex] Intent detection failed:', error);
+    return { intent: 'unknown', confidence: 0 };
+  }
 }

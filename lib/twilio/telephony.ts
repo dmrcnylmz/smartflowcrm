@@ -201,6 +201,95 @@ export async function registerPhoneNumber(
 }
 
 // =============================================
+// Vercel-Compatible TwiML (No WebSocket needed)
+// =============================================
+
+/**
+ * Generate TwiML for incoming call with speech gathering.
+ * Works on Vercel/serverless - no WebSocket required.
+ *
+ * Flow: Twilio answers → Says greeting → Gathers speech → POSTs to /api/twilio/gather
+ */
+export function generateGatherTwiML(options: {
+    gatherUrl: string;
+    message: string;
+    language?: string;
+    voice?: string;
+    timeout?: number;
+    speechTimeout?: string;
+    statusCallbackUrl?: string;
+    recordCall?: boolean;
+    recordingCallbackUrl?: string;
+}): string {
+    const {
+        gatherUrl,
+        message,
+        language = 'tr-TR',
+        voice = 'Google.tr-TR-Standard-A',
+        timeout = 10,
+        speechTimeout = 'auto',
+        statusCallbackUrl,
+        recordCall = false,
+        recordingCallbackUrl,
+    } = options;
+
+    // Optional call recording directive
+    const recordDirective = recordCall
+        ? `<Record recordingStatusCallback="${escapeXml(recordingCallbackUrl || '')}" recordingStatusCallbackMethod="POST" trim="trim-silence" maxLength="3600" />\n  `
+        : '';
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  ${recordDirective}<Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(message)}</Say>
+  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}" enhanced="true">
+    <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Dinliyorum...</Say>
+  </Gather>
+  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Ses algılanamadı. Aradığınız için teşekkür ederiz. İyi günler.</Say>
+  ${statusCallbackUrl ? `<Redirect>${escapeXml(statusCallbackUrl)}</Redirect>` : '<Hangup/>'}
+</Response>`;
+}
+
+/**
+ * Generate TwiML for continuing conversation after AI response.
+ * Says the AI response, then gathers next speech input.
+ */
+export function generateResponseAndGatherTwiML(options: {
+    gatherUrl: string;
+    aiResponse: string;
+    language?: string;
+    voice?: string;
+    timeout?: number;
+    speechTimeout?: string;
+    shouldHangup?: boolean;
+}): string {
+    const {
+        gatherUrl,
+        aiResponse,
+        language = 'tr-TR',
+        voice = 'Google.tr-TR-Standard-A',
+        timeout = 10,
+        speechTimeout = 'auto',
+        shouldHangup = false,
+    } = options;
+
+    if (shouldHangup) {
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(aiResponse)}</Say>
+  <Hangup/>
+</Response>`;
+    }
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(aiResponse)}</Say>
+  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}" enhanced="true"/>
+  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.</Say>
+  <Hangup/>
+</Response>`;
+}
+
+// =============================================
 // Helpers
 // =============================================
 

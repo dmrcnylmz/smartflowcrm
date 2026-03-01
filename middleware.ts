@@ -51,6 +51,11 @@ const ALLOWED_ORIGINS = [
 ].filter(Boolean) as string[];
 
 /** Security headers applied to all responses */
+const isDev = process.env.NODE_ENV === 'development';
+const scriptSrc = isDev
+    ? "'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com"
+    : "'self' 'unsafe-inline' https://apis.google.com";
+
 const SECURITY_HEADERS: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
@@ -60,12 +65,13 @@ const SECURITY_HEADERS: Record<string, string> = {
     'X-DNS-Prefetch-Control': 'on',
     'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com",
+        `script-src ${scriptSrc}`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https:",
         "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://*.google.com",
         "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com",
+        "frame-ancestors 'none'",
         "object-src 'none'",
         "base-uri 'self'",
     ].join('; '),

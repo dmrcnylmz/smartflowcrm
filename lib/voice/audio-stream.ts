@@ -38,6 +38,9 @@ export async function checkMicrophonePermission(): Promise<'granted' | 'denied' 
  * Request microphone access
  */
 export async function requestMicrophoneAccess(config: AudioConfig = DEFAULT_CONFIG): Promise<MediaStream> {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Mikrofon erişimi için HTTPS bağlantısı gereklidir. Lütfen HTTPS veya localhost kullanın.');
+    }
     return navigator.mediaDevices.getUserMedia({
         audio: {
             channelCount: config.channelCount,

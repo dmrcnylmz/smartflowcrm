@@ -46,6 +46,10 @@
                 {
                     "key": "Strict-Transport-Security",
                     "value": "max-age=63072000; includeSubDomains; preload"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "camera=(), microphone=(self), geolocation=()"
                 }
             ]
         }
@@ -57,14 +61,29 @@
         }
     ],
     "functions": {
+        "app/api/knowledge/route.ts": {
+            "maxDuration": 60
+        },
         "app/api/voice/**/*.ts": {
             "maxDuration": 30
         },
         "app/api/twilio/**/*.ts": {
             "maxDuration": 30
         },
+        "app/api/cron/**/*.ts": {
+            "maxDuration": 60
+        },
+        "app/api/dashboard/route.ts": {
+            "maxDuration": 15
+        },
         "app/api/**/*.ts": {
             "maxDuration": 10
         }
-    }
+    },
+    "crons": [
+        {
+            "path": "/api/cron/appointment-reminders",
+            "schedule": "0 8 * * *"
+        }
+    ]
 }

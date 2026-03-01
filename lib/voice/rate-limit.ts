@@ -1,174 +1,107 @@
-// Rate Limiting Middleware for Voice API
-// Uses sliding window algorithm with Redis-compatible in-memory fallback
+// Voice API Rate Limiting
+// Simple in-memory rate limiter for voice endpoints
 
 import { NextRequest, NextResponse } from 'next/server';
 
 interface RateLimitConfig {
-    windowMs: number;       // Time window in milliseconds
-    maxRequests: number;    // Max requests per window
-    keyGenerator?: (req: NextRequest) => string;
+  maxRequests: number;
+  windowMs: number;
 }
 
 interface RateLimitEntry {
-    count: number;
-    resetTime: number;
+  count: number;
+  resetTime: number;
 }
 
-// In-memory store (use Redis in production for multi-instance)
-const rateLimitStore = new Map<string, RateLimitEntry>();
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetTime: number;
+}
 
-// Cleanup old entries periodically
-setInterval(() => {
+// In-memory store (per-process; use Redis for multi-instance)
+const store = new Map<string, RateLimitEntry>();
+
+// Cleanup stale entries every 60 seconds
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
     const now = Date.now();
-    for (const [key, entry] of rateLimitStore.entries()) {
-        if (entry.resetTime < now) {
-            rateLimitStore.delete(key);
-        }
+    for (const [key, entry] of store.entries()) {
+      if (entry.resetTime < now) {
+        store.delete(key);
+      }
     }
-}, 60000); // Cleanup every minute
-
-// Default key generator: IP-based
-function defaultKeyGenerator(req: NextRequest): string {
-    const forwarded = req.headers.get('x-forwarded-for');
-    const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-    return `rate_limit:${ip}`;
+  }, 60_000);
 }
 
-// Rate limit check
-export function checkRateLimit(
-    req: NextRequest,
-    config: RateLimitConfig
-): { allowed: boolean; remaining: number; resetTime: number } {
-    const key = (config.keyGenerator || defaultKeyGenerator)(req);
-    const now = Date.now();
-
-    let entry = rateLimitStore.get(key);
-
-    // Create new entry if doesn't exist or expired
-    if (!entry || entry.resetTime < now) {
-        entry = {
-            count: 0,
-            resetTime: now + config.windowMs,
-        };
-        rateLimitStore.set(key, entry);
-    }
-
-    // Increment count
-    entry.count++;
-
-    return {
-        allowed: entry.count <= config.maxRequests,
-        remaining: Math.max(0, config.maxRequests - entry.count),
-        resetTime: entry.resetTime,
-    };
-}
-
-// Rate limit response headers
-export function getRateLimitHeaders(
-    remaining: number,
-    resetTime: number,
-    limit: number
-): Record<string, string> {
-    return {
-        'X-RateLimit-Limit': limit.toString(),
-        'X-RateLimit-Remaining': remaining.toString(),
-        'X-RateLimit-Reset': Math.ceil(resetTime / 1000).toString(),
-    };
-}
-
-// Create rate limited response
-export function rateLimitExceeded(resetTime: number): NextResponse {
-    const retryAfter = Math.ceil((resetTime - Date.now()) / 1000);
-
-    return NextResponse.json(
-        {
-            error: 'Rate limit exceeded',
-            message: 'Çok fazla istek gönderdiniz. Lütfen bekleyin.',
-            retryAfter,
-        },
-        {
-            status: 429,
-            headers: {
-                'Retry-After': retryAfter.toString(),
-            },
-        }
-    );
-}
-
-// Pre-configured rate limiters
+/** Pre-configured rate limit tiers */
 export const RATE_LIMITS = {
-    // Voice API: 10 requests per minute per IP
-    voice: {
-        windowMs: 60 * 1000,
-        maxRequests: 10,
-    },
-
-    // Inference: 30 requests per minute per IP
-    inference: {
-        windowMs: 60 * 1000,
-        maxRequests: 30,
-    },
-
-    // Session creation: 5 per minute per IP
-    session: {
-        windowMs: 60 * 1000,
-        maxRequests: 5,
-    },
-
-    // General API: 100 requests per minute per IP
-    general: {
-        windowMs: 60 * 1000,
-        maxRequests: 100,
-    },
+  /** General API endpoints: 60 req/min */
+  general: { maxRequests: 60, windowMs: 60_000 } satisfies RateLimitConfig,
+  /** Session creation: 10 req/min (expensive) */
+  session: { maxRequests: 10, windowMs: 60_000 } satisfies RateLimitConfig,
+  /** Inference: 30 req/min */
+  inference: { maxRequests: 30, windowMs: 60_000 } satisfies RateLimitConfig,
 };
 
-// Usage cost tracking (for monitoring, not billing)
-interface UsageRecord {
-    timestamp: number;
-    endpoint: string;
-    durationMs: number;
-    tokensUsed?: number;
-    audioSeconds?: number;
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  return forwarded ? forwarded.split(',')[0].trim() : 'unknown';
 }
 
-const usageLog: UsageRecord[] = [];
-const MAX_USAGE_LOG_SIZE = 10000;
+/** Check rate limit for a request */
+export function checkRateLimit(
+  request: NextRequest,
+  config: RateLimitConfig,
+): RateLimitResult {
+  const ip = getClientIp(request);
+  const key = `voice:${ip}:${config.maxRequests}`;
+  const now = Date.now();
 
-export function trackUsage(record: Omit<UsageRecord, 'timestamp'>) {
-    usageLog.push({
-        ...record,
-        timestamp: Date.now(),
-    });
+  let entry = store.get(key);
 
-    // Trim old records
-    if (usageLog.length > MAX_USAGE_LOG_SIZE) {
-        usageLog.splice(0, usageLog.length - MAX_USAGE_LOG_SIZE);
-    }
+  if (!entry || entry.resetTime < now) {
+    entry = { count: 0, resetTime: now + config.windowMs };
+    store.set(key, entry);
+  }
+
+  entry.count++;
+
+  return {
+    allowed: entry.count <= config.maxRequests,
+    remaining: Math.max(0, config.maxRequests - entry.count),
+    resetTime: entry.resetTime,
+  };
 }
 
-export function getUsageStats(windowMs: number = 3600000): {
-    totalRequests: number;
-    totalDurationMs: number;
-    totalAudioSeconds: number;
-    byEndpoint: Record<string, number>;
-} {
-    const cutoff = Date.now() - windowMs;
-    const recentLogs = usageLog.filter(r => r.timestamp > cutoff);
+/** Return a 429 response */
+export function rateLimitExceeded(resetTime: number): NextResponse {
+  const retryAfter = Math.ceil((resetTime - Date.now()) / 1000);
 
-    const byEndpoint: Record<string, number> = {};
-    let totalDurationMs = 0;
-    let totalAudioSeconds = 0;
+  return NextResponse.json(
+    {
+      error: 'Rate limit exceeded',
+      message: 'Too many requests. Please wait before trying again.',
+      retryAfter,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': retryAfter.toString(),
+      },
+    },
+  );
+}
 
-    for (const log of recentLogs) {
-        byEndpoint[log.endpoint] = (byEndpoint[log.endpoint] || 0) + 1;
-        totalDurationMs += log.durationMs;
-        totalAudioSeconds += log.audioSeconds || 0;
-    }
-
-    return {
-        totalRequests: recentLogs.length,
-        totalDurationMs,
-        totalAudioSeconds,
-        byEndpoint,
-    };
+/** Build rate limit headers for successful responses */
+export function getRateLimitHeaders(
+  remaining: number,
+  resetTime: number,
+  maxRequests: number,
+): Record<string, string> {
+  return {
+    'X-RateLimit-Limit': maxRequests.toString(),
+    'X-RateLimit-Remaining': remaining.toString(),
+    'X-RateLimit-Reset': Math.ceil(resetTime / 1000).toString(),
+  };
 }

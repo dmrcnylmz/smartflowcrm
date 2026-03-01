@@ -1,269 +1,128 @@
-import { useEffect, useState, useMemo } from 'react';
-import { collection, query, onSnapshot, QueryConstraint, orderBy, limit as firestoreLimit, where, Timestamp } from 'firebase/firestore';
-import { db } from './config';
-import {
-  demoCustomers,
-  demoAppointments,
-  demoComplaints,
-  demoCallLogs,
-  demoInfoRequests,
-  demoActivityLogs,
-  demoDb
-} from './demo-data';
+"use client"
 
-// Demo mode flag - set to true when Firebase fails
-let useDemoMode = false;
+import { useState, useEffect, useCallback } from 'react';
+import { getCustomers, getCallLogs, getAppointments, getComplaints, getActivityLogs } from './db';
+import type { Customer, CallLog, Appointment, Complaint, ActivityLog } from './types';
 
-export function useFirestoreCollection<T>(
-  collectionName: string,
-  constraints: QueryConstraint[] = [],
-  demoData: T[] = []
-) {
-  const [data, setData] = useState<T[]>([]);
+// Generic hook result type
+interface UseQueryResult<T> {
+  data: T[];
+  loading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+export function useCustomers(): UseQueryResult<Customer> {
+  const [data, setData] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Memoize query to avoid unnecessary recreations
-  const q = useMemo(() => {
+  const fetchData = useCallback(async () => {
     try {
-      return query(collection(db, collectionName), ...constraints);
-    } catch (err) {
-      console.error(`Query setup error for ${collectionName}:`, err);
-      return null;
-    }
-  }, [collectionName, constraints]);
-
-  useEffect(() => {
-    // If demo mode is active, use demo data directly
-    if (useDemoMode) {
-      console.log(`📋 Demo mode: Using demo data for ${collectionName}`);
-      setData(demoData);
-      setLoading(false);
+      setLoading(true);
       setError(null);
-      return;
-    }
-
-    if (!q) {
-      // Fallback to demo data
-      console.log(`📋 Query failed, using demo data for ${collectionName}`);
-      setData(demoData);
+      const result = await getCustomers();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch customers'));
+    } finally {
       setLoading(false);
-      return;
     }
+  }, []);
 
-    setLoading(true);
-    setError(null);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as T[];
-        setData(items);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        console.warn(`⚠️ Firestore ${collectionName} error:`, err.message);
-        // Switch to demo mode on permission error
-        if (err.message?.includes('permission') || err.code === 'permission-denied') {
-          console.log(`📋 Switching to demo mode for ${collectionName}`);
-          useDemoMode = true;
-          setData(demoData);
-          setError(null);
-        } else {
-          setError(err as Error);
-        }
-        setLoading(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, [q, collectionName, demoData]);
-
-  return { data, loading, error };
+  return { data, loading, error, refetch: fetchData };
 }
 
-/**
- * Real-time hook for activity logs
- */
-export function useActivityLogs(limitCount: number = 20) {
-  const constraints = useMemo(() => [
-    orderBy('createdAt', 'desc'),
-    firestoreLimit(limitCount),
-  ], [limitCount]);
+export function useCalls(): UseQueryResult<CallLog> {
+  const [data, setData] = useState<CallLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const demoData = useMemo(() => demoActivityLogs.slice(0, limitCount), [limitCount]);
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getCallLogs();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch call logs'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  return useFirestoreCollection<import('./types').ActivityLog>('activity_logs', constraints, demoData);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return { data, loading, error, refetch: fetchData };
 }
 
-/**
- * Real-time hook for calls with optional filters
- */
-export function useCalls(options?: {
-  dateFrom?: Date;
-  dateTo?: Date;
-  status?: string;
-  limitCount?: number;
-}) {
-  const constraints = useMemo(() => {
-    const cons: QueryConstraint[] = [];
+export function useAppointments(): UseQueryResult<Appointment> {
+  const [data, setData] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-    if (options?.dateFrom) {
-      cons.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getAppointments();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch appointments'));
+    } finally {
+      setLoading(false);
     }
-    if (options?.dateTo) {
-      cons.push(where('createdAt', '<=', Timestamp.fromDate(options.dateTo)));
-    }
-    if (options?.status) {
-      cons.push(where('status', '==', options.status));
-    }
+  }, []);
 
-    cons.push(orderBy('createdAt', 'desc'));
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-    if (options?.limitCount) {
-      cons.push(firestoreLimit(options.limitCount));
-    }
-
-    return cons;
-  }, [
-    options?.dateFrom?.getTime(),
-    options?.dateTo?.getTime(),
-    options?.status,
-    options?.limitCount,
-  ]);
-
-  return useFirestoreCollection<import('./types').CallLog>('calls', constraints, demoCallLogs);
+  return { data, loading, error, refetch: fetchData };
 }
 
-/**
- * Real-time hook for complaints with optional status filter
- */
-export function useComplaints(status?: string) {
-  const constraints = useMemo(() => {
-    const cons: QueryConstraint[] = [];
+export function useComplaints(): UseQueryResult<Complaint> {
+  const [data, setData] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-    if (status) {
-      cons.push(where('status', '==', status));
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getComplaints();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch complaints'));
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    cons.push(orderBy('createdAt', 'desc'));
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-    return cons;
-  }, [status]);
-
-  const demoData = useMemo(() => {
-    if (status) {
-      return demoComplaints.filter(c => c.status === status);
-    }
-    return demoComplaints;
-  }, [status]);
-
-  return useFirestoreCollection<import('./types').Complaint>('complaints', constraints, demoData);
+  return { data, loading, error, refetch: fetchData };
 }
 
-/**
- * Real-time hook for appointments with optional filters
- */
-export function useAppointments(options?: {
-  dateFrom?: Date;
-  dateTo?: Date;
-  status?: string;
-  limitCount?: number;
-}) {
-  const constraints = useMemo(() => {
-    const cons: QueryConstraint[] = [];
+export function useActivityLogs(): UseQueryResult<ActivityLog> {
+  const [data, setData] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-    if (options?.dateFrom) {
-      cons.push(where('dateTime', '>=', Timestamp.fromDate(options.dateFrom)));
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getActivityLogs(20);
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to fetch activity logs'));
+    } finally {
+      setLoading(false);
     }
-    if (options?.dateTo) {
-      cons.push(where('dateTime', '<=', Timestamp.fromDate(options.dateTo)));
-    }
-    if (options?.status) {
-      cons.push(where('status', '==', options.status));
-    }
+  }, []);
 
-    cons.push(orderBy('dateTime', 'asc'));
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-    if (options?.limitCount) {
-      cons.push(firestoreLimit(options.limitCount));
-    }
-
-    return cons;
-  }, [
-    options?.dateFrom?.getTime(),
-    options?.dateTo?.getTime(),
-    options?.status,
-    options?.limitCount,
-  ]);
-
-  return useFirestoreCollection<import('./types').Appointment>('appointments', constraints, demoAppointments);
-}
-
-/**
- * Real-time hook for customers
- */
-export function useCustomers(limitCount?: number) {
-  const constraints = useMemo(() => {
-    const cons: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-    if (limitCount) {
-      cons.push(firestoreLimit(limitCount));
-    }
-    return cons;
-  }, [limitCount]);
-
-  const demoData = useMemo(() => {
-    return limitCount ? demoCustomers.slice(0, limitCount) : demoCustomers;
-  }, [limitCount]);
-
-  return useFirestoreCollection<import('./types').Customer>('customers', constraints, demoData);
-}
-
-/**
- * Real-time hook for info requests with optional filters
- */
-export function useInfoRequests(options?: {
-  dateFrom?: Date;
-  dateTo?: Date;
-  status?: string;
-  limitCount?: number;
-}) {
-  const constraints = useMemo(() => {
-    const cons: QueryConstraint[] = [];
-
-    if (options?.dateFrom) {
-      cons.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
-    }
-    if (options?.dateTo) {
-      cons.push(where('createdAt', '<=', Timestamp.fromDate(options.dateTo)));
-    }
-    if (options?.status) {
-      cons.push(where('status', '==', options.status));
-    }
-
-    cons.push(orderBy('createdAt', 'desc'));
-
-    if (options?.limitCount) {
-      cons.push(firestoreLimit(options.limitCount));
-    }
-
-    return cons;
-  }, [
-    options?.dateFrom?.getTime(),
-    options?.dateTo?.getTime(),
-    options?.status,
-    options?.limitCount,
-  ]);
-
-  return useFirestoreCollection<import('./types').InfoRequest>('info_requests', constraints, demoInfoRequests);
-}
-
-// Export demo mode utilities
-export { demoDb, useDemoMode };
-export function isDemoModeActive() {
-  return useDemoMode;
+  return { data, loading, error, refetch: fetchData };
 }

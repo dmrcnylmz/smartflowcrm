@@ -28,6 +28,7 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env.local.save
 
 # vercel
 .vercel
@@ -61,4 +62,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-.env.local.save
+build.log
+
+# Sibling project (not part of this repo)
+call-center-platform/

@@ -1,22 +1,36 @@
-// App Constants
-
 export const APP_NAME = 'SmartFlow CRM';
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '1.0.0';
 
-// Status options
-export const CALL_STATUSES = ['answered', 'missed', 'rejected'] as const;
-export const APPOINTMENT_STATUSES = ['scheduled', 'confirmed', 'completed', 'cancelled'] as const;
-export const COMPLAINT_STATUSES = ['open', 'investigating', 'resolved', 'closed'] as const;
-export const COMPLAINT_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export const ITEMS_PER_PAGE = 20;
 
-// SLA times (in hours)
-export const SLA_TIMES = {
-  complaint_response: 24,
-  appointment_reminder_1: 24,
-  appointment_reminder_2: 1,
+export const STATUS_LABELS: Record<string, string> = {
+  active: 'Aktif',
+  inactive: 'Pasif',
+  open: 'Açık',
+  'in-progress': 'İşlemde',
+  resolved: 'Çözüldü',
+  closed: 'Kapalı',
+  scheduled: 'Planlandı',
+  completed: 'Tamamlandı',
+  cancelled: 'İptal Edildi',
+  'no-show': 'Gelmedi',
+  pending: 'Bekliyor',
+  answered: 'Yanıtlandı',
+  missed: 'Cevapsız',
+  ongoing: 'Devam Ediyor',
+  failed: 'Başarısız',
 };
 
-// Default limits
-export const DEFAULT_PAGE_SIZE = 50;
-export const MAX_PAGE_SIZE = 200;
+export const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Düşük',
+  medium: 'Orta',
+  high: 'Yüksek',
+  urgent: 'Acil',
+};
 
+export const PRIORITY_COLORS: Record<string, string> = {
+  low: 'bg-blue-100 text-blue-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  high: 'bg-orange-100 text-orange-800',
+  urgent: 'bg-red-100 text-red-800',
+};

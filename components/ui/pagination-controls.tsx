@@ -1,78 +1,124 @@
-'use client';
+"use client"
 
-import * as React from 'react';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronDown, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import * as React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+
+import { Button } from "./button"
+import { cn } from "@/lib/utils"
 
 interface PaginationControlsProps {
-  currentLimit: number;
-  totalItems: number;
-  filteredItems: number;
-  onLimitChange: (limit: number) => void;
-  onLoadMore: () => void;
-  isLoading?: boolean;
-  hasMore?: boolean;
-  className?: string;
+  currentPage: number
+  totalPages: number
+  onPageChange: (page: number) => void
+  pageSize?: number
+  totalItems?: number
+  className?: string
 }
 
-const LIMIT_OPTIONS = [25, 50, 100, 200, 500];
-
-export function PaginationControls({
-  currentLimit,
+function PaginationControls({
+  currentPage,
+  totalPages,
+  onPageChange,
+  pageSize,
   totalItems,
-  filteredItems,
-  onLimitChange,
-  onLoadMore,
-  isLoading = false,
-  hasMore = true,
   className,
 }: PaginationControlsProps) {
+  const canGoPrevious = currentPage > 1
+  const canGoNext = currentPage < totalPages
+
+  const getPageNumbers = () => {
+    const pages: (number | "ellipsis")[] = []
+    const maxVisible = 5
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      pages.push(1)
+
+      if (currentPage > 3) {
+        pages.push("ellipsis")
+      }
+
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+
+      if (currentPage < totalPages - 2) {
+        pages.push("ellipsis")
+      }
+
+      pages.push(totalPages)
+    }
+
+    return pages
+  }
+
+  if (totalPages <= 1) return null
+
   return (
-    <div className={cn('flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t', className)}>
-      <div className="flex items-center gap-4">
-        <div className="text-sm text-muted-foreground">
-          <span className="font-medium">{filteredItems}</span> / {totalItems} kayıt gösteriliyor
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Limit:</span>
-          <Select value={currentLimit.toString()} onValueChange={(v) => onLimitChange(parseInt(v))}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LIMIT_OPTIONS.map(limit => (
-                <SelectItem key={limit} value={limit.toString()}>
-                  {limit}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      
-      {hasMore && (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 py-4",
+        className
+      )}
+    >
+      {totalItems !== undefined && pageSize !== undefined && (
+        <p className="text-sm text-muted-foreground">
+          Showing {Math.min((currentPage - 1) * pageSize + 1, totalItems)}-
+          {Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+        </p>
+      )}
+
+      <div className="flex items-center gap-1 ml-auto">
         <Button
           variant="outline"
-          onClick={onLoadMore}
-          disabled={isLoading}
-          className="gap-2"
+          size="icon"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={!canGoPrevious}
+          aria-label="Previous page"
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Yükleniyor...
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-4 w-4" />
-              Daha Fazla Yükle
-            </>
-          )}
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-      )}
+
+        {getPageNumbers().map((page, idx) =>
+          page === "ellipsis" ? (
+            <span
+              key={`ellipsis-${idx}`}
+              className="px-2 text-sm text-muted-foreground"
+            >
+              ...
+            </span>
+          ) : (
+            <Button
+              key={page}
+              variant={currentPage === page ? "default" : "outline"}
+              size="icon"
+              onClick={() => onPageChange(page)}
+              aria-label={`Page ${page}`}
+              aria-current={currentPage === page ? "page" : undefined}
+            >
+              {page}
+            </Button>
+          )
+        )}
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={!canGoNext}
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
-  );
+  )
 }
 
+export { PaginationControls }

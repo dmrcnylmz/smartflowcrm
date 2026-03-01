@@ -2,9 +2,291 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read and write
+
+    // =============================================
+    // Helper Functions
+    // =============================================
+
+    // Check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Get the user's tenant ID from custom claims
+    function userTenantId() {
+      return request.auth.token.tenantId;
+    }
+
+    // Check if user belongs to the given tenant
+    function isTenantMember(tenantId) {
+      return isAuth() && userTenantId() == tenantId;
+    }
+
+    // Get the user's role from custom claims
+    function userRole() {
+      return request.auth.token.role;
+    }
+
+    // Check if user is tenant owner
+    function isTenantOwner(tenantId) {
+      return isTenantMember(tenantId) && userRole() == 'owner';
+    }
+
+    // Check if user is tenant admin or higher
+    function isTenantAdmin(tenantId) {
+      return isTenantMember(tenantId) && (userRole() == 'admin' || userRole() == 'owner');
+    }
+
+    // Validate that the request doesn't modify certain fields
+    function unchangedFields(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // =============================================
+    // Tenant Root Document
+    // tenants/{tenantId}
+    // =============================================
+
+    match /tenants/{tenantId} {
+      // Members can read their own tenant config
+      allow read: if isTenantMember(tenantId);
+
+      // Only owner can create a tenant (handled by Admin SDK on server mostly)
+      allow create: if isAuth() && userTenantId() == tenantId && userRole() == 'owner';
+
+      // Only owner/admin can update tenant config
+      // Cannot change the tenant ID or createdAt
+      allow update: if isTenantAdmin(tenantId)
+                    && unchangedFields(['id', 'createdAt']);
+
+      // Only owner can delete the tenant
+      allow delete: if isTenantOwner(tenantId);
+
+      // =============================================
+      // Calls Sub-collection
+      // tenants/{tenantId}/calls/{callId}
+      // =============================================
+
+      match /calls/{callId} {
+        // All tenant members can read calls
+        allow read: if isTenantMember(tenantId);
+
+        // All tenant members can create calls (voice pipeline creates these)
+        allow create: if isTenantMember(tenantId);
+
+        // Members can update calls (add notes, change status)
+        allow update: if isTenantMember(tenantId);
+
+        // Only admin/owner can delete call records
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      // =============================================
+      // Appointments Sub-collection
+      // tenants/{tenantId}/appointments/{appointmentId}
+      // =============================================
+
+      match /appointments/{appointmentId} {
+        // All tenant members can read appointments
+        allow read: if isTenantMember(tenantId);
+
+        // All members can create appointments
+        allow create: if isTenantMember(tenantId);
+
+        // All members can update appointments (reschedule, change status)
+        allow update: if isTenantMember(tenantId);
+
+        // All members can cancel/delete appointments
+        allow delete: if isTenantMember(tenantId);
+      }
+
+      // =============================================
+      // Complaints Sub-collection
+      // tenants/{tenantId}/complaints/{complaintId}
+      // =============================================
+
+      match /complaints/{complaintId} {
+        // All tenant members can read complaints
+        allow read: if isTenantMember(tenantId);
+
+        // All members can create complaints
+        allow create: if isTenantMember(tenantId);
+
+        // All members can update complaints (add response, change status)
+        allow update: if isTenantMember(tenantId);
+
+        // Only admin/owner can delete complaint records
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      // =============================================
+      // Customers Sub-collection
+      // tenants/{tenantId}/customers/{customerId}
+      // =============================================
+
+      match /customers/{customerId} {
+        // All tenant members can read customers
+        allow read: if isTenantMember(tenantId);
+
+        // All members can create customers
+        allow create: if isTenantMember(tenantId);
+
+        // All members can update customer info
+        allow update: if isTenantMember(tenantId);
+
+        // Only admin/owner can delete customers
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      // =============================================
+      // Activity Logs Sub-collection
+      // tenants/{tenantId}/activity_logs/{logId}
+      // =============================================
+
+      match /activity_logs/{logId} {
+        // All tenant members can read activity logs
+        allow read: if isTenantMember(tenantId);
+
+        // All members can create activity logs
+        allow create: if isTenantMember(tenantId);
+
+        // Activity logs are immutable - no updates
+        allow update: if false;
+
+        // Only owner can delete activity logs
+        allow delete: if isTenantOwner(tenantId);
+      }
+
+      // =============================================
+      // Info Requests Sub-collection
+      // tenants/{tenantId}/info_requests/{requestId}
+      // =============================================
+
+      match /info_requests/{requestId} {
+        // All tenant members can read info requests
+        allow read: if isTenantMember(tenantId);
+
+        // All members can create info requests
+        allow create: if isTenantMember(tenantId);
+
+        // All members can update info requests
+        allow update: if isTenantMember(tenantId);
+
+        // Only admin/owner can delete info requests
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      // =============================================
+      // Documents (Knowledge Base / RAG)
+      // tenants/{tenantId}/documents/{docId}
+      // =============================================
+
+      match /documents/{docId} {
+        // All tenant members can read documents
+        allow read: if isTenantMember(tenantId);
+
+        // Only admin/owner can add knowledge base docs
+        allow create: if isTenantAdmin(tenantId);
+
+        // Only admin/owner can update documents
+        allow update: if isTenantAdmin(tenantId);
+
+        // Only admin/owner can delete documents
+        allow delete: if isTenantAdmin(tenantId);
+      }
+
+      // =============================================
+      // Usage Metrics
+      // tenants/{tenantId}/usage/{usageId}
+      // =============================================
+
+      match /usage/{usageId} {
+        // Only admin/owner can read usage metrics
+        allow read: if isTenantAdmin(tenantId);
+
+        // System creates usage records (via Admin SDK),
+        // but members can also record (voice sessions)
+        allow create: if isTenantMember(tenantId);
+
+        // Usage records are immutable
+        allow update: if false;
+
+        // Only owner can delete usage records
+        allow delete: if isTenantOwner(tenantId);
+      }
+
+      // =============================================
+      // Tenant Members / Users
+      // tenants/{tenantId}/members/{userId}
+      // =============================================
+
+      match /members/{userId} {
+        // All tenant members can read the member list
+        allow read: if isTenantMember(tenantId);
+
+        // Only admin/owner can add members
+        allow create: if isTenantAdmin(tenantId);
+
+        // Only admin/owner can update member roles
+        // Users can update their own profile
+        allow update: if isTenantAdmin(tenantId)
+                      || (isTenantMember(tenantId) && request.auth.uid == userId
+                          && unchangedFields(['role', 'tenantId']));
+
+        // Only owner can remove members
+        allow delete: if isTenantOwner(tenantId);
+      }
+
+      // =============================================
+      // Billing / Subscriptions
+      // tenants/{tenantId}/billing/{billingId}
+      // =============================================
+
+      match /billing/{billingId} {
+        // Only owner/admin can read billing info
+        allow read: if isTenantAdmin(tenantId);
+
+        // Billing is managed by server (Admin SDK)
+        // Client can create initial subscription request
+        allow create: if isTenantOwner(tenantId);
+
+        // Only server should update billing (via Admin SDK)
+        // Owner can update payment method reference
+        allow update: if isTenantOwner(tenantId);
+
+        // No client-side deletion of billing records
+        allow delete: if false;
+      }
+
+      // =============================================
+      // Tenant Metadata (system-managed)
+      // tenants/{tenantId}/_meta/{metaId}
+      // =============================================
+
+      match /_meta/{metaId} {
+        // Admin/owner can read metadata
+        allow read: if isTenantAdmin(tenantId);
+
+        // Only server (Admin SDK) creates metadata
+        allow create, update, delete: if false;
+      }
+
+      // =============================================
+      // Catch-all: Deny access to any other sub-collection
+      // =============================================
+
+      match /{subcollection}/{docId} {
+        allow read, write: if false;
+      }
+    }
+
+    // =============================================
+    // Global: Deny access to any other root collection
+    // Only 'tenants' collection is used
+    // =============================================
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
