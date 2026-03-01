@@ -11,6 +11,8 @@
  * Emits events for monitoring/alerting integration.
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export type CircuitState = 'closed' | 'open' | 'half_open';
 
 export interface CircuitBreakerConfig {
@@ -177,7 +179,7 @@ export class CircuitBreaker {
             this.openCount++;
         }
 
-        console.log(
+        logger.debug(
             `[CircuitBreaker:${this.config.name}] ${previousState} → ${newState}` +
             (error ? ` (${error.message})` : ''),
         );

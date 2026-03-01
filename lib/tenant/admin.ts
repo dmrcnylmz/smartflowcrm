@@ -12,6 +12,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import type { TenantConfig } from './types';
 import { DEFAULT_TENANT } from './types';
+import { logger } from '@/lib/utils/logger';
 
 // =============================================
 // Initialize
@@ -69,7 +70,7 @@ export async function createTenant(
 
     await batch.commit();
 
-    console.log(`[TenantAdmin] Created tenant: ${tenantId} (${data.companyName})`);
+    logger.debug(`[TenantAdmin] Created tenant: ${tenantId} (${data.companyName})`);
     return tenantId;
 }
 
@@ -115,7 +116,7 @@ export async function listTenants(limitCount: number = 100): Promise<TenantConfi
  */
 export async function deactivateTenant(tenantId: string): Promise<void> {
     await updateTenant(tenantId, { active: false } as Partial<TenantConfig>);
-    console.log(`[TenantAdmin] Deactivated tenant: ${tenantId}`);
+    logger.debug(`[TenantAdmin] Deactivated tenant: ${tenantId}`);
 }
 
 // =============================================
@@ -162,7 +163,7 @@ export async function assignUserToTenant(
             assignedAt: FieldValue.serverTimestamp(),
         });
 
-    console.log(`[TenantAdmin] Assigned user ${uid} to tenant ${tenantId} as ${role}`);
+    logger.debug(`[TenantAdmin] Assigned user ${uid} to tenant ${tenantId} as ${role}`);
 }
 
 /**
@@ -189,7 +190,7 @@ export async function removeUserFromTenant(
         .doc(uid)
         .delete();
 
-    console.log(`[TenantAdmin] Removed user ${uid} from tenant ${tenantId}`);
+    logger.debug(`[TenantAdmin] Removed user ${uid} from tenant ${tenantId}`);
 }
 
 /**
@@ -250,5 +251,5 @@ export async function ensureDefaultTenant(): Promise<void> {
         updatedAt: FieldValue.serverTimestamp(),
     });
 
-    console.log('[TenantAdmin] Created default tenant');
+    logger.debug('[TenantAdmin] Created default tenant');
 }

@@ -50,10 +50,10 @@ class Monitor {
         this.initialized = true;
 
         if (this.dsn) {
-            console.log('[Monitor] Sentry DSN configured — errors will be reported');
+            if (process.env.NODE_ENV !== 'production') console.debug('[Monitor] Sentry DSN configured — errors will be reported');
             // In production, you'd call Sentry.init({ dsn: this.dsn }) here
         } else {
-            console.log('[Monitor] No Sentry DSN — using console logging');
+            if (process.env.NODE_ENV !== 'production') console.debug('[Monitor] No Sentry DSN — using console logging');
         }
     }
 
@@ -91,7 +91,7 @@ class Monitor {
             // Sentry.captureException(error, { extra: context });
             // For now, we log the intent
             if (process.env.NODE_ENV === 'development') {
-                console.log('[Monitor] Would send to Sentry:', errorInfo.message);
+                console.debug('[Monitor] Would send to Sentry:', errorInfo.message);
             }
         }
     }
@@ -132,7 +132,7 @@ class Monitor {
         if (!this.initialized) this.init();
 
         if (process.env.NODE_ENV === 'development') {
-            console.log(`[Monitor:Event] ${name}`, data || '');
+            console.debug(`[Monitor:Event] ${name}`, data || '');
         }
     }
 

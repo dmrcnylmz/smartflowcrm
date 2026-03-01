@@ -64,7 +64,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
                     { fill: '#10b981' }, { fill: '#ef4444' }, { fill: '#3b82f6' },
                     { fill: '#6366f1' }, { fill: '#f59e0b' }, { fill: '#22c55e' },
                   ].map((entry, index) => (
-                    <Cell key={index} fill={entry.fill} />
+                    <Cell key={entry.fill} fill={entry.fill} />
                   ))}
                 </Bar>
               </BarChart>

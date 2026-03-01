@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       } catch (error: unknown) {
         const err = error as { message?: string; code?: string };
         if (err?.message?.includes('permission') || err?.code === 'permission-denied') {
-          console.log('📋 Reports API: Switching to demo mode');
+          // Switching to demo mode due to permission error
           useDemoMode = true;
         } else {
           throw error;

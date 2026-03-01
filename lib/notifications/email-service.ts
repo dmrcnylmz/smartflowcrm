@@ -77,10 +77,12 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
 
     if (!client) {
         // Development fallback
-        console.log('[Email] 📧 (DEV MODE) Would send email:');
-        console.log(`  To: ${Array.isArray(options.to) ? options.to.join(', ') : options.to}`);
-        console.log(`  Subject: ${options.subject}`);
-        console.log(`  Body preview: ${options.text || options.html.substring(0, 200)}...`);
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug('[Email] (DEV MODE) Would send email:');
+            console.debug(`  To: ${Array.isArray(options.to) ? options.to.join(', ') : options.to}`);
+            console.debug(`  Subject: ${options.subject}`);
+            console.debug(`  Body preview: ${options.text || options.html.substring(0, 200)}...`);
+        }
         return { success: true, id: 'dev-' + Date.now() };
     }
 
@@ -100,7 +102,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
             return { success: false, error: error.message };
         }
 
-        console.log(`[Email] ✅ Sent to ${options.to} | ID: ${data?.id}`);
+        if (process.env.NODE_ENV !== 'production') console.debug(`[Email] Sent to ${options.to} | ID: ${data?.id}`);
         return { success: true, id: data?.id };
     } catch (err) {
         console.error('[Email] Exception:', err);

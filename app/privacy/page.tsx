@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -152,7 +153,7 @@ export default function PrivacyPage() {
                         const isOpen = openSections.has(index);
                         return (
                             <div
-                                key={index}
+                                key={section.title}
                                 className={`rounded-xl border transition-all duration-200 ${isOpen
                                         ? 'border-blue-200 dark:border-blue-900/50 bg-white dark:bg-gray-900 shadow-sm'
                                         : 'border-input bg-white/50 dark:bg-gray-900/50 hover:border-gray-300 dark:hover:border-gray-700'

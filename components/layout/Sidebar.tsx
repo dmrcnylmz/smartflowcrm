@@ -180,6 +180,7 @@ export const Sidebar = memo(function Sidebar() {
                       key={item.href}
                       href={item.href}
                       title={collapsed ? item.label : undefined}
+                      aria-label={item.label}
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl transition-all duration-200",

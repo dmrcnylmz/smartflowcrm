@@ -14,6 +14,7 @@ import { chunkText, type TextChunk } from './chunker';
 import { generateEmbedding, generateEmbeddings, cosineSimilarity, type EmbeddingResult } from './embeddings';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { logger } from '@/lib/utils/logger';
 
 // =============================================
 // Types
@@ -115,17 +116,17 @@ export async function ingestDocument(
     try {
         // 2. Process document → normalized text
         const processed = await processDocument(source);
-        console.log(`[KB] Processed: "${processed.title}" (${processed.metadata.wordCount} words)`);
+        logger.debug(`[KB] Processed: "${processed.title}" (${processed.metadata.wordCount} words)`);
 
         // 3. Chunk text
         const chunks = chunkText(processed.content);
-        console.log(`[KB] Chunked into ${chunks.length} chunks`);
+        logger.debug(`[KB] Chunked into ${chunks.length} chunks`);
 
         // 4. Generate embeddings for all chunks
         const embeddingResult = await generateEmbeddings(
             chunks.map(c => c.content),
         );
-        console.log(`[KB] Generated ${embeddingResult.embeddings.length} embeddings (${embeddingResult.totalTokens} tokens)`);
+        logger.debug(`[KB] Generated ${embeddingResult.embeddings.length} embeddings (${embeddingResult.totalTokens} tokens)`);
 
         // 5. Store chunks with vectors in Firestore
         const BATCH_SIZE = 500; // Firestore batch limit
@@ -163,7 +164,7 @@ export async function ingestDocument(
             updatedAt: FieldValue.serverTimestamp(),
         });
 
-        console.log(`[KB] Document "${processed.title}" ingested: ${chunks.length} chunks, ${embeddingResult.totalTokens} tokens`);
+        logger.debug(`[KB] Document "${processed.title}" ingested: ${chunks.length} chunks, ${embeddingResult.totalTokens} tokens`);
 
         return {
             documentId,
@@ -462,7 +463,7 @@ export async function deleteKBDocument(
     // Delete the document record
     await tenantKbDocs(tenantId).doc(documentId).delete();
 
-    console.log(`[KB] Deleted document ${documentId} and ${chunksSnap.size} chunks`);
+    logger.debug(`[KB] Deleted document ${documentId} and ${chunksSnap.size} chunks`);
 }
 
 /**

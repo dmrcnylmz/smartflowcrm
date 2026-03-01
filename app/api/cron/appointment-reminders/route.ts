@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        console.log('[Cron] Running appointment reminders...');
+        // Appointment reminders cron started
 
         const firestore = getDb();
         const now = new Date();
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
                             reminderEmailId: result.id,
                         });
                         totalReminders++;
-                        console.log(`[Cron] ✅ Reminder sent: ${customerEmail} (${tenantId})`);
+                        // Reminder sent successfully
                     } else {
                         totalErrors++;
                         console.error(`[Cron] ❌ Reminder failed: ${customerEmail}: ${result.error}`);
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        console.log(`[Cron] Done: ${totalReminders} reminders sent, ${totalErrors} errors`);
+        // Cron job complete; counts returned in response JSON
 
         return NextResponse.json({
             success: true,

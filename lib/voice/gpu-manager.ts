@@ -10,6 +10,8 @@
  * Integrates with RunPod Serverless API for future pod-to-serverless migration.
  */
 
+import { logger } from '@/lib/utils/logger';
+
 export type GPUStatus = 'healthy' | 'sleeping' | 'waking' | 'unhealthy' | 'unknown';
 
 export interface GPUHealthResult {
@@ -194,7 +196,7 @@ class GPUManager {
 
     private async _performWake(): Promise<boolean> {
         this.totalWakeAttempts++;
-        console.log(`[GPUManager] Waking GPU... (attempt ${this.totalWakeAttempts})`);
+        logger.debug(`[GPUManager] Waking GPU... (attempt ${this.totalWakeAttempts})`);
 
         // Strategy 1: RunPod Serverless API (future)
         if (this.config.runpodEndpointId && this.config.runpodApiKey) {
@@ -252,7 +254,7 @@ class GPUManager {
                     const statusData = await statusRes.json();
                     if (statusData.status === 'COMPLETED') {
                         this.totalWakeSuccesses++;
-                        console.log('[GPUManager] GPU woke via RunPod Serverless');
+                        logger.debug('[GPUManager] GPU woke via RunPod Serverless');
                         // Refresh health cache
                         await this.checkHealth(true);
                         return true;
@@ -273,13 +275,13 @@ class GPUManager {
      */
     private async wakeViaPing(): Promise<boolean> {
         for (let attempt = 1; attempt <= this.config.maxWakeRetries; attempt++) {
-            console.log(`[GPUManager] Ping wake attempt ${attempt}/${this.config.maxWakeRetries}`);
+            logger.debug(`[GPUManager] Ping wake attempt ${attempt}/${this.config.maxWakeRetries}`);
 
             const health = await this.checkHealth(true);
 
             if (health.status === 'healthy' && health.model_loaded) {
                 this.totalWakeSuccesses++;
-                console.log(`[GPUManager] GPU ready after ${attempt} attempts`);
+                logger.debug(`[GPUManager] GPU ready after ${attempt} attempts`);
                 return true;
             }
 

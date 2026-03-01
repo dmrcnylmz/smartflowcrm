@@ -111,7 +111,7 @@ export default function DashboardCharts({
                         labelLine={false}
                       >
                         {complaintCategoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={entry.color} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#fff' }} />

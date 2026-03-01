@@ -311,7 +311,7 @@ function CallsPageContent() {
         const speakerMatch = trimmed.match(aiPatterns);
         const speaker = speakerMatch ? speakerMatch[1] : 'AI';
         return (
-          <div key={index} className="flex justify-start">
+          <div key={`ai-${index}-${content.slice(0, 16)}`} className="flex justify-start">
             <div className="max-w-[80%]">
               <div className="flex items-center gap-1.5 mb-1">
                 <Bot className="h-3 w-3 text-indigo-500" />
@@ -330,7 +330,7 @@ function CallsPageContent() {
         const speakerMatch = trimmed.match(customerPatterns);
         const speaker = speakerMatch ? speakerMatch[1] : 'Müşteri';
         return (
-          <div key={index} className="flex justify-end">
+          <div key={`cust-${index}-${content.slice(0, 16)}`} className="flex justify-end">
             <div className="max-w-[80%]">
               <div className="flex items-center justify-end gap-1.5 mb-1">
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{speaker}</span>
@@ -346,7 +346,7 @@ function CallsPageContent() {
 
       // System / neutral message
       return (
-        <div key={index} className="flex justify-center">
+        <div key={`sys-${index}-${trimmed.slice(0, 16)}`} className="flex justify-center">
           <p className="text-xs text-muted-foreground italic px-3 py-1">{trimmed}</p>
         </div>
       );

@@ -75,7 +75,7 @@ export function initAdmin(): App {
     });
 
     adminAuth = getAuth(adminApp);
-    console.log('✅ Firebase Admin SDK initialized');
+    if (process.env.NODE_ENV !== 'production') console.debug('[Firebase] Admin SDK initialized');
     return adminApp;
 }
 

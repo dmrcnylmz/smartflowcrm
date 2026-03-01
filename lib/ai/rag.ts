@@ -5,6 +5,7 @@
 
 import { VectorStore, type SearchResult } from './vector-store';
 import { EmbeddingGenerator } from './embeddings';
+import { logger } from '@/lib/utils/logger';
 
 export interface RAGConfig {
   topK?: number;
@@ -107,7 +108,7 @@ export async function searchFAQ(
   try {
     // In a full implementation, this would search Firestore or a vector DB.
     // For now, return empty results as a placeholder.
-    console.log(`[RAG] Searching FAQ for: "${query}"${category ? ` in category: ${category}` : ''}`);
+    logger.debug(`[RAG] Searching FAQ for: "${query}"${category ? ` in category: ${category}` : ''}`);
     return [];
   } catch (error) {
     console.error('[RAG] FAQ search failed:', error);
@@ -124,7 +125,7 @@ export async function generateAnswerWithRAG(
   provider: string = 'local'
 ): Promise<string> {
   try {
-    console.log(`[RAG] Generating answer for: "${query}" using provider: ${provider}`);
+    logger.debug(`[RAG] Generating answer for: "${query}" using provider: ${provider}`);
 
     // In a full implementation, this would:
     // 1. Retrieve relevant documents

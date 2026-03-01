@@ -2,6 +2,8 @@
 // Uses Web Speech API + HTTP /infer endpoint for full voice AI loop
 // Browser STT → Personaplex Intent/Response → Browser TTS
 
+import { logger } from '@/lib/utils/logger';
+
 export interface PersonaplexConfig {
     serverUrl: string;
     voicePrompt?: string;
@@ -171,7 +173,7 @@ const TTS_API_URL = '/api/voice/tts';
 async function speak(text: string, onEnd?: () => void): Promise<void> {
     try {
         // Try ElevenLabs first via server-side proxy
-        console.log('[TTS] Requesting ElevenLabs audio...');
+        logger.debug('[TTS] Requesting ElevenLabs audio...');
         const response = await fetch(TTS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -191,7 +193,7 @@ async function speak(text: string, onEnd?: () => void): Promise<void> {
 
         audio.onended = () => {
             URL.revokeObjectURL(audioUrl);
-            console.log('[TTS] ElevenLabs playback complete');
+            logger.debug('[TTS] ElevenLabs playback complete');
             onEnd?.();
         };
 
@@ -202,7 +204,7 @@ async function speak(text: string, onEnd?: () => void): Promise<void> {
         };
 
         await audio.play();
-        console.log('[TTS] ElevenLabs playing audio');
+        logger.debug('[TTS] ElevenLabs playing audio');
 
     } catch (error) {
         console.warn('[TTS] ElevenLabs failed, using browser fallback:', error);
@@ -287,7 +289,7 @@ export class PersonaplexClient {
                 throw new Error('Personaplex sunucusu erişilemez');
             }
 
-            console.log('[Personaplex] Server healthy, connecting...');
+            logger.debug('[Personaplex] Server healthy, connecting...');
 
             // Create session
             this.startTime = new Date();
@@ -300,7 +302,7 @@ export class PersonaplexClient {
             this.onConnectionChange?.(true);
             this.onSessionStarted?.(this.session);
 
-            console.log('[Personaplex] Connected via HTTP/Speech API mode');
+            logger.debug('[Personaplex] Connected via HTTP/Speech API mode');
 
         } catch (error) {
             console.error('[Personaplex] Connection error:', error);
@@ -357,7 +359,7 @@ export class PersonaplexClient {
             // Set up Speech Recognition
             this.setupSpeechRecognition();
 
-            console.log('[Personaplex] Audio capture started');
+            logger.debug('[Personaplex] Audio capture started');
 
         } catch (error) {
             console.error('[Personaplex] Failed to start audio capture:', error);
@@ -404,7 +406,7 @@ export class PersonaplexClient {
                 if (finalText) {
                     // Don't process user input while AI is speaking (echo prevention)
                     if (this.isSpeaking) {
-                        console.log('[Personaplex] Ignoring echo during AI speech:', finalText.trim());
+                        logger.debug('[Personaplex] Ignoring echo during AI speech:', finalText.trim());
                         return;
                     }
 
@@ -448,7 +450,7 @@ export class PersonaplexClient {
 
             this.recognition.start();
             this.isListening = true;
-            console.log('[Personaplex] Speech recognition started (tr-TR)');
+            logger.debug('[Personaplex] Speech recognition started (tr-TR)');
         } else {
             console.warn('[Personaplex] Speech Recognition not available, using fallback');
         }
@@ -463,7 +465,7 @@ export class PersonaplexClient {
         const startMs = performance.now();
 
         try {
-            console.log(`[Personaplex] Processing: "${text}"`);
+            logger.debug(`[Personaplex] Processing: "${text}"`);
 
             // Call Personaplex /infer via our API proxy
             const response = await fetch(this.inferUrl, {
@@ -485,7 +487,7 @@ export class PersonaplexClient {
             const latencyMs = performance.now() - startMs;
             this.turnLatencies.push(latencyMs);
 
-            console.log(`[Personaplex] Response: intent=${result.intent}, confidence=${result.confidence}, latency=${latencyMs.toFixed(0)}ms`);
+            logger.debug(`[Personaplex] Response: intent=${result.intent}, confidence=${result.confidence}, latency=${latencyMs.toFixed(0)}ms`);
 
             // Add AI response to transcript
             const aiTurn: TranscriptTurn = {
@@ -511,7 +513,7 @@ export class PersonaplexClient {
                     setTimeout(() => {
                         if (this.isListening && this.recognition && !this.isSpeaking) {
                             try { this.recognition.start(); } catch { }
-                            console.log('[Personaplex] Recognition resumed after TTS');
+                            logger.debug('[Personaplex] Recognition resumed after TTS');
                         }
                     }, 500); // 500ms buffer to let mic settle
                 }
@@ -590,7 +592,7 @@ export class PersonaplexClient {
             this.mediaStream = null;
         }
 
-        console.log('[Personaplex] Audio capture stopped');
+        logger.debug('[Personaplex] Audio capture stopped');
     }
 
     /**

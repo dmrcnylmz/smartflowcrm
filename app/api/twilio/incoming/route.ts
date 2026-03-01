@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
                 lastCallAt: FieldValue.serverTimestamp(),
             }, { merge: true });
 
-        console.log(`[Twilio] Incoming call: ${callerNumber} → ${calledNumber} (tenant: ${tenantId})`);
+        // Incoming call logged via Firestore usage metering above
 
         return new NextResponse(twiml, {
             headers: { 'Content-Type': 'text/xml' },

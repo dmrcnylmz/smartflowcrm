@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
             }
 
             const latencyMs = performance.now() - startMs;
-            console.log(`[Voice Infer] MOCK MODE | session=${sessionId} intent=${intent} latency=${latencyMs.toFixed(0)}ms`);
+            // Mock mode inference complete
 
             return NextResponse.json({
                 session_id: sessionId,
@@ -294,9 +294,7 @@ export async function POST(request: NextRequest) {
 
         if (cachedResponse) {
             const latencyMs = performance.now() - startMs;
-            console.log(
-                `[Voice Infer] CACHE HIT | session=${sessionId} intent=${cachedResponse.intent} latency=${latencyMs.toFixed(0)}ms`,
-            );
+            // Cache hit for inference request
             return NextResponse.json({
                 ...cachedResponse,
                 session_id: sessionId,
@@ -344,9 +342,7 @@ export async function POST(request: NextRequest) {
 
                 const latencyMs = performance.now() - startMs;
 
-                console.log(
-                    `[Voice Infer] GPT | session=${sessionId} turn=${session.turnCount} intent=${intent} conf=${confidence} latency=${latencyMs.toFixed(0)}ms`,
-                );
+                // GPT inference complete
 
                 const result = {
                     session_id: sessionId,

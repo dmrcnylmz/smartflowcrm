@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         // If GPU is sleeping/unhealthy, fall back to mock
         if (health.status !== 'healthy') {
-            console.log(`[Voice Health] GPU status: ${health.status}, using mock mode`);
+            // GPU not healthy; returning degraded status
             return NextResponse.json({
                 status: 'degraded',
                 personaplex: false,
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
         metrics.observe(METRICS.API_LATENCY, latency, { endpoint: 'health' });
 
         // Fallback to mock mode on connection failure
-        console.log('[Voice Health] GPU unreachable, using mock mode');
+        // GPU unreachable; falling back to mock mode
         return getMockResponse();
     }
 }

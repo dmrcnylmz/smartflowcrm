@@ -217,7 +217,13 @@ export function VoiceCallModal({
             // Start audio capture
             await client.startAudioCapture();
 
-            // Initialize visualizer
+            // Initialize visualizer (getUserMedia requires HTTPS or localhost)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('getUserMedia not available - requires HTTPS or localhost');
+                // Continue without visualizer - call still works
+                clientRef.current = client;
+                return;
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const visualizer = new AudioVisualizer();
             visualizer.onVisualizerData = (data) => {
@@ -318,8 +324,8 @@ export function VoiceCallModal({
                                     <button
                                         onClick={() => setLanguage('tr')}
                                         className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${language === 'tr'
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'text-muted-foreground hover:text-foreground'
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
                                         🇹🇷 TR
@@ -327,8 +333,8 @@ export function VoiceCallModal({
                                     <button
                                         onClick={() => setLanguage('en')}
                                         className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${language === 'en'
-                                                ? 'bg-primary text-primary-foreground shadow-sm'
-                                                : 'text-muted-foreground hover:text-foreground'
+                                            ? 'bg-primary text-primary-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
                                         🇬🇧 EN
@@ -393,9 +399,9 @@ export function VoiceCallModal({
                                             : labels.waitForCall}
                                     </p>
                                 ) : (
-                                    transcript.map((turn, index) => (
+                                    transcript.map((turn) => (
                                         <div
-                                            key={index}
+                                            key={turn.timestamp}
                                             className={`flex gap-2 ${turn.speaker === 'assistant' ? 'flex-row-reverse' : ''
                                                 }`}
                                         >

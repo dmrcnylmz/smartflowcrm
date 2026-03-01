@@ -1,5 +1,7 @@
 // Context API Direct Client
 // Bypasses n8n — sends tool calls directly to Context API on Personaplex server
+import { logger } from '@/lib/utils/logger';
+
 const CONTEXT_API_URL = process.env.PERSONAPLEX_CONTEXT_URL || process.env.CONTEXT_API_URL || 'http://localhost:8999';
 
 export interface WebhookPayload {
@@ -52,7 +54,7 @@ export async function sendWebhook(
 
   try {
     const url = `${CONTEXT_API_URL}/webhook/context`;
-    console.log(`[ContextAPI] Sending ${mapping.type} → ${url}`);
+    logger.debug(`[ContextAPI] Sending ${mapping.type} → ${url}`);
 
     const response = await fetch(url, {
       method: 'POST',
@@ -66,7 +68,7 @@ export async function sendWebhook(
     }
 
     const result = await response.json();
-    console.log(`[ContextAPI] ✅ ${mapping.type} saved (session=${payload.sessionId})`);
+    logger.debug(`[ContextAPI] ${mapping.type} saved (session=${payload.sessionId})`);
     return result;
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';

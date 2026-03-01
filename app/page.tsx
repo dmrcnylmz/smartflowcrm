@@ -288,7 +288,7 @@ export default function DashboardPage() {
 
       // If all queries failed with permission errors, switch to demo mode
       if (permissionErrors >= 3 && !demoModeRef.current) {
-        console.log('🎭 Demo Mode activated - Firebase permissions unavailable');
+        // Demo mode activated silently when Firebase permissions unavailable
         demoModeRef.current = true;
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         allCalls = demoCalls;

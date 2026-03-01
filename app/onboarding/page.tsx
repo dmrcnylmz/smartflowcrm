@@ -225,8 +225,7 @@ export default function OnboardingPage() {
                 throw new Error(err.error || 'Tenant oluşturulamadı');
             }
 
-            const result = await response.json();
-            console.log('Tenant created:', result);
+            await response.json();
 
             // Redirect to main dashboard
             router.push('/');
