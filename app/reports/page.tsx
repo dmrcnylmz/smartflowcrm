@@ -7,12 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity, TrendingUp } from 'lucide-react';
+import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Progress } from '@/components/ui/progress';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import nextDynamic from 'next/dynamic';
+
+// Lazy-load recharts (~100KB) -- only downloaded when report data is shown
+const ReportCharts = nextDynamic(() => import('@/components/reports/ReportCharts'), {
+  ssr: false,
+  loading: () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Skeleton className="h-[300px] w-full rounded-2xl" />
+      <Skeleton className="h-[300px] w-full rounded-2xl" />
+    </div>
+  ),
+});
 
 interface DailyReport {
   date: string;
@@ -277,88 +288,8 @@ export default function ReportsPage() {
 
           </div>
 
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Bar Chart - Performance Overview */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '280ms', animationFillMode: 'forwards' }}>
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center gap-2 font-medium">
-                  <TrendingUp className="h-4 w-4 text-indigo-500" />
-                  Performans Dağılımı
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { name: 'Yanıtlanan', value: report.summary.answeredCalls, fill: '#10b981' },
-                      { name: 'Kaçırılan', value: report.summary.missedCalls, fill: '#ef4444' },
-                      { name: 'Randevu', value: report.summary.scheduledAppointments, fill: '#3b82f6' },
-                      { name: 'Tamamlanan', value: report.summary.completedAppointments, fill: '#6366f1' },
-                      { name: 'Şikayet', value: report.summary.totalComplaints, fill: '#f59e0b' },
-                      { name: 'Çözülen', value: report.summary.resolvedComplaints, fill: '#22c55e' },
-                    ]} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                        formatter={(value: number) => [`${value} adet`, 'Miktar']}
-                      />
-                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                        {[
-                          { fill: '#10b981' }, { fill: '#ef4444' }, { fill: '#3b82f6' },
-                          { fill: '#6366f1' }, { fill: '#f59e0b' }, { fill: '#22c55e' },
-                        ].map((entry, index) => (
-                          <Cell key={index} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pie Chart - Call Distribution */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '360ms', animationFillMode: 'forwards' }}>
-              <CardHeader className="pb-2">
-                <CardDescription className="flex items-center gap-2 font-medium">
-                  <PhoneIncoming className="h-4 w-4 text-blue-500" />
-                  Çağrı Dağılımı
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Yanıtlanan', value: report.summary.answeredCalls },
-                          { name: 'Kaçırılan', value: report.summary.missedCalls },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={4}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`}
-                        labelLine={{ strokeWidth: 1 }}
-                      >
-                        <Cell fill="#10b981" />
-                        <Cell fill="#ef4444" />
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                        formatter={(value: number) => [`${value} çağrı`, '']}
-                      />
-                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Charts Section -- lazy-loaded to avoid bundling recharts synchronously */}
+          <ReportCharts summary={report.summary} />
 
         </div>
       ) : (

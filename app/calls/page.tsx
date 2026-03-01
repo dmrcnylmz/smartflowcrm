@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -28,12 +28,14 @@ import type { Customer, CallLog } from '@/lib/firebase/types';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { toDate } from '@/lib/utils/date-helpers';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 
 function CallsPageContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [statusFilters, setStatusFilters] = useState<string[]>(
     searchParams.get('status')?.split(',').filter(Boolean) || []
   );
@@ -59,7 +61,7 @@ function CallsPageContent() {
   useEffect(() => {
     try {
       const params = new URLSearchParams();
-      if (searchTerm) params.set('search', searchTerm);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (statusFilters.length > 0) params.set('status', statusFilters.join(','));
       if (directionFilter !== 'all') params.set('direction', directionFilter);
       if (intentFilters.length > 0) params.set('intent', intentFilters.join(','));
@@ -74,10 +76,13 @@ function CallsPageContent() {
     } catch (error) {
       console.warn('URL update error:', error);
     }
-  }, [searchTerm, statusFilters, directionFilter, intentFilters, dateFrom, dateTo]);
+  }, [debouncedSearch, statusFilters, directionFilter, intentFilters, dateFrom, dateTo]);
 
-  // Get unique intents from calls
-  const uniqueIntents = Array.from(new Set(calls.map(c => c.intent).filter(Boolean))) as string[];
+  // Get unique intents from calls (memoized to avoid recomputing on every render)
+  const uniqueIntents = useMemo(
+    () => Array.from(new Set(calls.map(c => c.intent).filter(Boolean))) as string[],
+    [calls]
+  );
 
   const statusOptions: FilterOption[] = [
     { value: 'answered', label: 'Yanıtlanan' },
@@ -85,13 +90,16 @@ function CallsPageContent() {
     { value: 'voicemail', label: 'Sesli Mesaj' },
   ];
 
-  const intentOptions: FilterOption[] = uniqueIntents.map(intent => ({
-    value: intent,
-    label: intent.charAt(0).toUpperCase() + intent.slice(1),
-  }));
+  const intentOptions: FilterOption[] = useMemo(
+    () => uniqueIntents.map(intent => ({
+      value: intent,
+      label: intent.charAt(0).toUpperCase() + intent.slice(1),
+    })),
+    [uniqueIntents]
+  );
 
   function handleClearFilters() {
-    setSearchTerm('');
+    setSearchInput('');
     setStatusFilters([]);
     setDirectionFilter('all');
     setIntentFilters([]);
@@ -166,7 +174,7 @@ function CallsPageContent() {
     : callsError instanceof Error ? callsError.message : 'Çağrı verileri yüklenemedi.'
     : null;
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = useCallback((status: string) => {
     const variants: Record<string, { variant: 'default' | 'destructive' | 'secondary' | 'outline'; label: string, colorClass: string }> = {
       answered: { variant: 'default' as const, label: 'Yanıtlandı', colorClass: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300' },
       missed: { variant: 'destructive' as const, label: 'Kaçırıldı', colorClass: 'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/50 dark:text-red-300' },
@@ -174,9 +182,9 @@ function CallsPageContent() {
     };
     const config = variants[status] || { variant: 'outline' as const, label: status, colorClass: '' };
     return <Badge className={`shadow-none ${config.colorClass}`} variant={config.variant}>{config.label}</Badge>;
-  };
+  }, []);
 
-  const getIntentBadge = (intent: string) => {
+  const getIntentBadge = useCallback((intent: string) => {
     const colors: Record<string, string> = {
       randevu: 'border-blue-200 text-blue-700 bg-blue-50/50',
       appointment: 'border-blue-200 text-blue-700 bg-blue-50/50',
@@ -191,18 +199,18 @@ function CallsPageContent() {
     };
     const color = colors[intent] || 'border-slate-200 text-slate-700 bg-slate-50/50';
     return <Badge variant="outline" className={`shadow-none capitalize ${color}`}>{intent}</Badge>;
-  };
+  }, []);
 
-  // Filter calls
-  const filteredCalls = calls.filter((call: CallLog) => {
+  // Filter calls (memoized -- uses debouncedSearch to avoid re-filtering on every keystroke)
+  const filteredCalls = useMemo(() => calls.filter((call: CallLog) => {
     const customer = call.customerId ? customers[call.customerId] : undefined;
     const customerName = customer?.name || call.customerName || '';
     const customerPhone = customer?.phone || call.customerPhone || '';
-    const searchLower = searchTerm.toLowerCase();
+    const searchLower = debouncedSearch.toLowerCase();
 
-    const matchesSearch = !searchTerm ||
+    const matchesSearch = !debouncedSearch ||
       customerName.toLowerCase().includes(searchLower) ||
-      customerPhone.includes(searchTerm);
+      customerPhone.includes(debouncedSearch);
 
     const matchesStatus = statusFilters.length === 0 || statusFilters.includes(call.status);
     const matchesDirection = directionFilter === 'all' || call.direction === directionFilter;
@@ -231,12 +239,14 @@ function CallsPageContent() {
     }
 
     return matchesSearch && matchesStatus && matchesDirection && matchesIntent && matchesDate;
-  });
+  }), [calls, customers, debouncedSearch, statusFilters, directionFilter, intentFilters, dateFrom, dateTo]);
 
-  // Stats
-  const totalCalls = filteredCalls.length;
-  const answeredCalls = filteredCalls.filter(c => c.status === 'answered').length;
-  const missedCalls = filteredCalls.filter(c => c.status === 'missed').length;
+  // Stats (memoized -- only recompute when filteredCalls changes)
+  const { totalCalls, answeredCalls, missedCalls } = useMemo(() => ({
+    totalCalls: filteredCalls.length,
+    answeredCalls: filteredCalls.filter(c => c.status === 'answered').length,
+    missedCalls: filteredCalls.filter(c => c.status === 'missed').length,
+  }), [filteredCalls]);
 
   // Pagination
   const hasMore = calls.length >= limit;
@@ -435,8 +445,8 @@ function CallsPageContent() {
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="İsim, telefon veya not ara..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-10 rounded-xl bg-background border-border/60"
               />
             </div>
@@ -487,7 +497,7 @@ function CallsPageContent() {
             )}
           </div>
 
-          {(searchTerm || statusFilters.length > 0 || directionFilter !== 'all' || intentFilters.length > 0 || dateFrom || dateTo) && (
+          {(searchInput || statusFilters.length > 0 || directionFilter !== 'all' || intentFilters.length > 0 || dateFrom || dateTo) && (
             <div className="flex justify-start">
               <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-muted-foreground hover:text-foreground text-xs h-8">
                 <X className="h-3 w-3 mr-1" />
