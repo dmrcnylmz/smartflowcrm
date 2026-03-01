@@ -1,45 +1,47 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { ToastProvider } from "@/components/ui/toast";
-import { AuthProvider } from "@/lib/firebase/auth-context";
-import { AppShell } from "@/components/layout/AppShell";
+import './globals.css';
+import { ClientLayout } from '@/components/layout/ClientLayout';
+import { Inter } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap", // Performans için
-  preload: true,
-  fallback: ["system-ui", "arial"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap", // Performans için
-  preload: true,
-  fallback: ["monospace"],
+const inter = Inter({
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-inter',
 });
 
 export const metadata: Metadata = {
-  title: "SmartFlow CRM - AI Receptionist & Workflow Automation",
-  description: "AI destekli çağrı yönetimi, randevu takibi ve müşteri hizmetleri",
+    title: {
+        default: 'SmartFlow CRM - AI Receptionist',
+        template: '%s | SmartFlow CRM',
+    },
+    description: 'Yapay zeka destekli sesli asistan ve müşteri hizmetleri platformu. Çağrılarınızı otomatikleştirin, müşterilerinizi yönetin.',
+    keywords: ['CRM', 'AI', 'sesli asistan', 'müşteri hizmetleri', 'çağrı merkezi', 'SmartFlow'],
+    authors: [{ name: 'SmartFlow' }],
+    robots: 'noindex, nofollow',
+    icons: {
+        icon: '/favicon.ico',
+    },
+};
+
+export const viewport: Viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    themeColor: [
+        { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+        { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    ],
 };
 
 export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="tr">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-          </ToastProvider>
-        </AuthProvider>
-      </body>
-    </html>
-  );
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    return (
+        <html lang="tr" className={inter.variable} suppressHydrationWarning>
+            <body className={inter.className}>
+                <ClientLayout>{children}</ClientLayout>
+            </body>
+        </html>
+    );
 }

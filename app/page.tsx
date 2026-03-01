@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
 import { getCallLogs, getComplaints, getAppointments } from '@/lib/firebase/db';
@@ -430,17 +431,21 @@ export default function DashboardPage() {
           </div>
 
           {/* Auto-refresh selector */}
-          <select
-            value={refreshInterval}
-            onChange={(e) => setRefreshInterval(Number(e.target.value))}
-            className="text-xs h-8 rounded-lg border bg-background px-2 text-muted-foreground"
+          <Select
+            value={String(refreshInterval)}
+            onValueChange={(value) => setRefreshInterval(Number(value))}
           >
-            {REFRESH_INTERVALS.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.value === 0 ? 'Manuel' : `⟳ ${opt.label}`}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="text-xs h-8 w-[120px] rounded-lg">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {REFRESH_INTERVALS.map(opt => (
+                <SelectItem key={opt.value} value={String(opt.value)}>
+                  {opt.value === 0 ? 'Manuel' : `\u27F3 ${opt.label}`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Manual refresh button */}
           <button

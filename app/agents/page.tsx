@@ -193,6 +193,7 @@ export default function AgentsPage() {
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Editor state
     const [editorOpen, setEditorOpen] = useState(false);
@@ -210,12 +211,14 @@ export default function AgentsPage() {
 
     const fetchAgents = useCallback(async () => {
         try {
+            setError(null);
             const res = await authFetch('/api/agents');
             if (!res.ok) throw new Error('Failed to fetch agents');
             const data = await res.json();
             setAgents(data.agents || []);
         } catch (err) {
             console.error('Agents fetch error:', err);
+            setError(err instanceof Error ? err.message : 'Asistanlar yüklenirken bir hata oluştu');
         }
     }, [authFetch]);
 
@@ -421,30 +424,56 @@ export default function AgentsPage() {
             {/* Agent List */}
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[1, 2, 3].map(i => (
-                        <Card key={i} className="animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                        <Card
+                            key={i}
+                            className="animate-fade-in-up opacity-0"
+                            style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
+                        >
                             <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-xl bg-muted" />
+                                        <div className="h-10 w-10 rounded-xl bg-muted animate-pulse" />
                                         <div className="space-y-2">
-                                            <div className="h-4 w-28 bg-muted rounded" />
-                                            <div className="h-3 w-20 bg-muted rounded" />
+                                            <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                                            <div className="h-3 w-20 bg-muted rounded animate-pulse" />
                                         </div>
                                     </div>
-                                    <div className="h-5 w-12 bg-muted rounded-full" />
+                                    <div className="h-5 w-12 bg-muted rounded-full animate-pulse" />
                                 </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-2">
-                                    <div className="h-3 w-full bg-muted rounded" />
-                                    <div className="h-3 w-3/4 bg-muted rounded" />
-                                    <div className="h-3 w-1/2 bg-muted rounded" />
+                                    <div className="h-3 w-full bg-muted rounded animate-pulse" />
+                                    <div className="h-3 w-3/4 bg-muted rounded animate-pulse" />
+                                    <div className="h-3 w-1/2 bg-muted rounded animate-pulse" />
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
+            ) : error ? (
+                <Card className="animate-fade-in-up border-red-500/20">
+                    <CardContent className="text-center py-16">
+                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-red-500/10 mb-4">
+                            <AlertTriangle className="h-8 w-8 text-red-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">Yükleme Hatası</h3>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                            {error}
+                        </p>
+                        <Button
+                            onClick={() => {
+                                setLoading(true);
+                                fetchAgents().finally(() => setLoading(false));
+                            }}
+                            className="gap-2 bg-violet-600 hover:bg-violet-700"
+                        >
+                            <Zap className="h-4 w-4" />
+                            Tekrar Dene
+                        </Button>
+                    </CardContent>
+                </Card>
             ) : agents.length === 0 ? (
                 <Card>
                     <CardContent className="text-center py-16">
@@ -461,10 +490,11 @@ export default function AgentsPage() {
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {agents.map((agent) => (
+                    {agents.map((agent, index) => (
                         <Card
                             key={agent.id}
-                            className="cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5"
+                            className="animate-fade-in-up opacity-0 cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5"
+                            style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
                             onClick={() => handleEdit(agent)}
                         >
                             <CardHeader className="pb-3">

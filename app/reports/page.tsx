@@ -130,10 +130,10 @@ export default function ReportsPage() {
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-[200px] rounded-2xl" />
-          <Skeleton className="h-[200px] rounded-2xl" />
-          <Skeleton className="h-[200px] rounded-2xl" />
-          <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3" />
+          {[0, 1, 2].map((idx) => (
+            <Skeleton key={idx} className="h-[200px] rounded-2xl animate-fade-in-up opacity-0" style={{ animationDelay: `${idx * 100}ms`, animationFillMode: 'forwards' }} />
+          ))}
+          <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3 animate-fade-in-up opacity-0" style={{ animationDelay: '300ms', animationFillMode: 'forwards' }} />
         </div>
       ) : error ? (
         <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-6 rounded-2xl flex items-center justify-center gap-3">
@@ -142,7 +142,7 @@ export default function ReportsPage() {
         </div>
       ) : report ? (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between animate-fade-in-down">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Activity className="h-5 w-5 text-indigo-500" />
               {format(new Date(report.date), 'dd MMMM yyyy, EEEE', { locale: tr })} Özeti
@@ -156,7 +156,7 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* Çağrı Karnesi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
               <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-indigo-800 dark:text-indigo-300">
                   <PhoneIncoming className="h-4 w-4" />
@@ -200,7 +200,7 @@ export default function ReportsPage() {
             </Card>
 
             {/* Randevu Dönüşümü */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}>
               <CardHeader className="bg-blue-50/50 dark:bg-blue-950/20 pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-300">
                   <Target className="h-4 w-4" />
@@ -237,7 +237,7 @@ export default function ReportsPage() {
             </Card>
 
             {/* Şikayet ve Talep Yönetimi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden relative">
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden relative animate-fade-in-up opacity-0" style={{ animationDelay: '160ms', animationFillMode: 'forwards' }}>
               <div className="absolute top-0 right-0 p-6 opacity-5">
                 <ShieldAlert className="h-32 w-32" />
               </div>
@@ -274,7 +274,7 @@ export default function ReportsPage() {
           {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Bar Chart - Performance Overview */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '280ms', animationFillMode: 'forwards' }}>
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center gap-2 font-medium">
                   <TrendingUp className="h-4 w-4 text-indigo-500" />
@@ -314,7 +314,7 @@ export default function ReportsPage() {
             </Card>
 
             {/* Pie Chart - Call Distribution */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '360ms', animationFillMode: 'forwards' }}>
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center gap-2 font-medium">
                   <PhoneIncoming className="h-4 w-4 text-blue-500" />

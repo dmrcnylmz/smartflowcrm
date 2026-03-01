@@ -120,7 +120,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
+      <nav role="navigation" aria-label="Ana men\u00fc" className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
         {navSections.map((section, sectionIdx) => {
           let itemIndex = 0;
           for (let s = 0; s < sectionIdx; s++) itemIndex += navSections[s].items.length;
@@ -144,6 +144,7 @@ export function Sidebar() {
                       key={item.href}
                       href={item.href}
                       title={collapsed ? item.label : undefined}
+                      aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl transition-all duration-200",
                         collapsed ? "justify-center p-2.5" : "px-3 py-2",

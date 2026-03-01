@@ -440,7 +440,7 @@ function CustomersPageContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCustomers.map((customer) => (
+                    {paginatedCustomers.map((customer) => (
                       <TableRow
                         key={customer.id}
                         className="cursor-pointer group hover:bg-muted/30 transition-colors"

@@ -12,11 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
+import { Switch } from '@/components/ui/switch';
 import {
     Shield, Users, Settings, Activity, Database, Server,
     Building2, Bot, Phone, Globe, Save, Loader2,
     Key, Eye, EyeOff, CheckCircle, XCircle, Mic,
-    Mail, Bell, FileText, ToggleLeft, ToggleRight,
+    Mail, Bell, FileText,
     RefreshCw, Copy, Zap, ChevronDown, Clock,
 } from 'lucide-react';
 
@@ -174,11 +175,23 @@ export default function AdminPage() {
     if (loading) {
         return (
             <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-                <Skeleton className="h-10 w-64" />
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-12 rounded-lg" />)}
+                <div className="animate-fade-in-down space-y-2">
+                    <Skeleton className="h-10 w-64 rounded-lg" />
+                    <Skeleton className="h-4 w-96 rounded-lg" />
                 </div>
-                <Skeleton className="h-[400px] rounded-2xl" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[0, 1, 2, 3].map(i => (
+                        <Skeleton
+                            key={i}
+                            className="h-12 rounded-xl animate-fade-in-up opacity-0"
+                            style={{ animationDelay: `${100 + i * 80}ms`, animationFillMode: 'forwards' }}
+                        />
+                    ))}
+                </div>
+                <Skeleton
+                    className="h-[400px] rounded-2xl animate-fade-in-up opacity-0"
+                    style={{ animationDelay: '450ms', animationFillMode: 'forwards' }}
+                />
             </div>
         );
     }
@@ -235,7 +248,7 @@ export default function AdminPage() {
 
             {/* ─── Company Tab ─── */}
             {activeTab === 'company' && (
-                <div className="space-y-6">
+                <div key="company" className="space-y-6 animate-fade-in-up">
                     <Card className="rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -344,7 +357,7 @@ export default function AdminPage() {
 
             {/* ─── AI Assistant Tab ─── */}
             {activeTab === 'assistant' && (
-                <div className="space-y-6">
+                <div key="assistant" className="space-y-6 animate-fade-in-up">
                     <Card className="rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -417,7 +430,7 @@ export default function AdminPage() {
 
             {/* ─── Features Tab ─── */}
             {activeTab === 'features' && (
-                <div className="space-y-6">
+                <div key="features" className="space-y-6 animate-fade-in-up">
                     <Card className="rounded-2xl">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -465,7 +478,7 @@ export default function AdminPage() {
 
             {/* ─── System Tab ─── */}
             {activeTab === 'system' && (
-                <div className="space-y-6">
+                <div key="system" className="space-y-6 animate-fade-in-up">
                     {/* System Health */}
                     <Card className="rounded-2xl">
                         <CardHeader>
@@ -550,25 +563,23 @@ function FeatureToggle({ icon: Icon, title, description, enabled, onChange, colo
     onChange: (enabled: boolean) => void;
     color: string;
 }) {
+    const switchId = `toggle-${title.replace(/\s+/g, '-').toLowerCase()}`;
     return (
         <div className="flex items-center justify-between py-4 border-b last:border-0">
             <div className="flex items-start gap-3">
                 <Icon className={`h-5 w-5 mt-0.5 ${color}`} />
                 <div>
-                    <p className="font-medium text-sm">{title}</p>
+                    <label htmlFor={switchId} className="font-medium text-sm cursor-pointer">{title}</label>
                     <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
                 </div>
             </div>
-            <button
-                onClick={() => onChange(!enabled)}
-                className="shrink-0 ml-4"
-            >
-                {enabled ? (
-                    <ToggleRight className="h-8 w-8 text-emerald-500" />
-                ) : (
-                    <ToggleLeft className="h-8 w-8 text-muted-foreground" />
-                )}
-            </button>
+            <Switch
+                id={switchId}
+                checked={enabled}
+                onCheckedChange={onChange}
+                aria-label={title}
+                className={enabled ? 'bg-emerald-500' : ''}
+            />
         </div>
     );
 }

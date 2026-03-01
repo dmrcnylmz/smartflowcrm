@@ -265,7 +265,7 @@ export default function OnboardingPage() {
                         const isComplete = index < currentStep;
                         const isCurrent = index === currentStep;
                         return (
-                            <div key={step.id} className="flex-1 flex items-center gap-2">
+                            <div key={step.id} className="flex-1 flex items-center gap-2 animate-fade-in-down opacity-0" style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}>
                                 <button
                                     onClick={() => index <= currentStep && setCurrentStep(index)}
                                     disabled={index > currentStep}
@@ -295,37 +295,39 @@ export default function OnboardingPage() {
 
             {/* Step Content */}
             <div className="max-w-5xl mx-auto px-6 py-8">
-                <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-foreground">{STEPS[currentStep].label}</h2>
-                    <p className="text-muted-foreground mt-1">{STEPS[currentStep].description}</p>
-                </div>
-
-                {/* Error */}
-                {error && (
-                    <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm">
-                        {error}
+                <div key={currentStep} className="animate-fade-in-up">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-bold text-foreground">{STEPS[currentStep].label}</h2>
+                        <p className="text-muted-foreground mt-1">{STEPS[currentStep].description}</p>
                     </div>
-                )}
 
-                {/* Step 1: Company Info */}
-                {currentStep === 0 && (
-                    <StepCompanyInfo data={data} updateData={updateData} />
-                )}
+                    {/* Error */}
+                    {error && (
+                        <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl text-destructive text-sm">
+                            {error}
+                        </div>
+                    )}
 
-                {/* Step 2: Template Selection */}
-                {currentStep === 1 && (
-                    <StepTemplateSelection data={data} updateData={updateData} />
-                )}
+                    {/* Step 1: Company Info */}
+                    {currentStep === 0 && (
+                        <StepCompanyInfo data={data} updateData={updateData} />
+                    )}
 
-                {/* Step 3: Voice Agent Config */}
-                {currentStep === 2 && (
-                    <StepVoiceConfig data={data} updateData={updateData} />
-                )}
+                    {/* Step 2: Template Selection */}
+                    {currentStep === 1 && (
+                        <StepTemplateSelection data={data} updateData={updateData} />
+                    )}
 
-                {/* Step 4: Review & Launch */}
-                {currentStep === 3 && (
-                    <StepReview data={data} />
-                )}
+                    {/* Step 3: Voice Agent Config */}
+                    {currentStep === 2 && (
+                        <StepVoiceConfig data={data} updateData={updateData} />
+                    )}
+
+                    {/* Step 4: Review & Launch */}
+                    {currentStep === 3 && (
+                        <StepReview data={data} />
+                    )}
+                </div>
             </div>
 
             {/* Navigation Footer */}
@@ -510,7 +512,7 @@ function StepTemplateSelection({
 }) {
     return (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TEMPLATES.map((template) => {
+            {TEMPLATES.map((template, idx) => {
                 const Icon = template.icon;
                 const isSelected = data.template === template.id;
                 return (
@@ -522,7 +524,8 @@ function StepTemplateSelection({
                                 greeting: template.defaultGreeting,
                             });
                         }}
-                        className={`relative group p-5 rounded-2xl border-2 text-left transition-all duration-300 hover:-translate-y-1
+                        style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'forwards' }}
+                        className={`relative group p-5 rounded-2xl border-2 text-left transition-all duration-300 hover:-translate-y-1 animate-fade-in-up opacity-0
                             ${isSelected
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-lg shadow-blue-500/10'
                                 : 'border-transparent bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-700 shadow-sm hover:shadow-md'
