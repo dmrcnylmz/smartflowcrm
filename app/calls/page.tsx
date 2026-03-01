@@ -19,7 +19,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportCalls, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter } from 'lucide-react';
+import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot } from 'lucide-react';
 import { VoiceCallModal } from '@/components/voice/VoiceCallModal';
 import { useCalls } from '@/lib/firebase/hooks';
 import { getCustomersBatch, extractCustomerIds, getCustomer } from '@/lib/firebase/batch-helpers';
@@ -270,12 +270,78 @@ function CallsPageContent() {
     });
   }
 
+  function renderTranscript(transcript: string | undefined | null) {
+    if (!transcript) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <FileText className="h-10 w-10 text-muted-foreground/20 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">Deşifre (Transcript) bulunamadı</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">Görüşme çok kısa sürmüş veya kayıt devre dışı bırakılmış olabilir.</p>
+        </div>
+      );
+    }
+
+    const aiPatterns = /^(AI|Agent|Asistan|Bot|Assistant|Sistem):\s*/i;
+    const customerPatterns = /^(Customer|Müşteri|User|Kullanıcı|Arayan|Caller):\s*/i;
+
+    const lines = transcript.split('\n').filter((line) => line.trim() !== '');
+
+    return lines.map((line, index) => {
+      const trimmed = line.trim();
+
+      if (aiPatterns.test(trimmed)) {
+        const content = trimmed.replace(aiPatterns, '');
+        const speakerMatch = trimmed.match(aiPatterns);
+        const speaker = speakerMatch ? speakerMatch[1] : 'AI';
+        return (
+          <div key={index} className="flex justify-start">
+            <div className="max-w-[80%]">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Bot className="h-3 w-3 text-indigo-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">{speaker}</span>
+              </div>
+              <div className="bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl rounded-tl-md px-4 py-2.5 shadow-sm">
+                <p className="text-sm text-indigo-900 dark:text-indigo-200 leading-relaxed">{content}</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (customerPatterns.test(trimmed)) {
+        const content = trimmed.replace(customerPatterns, '');
+        const speakerMatch = trimmed.match(customerPatterns);
+        const speaker = speakerMatch ? speakerMatch[1] : 'Müşteri';
+        return (
+          <div key={index} className="flex justify-end">
+            <div className="max-w-[80%]">
+              <div className="flex items-center justify-end gap-1.5 mb-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{speaker}</span>
+                <User className="h-3 w-3 text-slate-400" />
+              </div>
+              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tr-md px-4 py-2.5 shadow-sm">
+                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{content}</p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // System / neutral message
+      return (
+        <div key={index} className="flex justify-center">
+          <p className="text-xs text-muted-foreground italic px-3 py-1">{trimmed}</p>
+        </div>
+      );
+    });
+  }
+
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Phone className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <Phone className="h-7 w-7 md:h-8 md:w-8 text-primary" />
             Çağrı Geçmişi
           </h1>
           <p className="text-muted-foreground mt-2">
@@ -458,7 +524,7 @@ function CallsPageContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCalls.map((call) => {
+                    {filteredCalls.map((call, idx) => {
                       const customer = call.customerId ? customers[call.customerId] : undefined;
                       const timestamp = call.timestamp || call.createdAt;
                       const duration = call.durationSec ?? call.duration;
@@ -467,7 +533,8 @@ function CallsPageContent() {
                       return (
                         <TableRow
                           key={call.id}
-                          className="cursor-pointer group hover:bg-muted/30 transition-colors"
+                          className="cursor-pointer group hover:bg-muted/30 transition-all duration-200 animate-fade-in"
+                          style={{ animationDelay: `${idx * 30}ms` }}
                           onClick={() => handleCallClick(call)}
                         >
                           <TableCell className="pl-6 py-4">
@@ -617,8 +684,8 @@ function CallsPageContent() {
                     <FileText className="h-4 w-4" />
                     Görüşme Dökümü (Transcript)
                   </h4>
-                  <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-5 border shadow-inner min-h-[250px] whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-                    {selectedCall.transcript || '[ Deşifre (Transcript) bulunamadı. Görüşme çok kısa sürmüş veya kayıt devre dışı bırakılmış olabilir. ]'}
+                  <div className="bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-4 border shadow-inner min-h-[250px] max-h-[400px] overflow-y-auto space-y-3">
+                    {renderTranscript(selectedCall.transcript)}
                   </div>
                 </div>
               </div>

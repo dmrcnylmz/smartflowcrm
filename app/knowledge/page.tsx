@@ -413,48 +413,36 @@ export default function KnowledgeBasePage() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Belgeler</CardTitle>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats?.documentCount ?? 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Toplam kaynak</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Parçalar</CardTitle>
-                        <Sparkles className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats?.chunkCount ?? 0}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Vektörleştirilmiş</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Token Kullanımı</CardTitle>
-                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {stats?.totalTokens ? (stats.totalTokens / 1000).toFixed(1) + 'K' : '0'}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">Embedding token</p>
-                    </CardContent>
-                </Card>
-
-                <Card>
+                {[
+                    { title: 'Belgeler', value: stats?.documentCount ?? 0, sub: 'Toplam kaynak', icon: FileText, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                    { title: 'Parçalar', value: stats?.chunkCount ?? 0, sub: 'Vektörleştirilmiş', icon: Sparkles, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+                    { title: 'Token Kullanımı', value: stats?.totalTokens ? (stats.totalTokens / 1000).toFixed(1) + 'K' : '0', sub: 'Embedding token', icon: BarChart3, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                ].map((card, idx) => {
+                    const Icon = card.icon;
+                    return (
+                        <Card key={card.title} className="animate-fade-in-up overflow-hidden" style={{ animationDelay: `${idx * 100}ms` }}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                                <div className={`p-2 rounded-lg ${card.bg}`}>
+                                    <Icon className={`h-4 w-4 ${card.color}`} />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{card.value}</div>
+                                <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
+                            </CardContent>
+                        </Card>
+                    );
+                })}
+                <Card className="animate-fade-in-up" style={{ animationDelay: '300ms' }}>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Kaynak Türleri</CardTitle>
-                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <div className="p-2 rounded-lg bg-indigo-500/10">
+                            <Database className="h-4 w-4 text-indigo-500" />
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex gap-2 mt-1">
+                        <div className="flex gap-2 mt-1 flex-wrap">
                             {stats?.sourceTypes && Object.entries(stats.sourceTypes).map(([type, count]) => (
                                 <Badge key={type} variant="secondary" className="text-xs">
                                     {type}: {count}
@@ -475,9 +463,26 @@ export default function KnowledgeBasePage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="text-center py-12 text-muted-foreground">
-                            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
-                            Yükleniyor...
+                        <div className="space-y-3 p-1">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="flex items-center justify-between p-4 rounded-lg border bg-card animate-pulse"
+                                    style={{ animationDelay: `${i * 100}ms` }}
+                                >
+                                    <div className="flex items-center gap-4 flex-1">
+                                        <div className="h-10 w-10 rounded-lg bg-muted" />
+                                        <div className="space-y-2 flex-1">
+                                            <div className="h-4 w-1/3 rounded bg-muted" />
+                                            <div className="h-3 w-1/2 rounded bg-muted/60" />
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-6 w-16 rounded-full bg-muted" />
+                                        <div className="h-8 w-8 rounded bg-muted" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : documents.length === 0 ? (
                         <div className="text-center py-16">
@@ -496,10 +501,11 @@ export default function KnowledgeBasePage() {
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            {documents.map((doc) => (
+                            {documents.map((doc, idx) => (
                                 <div
                                     key={doc.id}
-                                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-all duration-200 animate-fade-in-up"
+                                    style={{ animationDelay: `${idx * 60}ms` }}
                                 >
                                     <div className="flex items-center gap-4 flex-1 min-w-0">
                                         <div className="h-10 w-10 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500 shrink-0">

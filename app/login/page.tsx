@@ -12,6 +12,22 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { Mail, Lock, User, AlertCircle, Loader2 } from 'lucide-react';
 
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+    if (!password) return { score: 0, label: '', color: '' };
+    let score = 0;
+    if (password.length >= 6) score++;
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    if (score <= 1) return { score: 20, label: 'Çok Zayıf', color: 'bg-red-500' };
+    if (score === 2) return { score: 40, label: 'Zayıf', color: 'bg-orange-500' };
+    if (score === 3) return { score: 60, label: 'Orta', color: 'bg-yellow-500' };
+    if (score === 4) return { score: 80, label: 'Güçlü', color: 'bg-emerald-500' };
+    return { score: 100, label: 'Çok Güçlü', color: 'bg-emerald-600' };
+}
+
 export default function LoginPage() {
     const router = useRouter();
     const { signIn, signInWithGoogle, signUp, resetPassword, loading, error, clearError } = useAuth();
@@ -392,6 +408,29 @@ export default function LoginPage() {
                                             className="pl-10"
                                         />
                                     </div>
+                                    {registerData.password && (
+                                        <div className="space-y-1.5 mt-2">
+                                            <div className="flex gap-1">
+                                                {[1, 2, 3, 4, 5].map((segment) => (
+                                                    <div
+                                                        key={segment}
+                                                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                                                            getPasswordStrength(registerData.password).score >= segment * 20
+                                                                ? getPasswordStrength(registerData.password).color
+                                                                : 'bg-muted'
+                                                        }`}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <p className={`text-xs font-medium transition-colors ${
+                                                getPasswordStrength(registerData.password).score <= 40 ? 'text-red-500' :
+                                                getPasswordStrength(registerData.password).score <= 60 ? 'text-yellow-600' :
+                                                'text-emerald-600'
+                                            }`}>
+                                                {getPasswordStrength(registerData.password).label}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">
