@@ -1,7 +1,7 @@
 'use client';
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ interface Subscription {
 // Component
 // =============================================
 
-export default function BillingPage() {
+function BillingPageContent() {
     const { user } = useAuth();
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
@@ -262,7 +262,15 @@ export default function BillingPage() {
             {error && (
                 <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-xl flex items-center gap-3">
                     <AlertCircle className="h-5 w-5" />
-                    <p className="text-sm font-medium">{error}</p>
+                    <p className="text-sm font-medium flex-1">{error}</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl shrink-0 text-orange-600 border-orange-500/30 hover:bg-orange-500/10"
+                        onClick={() => { setError(null); loadData(); }}
+                    >
+                        Tekrar Dene
+                    </Button>
                 </div>
             )}
 
@@ -483,6 +491,81 @@ export default function BillingPage() {
                 </Card>
             )}
         </div>
+    );
+}
+
+// =============================================
+// Skeleton
+// =============================================
+
+function BillingPageSkeleton() {
+    return (
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+            {/* Header skeleton */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div className="space-y-2">
+                    <Skeleton className="h-9 w-72 rounded-lg" />
+                    <Skeleton className="h-5 w-96 rounded-lg" />
+                </div>
+            </div>
+
+            {/* Plan cards skeleton */}
+            <div className="space-y-4">
+                <Skeleton className="h-7 w-32 rounded-lg" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="rounded-2xl border border-border/30 p-6 space-y-4 bg-muted/10 animate-fade-in-up opacity-0"
+                            style={{ animationDelay: `${i * 120}ms`, animationFillMode: 'forwards' }}
+                        >
+                            <Skeleton className="h-12 w-12 rounded-xl" />
+                            <Skeleton className="h-6 w-28 rounded" />
+                            <Skeleton className="h-4 w-full rounded" />
+                            <Skeleton className="h-10 w-32 rounded" />
+                            <div className="space-y-2 pt-2">
+                                <Skeleton className="h-3 w-full rounded" />
+                                <Skeleton className="h-3 w-4/5 rounded" />
+                                <Skeleton className="h-3 w-3/4 rounded" />
+                                <Skeleton className="h-3 w-2/3 rounded" />
+                            </div>
+                            <Skeleton className="h-10 w-full rounded-xl mt-4" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Usage stat cards skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up opacity-0"
+                        style={{ animationDelay: `${360 + i * 120}ms`, animationFillMode: 'forwards' }}
+                    >
+                        <div className="flex items-center justify-between">
+                            <Skeleton className="h-4 w-36 rounded" />
+                            <Skeleton className="h-4 w-4 rounded" />
+                        </div>
+                        <Skeleton className="h-10 w-24 rounded" />
+                        <Skeleton className="h-2 w-full rounded-full" />
+                        <Skeleton className="h-3 w-28 rounded" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// =============================================
+// Page (with Suspense boundary)
+// =============================================
+
+export default function BillingPage() {
+    return (
+        <Suspense fallback={<BillingPageSkeleton />}>
+            <BillingPageContent />
+        </Suspense>
     );
 }
 

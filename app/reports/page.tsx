@@ -136,9 +136,15 @@ export default function ReportsPage() {
           <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3 animate-fade-in-up opacity-0" style={{ animationDelay: '300ms', animationFillMode: 'forwards' }} />
         </div>
       ) : error ? (
-        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-6 rounded-2xl flex items-center justify-center gap-3">
-          <AlertCircle className="h-6 w-6" />
+        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-6 rounded-2xl flex flex-col items-center justify-center gap-4">
+          <AlertCircle className="h-8 w-8" />
           <p className="font-medium text-lg">{error}</p>
+          <button
+            onClick={loadReport}
+            className="px-4 py-2 text-sm font-medium rounded-xl bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
+          >
+            Tekrar Dene
+          </button>
         </div>
       ) : report ? (
         <div className="space-y-6">

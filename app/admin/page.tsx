@@ -18,7 +18,7 @@ import {
     Building2, Bot, Phone, Globe, Save, Loader2,
     Key, Eye, EyeOff, CheckCircle, XCircle, Mic,
     Mail, Bell, FileText,
-    RefreshCw, Copy, Zap, ChevronDown, Clock,
+    RefreshCw, Copy, Zap, ChevronDown, Clock, AlertTriangle,
 } from 'lucide-react';
 
 // =============================================
@@ -78,6 +78,7 @@ export default function AdminPage() {
     const { toast } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [settings, setSettings] = useState<TenantSettings>(defaultSettings);
     const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'system'>('company');
     const [healthData, setHealthData] = useState<Record<string, unknown> | null>(null);
@@ -85,6 +86,7 @@ export default function AdminPage() {
     // ─── Fetch Settings ───
     const fetchSettings = useCallback(async () => {
         try {
+            setError(null);
             const [settingsRes, healthRes, aiRes] = await Promise.all([
                 authFetch('/api/tenant/settings'),
                 fetch('/api/health'),
@@ -113,6 +115,7 @@ export default function AdminPage() {
             }));
         } catch (err) {
             console.error('Settings fetch error:', err);
+            setError(err instanceof Error ? err.message : 'Ayarlar yüklenirken bir hata oluştu');
         } finally {
             setLoading(false);
         }
@@ -192,6 +195,29 @@ export default function AdminPage() {
                     className="h-[400px] rounded-2xl animate-fade-in-up opacity-0"
                     style={{ animationDelay: '450ms', animationFillMode: 'forwards' }}
                 />
+            </div>
+        );
+    }
+
+    // ─── Error ───
+    if (error) {
+        return (
+            <div className="p-4 md:p-8 max-w-5xl mx-auto">
+                <Card className="rounded-2xl border-destructive/50">
+                    <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                        <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                            <AlertTriangle className="h-6 w-6 text-destructive" />
+                        </div>
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-semibold text-foreground">Ayarlar yüklenemedi</h3>
+                            <p className="text-sm text-muted-foreground max-w-md">{error}</p>
+                        </div>
+                        <Button onClick={() => { setLoading(true); fetchSettings(); }} className="gap-2 mt-2">
+                            <RefreshCw className="h-4 w-4" />
+                            Tekrar Dene
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
         );
     }

@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ import {
     FileUp,
     File,
     X,
+    RefreshCw,
+    AlertTriangle,
 } from 'lucide-react';
 
 // =============================================
@@ -76,7 +79,7 @@ const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 // Component
 // =============================================
 
-export default function KnowledgeBasePage() {
+function KnowledgePageContent() {
     const { toast } = useToast();
     const authFetch = useAuthFetch();
     const [documents, setDocuments] = useState<KBDocument[]>([]);
@@ -99,6 +102,13 @@ export default function KnowledgeBasePage() {
     const [queryResults, setQueryResults] = useState<QueryResult[]>([]);
     const [querying, setQuerying] = useState(false);
 
+    // Search / filter state
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+    // Error state
+    const [error, setError] = useState<string | null>(null);
+
     // Delete state
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -108,12 +118,14 @@ export default function KnowledgeBasePage() {
 
     const fetchDocuments = useCallback(async () => {
         try {
+            setError(null);
             const res = await authFetch('/api/knowledge');
             if (!res.ok) throw new Error('Failed to fetch documents');
             const data = await res.json();
             setDocuments(data.documents || []);
         } catch (err) {
             console.error('KB fetch error:', err);
+            setError('Belgeler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
         }
     }, [authFetch]);
 
@@ -372,6 +384,25 @@ export default function KnowledgeBasePage() {
 
     const canSubmit = addType === 'file' ? !!selectedFile : addContent.trim().length > 0;
 
+    // Filtered documents based on debounced search term
+    const filteredDocuments = debouncedSearchTerm
+        ? documents.filter((doc) => {
+            const term = debouncedSearchTerm.toLowerCase();
+            return (
+                doc.title?.toLowerCase().includes(term) ||
+                doc.sourceType?.toLowerCase().includes(term) ||
+                doc.source?.toLowerCase().includes(term)
+            );
+        })
+        : documents;
+
+    // Retry handler for error state
+    const handleRetry = useCallback(() => {
+        setLoading(true);
+        setError(null);
+        Promise.all([fetchDocuments(), fetchStats()]).finally(() => setLoading(false));
+    }, [fetchDocuments, fetchStats]);
+
     // ─────────────────────────────────────────────
     // Render
     // ─────────────────────────────────────────────
@@ -459,10 +490,39 @@ export default function KnowledgeBasePage() {
             {/* Document List */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Kaynaklar</CardTitle>
+                    <div className="flex items-center justify-between gap-4">
+                        <CardTitle>Kaynaklar</CardTitle>
+                        {documents.length > 0 && (
+                            <div className="relative w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    placeholder="Kaynak ara..."
+                                    className="pl-9 h-9"
+                                />
+                            </div>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
-                    {loading ? (
+                    {error ? (
+                        <div className="text-center py-16">
+                            <AlertTriangle className="h-16 w-16 text-red-400/50 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">Veriler yüklenemedi</h3>
+                            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                                {error}
+                            </p>
+                            <Button
+                                onClick={handleRetry}
+                                variant="outline"
+                                className="gap-2"
+                            >
+                                <RefreshCw className="h-4 w-4" />
+                                Tekrar Dene
+                            </Button>
+                        </div>
+                    ) : loading ? (
                         <div className="space-y-3 p-1">
                             {Array.from({ length: 4 }).map((_, i) => (
                                 <div
@@ -499,9 +559,17 @@ export default function KnowledgeBasePage() {
                                 İlk Kaynağı Ekle
                             </Button>
                         </div>
+                    ) : filteredDocuments.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Search className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                            <h3 className="text-base font-semibold mb-1">Sonuç bulunamadı</h3>
+                            <p className="text-sm text-muted-foreground">
+                                &ldquo;{debouncedSearchTerm}&rdquo; ile eşleşen kaynak yok. Farklı bir arama terimi deneyin.
+                            </p>
+                        </div>
                     ) : (
                         <div className="space-y-3">
-                            {documents.map((doc, idx) => (
+                            {filteredDocuments.map((doc, idx) => (
                                 <div
                                     key={doc.id}
                                     className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-all duration-200 animate-fade-in-up"
@@ -818,5 +886,86 @@ export default function KnowledgeBasePage() {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+// =============================================
+// Skeleton fallback for Suspense
+// =============================================
+
+function KnowledgePageSkeleton() {
+    return (
+        <div className="p-4 md:p-8 animate-pulse">
+            {/* Header skeleton */}
+            <div className="mb-8">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="h-8 w-48 rounded bg-muted mb-2" />
+                        <div className="h-4 w-72 rounded bg-muted/60" />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-28 rounded bg-muted" />
+                        <div className="h-10 w-32 rounded bg-muted" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Stats skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <Card key={i} className="overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <div className="h-4 w-20 rounded bg-muted" />
+                            <div className="h-8 w-8 rounded-lg bg-muted" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-7 w-16 rounded bg-muted mb-2" />
+                            <div className="h-3 w-24 rounded bg-muted/60" />
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            {/* Document list skeleton */}
+            <Card>
+                <CardHeader>
+                    <div className="h-6 w-24 rounded bg-muted" />
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-3">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <div
+                                key={i}
+                                className="flex items-center justify-between p-4 rounded-lg border bg-card"
+                            >
+                                <div className="flex items-center gap-4 flex-1">
+                                    <div className="h-10 w-10 rounded-lg bg-muted" />
+                                    <div className="space-y-2 flex-1">
+                                        <div className="h-4 w-1/3 rounded bg-muted" />
+                                        <div className="h-3 w-1/2 rounded bg-muted/60" />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="h-6 w-16 rounded-full bg-muted" />
+                                    <div className="h-8 w-8 rounded bg-muted" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+// =============================================
+// Default export with Suspense boundary
+// =============================================
+
+export default function KnowledgeBasePage() {
+    return (
+        <Suspense fallback={<KnowledgePageSkeleton />}>
+            <KnowledgePageContent />
+        </Suspense>
     );
 }

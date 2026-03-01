@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -71,18 +71,54 @@ export function Sidebar() {
   const { user, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
 
   // Close mobile drawer on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  // Close on Escape key
+  // Close on Escape key + focus trap for mobile drawer
   useEffect(() => {
+    if (!mobileOpen) return;
+
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMobileOpen(false);
+      if (e.key === 'Escape') {
+        setMobileOpen(false);
+        // Return focus to hamburger button
+        hamburgerRef.current?.focus();
+        return;
+      }
+
+      // Focus trap: Tab cycles within drawer
+      if (e.key === 'Tab' && mobileDrawerRef.current) {
+        const focusable = mobileDrawerRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
-    if (mobileOpen) window.addEventListener('keydown', handleKey);
+
+    window.addEventListener('keydown', handleKey);
+
+    // Focus first focusable element when drawer opens
+    requestAnimationFrame(() => {
+      const firstLink = mobileDrawerRef.current?.querySelector<HTMLElement>('a[href]');
+      firstLink?.focus();
+    });
+
     return () => window.removeEventListener('keydown', handleKey);
   }, [mobileOpen]);
 
@@ -225,9 +261,12 @@ export function Sidebar() {
     <>
       {/* Mobile hamburger button */}
       <button
+        ref={hamburgerRef}
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-lg text-foreground hover:bg-accent transition-colors"
         aria-label="Menüyü aç"
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-sidebar"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -242,6 +281,11 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <aside
+        ref={mobileDrawerRef}
+        id="mobile-sidebar"
+        role="dialog"
+        aria-modal={mobileOpen}
+        aria-label="Mobil navigasyon menüsü"
         className={cn(
           "lg:hidden fixed top-0 left-0 z-50 h-full w-72 bg-card border-r border-border flex flex-col shadow-2xl transition-transform duration-300 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"

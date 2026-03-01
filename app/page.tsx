@@ -17,8 +17,8 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Timestamp } from 'firebase/firestore';
 
-// Demo mode - activates when Firebase permissions fail
-let DEMO_MODE = false;
+// Demo mode flag is tracked per-component instance via useRef
+// to avoid shared mutable state across hot reloads and SSR.
 
 // Demo data for development
 const generateDemoData = () => {
@@ -75,6 +75,7 @@ export default function DashboardPage() {
   const [refreshInterval, setRefreshInterval] = useState(60000); // 1 minute default
   const [isLive, setIsLive] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const demoModeRef = useRef(false);
   const [chartData, setChartData] = useState<{
     calls: CallLog[];
     complaints: Complaint[];
@@ -286,9 +287,9 @@ export default function DashboardPage() {
       }
 
       // If all queries failed with permission errors, switch to demo mode
-      if (permissionErrors >= 3 && !DEMO_MODE) {
+      if (permissionErrors >= 3 && !demoModeRef.current) {
         console.log('🎭 Demo Mode activated - Firebase permissions unavailable');
-        DEMO_MODE = true;
+        demoModeRef.current = true;
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         allCalls = demoCalls;
         allComplaints = demoComplaints;
@@ -320,7 +321,7 @@ export default function DashboardPage() {
       });
 
       // Show demo mode notice instead of error
-      if (DEMO_MODE) {
+      if (demoModeRef.current) {
         setError('🎭 Demo Modu - Firebase bağlantısı yok, demo veriler gösteriliyor');
       } else if (errors.length > 0 && errors.length < 3) {
         // Partial failure - log but don't block UI
@@ -329,8 +330,8 @@ export default function DashboardPage() {
     } catch (error: unknown) {
       console.error('Dashboard load error:', error);
       // Fallback to demo mode on any critical error
-      if (!DEMO_MODE) {
-        DEMO_MODE = true;
+      if (!demoModeRef.current) {
+        demoModeRef.current = true;
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -370,7 +371,7 @@ export default function DashboardPage() {
       icon: PhoneIncoming,
       gradient: 'from-blue-500/20 to-blue-600/5',
       iconColor: 'text-blue-500 bg-blue-500/10',
-      trend: DEMO_MODE ? null : null, // No fake trends -- compute from real data when available
+      trend: demoModeRef.current ? null : null, // No fake trends -- compute from real data when available
       trendUp: true,
     },
     {
@@ -379,7 +380,7 @@ export default function DashboardPage() {
       icon: Phone,
       gradient: 'from-rose-500/20 to-rose-600/5',
       iconColor: 'text-rose-500 bg-rose-500/10',
-      trend: DEMO_MODE ? null : null,
+      trend: demoModeRef.current ? null : null,
       trendUp: true,
     },
     {
@@ -388,7 +389,7 @@ export default function DashboardPage() {
       icon: MessageSquareWarning,
       gradient: 'from-amber-500/20 to-amber-600/5',
       iconColor: 'text-amber-500 bg-amber-500/10',
-      trend: DEMO_MODE ? null : null,
+      trend: demoModeRef.current ? null : null,
       trendUp: false,
     },
     {
@@ -397,7 +398,7 @@ export default function DashboardPage() {
       icon: Calendar,
       gradient: 'from-emerald-500/20 to-emerald-600/5',
       iconColor: 'text-emerald-500 bg-emerald-500/10',
-      trend: DEMO_MODE ? null : null,
+      trend: demoModeRef.current ? null : null,
       trendUp: true,
     },
   ];
@@ -463,7 +464,7 @@ export default function DashboardPage() {
 
       {/* Error / Demo Mode Notification */}
       {error && (
-        DEMO_MODE ? (
+        demoModeRef.current ? (
           /* Subtle bottom-right toast for demo mode */
           <div className="fixed bottom-6 right-6 z-50 animate-slide-up-panel">
             <div className="bg-background/95 text-muted-foreground border border-border/60 px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-lg backdrop-blur-xl text-sm max-w-xs">
@@ -483,6 +484,12 @@ export default function DashboardPage() {
           <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
             <AlertCircle className="h-5 w-5" />
             <p className="font-medium">{error}</p>
+            <button
+              onClick={handleRefresh}
+              className="ml-2 px-3 py-1 text-xs font-medium rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
+            >
+              Tekrar Dene
+            </button>
           </div>
         )
       )}

@@ -533,9 +533,17 @@ function CallsPageContent() {
                       return (
                         <TableRow
                           key={call.id}
-                          className="cursor-pointer group hover:bg-muted/30 transition-all duration-200 animate-fade-in"
+                          className="cursor-pointer group hover:bg-muted/30 transition-all duration-200 animate-fade-in focus-visible:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30"
                           style={{ animationDelay: `${idx * 30}ms` }}
+                          tabIndex={0}
+                          role="button"
                           onClick={() => handleCallClick(call)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleCallClick(call);
+                            }
+                          }}
                         >
                           <TableCell className="pl-6 py-4">
                             <div className="flex flex-col">

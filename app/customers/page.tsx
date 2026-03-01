@@ -3,8 +3,9 @@
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useDebounce } from '@/lib/hooks/useDebounce';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -47,6 +48,7 @@ function CustomersPageContent() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   const [limit, setLimit] = useState(50);
 
   // Update URL params when search changes
@@ -181,16 +183,16 @@ function CustomersPageContent() {
     }
   }
 
-  // Filter customers
-  const filteredCustomers = customers.filter(customer => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
+  // Filter customers (using debounced search for performance)
+  const filteredCustomers = useMemo(() => customers.filter(customer => {
+    if (!debouncedSearch) return true;
+    const search = debouncedSearch.toLowerCase();
     return (
       customer.name.toLowerCase().includes(search) ||
-      customer.phone.includes(searchTerm) ||
+      customer.phone.includes(debouncedSearch) ||
       (customer.email && customer.email.toLowerCase().includes(search))
     );
-  });
+  }), [customers, debouncedSearch]);
 
   // Pagination
   const paginatedCustomers = filteredCustomers.slice(0, limit);
@@ -231,7 +233,7 @@ function CustomersPageContent() {
   // Stats
   const totalCustomers = customers.length;
   const customersWithEmail = customers.filter(c => c.email).length;
-  const newCustomersThisWeeek = customers.filter(c => {
+  const newCustomersThisWeek = customers.filter(c => {
     const diff = new Date().getTime() - toDate(c.createdAt).getTime();
     return diff < 1000 * 60 * 60 * 24 * 7;
   }).length;
@@ -281,17 +283,28 @@ function CustomersPageContent() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
+                    minLength={2}
+                    maxLength={100}
                     placeholder="Müşteri Adı"
+                    autoComplete="name"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Telefon *</Label>
                   <Input
                     id="phone"
+                    type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => {
+                      // Only allow digits, +, spaces, parens, dashes
+                      const sanitized = e.target.value.replace(/[^\d+\s()-]/g, '');
+                      setFormData({ ...formData, phone: sanitized });
+                    }}
                     required
+                    pattern="[\+]?[\d\s()-]{7,20}"
+                    title="Geçerli bir telefon numarası girin (ör: +905554443322)"
                     placeholder="+905554443322"
+                    autoComplete="tel"
                   />
                 </div>
                 <div className="space-y-2">
@@ -300,8 +313,9 @@ function CustomersPageContent() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value.trim() })}
                     placeholder="ornek@mail.com"
+                    autoComplete="email"
                   />
                 </div>
                 <div className="space-y-2">
@@ -348,7 +362,7 @@ function CustomersPageContent() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">+{newCustomersThisWeeek}</div>
+            <div className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">+{newCustomersThisWeek}</div>
             <p className="text-xs text-indigo-600/80 dark:text-indigo-400 mt-2 font-medium flex items-center gap-1">
               <Clock className="h-3 w-3" />
               Son 7 gün içerisinde eklendi
@@ -443,8 +457,17 @@ function CustomersPageContent() {
                     {paginatedCustomers.map((customer) => (
                       <TableRow
                         key={customer.id}
-                        className="cursor-pointer group hover:bg-muted/30 transition-colors"
+                        className="cursor-pointer group hover:bg-muted/30 transition-colors focus-visible:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30"
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`${customer.name} müşteri detaylarını görüntüle`}
                         onClick={() => handleCustomerClick(customer)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleCustomerClick(customer);
+                          }
+                        }}
                       >
                         <TableCell className="pl-6 py-4">
                           <div className="flex flex-col">
@@ -572,10 +595,17 @@ function CustomersPageContent() {
                         <Label htmlFor="edit-phone" className="text-xs text-muted-foreground">Telefon *</Label>
                         <Input
                           id="edit-phone"
+                          type="tel"
                           className="mt-1"
                           value={editFormData.phone}
-                          onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                          onChange={(e) => {
+                            const sanitized = e.target.value.replace(/[^\d+\s()-]/g, '');
+                            setEditFormData({ ...editFormData, phone: sanitized });
+                          }}
                           required
+                          pattern="[\+]?[\d\s()-]{7,20}"
+                          title="Geçerli bir telefon numarası girin"
+                          autoComplete="tel"
                         />
                       </div>
                       <div>
