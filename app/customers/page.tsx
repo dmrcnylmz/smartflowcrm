@@ -207,27 +207,31 @@ function CustomersPageContent() {
     setLimit(newLimit);
   }
 
-  function handleExport(format: 'csv' | 'excel' | 'pdf') {
-    const exportData = exportCustomers(filteredCustomers);
-    const filename = `musteriler-${new Date().toISOString().split('T')[0]}`;
+  async function handleExport(format: 'csv' | 'excel' | 'pdf') {
+    try {
+      const exportData = exportCustomers(filteredCustomers);
+      const filename = `musteriler-${new Date().toISOString().split('T')[0]}`;
 
-    switch (format) {
-      case 'csv':
-        exportToCSV(exportData, filename);
-        break;
-      case 'excel':
-        exportToExcel(exportData, filename);
-        break;
-      case 'pdf':
-        exportToPDF(exportData, filename, 'Müşteri Listesi');
-        break;
+      switch (format) {
+        case 'csv':
+          exportToCSV(exportData, filename);
+          break;
+        case 'excel':
+          await exportToExcel(exportData, filename);
+          break;
+        case 'pdf':
+          await exportToPDF(exportData, filename, 'Müşteri Listesi');
+          break;
+      }
+
+      toast({
+        title: 'Başarılı!',
+        description: `${format.toUpperCase()} dosyası indirildi`,
+        variant: 'success',
+      });
+    } catch {
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
     }
-
-    toast({
-      title: 'Başarılı!',
-      description: `${format.toUpperCase()} dosyası indirildi`,
-      variant: 'success',
-    });
   }
 
   // Stats

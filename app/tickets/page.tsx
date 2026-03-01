@@ -48,6 +48,7 @@ import {
   Inbox,
   RefreshCw,
   WifiOff,
+  FileText,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -682,36 +683,11 @@ function TicketsPageContent() {
 
         <CardContent className="p-0">
           {/* Empty state */}
-          {filteredTickets.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-              <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-6 border border-white/5">
-                <Inbox className="h-10 w-10 text-primary/40" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">
-                {hasActiveFilters ? 'Sonuc Bulunamadi' : 'Henuz Talep Yok'}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-sm">
-                {hasActiveFilters
-                  ? 'Girdiginiz filtre kriterlerine uygun destek talebi bulunmuyor. Filtreleri temizleyerek tekrar deneyin.'
-                  : 'Sistemde henuz bir destek talebi olusturulmamis. Yeni bir talep olusturarak baslayabilirsiniz.'}
-              </p>
-              {hasActiveFilters ? (
-                <Button variant="outline" onClick={handleClearFilters} className="rounded-xl">
-                  <X className="h-4 w-4 mr-2" />
-                  Filtreleri Temizle
-                </Button>
-              ) : (
-                <Button
-                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700"
-                  onClick={() => {
-                    resetCreateForm();
-                    setCreateDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Ilk Talebi Olustur
-                </Button>
-              )}
+          {filteredTickets.length === 0 && !loading ? (
+            <div className="text-center py-16">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-medium text-muted-foreground">Henüz bilet yok</h3>
+              <p className="text-sm text-muted-foreground/60 mt-1">Yeni bir destek bileti oluşturun</p>
             </div>
           ) : (
             <>

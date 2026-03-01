@@ -3,8 +3,11 @@
 const CONTEXT_API_URL = process.env.PERSONAPLEX_CONTEXT_URL || process.env.CONTEXT_API_URL || 'http://localhost:8999';
 
 export interface WebhookPayload {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
+  sessionId?: string;
+  tenantId?: string;
+  timestamp?: string;
+  arguments?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 // Tool name → context type mapping
@@ -31,8 +34,7 @@ export const N8N_WORKFLOW_IDS = {
 export async function sendWebhook(
   toolName: string,
   payload: WebhookPayload
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): Promise<any> {
+): Promise<{ success?: boolean; status?: number; error?: string; [key: string]: unknown }> {
   const mapping = TOOL_TYPE_MAP[toolName] || { type: toolName, priority: 'normal' };
 
   const contextPayload = {
@@ -73,8 +75,8 @@ export async function sendWebhook(
   }
 }
 
-// Also log call_start event for call-handler
-async function logEvent(payload: WebhookPayload) {
+/** Log call_start event for call-handler (non-critical, fire-and-forget) */
+async function logEvent(payload: WebhookPayload): Promise<void> {
   try {
     await fetch(`${CONTEXT_API_URL}/webhook/event`, {
       method: 'POST',

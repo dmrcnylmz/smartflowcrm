@@ -58,6 +58,17 @@ const SECURITY_HEADERS: Record<string, string> = {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'camera=(), microphone=(self), geolocation=()',
     'X-DNS-Prefetch-Control': 'on',
+    'Content-Security-Policy': [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://*.google.com",
+        "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com",
+        "object-src 'none'",
+        "base-uri 'self'",
+    ].join('; '),
 };
 
 /** Page routes that are public (no login required) */

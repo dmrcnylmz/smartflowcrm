@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/firebase/auth-context';
 /**
  * Hook that returns an authenticated fetch function.
  * Automatically attaches Firebase ID token as Bearer token to all requests.
+ * Throws on token fetch failures to prevent silent unauthenticated requests.
  */
 export function useAuthFetch() {
     const { user } = useAuth();
@@ -18,8 +19,10 @@ export function useAuthFetch() {
                 try {
                     const token = await user.getIdToken();
                     headers.set('Authorization', `Bearer ${token}`);
-                } catch {
-                    // Token fetch failed, proceed without auth header
+                } catch (err) {
+                    console.warn('[useAuthFetch] Token fetch failed, request will be unauthenticated:', err);
+                    // Don't silently proceed — throw so caller can handle
+                    throw new Error('Kimlik doğrulama başarısız. Lütfen tekrar giriş yapın.');
                 }
             }
 

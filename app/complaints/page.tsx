@@ -158,27 +158,31 @@ function ComplaintsPageContent() {
     setLimit(newLimit);
   }
 
-  function handleExport(format: 'csv' | 'excel' | 'pdf') {
-    const exportData = exportComplaints(filteredComplaints, customers);
-    const filename = `sikayetler-${new Date().toISOString().split('T')[0]}`;
+  async function handleExport(format: 'csv' | 'excel' | 'pdf') {
+    try {
+      const exportData = exportComplaints(filteredComplaints, customers);
+      const filename = `sikayetler-${new Date().toISOString().split('T')[0]}`;
 
-    switch (format) {
-      case 'csv':
-        exportToCSV(exportData, filename);
-        break;
-      case 'excel':
-        exportToExcel(exportData, filename);
-        break;
-      case 'pdf':
-        exportToPDF(exportData, filename, 'Şikayet Listesi');
-        break;
+      switch (format) {
+        case 'csv':
+          exportToCSV(exportData, filename);
+          break;
+        case 'excel':
+          await exportToExcel(exportData, filename);
+          break;
+        case 'pdf':
+          await exportToPDF(exportData, filename, 'Şikayet Listesi');
+          break;
+      }
+
+      toast({
+        title: 'Başarılı!',
+        description: `${format.toUpperCase()} dosyası indirildi`,
+        variant: 'success',
+      });
+    } catch {
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
     }
-
-    toast({
-      title: 'Başarılı!',
-      description: `${format.toUpperCase()} dosyası indirildi`,
-      variant: 'success',
-    });
   }
 
   async function handleStatusUpdate(complaintId: string, newStatus: 'open' | 'investigating' | 'resolved' | 'closed') {
@@ -414,17 +418,11 @@ function ComplaintsPageContent() {
                   : 'Şikayet listesi yüklenirken beklenmedik bir sistem hatası oluştu.'}
               </p>
             </div>
-          ) : paginatedComplaints.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center px-4">
-              <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-4 border border-white/5">
-                <CheckCircle2 className="h-10 w-10 text-primary/40" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Pırıl Pırıl!</h3>
-              <p className="text-muted-foreground mb-6 max-w-sm">
-                {searchTerm || statusFilters.length > 0 || categoryFilters.length > 0 || dateFrom || dateTo
-                  ? 'Girdiğiniz filtre ve arama kriterlerine uygun açık şikayet bulunmuyor.'
-                  : 'Şu an sistemde aktif veya çözümlenmiş herhangi bir talep yok. İşler harika gidiyor!'}
-              </p>
+          ) : paginatedComplaints.length === 0 && !loading ? (
+            <div className="text-center py-16">
+              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-medium text-muted-foreground">Henüz şikayet yok</h3>
+              <p className="text-sm text-muted-foreground/60 mt-1">Şikayetler burada listelenecektir</p>
             </div>
           ) : (
             <div className="divide-y divide-border/50">

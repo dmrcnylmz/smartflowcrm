@@ -474,20 +474,12 @@ export default function AgentsPage() {
                         </Button>
                     </CardContent>
                 </Card>
-            ) : agents.length === 0 ? (
-                <Card>
-                    <CardContent className="text-center py-16">
-                        <Bot className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold mb-2">Henüz asistan oluşturulmamış</h3>
-                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                            Şablonlardan birini seçerek hızlıca bir asistan oluşturabilir veya sıfırdan yapılandırabilirsiniz.
-                        </p>
-                        <Button onClick={handleNew} className="gap-2 bg-violet-600 hover:bg-violet-700">
-                            <Wand2 className="h-4 w-4" />
-                            İlk Asistanı Oluştur
-                        </Button>
-                    </CardContent>
-                </Card>
+            ) : agents.length === 0 && !loading ? (
+                <div className="text-center py-16">
+                    <Bot className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+                    <h3 className="text-lg font-medium text-muted-foreground">Henüz asistan yok</h3>
+                    <p className="text-sm text-muted-foreground/60 mt-1">Bir AI asistanı oluşturun</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {agents.map((agent, index) => (
