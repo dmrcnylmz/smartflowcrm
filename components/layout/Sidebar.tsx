@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -66,7 +66,7 @@ const navSections: NavSection[] = [
   },
 ];
 
-export function Sidebar() {
+export const Sidebar = memo(function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
@@ -311,4 +311,6 @@ export function Sidebar() {
       </aside>
     </>
   );
-}
+});
+
+Sidebar.displayName = 'Sidebar';

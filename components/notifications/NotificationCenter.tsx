@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Bell, BellDot, Check, CheckCheck, Trash2, X,
@@ -47,7 +47,7 @@ const typeColors: Record<string, string> = {
 
 // --- Notification Center ---
 
-export function NotificationCenter() {
+export const NotificationCenter = memo(function NotificationCenter() {
     const authFetch = useAuthFetch();
     const router = useRouter();
     const [open, setOpen] = useState(false);
@@ -262,4 +262,6 @@ export function NotificationCenter() {
             </div>
         </div>
     );
-}
+});
+
+NotificationCenter.displayName = 'NotificationCenter';
