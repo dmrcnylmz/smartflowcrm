@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
         const action = request.nextUrl.searchParams.get('action');
 
         if (query) {
-            const topK = parseInt(request.nextUrl.searchParams.get('topK') || '5');
+            const topK = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get('topK') || '5') || 5, 1), 50);
             const results = await queryKnowledgeBase(tenantId!, query, topK);
             return NextResponse.json({ query, results, count: results.length });
         }

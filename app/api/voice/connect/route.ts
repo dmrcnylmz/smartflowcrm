@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkRateLimit, RATE_LIMITS, rateLimitExceeded, getRateLimitHeaders } from '@/lib/voice/rate-limit';
 import { voiceLogger, metrics, METRICS } from '@/lib/voice/logging';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
 const PERSONAPLEX_API_KEY = process.env.PERSONAPLEX_API_KEY || '';
@@ -104,9 +105,6 @@ export async function POST(request: NextRequest) {
         voiceLogger.error('session_token_error', error instanceof Error ? error : String(error));
         metrics.increment(METRICS.API_ERRORS, 1, { endpoint: 'ws-token' });
 
-        return NextResponse.json(
-            { error: 'Failed to create session token' },
-            { status: 500 }
-        );
+        return handleApiError(error, 'VoiceConnect POST');
     }
 }

@@ -131,6 +131,15 @@ export async function DELETE(request: NextRequest) {
         const authErr = requireAuth(tenantId);
         if (authErr) return errorResponse(authErr);
 
+        // Role check: only admins and owners can delete agents
+        const callerRole = request.headers.get('x-user-role');
+        if (!callerRole || !['owner', 'admin'].includes(callerRole)) {
+            return NextResponse.json(
+                { error: 'Only owners and admins can delete agents' },
+                { status: 403 },
+            );
+        }
+
         const body = await request.json();
         const validation = requireFields(body, ['id']);
         if (validation) return errorResponse(validation);
