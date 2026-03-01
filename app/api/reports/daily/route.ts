@@ -34,8 +34,9 @@ export async function GET(request: NextRequest) {
           getInfoRequests(),
           getAppointments({ dateFrom: startOfDay, dateTo: endOfDay }),
         ]);
-      } catch (error: any) {
-        if (error?.message?.includes('permission') || error?.code === 'permission-denied') {
+      } catch (error: unknown) {
+        const err = error as { message?: string; code?: string };
+        if (err?.message?.includes('permission') || err?.code === 'permission-denied') {
           console.log('📋 Reports API: Switching to demo mode');
           useDemoMode = true;
         } else {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate averages
     const avgCallDuration = calls.length > 0
-      ? calls.reduce((sum, c) => sum + (c.durationSec ?? (c as any).duration ?? 0), 0) / calls.length
+      ? calls.reduce((sum, c) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
       : 0;
 
     const report = {
@@ -78,10 +79,10 @@ export async function GET(request: NextRequest) {
       },
       calls: calls.map(c => ({
         id: c.id,
-        timestamp: toDate((c as any).timestamp ?? c.createdAt).toISOString(),
-        intent: (c as any).intent,
+        timestamp: toDate(c.timestamp ?? c.createdAt)?.toISOString() ?? '',
+        intent: c.intent,
         status: c.status,
-        duration: c.durationSec ?? (c as any).duration ?? 0,
+        duration: c.durationSec ?? c.duration ?? 0,
       })),
       complaints: openComplaints.map(c => ({
         id: c.id,

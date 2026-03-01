@@ -1,53 +1,96 @@
 import { Timestamp } from 'firebase/firestore';
 
 /**
- * Safely convert Firestore Timestamp to Date
- * Handles multiple input types:
- * - Firestore Timestamp objects
- * - Date objects
- * - ISO date strings
- * - Unix timestamps (numbers)
- * - null/undefined (returns current date)
+ * Convert Firestore Timestamp, Date, string, or number to JS Date.
+ * Returns null for invalid input.
  */
-export function toDate(timestamp: unknown): Date {
-  if (!timestamp) return new Date();
+export function toDate(value: unknown): Date | null {
+  if (!value) return null;
   
-  // Already a Date object
-  if (timestamp instanceof Date) return timestamp;
-  
-  // Firestore Timestamp object
-  if (
-    typeof timestamp === 'object' && 
-    'toDate' in timestamp && 
-    typeof timestamp.toDate === 'function'
-  ) {
-    return (timestamp as Timestamp).toDate();
+  // Firestore Timestamp
+  if (value instanceof Timestamp) {
+    return value.toDate();
   }
   
-  // ISO string or date string
-  if (typeof timestamp === 'string') {
-    const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? new Date() : date;
+  // Already a Date
+  if (value instanceof Date) {
+    return value;
   }
   
-  // Unix timestamp (milliseconds)
-  if (typeof timestamp === 'number') {
-    return new Date(timestamp);
+  // Object with toDate method (Firestore Timestamp-like)
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const tsLike = value as { toDate: unknown };
+    if (typeof tsLike.toDate === 'function') {
+      return (tsLike.toDate as () => Date)();
+    }
+  }
+
+  // Object with seconds (Firestore Timestamp serialized)
+  if (typeof value === 'object' && value !== null && 'seconds' in value) {
+    return new Date((value as { seconds: number }).seconds * 1000);
   }
   
-  // Fallback
-  return new Date();
+  // String or number
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  
+  return null;
 }
 
 /**
- * Check if a timestamp is valid
+ * Format a date-like value to a localized string.
  */
-export function isValidTimestamp(timestamp: unknown): boolean {
-  try {
-    const date = toDate(timestamp);
-    return !isNaN(date.getTime());
-  } catch {
-    return false;
-  }
+export function formatDate(value: unknown, locale: string = 'tr-TR', options?: Intl.DateTimeFormatOptions): string {
+  const date = toDate(value);
+  if (!date) return '-';
+  
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    ...options,
+  };
+  
+  return date.toLocaleDateString(locale, defaultOptions);
 }
 
+/**
+ * Format date only (no time).
+ */
+export function formatDateOnly(value: unknown, locale: string = 'tr-TR'): string {
+  const date = toDate(value);
+  if (!date) return '-';
+  return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Get relative time string (e.g., "2 saat önce").
+ */
+export function timeAgo(value: unknown, locale: string = 'tr'): string {
+  const date = toDate(value);
+  if (!date) return '-';
+  
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (locale === 'tr') {
+    if (diffMins < 1) return 'Az önce';
+    if (diffMins < 60) return `${diffMins} dakika önce`;
+    if (diffHours < 24) return `${diffHours} saat önce`;
+    if (diffDays < 7) return `${diffDays} gün önce`;
+    return formatDateOnly(date, 'tr-TR');
+  }
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minutes ago`;
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return formatDateOnly(date, 'en-US');
+}

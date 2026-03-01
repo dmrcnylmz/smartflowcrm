@@ -105,10 +105,46 @@ interface SpeechRecognitionResult {
     isFinal: boolean;
 }
 
-function createSpeechRecognition(): any | null {
-    const SpeechRecognitionAPI =
-        (window as any).SpeechRecognition ||
-        (window as any).webkitSpeechRecognition;
+/** Minimal Web Speech API types — covers browser + webkit prefix */
+interface SpeechRecognitionInstance {
+    lang: string;
+    interimResults: boolean;
+    continuous: boolean;
+    maxAlternatives: number;
+    start(): void;
+    stop(): void;
+    abort(): void;
+    onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+    onend: (() => void) | null;
+}
+
+interface SpeechRecognitionResultEvent {
+    resultIndex: number;
+    results: {
+        length: number;
+        [index: number]: {
+            isFinal: boolean;
+            length: number;
+            [index: number]: { transcript: string; confidence: number };
+        };
+    };
+}
+
+interface SpeechRecognitionErrorEvent {
+    error: string;
+    message?: string;
+}
+
+/** Window with vendor-prefixed Speech Recognition API */
+interface WindowWithSpeech extends Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+}
+
+function createSpeechRecognition(): SpeechRecognitionInstance | null {
+    const w = window as WindowWithSpeech;
+    const SpeechRecognitionAPI = w.SpeechRecognition || w.webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
         console.warn('[Personaplex] Speech Recognition API not available');
@@ -208,7 +244,7 @@ function speakBrowserFallback(text: string, onEnd?: () => void): void {
 export class PersonaplexClient {
     private config: PersonaplexConfig;
     private session: VoiceSession | null = null;
-    private recognition: any | null = null;
+    private recognition: SpeechRecognitionInstance | null = null;
     private isListening: boolean = false;
     private isSpeaking: boolean = false;
     private inferUrl: string;
@@ -287,6 +323,14 @@ export class PersonaplexClient {
      */
     async startAudioCapture(): Promise<void> {
         try {
+            // Check if mediaDevices is available (requires HTTPS or localhost)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.warn('[Personaplex] getUserMedia not available - requires HTTPS or localhost. Continuing without audio capture.');
+                // Still set up speech recognition if available (it may work without explicit getUserMedia)
+                this.setupSpeechRecognition();
+                return;
+            }
+
             // Request microphone permission (needed for Speech Recognition)
             this.mediaStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -311,95 +355,102 @@ export class PersonaplexClient {
             this.audioProcessor.connect(this.audioContext.destination);
 
             // Set up Speech Recognition
-            this.recognition = createSpeechRecognition();
-
-            if (this.recognition) {
-                let interimTranscript = '';
-                let finalTranscriptTimeout: ReturnType<typeof setTimeout> | null = null;
-
-                this.recognition.onresult = (event: any) => {
-                    let finalText = '';
-                    let interimText = '';
-
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        const result = event.results[i];
-                        if (result.isFinal) {
-                            finalText += result[0].transcript;
-                        } else {
-                            interimText += result[0].transcript;
-                        }
-                    }
-
-                    if (interimText && !finalText) {
-                        // Don't show interim text while AI is speaking (echo prevention)
-                        if (this.isSpeaking) return;
-
-                        interimTranscript = interimText;
-                        // Show interim text as user is speaking
-                        this.onTranscriptUpdate?.({
-                            speaker: 'user',
-                            text: `${interimText}...`,
-                            timestamp: new Date().toISOString(),
-                        });
-                    }
-
-                    if (finalText) {
-                        // Don't process user input while AI is speaking (echo prevention)
-                        if (this.isSpeaking) {
-                            console.log('[Personaplex] Ignoring echo during AI speech:', finalText.trim());
-                            return;
-                        }
-
-                        // Clear any pending timeout
-                        if (finalTranscriptTimeout) {
-                            clearTimeout(finalTranscriptTimeout);
-                        }
-
-                        interimTranscript = '';
-
-                        // Add to transcript
-                        const userTurn: TranscriptTurn = {
-                            speaker: 'user',
-                            text: finalText.trim(),
-                            timestamp: new Date().toISOString(),
-                        };
-                        this.transcript.push(userTurn);
-                        this.onTranscriptUpdate?.(userTurn);
-
-                        // Send to Personaplex for processing
-                        this.processUserInput(finalText.trim());
-                    }
-                };
-
-                this.recognition.onerror = (event: any) => {
-                    if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                        console.error('[Personaplex] Speech recognition error:', event.error);
-                    }
-                };
-
-                this.recognition.onend = () => {
-                    // Auto-restart if still listening AND AI is not speaking
-                    if (this.isListening && this.recognition && !this.isSpeaking) {
-                        try {
-                            this.recognition.start();
-                        } catch (e) {
-                            // Ignore - might already be running
-                        }
-                    }
-                };
-
-                this.recognition.start();
-                this.isListening = true;
-                console.log('[Personaplex] Speech recognition started (tr-TR)');
-            } else {
-                console.warn('[Personaplex] Speech Recognition not available, using fallback');
-            }
+            this.setupSpeechRecognition();
 
             console.log('[Personaplex] Audio capture started');
 
         } catch (error) {
             console.error('[Personaplex] Failed to start audio capture:', error);
             this.onError?.(error instanceof Error ? error : new Error('Ses yakalama başarısız'));
+        }
+    }
+
+    /**
+     * Set up Web Speech API recognition
+     */
+    private setupSpeechRecognition(): void {
+        this.recognition = createSpeechRecognition();
+
+        if (this.recognition) {
+            let interimTranscript = '';
+            let finalTranscriptTimeout: ReturnType<typeof setTimeout> | null = null;
+
+            this.recognition.onresult = (event: SpeechRecognitionResultEvent) => {
+                let finalText = '';
+                let interimText = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    if (result.isFinal) {
+                        finalText += result[0].transcript;
+                    } else {
+                        interimText += result[0].transcript;
+                    }
+                }
+
+                if (interimText && !finalText) {
+                    // Don't show interim text while AI is speaking (echo prevention)
+                    if (this.isSpeaking) return;
+
+                    interimTranscript = interimText;
+                    // Show interim text as user is speaking
+                    this.onTranscriptUpdate?.({
+                        speaker: 'user',
+                        text: `${interimText}...`,
+                        timestamp: new Date().toISOString(),
+                    });
+                }
+
+                if (finalText) {
+                    // Don't process user input while AI is speaking (echo prevention)
+                    if (this.isSpeaking) {
+                        console.log('[Personaplex] Ignoring echo during AI speech:', finalText.trim());
+                        return;
+                    }
+
+                    // Clear any pending timeout
+                    if (finalTranscriptTimeout) {
+                        clearTimeout(finalTranscriptTimeout);
+                    }
+
+                    interimTranscript = '';
+
+                    // Add to transcript
+                    const userTurn: TranscriptTurn = {
+                        speaker: 'user',
+                        text: finalText.trim(),
+                        timestamp: new Date().toISOString(),
+                    };
+                    this.transcript.push(userTurn);
+                    this.onTranscriptUpdate?.(userTurn);
+
+                    // Send to Personaplex for processing
+                    this.processUserInput(finalText.trim());
+                }
+            };
+
+            this.recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    console.error('[Personaplex] Speech recognition error:', event.error);
+                }
+            };
+
+            this.recognition.onend = () => {
+                // Auto-restart if still listening AND AI is not speaking
+                if (this.isListening && this.recognition && !this.isSpeaking) {
+                    try {
+                        this.recognition.start();
+                    } catch (e) {
+                        // Ignore - might already be running
+                    }
+                }
+            };
+
+            this.recognition.start();
+            this.isListening = true;
+            console.log('[Personaplex] Speech recognition started (tr-TR)');
+        } else {
+            console.warn('[Personaplex] Speech Recognition not available, using fallback');
         }
     }
 

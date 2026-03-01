@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     const days = differenceInDays(dateTo, dateFrom);
     const breakdownType = days <= 7 ? 'daily' : days <= 31 ? 'weekly' : 'monthly';
 
-    let dailyBreakdown: any[] = [];
+    let dailyBreakdown: Array<{ date: string; dateObj: string; calls: number; answered: number; missed: number }> = [];
     if (breakdownType === 'daily') {
       const dayList = eachDayOfInterval({ start: dateFrom, end: dateTo });
       dailyBreakdown = dayList.map(day => {

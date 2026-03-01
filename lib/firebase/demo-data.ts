@@ -2,7 +2,16 @@
  * Demo data for development/testing when Firebase is not available
  */
 
+import { Timestamp } from 'firebase/firestore';
 import type { Customer, Appointment, Complaint, CallLog, InfoRequest, ActivityLog } from './types';
+
+/**
+ * Create a mock Timestamp-like object for demo data.
+ * Uses `as unknown as Timestamp` to satisfy the type system without `any`.
+ */
+function mockTimestamp(dateStr: string): Timestamp {
+  return { toDate: () => new Date(dateStr) } as unknown as Timestamp;
+}
 
 // Demo customers
 export const demoCustomers: Customer[] = [
@@ -12,7 +21,7 @@ export const demoCustomers: Customer[] = [
         phone: '+905551234567',
         email: 'ahmet@example.com',
         notes: 'VIP müşteri - öncelikli hizmet',
-        createdAt: { toDate: () => new Date('2024-01-15') } as any,
+        createdAt: mockTimestamp('2024-01-15'),
     },
     {
         id: 'demo-customer-2',
@@ -20,7 +29,7 @@ export const demoCustomers: Customer[] = [
         phone: '+905559876543',
         email: 'ayse@example.com',
         notes: 'Düzenli randevu alıyor',
-        createdAt: { toDate: () => new Date('2024-02-20') } as any,
+        createdAt: mockTimestamp('2024-02-20'),
     },
     {
         id: 'demo-customer-3',
@@ -28,7 +37,7 @@ export const demoCustomers: Customer[] = [
         phone: '+905553334455',
         email: 'mehmet@example.com',
         notes: '',
-        createdAt: { toDate: () => new Date('2024-03-10') } as any,
+        createdAt: mockTimestamp('2024-03-10'),
     },
     {
         id: 'demo-customer-4',
@@ -36,7 +45,7 @@ export const demoCustomers: Customer[] = [
         phone: '+905556667788',
         email: 'fatma@example.com',
         notes: 'Şikayet çözüldü, memnun',
-        createdAt: { toDate: () => new Date('2024-04-05') } as any,
+        createdAt: mockTimestamp('2024-04-05'),
     },
     {
         id: 'demo-customer-5',
@@ -44,7 +53,7 @@ export const demoCustomers: Customer[] = [
         phone: '+905552223344',
         email: 'ali@example.com',
         notes: 'Yeni müşteri',
-        createdAt: { toDate: () => new Date('2024-05-01') } as any,
+        createdAt: mockTimestamp('2024-05-01'),
     },
 ];
 
@@ -53,38 +62,38 @@ export const demoAppointments: Appointment[] = [
     {
         id: 'demo-apt-1',
         customerId: 'demo-customer-1',
-        dateTime: { toDate: () => new Date(Date.now() + 86400000) } as any, // Tomorrow
+        dateTime: { toDate: () => new Date(Date.now() + 86400000) } as unknown as Timestamp, // Tomorrow
         durationMin: 30,
         status: 'scheduled',
         notes: 'İlk görüşme',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
     {
         id: 'demo-apt-2',
         customerId: 'demo-customer-2',
-        dateTime: { toDate: () => new Date(Date.now() + 172800000) } as any, // 2 days
+        dateTime: { toDate: () => new Date(Date.now() + 172800000) } as unknown as Timestamp, // 2 days
         durationMin: 45,
         status: 'scheduled',
         notes: 'Kontrol randevusu',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
     {
         id: 'demo-apt-3',
         customerId: 'demo-customer-3',
-        dateTime: { toDate: () => new Date(Date.now() - 86400000) } as any, // Yesterday
+        dateTime: { toDate: () => new Date(Date.now() - 86400000) } as unknown as Timestamp, // Yesterday
         durationMin: 30,
         status: 'completed',
         notes: 'Başarılı görüşme',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
     {
         id: 'demo-apt-4',
         customerId: 'demo-customer-4',
-        dateTime: { toDate: () => new Date(Date.now() - 172800000) } as any, // 2 days ago
+        dateTime: { toDate: () => new Date(Date.now() - 172800000) } as unknown as Timestamp, // 2 days ago
         durationMin: 60,
         status: 'cancelled',
         notes: 'Müşteri iptal etti',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
 ];
 
@@ -97,7 +106,7 @@ export const demoComplaints: Complaint[] = [
         description: 'Randevu saatinde bekleme süresi çok uzundu',
         status: 'resolved',
         priority: 'medium',
-        createdAt: { toDate: () => new Date('2024-04-10') } as any,
+        createdAt: mockTimestamp('2024-04-10'),
     },
     {
         id: 'demo-complaint-2',
@@ -106,7 +115,7 @@ export const demoComplaints: Complaint[] = [
         description: 'Fatura tutarı yanlış hesaplanmış',
         status: 'investigating',
         priority: 'high',
-        createdAt: { toDate: () => new Date('2024-05-15') } as any,
+        createdAt: mockTimestamp('2024-05-15'),
     },
     {
         id: 'demo-complaint-3',
@@ -115,7 +124,7 @@ export const demoComplaints: Complaint[] = [
         description: 'İletişim zorluğu yaşandı',
         status: 'open',
         priority: 'low',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
 ];
 
@@ -130,7 +139,7 @@ export const demoCallLogs: CallLog[] = [
         duration: 180,
         durationSec: 180,
         notes: 'Randevu talebi alındı',
-        createdAt: { toDate: () => new Date(Date.now() - 3600000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 3600000) } as unknown as Timestamp,
     },
     {
         id: 'demo-call-2',
@@ -141,7 +150,7 @@ export const demoCallLogs: CallLog[] = [
         duration: 120,
         durationSec: 120,
         notes: 'Randevu hatırlatması yapıldı',
-        createdAt: { toDate: () => new Date(Date.now() - 7200000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 7200000) } as unknown as Timestamp,
     },
     {
         id: 'demo-call-3',
@@ -152,7 +161,7 @@ export const demoCallLogs: CallLog[] = [
         duration: 0,
         durationSec: 0,
         notes: 'Cevapsız arama',
-        createdAt: { toDate: () => new Date(Date.now() - 10800000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 10800000) } as unknown as Timestamp,
     },
     {
         id: 'demo-call-4',
@@ -163,7 +172,7 @@ export const demoCallLogs: CallLog[] = [
         duration: 300,
         durationSec: 300,
         notes: 'Bilgi talebi',
-        createdAt: { toDate: () => new Date(Date.now() - 14400000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 14400000) } as unknown as Timestamp,
     },
 ];
 
@@ -175,7 +184,7 @@ export const demoInfoRequests: InfoRequest[] = [
         topic: 'Fiyat bilgisi',
         details: 'Hizmet fiyatları hakkında bilgi istedi',
         status: 'pending',
-        createdAt: { toDate: () => new Date() } as any,
+        createdAt: { toDate: () => new Date() } as unknown as Timestamp,
     },
     {
         id: 'demo-info-2',
@@ -183,7 +192,7 @@ export const demoInfoRequests: InfoRequest[] = [
         topic: 'Çalışma saatleri',
         details: 'Hafta sonu çalışma saatlerini sordu',
         status: 'answered',
-        createdAt: { toDate: () => new Date(Date.now() - 86400000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 86400000) } as unknown as Timestamp,
     },
 ];
 
@@ -194,28 +203,28 @@ export const demoActivityLogs: ActivityLog[] = [
         type: 'call',
         relatedId: 'demo-call-1',
         description: 'Ahmet Yılmaz aramayı cevapladı',
-        createdAt: { toDate: () => new Date(Date.now() - 3600000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 3600000) } as unknown as Timestamp,
     },
     {
         id: 'demo-activity-2',
         type: 'appointment',
         relatedId: 'demo-apt-1',
         description: 'Yeni randevu oluşturuldu',
-        createdAt: { toDate: () => new Date(Date.now() - 7200000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 7200000) } as unknown as Timestamp,
     },
     {
         id: 'demo-activity-3',
         type: 'complaint',
         relatedId: 'demo-complaint-1',
         description: 'Şikayet çözüldü olarak işaretlendi',
-        createdAt: { toDate: () => new Date(Date.now() - 10800000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 10800000) } as unknown as Timestamp,
     },
     {
         id: 'demo-activity-4',
         type: 'system',
         relatedId: 'demo-customer-5',
         description: 'Yeni müşteri kaydı oluşturuldu',
-        createdAt: { toDate: () => new Date(Date.now() - 14400000) } as any,
+        createdAt: { toDate: () => new Date(Date.now() - 14400000) } as unknown as Timestamp,
     },
 ];
 
@@ -241,7 +250,7 @@ export const demoDb = {
         const newCustomer: Customer = {
             ...data,
             id: generateId('customer'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _customers.unshift(newCustomer);
         return { id: newCustomer.id };
@@ -259,7 +268,7 @@ export const demoDb = {
         const newApt: Appointment = {
             ...data,
             id: generateId('apt'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _appointments.unshift(newApt);
         return { id: newApt.id };
@@ -280,7 +289,7 @@ export const demoDb = {
         const newComplaint: Complaint = {
             ...data,
             id: generateId('complaint'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _complaints.unshift(newComplaint);
         return { id: newComplaint.id };
@@ -298,7 +307,7 @@ export const demoDb = {
         const newCall: CallLog = {
             ...data,
             id: generateId('call'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _callLogs.unshift(newCall);
         return { id: newCall.id };
@@ -310,7 +319,7 @@ export const demoDb = {
         const newReq: InfoRequest = {
             ...data,
             id: generateId('info'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _infoRequests.unshift(newReq);
         return { id: newReq.id };
@@ -331,7 +340,7 @@ export const demoDb = {
         const newLog: ActivityLog = {
             ...data,
             id: generateId('activity'),
-            createdAt: { toDate: () => new Date() } as any,
+            createdAt: { toDate: () => new Date() } as unknown as Timestamp,
         };
         _activityLogs.unshift(newLog);
         return { id: newLog.id };

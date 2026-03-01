@@ -41,6 +41,9 @@ const DEFAULT_CONFIG: Partial<STTConfig> = {
     model: 'nova-3',
 };
 
+// WebSocket.OPEN constant — works across browser and Node.js ws package
+const WS_OPEN = 1;
+
 // --- Deepgram Streaming STT ---
 
 export class DeepgramSTT extends EventEmitter {
@@ -163,7 +166,7 @@ export class DeepgramSTT extends EventEmitter {
      * Accepts PCM Int16 audio at configured sample rate.
      */
     sendAudio(chunk: Buffer | ArrayBuffer): void {
-        if (!this.ws || (this.ws as any).readyState !== 1) return; // OPEN = 1
+        if (!this.ws || this.ws.readyState !== WS_OPEN) return; // OPEN = 1
         this.ws.send(chunk);
     }
 
@@ -172,7 +175,7 @@ export class DeepgramSTT extends EventEmitter {
      */
     private startKeepAlive(): void {
         this.keepAliveInterval = setInterval(() => {
-            if (this.ws && (this.ws as any).readyState === 1) {
+            if (this.ws && this.ws.readyState === WS_OPEN) {
                 this.ws.send(JSON.stringify({ type: 'KeepAlive' }));
             }
         }, 8000);
@@ -192,7 +195,7 @@ export class DeepgramSTT extends EventEmitter {
         this.isClosing = true;
         this.stopKeepAlive();
 
-        if (this.ws && (this.ws as any).readyState === 1) {
+        if (this.ws && this.ws.readyState === WS_OPEN) {
             // Send close signal per Deepgram protocol
             this.ws.send(JSON.stringify({ type: 'CloseStream' }));
             this.ws.close();
@@ -206,6 +209,6 @@ export class DeepgramSTT extends EventEmitter {
      * Check if connected and ready to receive audio.
      */
     isConnected(): boolean {
-        return this.ws !== null && (this.ws as any).readyState === 1;
+        return this.ws !== null && this.ws.readyState === WS_OPEN;
     }
 }
