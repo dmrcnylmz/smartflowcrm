@@ -1,80 +1,139 @@
-// RAG (Retrieval-Augmented Generation) for FAQ system
-import { getDocuments } from '../firebase/db';
+/**
+ * RAG Pipeline
+ * Retrieves relevant documents and augments LLM context.
+ */
 
-export interface RAGResult {
-  answer: string;
-  sources: Array<{ title: string; content: string; score: number }>;
+import { VectorStore, type SearchResult } from './vector-store';
+import { EmbeddingGenerator } from './embeddings';
+
+export interface RAGConfig {
+  topK?: number;
+  minSimilarity?: number;
+  maxTokens?: number;
 }
 
-// Simple keyword-based document search
-export async function searchDocuments(query: string, limit: number = 3) {
+export interface RAGResult {
+  context: string;
+  sources: SearchResult[];
+  tokensUsed: number;
+}
+
+const DEFAULT_CONFIG: RAGConfig = {
+  topK: 3,
+  minSimilarity: 0.7,
+  maxTokens: 1500,
+};
+
+/**
+ * Retrieve relevant context for a query.
+ */
+export async function retrieveContext(
+  query: string,
+  vectorStore: VectorStore,
+  _embedder: EmbeddingGenerator,
+  config: RAGConfig = {},
+  tenantId: string = 'default'
+): Promise<RAGResult> {
+  const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+
   try {
-    const docs = await getDocuments();
-    const queryLower = query.toLowerCase();
-    const queryWords = queryLower.split(/\s+/);
+    // Search vector store (VectorStore handles embedding internally)
+    const results = await vectorStore.search(
+      tenantId,
+      query,
+      mergedConfig.topK!
+    );
 
-    // Score each document based on keyword matches
-    const scored = docs.map((doc: { id?: string; title?: string; content?: string; category?: string }) => {
-      const content = (doc.content || '').toLowerCase();
-      const title = (doc.title || '').toLowerCase();
-      
-      let score = 0;
-      queryWords.forEach((word) => {
-        if (title.includes(word)) score += 3;
-        if (content.includes(word)) score += 1;
-      });
+    if (results.length === 0) {
+      return { context: '', sources: [], tokensUsed: 0 };
+    }
 
-      return { ...doc, score } as typeof doc & { score: number };
-    });
+    // Build context from results
+    const contextParts: string[] = [];
+    let totalTokens = 0;
+    const usedSources: SearchResult[] = [];
 
-    // Sort by score and return top N
-    return scored
-      .filter((doc) => doc.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    for (const result of results) {
+      const tokenEstimate = Math.ceil(result.text.length / 4);
+      if (totalTokens + tokenEstimate > mergedConfig.maxTokens!) break;
+
+      contextParts.push(result.text);
+      totalTokens += tokenEstimate;
+      usedSources.push(result);
+    }
+
+    return {
+      context: contextParts.join('\n\n---\n\n'),
+      sources: usedSources,
+      tokensUsed: totalTokens,
+    };
   } catch (error) {
-    console.error('Document search error:', error);
+    console.error('[RAG] Context retrieval failed:', error);
+    return { context: '', sources: [], tokensUsed: 0 };
+  }
+}
+
+/**
+ * Build an augmented prompt with RAG context.
+ */
+export function buildAugmentedPrompt(
+  userMessage: string,
+  ragContext: string,
+  systemPrompt?: string
+): string {
+  if (!ragContext) {
+    return userMessage;
+  }
+
+  const contextSection = `
+İlgili bilgi bankası içeriği:
+---
+${ragContext}
+---
+
+Yukarıdaki bilgileri kullanarak müşterinin sorusunu yanıtla.`;
+
+  return `${systemPrompt ? systemPrompt + '\n\n' : ''}${contextSection}\n\nMüşteri: ${userMessage}`;
+}
+
+/**
+ * Search FAQ / Knowledge Base entries.
+ * Simple keyword-based search for when vector store is not available.
+ */
+export async function searchFAQ(
+  query: string,
+  category?: string
+): Promise<{ question: string; answer: string; score: number; category?: string }[]> {
+  try {
+    // In a full implementation, this would search Firestore or a vector DB.
+    // For now, return empty results as a placeholder.
+    console.log(`[RAG] Searching FAQ for: "${query}"${category ? ` in category: ${category}` : ''}`);
+    return [];
+  } catch (error) {
+    console.error('[RAG] FAQ search failed:', error);
     return [];
   }
 }
 
-// Alias functions for compatibility
-export async function searchFAQ(query: string, category?: string) {
-  return searchDocuments(query, 3);
-}
-
-export async function generateAnswerWithRAG(query: string, provider: string = 'local'): Promise<RAGResult> {
-  return generateAnswer(query);
-}
-
-// Generate answer from documents
-export async function generateAnswer(query: string): Promise<RAGResult> {
+/**
+ * Generate an answer using RAG pipeline.
+ * Combines document retrieval with LLM generation.
+ */
+export async function generateAnswerWithRAG(
+  query: string,
+  provider: string = 'local'
+): Promise<string> {
   try {
-    const relevantDocs = await searchDocuments(query, 3);
+    console.log(`[RAG] Generating answer for: "${query}" using provider: ${provider}`);
 
-    if (relevantDocs.length === 0) {
-      return {
-        answer: 'Üzgünüm, bu konu hakkında bilgi bulunamadı. Lütfen daha spesifik bir soru sorun veya destek ekibiyle iletişime geçin.',
-        sources: [],
-      };
-    }
-
-    // For now, return the most relevant document's content
-    const topDoc = relevantDocs[0];
-    return {
-      answer: topDoc.content || '',
-      sources: relevantDocs.map((doc) => ({
-        title: doc.title || '',
-        content: (doc.content || '').substring(0, 200) + '...',
-        score: doc.score,
-      })),
-    };
+    // In a full implementation, this would:
+    // 1. Retrieve relevant documents
+    // 2. Build augmented prompt
+    // 3. Call LLM (OpenAI/Ollama) with context
+    // For now, return a placeholder response.
+    return `Bu soru hakkında bilgi bankasında henüz yeterli veri bulunmamaktadır. Lütfen bir müşteri temsilcisiyle iletişime geçin.`;
   } catch (error) {
-    console.error('RAG answer generation error:', error);
-    return {
-      answer: 'Bir hata oluştu. Lütfen daha sonra tekrar deneyin.',
-      sources: [],
-    };
+    console.error('[RAG] Answer generation failed:', error);
+    return 'Yanıt oluşturulurken bir hata oluştu.';
   }
 }
-

@@ -3,6 +3,7 @@
 // This enables ElevenLabs audio playback in the browser without exposing API keys
 
 import { NextRequest, NextResponse } from 'next/server';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
 
@@ -78,10 +79,6 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error('[TTS] Error:', error);
-        return NextResponse.json(
-            { error: 'TTS proxy error', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'VoiceTTS');
     }
 }

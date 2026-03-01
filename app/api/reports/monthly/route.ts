@@ -46,20 +46,20 @@ export async function GET(request: NextRequest) {
     // Filter complaints and info requests by month
     const monthComplaints = complaints.filter(c => {
       const createdAt = toDate(c.createdAt);
-      return createdAt >= monthStart && createdAt <= monthEnd;
+      return createdAt != null && createdAt >= monthStart && createdAt <= monthEnd;
     });
     const monthInfoRequests = infoRequests.filter(i => {
       const createdAt = toDate(i.createdAt);
-      return createdAt >= monthStart && createdAt <= monthEnd;
+      return createdAt != null && createdAt >= monthStart && createdAt <= monthEnd;
     });
 
     const prevMonthComplaints = complaints.filter(c => {
       const createdAt = toDate(c.createdAt);
-      return createdAt >= prevMonthStart && createdAt <= prevMonthEnd;
+      return createdAt != null && createdAt >= prevMonthStart && createdAt <= prevMonthEnd;
     });
     const prevMonthInfoRequests = infoRequests.filter(i => {
       const createdAt = toDate(i.createdAt);
-      return createdAt >= prevMonthStart && createdAt <= prevMonthEnd;
+      return createdAt != null && createdAt >= prevMonthStart && createdAt <= prevMonthEnd;
     });
 
     // Calculate weekly breakdown
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
       const weekCalls = calls.filter(c => {
         const callDate = toDate(c.timestamp || c.createdAt);
-        return callDate >= weekStart && callDate <= weekEndDate;
+        return callDate != null && callDate >= weekStart && callDate <= weekEndDate;
       });
 
       return {

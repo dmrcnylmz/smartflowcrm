@@ -1,134 +1,143 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// Mock the ollama module before importing router
-vi.mock('@/lib/ai/ollama', () => ({
-    detectIntentWithOllama: vi.fn(),
-    isOllamaAvailable: vi.fn(),
-}));
-
+import { describe, it, expect } from 'vitest';
 import { detectIntent, detectIntentWithLLM, routeIntent } from '@/lib/ai/router';
-import { detectIntentWithOllama, isOllamaAvailable } from '@/lib/ai/ollama';
-
-const mockIsOllamaAvailable = vi.mocked(isOllamaAvailable);
-const mockDetectIntentWithOllama = vi.mocked(detectIntentWithOllama);
+import type { IntentResult } from '@/lib/ai/intent-fast';
 
 describe('AI Intent Router', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-    });
 
     describe('detectIntent (keyword-based)', () => {
-        it('should detect "randevu" intent from Turkish keywords', async () => {
-            const result = await detectIntent('Merhaba, yarın için randevu almak istiyorum');
-            expect(result.intent).toBe('randevu');
-            expect(result.confidence).toBe(0.85);
-            expect(result.method).toBe('keyword');
+        it('should detect "appointment" intent from Turkish keywords', () => {
+            // "için" triggers Turkish detection, "randevu almak" phrase matches appointment
+            const result = detectIntent('Merhaba, yarın için randevu almak istiyorum');
+            expect(result.intent).toBe('appointment');
+            expect(result.confidence).toBe('high');
+            expect(result.detectedKeywords.length).toBeGreaterThan(0);
         });
 
-        it('should detect "randevu" intent from English keyword', async () => {
-            const result = await detectIntent('I need an appointment');
-            expect(result.intent).toBe('randevu');
-            expect(result.confidence).toBe(0.85);
-            expect(result.method).toBe('keyword');
+        it('should detect "appointment" intent from English phrase', () => {
+            // "book an appointment" is an exact phrase match (score 3 -> high)
+            const result = detectIntent('I want to book an appointment');
+            expect(result.intent).toBe('appointment');
+            expect(result.confidence).toBe('high');
         });
 
-        it('should detect "sikayet" intent', async () => {
-            const result = await detectIntent('Bir şikayet bildirmek istiyorum');
-            expect(result.intent).toBe('sikayet');
-            expect(result.confidence).toBe(0.85);
-            expect(result.method).toBe('keyword');
+        it('should detect "complaint" intent from Turkish phrase', () => {
+            // "şikayet" contains Turkish ş, "şikayet etmek" is a phrase match
+            const result = detectIntent('Bir şikayet etmek istiyorum');
+            expect(result.intent).toBe('complaint');
+            expect(result.confidence).toBe('high');
         });
 
-        it('should detect "sikayet" intent from problem keyword', async () => {
-            const result = await detectIntent('Bir sorun var, çözmem gerekiyor');
-            expect(result.intent).toBe('sikayet');
-            expect(result.confidence).toBe(0.85);
+        it('should detect "complaint" intent from English phrase', () => {
+            // "not working" is an exact phrase match in English complaint rules
+            const result = detectIntent('My product is not working properly');
+            expect(result.intent).toBe('complaint');
+            expect(result.confidence).toBe('high');
         });
 
-        it('should detect "bilgi" intent', async () => {
-            const result = await detectIntent('Ürünlerin fiyat listesini öğrenmek istiyorum');
-            expect(result.intent).toBe('bilgi');
-            expect(result.confidence).toBe(0.85);
-            expect(result.method).toBe('keyword');
+        it('should detect "pricing" intent from Turkish phrase', () => {
+            // "ne kadar" is a pricing phrase; "için" triggers Turkish
+            const result = detectIntent('Bu ürün ne kadar, fiyatı nedir');
+            expect(result.intent).toBe('pricing');
+            expect(result.confidence).toBe('high');
         });
 
-        it('should detect "iptal" intent', async () => {
-            const result = await detectIntent('Randevumu iptal etmek istiyorum');
-            // "iptal" keyword should match first since keywords are checked in order
-            // Depending on iteration order, either "randevu" or "iptal" should match
-            expect(['randevu', 'iptal']).toContain(result.intent);
-            expect(result.confidence).toBe(0.85);
-            expect(result.method).toBe('keyword');
+        it('should detect "cancellation" intent from Turkish phrase', () => {
+            // "iptal etmek istiyorum" is a cancellation phrase; "için" not needed since
+            // we need Turkish detection -- use a phrase that includes Turkish chars
+            const result = detectIntent('Aboneliği iptal etmek istiyorum, çünkü memnun değilim');
+            // "aboneliği iptal" matches cancellation phrase, "memnun değilim" matches complaint
+            // Either could win depending on scoring
+            expect(['cancellation', 'complaint']).toContain(result.intent);
         });
 
-        it('should return unknown for unrecognizable text', async () => {
-            const result = await detectIntent('hello world test message');
+        it('should return unknown for unrecognizable text', () => {
+            const result = detectIntent('xyzzy foobar baz');
             expect(result.intent).toBe('unknown');
-            expect(result.confidence).toBe(0.3);
-            expect(result.method).toBe('keyword');
+            expect(result.confidence).toBe('low');
         });
 
-        it('should be case insensitive', async () => {
-            const result = await detectIntent('RANDEVU ALMAK İSTİYORUM');
-            expect(result.intent).toBe('randevu');
+        it('should be case insensitive', () => {
+            // Use an English phrase that clearly matches
+            const result = detectIntent('I WANT TO BOOK AN APPOINTMENT');
+            expect(result.intent).toBe('appointment');
         });
 
-        it('should handle empty string', async () => {
-            const result = await detectIntent('');
+        it('should handle empty string', () => {
+            const result = detectIntent('');
             expect(result.intent).toBe('unknown');
-            expect(result.confidence).toBe(0.3);
+            expect(result.confidence).toBe('low');
         });
     });
 
     describe('detectIntentWithLLM', () => {
-        it('should fallback to keyword detection when Ollama is unavailable', async () => {
-            mockIsOllamaAvailable.mockResolvedValue(false);
-
-            const result = await detectIntentWithLLM('randevu almak istiyorum');
-            expect(result.intent).toBe('randevu');
-            expect(result.method).toBe('keyword');
-            expect(mockIsOllamaAvailable).toHaveBeenCalledOnce();
-            expect(mockDetectIntentWithOllama).not.toHaveBeenCalled();
+        it('should return fast detection result for high confidence', async () => {
+            // "book an appointment" is a phrase match -> score 3 -> high
+            const result = await detectIntentWithLLM('I want to book an appointment');
+            expect(result.intent).toBe('appointment');
+            expect(result.confidence).toBe('high');
         });
 
-        it('should use Ollama when available', async () => {
-            mockIsOllamaAvailable.mockResolvedValue(true);
-            mockDetectIntentWithOllama.mockResolvedValue({
-                intent: 'randevu',
-                confidence: 0.95,
-                summary: 'LLM detected appointment intent',
-            });
-
-            const result = await detectIntentWithLLM('I would like to schedule something');
-            expect(result.intent).toBe('randevu');
-            expect(result.confidence).toBe(0.95);
-            expect(result.method).toBe('llm');
+        it('should return fast detection result even for root-match text', async () => {
+            // "schedule" matches root "schedul" (score 2 -> medium)
+            const result = await detectIntentWithLLM('I want to schedule a meeting');
+            expect(result.intent).toBe('appointment');
+            expect(['high', 'medium']).toContain(result.confidence);
         });
 
-        it('should fallback to keyword on Ollama error', async () => {
-            mockIsOllamaAvailable.mockResolvedValue(true);
-            mockDetectIntentWithOllama.mockRejectedValue(new Error('Connection refused'));
-
-            const result = await detectIntentWithLLM('şikayet');
-            expect(result.intent).toBe('sikayet');
-            expect(result.method).toBe('keyword');
+        it('should return unknown for unrecognizable text', async () => {
+            const result = await detectIntentWithLLM('xyzzy foobar baz');
+            expect(result.intent).toBe('unknown');
+            expect(result.confidence).toBe('low');
         });
     });
 
     describe('routeIntent', () => {
-        it('should use keyword detection by default', async () => {
-            const result = await routeIntent('randevu istiyorum');
-            expect(result.intent).toBe('randevu');
-            expect(result.method).toBe('keyword');
+        it('should route appointment intent to rag handler', () => {
+            const intentResult: IntentResult = {
+                intent: 'appointment',
+                confidence: 'high',
+                detectedKeywords: ['randevu'],
+                language: 'tr',
+            };
+            const result = routeIntent(intentResult);
+            expect(result.intent).toBe('appointment');
+            expect(result.handler).toBe('rag');
         });
 
-        it('should use LLM when useLLM is true', async () => {
-            mockIsOllamaAvailable.mockResolvedValue(false);
+        it('should route greeting intent to shortcut handler', () => {
+            const intentResult: IntentResult = {
+                intent: 'greeting',
+                confidence: 'high',
+                detectedKeywords: ['merhaba'],
+                language: 'tr',
+            };
+            const result = routeIntent(intentResult);
+            expect(result.intent).toBe('greeting');
+            expect(result.handler).toBe('shortcut');
+        });
 
-            const result = await routeIntent('randevu istiyorum', true, 'ollama');
-            expect(result.intent).toBe('randevu');
-            // Falls back to keyword since Ollama is not available
-            expect(result.method).toBe('keyword');
+        it('should route escalation intent to escalation handler', () => {
+            const intentResult: IntentResult = {
+                intent: 'escalation',
+                confidence: 'high',
+                detectedKeywords: ['yönetici'],
+                language: 'tr',
+            };
+            const result = routeIntent(intentResult);
+            expect(result.intent).toBe('escalation');
+            expect(result.handler).toBe('escalation');
+        });
+
+        it('should route unknown intent to llm handler', () => {
+            const intentResult: IntentResult = {
+                intent: 'unknown',
+                confidence: 'low',
+                detectedKeywords: [],
+                language: 'tr',
+            };
+            const result = routeIntent(intentResult);
+            expect(result.intent).toBe('unknown');
+            expect(result.handler).toBe('llm');
         });
     });
 });

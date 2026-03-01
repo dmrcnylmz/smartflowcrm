@@ -195,18 +195,21 @@ export async function ingestDocument(
 }
 
 // =============================================
-// Retrieval
+// Retrieval — Hybrid Search (Semantic + Keyword)
 // =============================================
 
 /**
- * Query the knowledge base with a natural language question.
- * Returns the top-K most relevant chunks.
+ * Query the knowledge base with hybrid search:
+ * 1. Semantic search (cosine similarity on embeddings)
+ * 2. Keyword search (BM25-like TF scoring)
+ * 3. Score fusion with configurable weights
+ * 4. Result deduplication & reranking
  */
 export async function queryKnowledgeBase(
     tenantId: string,
     query: string,
     topK: number = 5,
-    minScore: number = 0.3,
+    minScore: number = 0.25,
 ): Promise<RetrievalResult[]> {
     // 1. Generate query embedding
     const queryEmbedding = await generateEmbedding(query);
@@ -218,51 +221,201 @@ export async function queryKnowledgeBase(
         return [];
     }
 
-    // 3. Compute similarities
-    const results: RetrievalResult[] = [];
+    // 3. Prepare keyword tokens from query
+    const queryTokens = tokenize(query);
+
+    // 4. Score each chunk with hybrid approach
+    const scoredChunks: Array<{
+        chunkId: string;
+        documentId: string;
+        content: string;
+        semanticScore: number;
+        keywordScore: number;
+        fusedScore: number;
+        index: number;
+    }> = [];
 
     for (const doc of chunksSnap.docs) {
         const data = doc.data();
         if (!data.vector || !Array.isArray(data.vector)) continue;
 
-        const score = cosineSimilarity(queryEmbedding.vector, data.vector);
+        // Semantic score
+        const semanticScore = cosineSimilarity(queryEmbedding.vector, data.vector);
 
-        if (score >= minScore) {
-            results.push({
+        // Keyword score (BM25-lite)
+        const keywordScore = computeKeywordScore(data.content, queryTokens);
+
+        // Fused score: 70% semantic + 30% keyword
+        const fusedScore = (semanticScore * 0.7) + (keywordScore * 0.3);
+
+        if (fusedScore >= minScore) {
+            scoredChunks.push({
                 chunkId: doc.id,
                 documentId: data.documentId,
                 content: data.content,
-                score,
+                semanticScore,
+                keywordScore,
+                fusedScore,
+                index: data.index || 0,
             });
         }
     }
 
-    // 4. Sort by score descending, return top-K
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, topK);
+    // 5. Sort by fused score descending
+    scoredChunks.sort((a, b) => b.fusedScore - a.fusedScore);
+
+    // 6. Deduplicate — remove near-duplicate content from same document
+    const deduped = deduplicateResults(scoredChunks);
+
+    // 7. Return top-K with metadata
+    return deduped.slice(0, topK).map(c => ({
+        chunkId: c.chunkId,
+        documentId: c.documentId,
+        content: c.content,
+        score: c.fusedScore,
+        metadata: {
+            semanticScore: c.semanticScore,
+            keywordScore: c.keywordScore,
+            chunkIndex: c.index,
+        },
+    }));
 }
 
 /**
  * Get RAG context for a voice agent query.
  * Returns formatted context string for injection into the system prompt.
+ * Includes context window optimization.
  */
 export async function getRAGContext(
     tenantId: string,
     userQuery: string,
     maxChunks: number = 3,
+    maxContextLength: number = 3000,
 ): Promise<string> {
-    const results = await queryKnowledgeBase(tenantId, userQuery, maxChunks);
+    const results = await queryKnowledgeBase(tenantId, userQuery, maxChunks + 2);
 
     if (results.length === 0) {
         return '';
     }
 
-    const context = results
-        .map((r, i) => `[Kaynak ${i + 1}] (Benzerlik: ${(r.score * 100).toFixed(0)}%)\n${r.content}`)
+    // Context window optimization — fit within maxContextLength
+    const selectedChunks: RetrievalResult[] = [];
+    let totalLength = 0;
+
+    for (const result of results) {
+        if (selectedChunks.length >= maxChunks) break;
+        if (totalLength + result.content.length > maxContextLength) {
+            // Try truncating the last chunk to fit
+            const remaining = maxContextLength - totalLength;
+            if (remaining > 200) {
+                selectedChunks.push({
+                    ...result,
+                    content: result.content.slice(0, remaining) + '...',
+                });
+            }
+            break;
+        }
+        selectedChunks.push(result);
+        totalLength += result.content.length;
+    }
+
+    if (selectedChunks.length === 0) return '';
+
+    const context = selectedChunks
+        .map((r, i) => `[Kaynak ${i + 1}] (Güven: ${(r.score * 100).toFixed(0)}%)\n${r.content}`)
         .join('\n\n---\n\n');
 
     return `\n\n--- BİLGİ TABANI ---\nAşağıdaki bilgileri yanıtınızda kullanabilirsiniz:\n\n${context}\n--- BİLGİ TABANI SONU ---`;
 }
+
+// =============================================
+// Hybrid Search Helpers
+// =============================================
+
+/** Tokenize text for keyword matching */
+function tokenize(text: string): string[] {
+    return text
+        .toLowerCase()
+        .replace(/[^\w\sğüşıöçĞÜŞİÖÇ]/g, ' ')
+        .split(/\s+/)
+        .filter(t => t.length > 2) // skip very short words
+        .filter(t => !TURKISH_STOP_WORDS.has(t));
+}
+
+/** Compute keyword relevance score (BM25-like TF scoring) */
+function computeKeywordScore(content: string, queryTokens: string[]): number {
+    if (queryTokens.length === 0) return 0;
+
+    const contentLower = content.toLowerCase();
+    const contentTokens = tokenize(content);
+    const contentLength = contentTokens.length;
+    if (contentLength === 0) return 0;
+
+    let matchedTokens = 0;
+    let totalTF = 0;
+
+    for (const token of queryTokens) {
+        // Exact token match
+        const tf = contentTokens.filter(t => t === token || t.includes(token)).length;
+        if (tf > 0) {
+            matchedTokens++;
+            // BM25-like saturation: tf / (tf + 1.2)
+            totalTF += tf / (tf + 1.2);
+        }
+
+        // Phrase match bonus: check if multi-word token appears in content
+        if (contentLower.includes(token)) {
+            totalTF += 0.5;
+        }
+    }
+
+    // Coverage: what fraction of query tokens matched
+    const coverage = matchedTokens / queryTokens.length;
+
+    // Normalize: combine TF and coverage
+    const score = (totalTF / queryTokens.length) * 0.6 + coverage * 0.4;
+
+    return Math.min(score, 1.0);
+}
+
+/** Remove near-duplicate chunks (same document, adjacent indices) */
+function deduplicateResults(
+    results: Array<{ chunkId: string; documentId: string; content: string; semanticScore: number; keywordScore: number; fusedScore: number; index: number }>,
+): typeof results {
+    const seen = new Map<string, number>(); // documentId+index → position in output
+    const deduped: typeof results = [];
+
+    for (const r of results) {
+        const key = `${r.documentId}_${r.index}`;
+        const prevKey = `${r.documentId}_${r.index - 1}`;
+        const nextKey = `${r.documentId}_${r.index + 1}`;
+
+        // If exact same chunk exists, skip
+        if (seen.has(key)) continue;
+
+        // If adjacent chunk from same doc already included with higher score, skip
+        if (seen.has(prevKey) || seen.has(nextKey)) {
+            const existingIdx = seen.get(prevKey) ?? seen.get(nextKey);
+            if (existingIdx !== undefined && deduped[existingIdx].fusedScore >= r.fusedScore) {
+                continue;
+            }
+        }
+
+        seen.set(key, deduped.length);
+        deduped.push(r);
+    }
+
+    return deduped;
+}
+
+/** Turkish stop words to exclude from keyword matching */
+const TURKISH_STOP_WORDS = new Set([
+    'bir', 'bu', 've', 'ile', 'için', 'olarak', 'olan', 'den', 'dan',
+    'gibi', 'daha', 'çok', 'var', 'yok', 'ama', 'ancak', 'veya',
+    'hem', 'ise', 'kadar', 'sonra', 'önce', 'üzerinde', 'altında',
+    'the', 'and', 'for', 'with', 'this', 'that', 'from', 'are', 'was',
+    'been', 'have', 'has', 'will', 'can', 'not', 'but', 'all', 'also',
+]);
 
 // =============================================
 // Document Management

@@ -4,18 +4,21 @@
  * POST /api/twilio/incoming
  *
  * Called by Twilio when a phone call arrives.
+ * Vercel-compatible: Uses <Gather> + <Say> instead of WebSocket.
+ *
  * Flow:
  * 1. Validate Twilio signature
  * 2. Resolve tenant from called phone number
  * 3. Load agent config for tenant
- * 4. Return TwiML with ConversationRelay pointing to our WS endpoint
+ * 4. Return TwiML with greeting + speech gather
+ * 5. Twilio POSTs transcribed speech to /api/twilio/gather
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import {
-    generateConversationRelayTwiML,
+    generateGatherTwiML,
     generateUnavailableTwiML,
     resolveTenantFromPhone,
     validateTwilioSignature,
@@ -74,34 +77,31 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Load tenant's active agent config
-        const agentsSnap = await getDb()
-            .collection('tenants').doc(tenantId)
-            .collection('agents')
-            .where('isActive', '==', true)
-            .limit(1)
-            .get();
+        // Load tenant config for greeting
+        const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
+        const tenantData = tenantSnap.data();
+        const greeting = tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
+        const language = tenantData?.language === 'en' ? 'en-US' : 'tr-TR';
 
-        const agent = agentsSnap.docs[0]?.data();
-
-        // Build WebSocket URL for ConversationRelay
+        // Build URLs
         const host = request.headers.get('host') || 'localhost:3000';
-        const protocol = host.includes('localhost') ? 'ws' : 'wss';
-        const wsUrl = `${protocol}://${host}/api/twilio/ws?tenantId=${tenantId}&callSid=${callEvent.CallSid}`;
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const baseUrl = `${protocol}://${host}`;
+        const gatherUrl = `${baseUrl}/api/twilio/gather?tenantId=${tenantId}&callSid=${callEvent.CallSid}`;
+        const statusUrl = `${baseUrl}/api/twilio/status`;
+        const recordingUrl = `${baseUrl}/api/twilio/recording`;
 
-        // Determine greeting
-        const welcomeGreeting = agent?.systemPrompt
-            ? extractGreeting(agent.systemPrompt)
-            : 'Merhaba, size nasıl yardımcı olabilirim?';
+        // Check if recording is enabled for this tenant
+        const recordCall = tenantData?.settings?.callRecording === true;
 
-        // Determine language
-        const language = agent?.voiceConfig?.language === 'en' ? 'en-US' : 'tr-TR';
-
-        // Generate TwiML
-        const twiml = generateConversationRelayTwiML({
-            wsUrl,
-            welcomeGreeting,
+        // Generate TwiML: Say greeting, then gather speech (optionally record)
+        const twiml = generateGatherTwiML({
+            gatherUrl,
+            message: greeting,
             language,
+            statusCallbackUrl: statusUrl,
+            recordCall,
+            recordingCallbackUrl: recordingUrl,
         });
 
         // Record the call in Firestore
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
                 callerName: callEvent.CallerName || null,
                 callerCountry: callEvent.CallerCountry || null,
                 startedAt: FieldValue.serverTimestamp(),
+                conversationHistory: [],
                 metadata: {
                     accountSid: callEvent.AccountSid,
                     callerCity: callEvent.CallerCity,
@@ -136,6 +137,8 @@ export async function POST(request: NextRequest) {
                 lastCallAt: FieldValue.serverTimestamp(),
             }, { merge: true });
 
+        console.log(`[Twilio] Incoming call: ${callerNumber} → ${calledNumber} (tenant: ${tenantId})`);
+
         return new NextResponse(twiml, {
             headers: { 'Content-Type': 'text/xml' },
         });
@@ -149,24 +152,4 @@ export async function POST(request: NextRequest) {
             headers: { 'Content-Type': 'text/xml' },
         });
     }
-}
-
-/**
- * Extract greeting from agent system prompt.
- * Looks for the first line or a greeting pattern.
- */
-function extractGreeting(systemPrompt: string): string {
-    // Look for common greeting patterns
-    const greetingPatterns = [
-        /karşıla[:\-–\s]+["']?([^"'\n]+)["']?/i,
-        /greeting[:\-–\s]+["']?([^"'\n]+)["']?/i,
-        /hoşgeldin[a-z]*[:\-–\s]+["']?([^"'\n]+)["']?/i,
-    ];
-
-    for (const pattern of greetingPatterns) {
-        const match = systemPrompt.match(pattern);
-        if (match?.[1]) return match[1].trim();
-    }
-
-    return 'Merhaba, size nasıl yardımcı olabilirim?';
 }

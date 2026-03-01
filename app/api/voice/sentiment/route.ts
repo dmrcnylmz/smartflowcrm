@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeSentiment, analyzeConversationSentiment, createConversationContext, type ConversationContext } from '@/lib/voice/sentiment';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 export async function POST(request: NextRequest) {
     try {
@@ -43,10 +44,6 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Sentiment API] Error:', error);
-        return NextResponse.json(
-            { error: 'Sentiment analysis failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'VoiceSentiment');
     }
 }

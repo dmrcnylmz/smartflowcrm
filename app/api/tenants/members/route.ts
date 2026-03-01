@@ -12,6 +12,7 @@ import {
     removeUserFromTenant,
     getTenantMembers,
 } from '@/lib/tenant/admin';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 // =============================================
 // POST: Assign user to tenant
@@ -62,11 +63,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Members API] Assign error:', error);
-        return NextResponse.json(
-            { error: 'Failed to assign user', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'TenantMembers');
     }
 }
 
@@ -95,11 +92,7 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Members API] List error:', error);
-        return NextResponse.json(
-            { error: 'Failed to list members', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'TenantMembers');
     }
 }
 
@@ -134,10 +127,6 @@ export async function DELETE(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Members API] Remove error:', error);
-        return NextResponse.json(
-            { error: 'Failed to remove user', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'TenantMembers');
     }
 }

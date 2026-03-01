@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
-import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportAppointments, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
 import { Plus, AlertCircle, Calendar as CalendarIcon, Clock, CheckCircle2, XCircle, Search, Edit, Trash2, X, Download, UserRoundSearch, UserPlus, Phone, Activity } from 'lucide-react';
 import { getAllCustomers, createAppointment, updateAppointment, deleteAppointment } from '@/lib/firebase/db';
@@ -44,7 +43,7 @@ function AppointmentsPageContent() {
   const [dateFrom, setDateFrom] = useState<string>(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState<string>(searchParams.get('dateTo') || '');
   const [limit, setLimit] = useState(50);
-  const { data: allAppointments, loading, error: appointmentsError } = useAppointments({ limitCount: limit });
+  const { data: allAppointments, loading, error: appointmentsError } = useAppointments();
   const [formData, setFormData] = useState({
     customerId: '',
     dateTime: '',
@@ -65,7 +64,7 @@ function AppointmentsPageContent() {
       if (customerIds.length > 0) {
         getCustomersBatch(customerIds)
           .then((customerMap) => {
-            setCustomers(customerMap);
+            setCustomers(Object.fromEntries(customerMap));
           })
           .catch((err: unknown) => {
             console.warn('Customer batch load error:', err);
@@ -125,7 +124,7 @@ function AppointmentsPageContent() {
 
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
-      const exportData = exportAppointments(filteredAppointments, customers);
+      const exportData = exportAppointments(filteredAppointments as unknown as Array<Record<string, unknown>>, customers as unknown as Record<string, Record<string, unknown>>);
       const filename = `randevular-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
@@ -146,7 +145,7 @@ function AppointmentsPageContent() {
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
     }
   }
 
@@ -229,7 +228,7 @@ function AppointmentsPageContent() {
     setSelectedAppointment(appointment);
     const dateTime = toDate(appointment.dateTime);
     setEditFormData({
-      dateTime: format(dateTime, "yyyy-MM-dd'T'HH:mm"),
+      dateTime: dateTime ? format(dateTime, "yyyy-MM-dd'T'HH:mm") : '',
       durationMin: appointment.durationMin?.toString() || '30',
       notes: appointment.notes || '',
     });
@@ -302,18 +301,19 @@ function AppointmentsPageContent() {
     let matchesDate = true;
     if (dateFrom || dateTo) {
       const aptDate = toDate(apt.dateTime);
-      const aptDateOnly = new Date(aptDate.getFullYear(), aptDate.getMonth(), aptDate.getDate());
+      if (!aptDate) { matchesDate = false; }
+      const aptDateOnly = aptDate ? new Date(aptDate.getFullYear(), aptDate.getMonth(), aptDate.getDate()) : null;
 
-      if (dateFrom) {
+      if (aptDateOnly && dateFrom) {
         const fromDate = new Date(dateFrom);
         fromDate.setHours(0, 0, 0, 0);
         if (aptDateOnly < fromDate) matchesDate = false;
       }
 
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        if (aptDateOnly > toDate) matchesDate = false;
+      if (aptDateOnly && dateTo) {
+        const toDateVal = new Date(dateTo);
+        toDateVal.setHours(23, 59, 59, 999);
+        if (aptDateOnly > toDateVal) matchesDate = false;
       }
     }
 
@@ -495,7 +495,6 @@ function AppointmentsPageContent() {
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
                 placeholder="Randevu Durumu Seç"
-                label="Durum Filtresi"
                 className="w-full sm:w-[220px] rounded-2xl h-12 border-white/10 bg-background/50"
               />
               <div className="h-12 border border-white/10 bg-background/50 rounded-2xl px-2 flex items-center">
@@ -554,7 +553,7 @@ function AppointmentsPageContent() {
             <div className="divide-y divide-border/50">
               {filteredAppointments.map((apt, aptIdx) => {
                 const customer = customers[apt.customerId];
-                const dDate = toDate(apt.dateTime);
+                const dDate = toDate(apt.dateTime) ?? new Date();
 
                 return (
                   <div key={apt.id} className="p-4 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 hover:bg-white/[0.02] transition-all duration-200 animate-fade-in-up" style={{ animationDelay: `${aptIdx * 40}ms` }}>
@@ -656,15 +655,15 @@ function AppointmentsPageContent() {
           )}
 
           {!loading && filteredAppointments.length > 0 && (
-            <div className="p-4 border-t border-border/50 bg-background/50">
-              <PaginationControls
-                currentLimit={limit}
-                totalItems={totalAvailable}
-                filteredItems={filteredAppointments.length}
-                onLimitChange={handleLimitChange}
-                onLoadMore={handleLoadMore}
-                hasMore={hasMore}
-              />
+            <div className="p-4 border-t border-border/50 bg-background/50 flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {filteredAppointments.length} / {totalAvailable} randevu gösteriliyor
+              </p>
+              {hasMore && (
+                <Button variant="outline" size="sm" onClick={handleLoadMore}>
+                  Daha Fazla Yükle
+                </Button>
+              )}
             </div>
           )}
         </CardContent>

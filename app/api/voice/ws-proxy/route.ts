@@ -3,6 +3,7 @@
 // we use a server-side proxy: Browser <-> Next.js API (HTTP) <-> RunPod (WebSocket)
 
 import { NextRequest, NextResponse } from 'next/server';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
 const PERSONAPLEX_API_KEY = process.env.PERSONAPLEX_API_KEY || '';
@@ -67,10 +68,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(data);
         }
     } catch (error) {
-        console.error('[WS Proxy] Error:', error);
-        return NextResponse.json(
-            { error: 'Voice proxy error', details: String(error) },
-            { status: 500 }
-        );
+        return handleApiError(error, 'VoiceProxy');
     }
 }

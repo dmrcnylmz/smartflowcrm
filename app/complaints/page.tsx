@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
-import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportComplaints, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
 import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Search, FileText, User, X, Download, MessageSquareWarning, ArrowRight, Save, LayoutList } from 'lucide-react';
 import { useComplaints } from '@/lib/firebase/hooks';
@@ -57,7 +56,7 @@ function ComplaintsPageContent() {
       if (customerIds.length > 0) {
         getCustomersBatch(customerIds)
           .then((customerMap) => {
-            setCustomers(customerMap);
+            setCustomers(Object.fromEntries(customerMap));
           })
           .catch((err: unknown) => {
             console.warn('Customer batch load error:', err);
@@ -126,7 +125,7 @@ function ComplaintsPageContent() {
     // Date range filter
     let matchesDate = true;
     if (dateFrom || dateTo) {
-      const complaintDate = toDate(complaint.createdAt);
+      const complaintDate = toDate(complaint.createdAt) ?? new Date();
       const complaintDateOnly = new Date(complaintDate.getFullYear(), complaintDate.getMonth(), complaintDate.getDate());
 
       if (dateFrom) {
@@ -160,7 +159,7 @@ function ComplaintsPageContent() {
 
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
-      const exportData = exportComplaints(filteredComplaints, customers);
+      const exportData = exportComplaints(filteredComplaints as unknown as Array<Record<string, unknown>>, customers as unknown as Record<string, Record<string, unknown>>);
       const filename = `sikayetler-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
@@ -181,7 +180,7 @@ function ComplaintsPageContent() {
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
     }
   }
 
@@ -346,7 +345,6 @@ function ComplaintsPageContent() {
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
                 placeholder="Durum Seç"
-                label="Durum"
                 className="w-full sm:w-[150px] rounded-2xl h-12 border-white/10 bg-background/50"
               />
               {categoryOptions.length > 0 && (
@@ -355,7 +353,6 @@ function ComplaintsPageContent() {
                   selectedValues={categoryFilters}
                   onSelectionChange={setCategoryFilters}
                   placeholder="Kategori Seç"
-                  label="Kategori"
                   className="w-full sm:w-[180px] rounded-2xl h-12 border-white/10 bg-background/50"
                 />
               )}
@@ -448,7 +445,7 @@ function ComplaintsPageContent() {
                           {customer?.name || 'Bilinmeyen Kullanıcı'}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span>{format(toDate(complaint.createdAt), 'dd MMM HH:mm', { locale: tr })}</span>
+                          <span>{format(toDate(complaint.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: tr })}</span>
                         </div>
                       </div>
                     </div>
@@ -484,15 +481,15 @@ function ComplaintsPageContent() {
           )}
 
           {!loading && paginatedComplaints.length > 0 && (
-            <div className="p-4 border-t border-border/50 bg-background/50">
-              <PaginationControls
-                currentLimit={limit}
-                totalItems={totalAvailable}
-                filteredItems={filteredComplaints.length}
-                onLimitChange={handleLimitChange}
-                onLoadMore={handleLoadMore}
-                hasMore={hasMore}
-              />
+            <div className="p-4 border-t border-border/50 bg-background/50 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                {paginatedComplaints.length} / {filteredComplaints.length} kayıt gösteriliyor
+              </span>
+              {hasMore && (
+                <Button variant="outline" size="sm" onClick={handleLoadMore} className="rounded-xl">
+                  Daha Fazla Yükle
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -610,7 +607,7 @@ function ComplaintsPageContent() {
                 <div className="space-y-4 text-sm mt-4 border-t border-border/50 pt-6">
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Kayıt Tarihi</span>
-                    <span className="font-medium text-right ml-4">{selectedComplaint ? format(toDate(selectedComplaint.createdAt), 'dd MMMM yyyy, HH:mm', { locale: tr }) : '-'}</span>
+                    <span className="font-medium text-right ml-4">{selectedComplaint ? format(toDate(selectedComplaint.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm', { locale: tr }) : '-'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Kategori</span>
@@ -619,7 +616,7 @@ function ComplaintsPageContent() {
                   {selectedComplaint?.resolvedAt && (
                     <div className="flex justify-between items-center text-emerald-500">
                       <span>Çözüm Tarihi</span>
-                      <span className="font-medium">{format(toDate(selectedComplaint.resolvedAt), 'dd MMM, HH:mm', { locale: tr })}</span>
+                      <span className="font-medium">{format(toDate(selectedComplaint.resolvedAt) ?? new Date(), 'dd MMM, HH:mm', { locale: tr })}</span>
                     </div>
                   )}
                 </div>

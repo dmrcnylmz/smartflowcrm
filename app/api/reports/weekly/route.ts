@@ -46,20 +46,20 @@ export async function GET(request: NextRequest) {
     // Filter complaints and info requests by week
     const weekComplaints = complaints.filter(c => {
       const createdAt = toDate(c.createdAt);
-      return createdAt >= weekStart && createdAt <= weekEnd;
+      return createdAt != null && createdAt >= weekStart && createdAt <= weekEnd;
     });
     const weekInfoRequests = infoRequests.filter(i => {
       const createdAt = toDate(i.createdAt);
-      return createdAt >= weekStart && createdAt <= weekEnd;
+      return createdAt != null && createdAt >= weekStart && createdAt <= weekEnd;
     });
 
     const prevWeekComplaints = complaints.filter(c => {
       const createdAt = toDate(c.createdAt);
-      return createdAt >= prevWeekStart && createdAt <= prevWeekEnd;
+      return createdAt != null && createdAt >= prevWeekStart && createdAt <= prevWeekEnd;
     });
     const prevWeekInfoRequests = infoRequests.filter(i => {
       const createdAt = toDate(i.createdAt);
-      return createdAt >= prevWeekStart && createdAt <= prevWeekEnd;
+      return createdAt != null && createdAt >= prevWeekStart && createdAt <= prevWeekEnd;
     });
 
     // Calculate daily breakdown
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
 
       const dayCalls = calls.filter(c => {
         const callDate = toDate(c.timestamp || c.createdAt);
-        return callDate >= dayStart && callDate <= dayEnd;
+        return callDate != null && callDate >= dayStart && callDate <= dayEnd;
       });
 
       return {

@@ -23,18 +23,26 @@ vi.mock('firebase/firestore', () => ({
     deleteDoc: vi.fn(),
     doc: vi.fn(),
     onSnapshot: vi.fn(),
-    Timestamp: {
-        fromDate: (date: Date) => ({
-            toDate: () => date,
-            seconds: Math.floor(date.getTime() / 1000),
-            nanoseconds: 0,
-        }),
-        now: () => ({
-            toDate: () => new Date(),
-            seconds: Math.floor(Date.now() / 1000),
-            nanoseconds: 0,
-        }),
-    },
+    Timestamp: (() => {
+        class MockTimestamp {
+            seconds: number;
+            nanoseconds: number;
+            constructor(seconds: number, nanoseconds: number) {
+                this.seconds = seconds;
+                this.nanoseconds = nanoseconds;
+            }
+            toDate() {
+                return new Date(this.seconds * 1000);
+            }
+            static fromDate(date: Date) {
+                return new MockTimestamp(Math.floor(date.getTime() / 1000), 0);
+            }
+            static now() {
+                return MockTimestamp.fromDate(new Date());
+            }
+        }
+        return MockTimestamp;
+    })(),
     serverTimestamp: vi.fn(() => ({
         toDate: () => new Date(),
     })),

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getUsage, getUsageHistory, estimateCost } from '@/lib/billing/metering';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,10 +49,6 @@ export async function GET(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Usage API] Error:', error);
-        return NextResponse.json(
-            { error: 'Usage fetch failed', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'BillingUsage');
     }
 }

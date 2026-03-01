@@ -15,7 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportCustomers, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
 import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -209,7 +208,7 @@ function CustomersPageContent() {
 
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
-      const exportData = exportCustomers(filteredCustomers);
+      const exportData = exportCustomers(filteredCustomers as unknown as Array<Record<string, unknown>>);
       const filename = `musteriler-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
@@ -230,7 +229,7 @@ function CustomersPageContent() {
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
     }
   }
 
@@ -238,7 +237,7 @@ function CustomersPageContent() {
   const totalCustomers = customers.length;
   const customersWithEmail = customers.filter(c => c.email).length;
   const newCustomersThisWeek = customers.filter(c => {
-    const diff = new Date().getTime() - toDate(c.createdAt).getTime();
+    const diff = new Date().getTime() - (toDate(c.createdAt) ?? new Date()).getTime();
     return diff < 1000 * 60 * 60 * 24 * 7;
   }).length;
 
@@ -494,7 +493,7 @@ function CustomersPageContent() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell text-muted-foreground/80 text-sm">
-                          {format(toDate(customer.createdAt), 'dd MMM yyyy', { locale: tr })}
+                          {format(toDate(customer.createdAt) ?? new Date(), 'dd MMM yyyy', { locale: tr })}
                         </TableCell>
                         <TableCell className="text-right pr-6">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -506,16 +505,14 @@ function CustomersPageContent() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="p-4 border-t bg-muted/10 flex justify-center">
-                {!loading && paginatedCustomers.length > 0 && (
-                  <PaginationControls
-                    currentLimit={limit}
-                    totalItems={totalAvailable}
-                    filteredItems={filteredCustomers.length}
-                    onLimitChange={handleLimitChange}
-                    onLoadMore={handleLoadMore}
-                    hasMore={hasMore}
-                  />
+              <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {paginatedCustomers.length} / {filteredCustomers.length} kayıt gösteriliyor
+                </span>
+                {hasMore && (
+                  <Button variant="outline" size="sm" onClick={handleLoadMore} className="rounded-xl">
+                    Daha Fazla Yükle
+                  </Button>
                 )}
               </div>
             </>
@@ -654,7 +651,7 @@ function CustomersPageContent() {
                           <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Sisteme Kayıt Tarihi</p>
                             <p className="text-foreground font-medium mt-0.5">
-                              {format(toDate(selectedCustomer.createdAt), 'dd MMMM yyyy', { locale: tr })}
+                              {format(toDate(selectedCustomer.createdAt) ?? new Date(), 'dd MMMM yyyy', { locale: tr })}
                             </p>
                           </div>
                         </div>
@@ -724,7 +721,7 @@ function CustomersPageContent() {
                             <div className="flex justify-between items-start mb-2">
                               <div>
                                 <p className="font-semibold text-sm">Randevu: {apt.notes || 'Randevu Oluşturuldu'}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(apt.dateTime), 'dd MMMM yyyy HH:mm', { locale: tr })} ({apt.durationMin} dk)</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(apt.dateTime) ?? new Date(), 'dd MMMM yyyy HH:mm', { locale: tr })} ({apt.durationMin} dk)</p>
                               </div>
                               <Badge variant={apt.status === 'scheduled' ? 'default' : apt.status === 'completed' ? 'secondary' : 'destructive'} className="shadow-none">
                                 {apt.status === 'scheduled' ? 'Planlandı' : apt.status === 'completed' ? 'Tamamlandı' : 'İptal'}
@@ -744,7 +741,7 @@ function CustomersPageContent() {
                             <div className="flex justify-between items-start">
                               <div>
                                 <p className="font-semibold text-sm">Telefon Görüşmesi</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(call.timestamp || call.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(call.timestamp || call.createdAt) ?? new Date(), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
                                 {call.intent && <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1"><Badge variant="outline" className="text-[10px] h-5">{call.intent}</Badge></p>}
                               </div>
                               <div className="flex flex-col items-end gap-1">
@@ -768,7 +765,7 @@ function CustomersPageContent() {
                             <div className="flex justify-between items-start mb-2">
                               <div>
                                 <p className="font-semibold text-sm text-red-900 dark:text-red-300">Şikayet: {complaint.category}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(complaint.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(complaint.createdAt) ?? new Date(), 'dd MMMM yyyy HH:mm', { locale: tr })}</p>
                               </div>
                               <Badge variant={complaint.status === 'resolved' ? 'outline' : 'destructive'} className="shadow-none">
                                 {complaint.status === 'resolved' ? 'Çözüldü' : complaint.status === 'investigating' ? 'İşlemde' : 'Açık'}

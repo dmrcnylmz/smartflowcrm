@@ -17,7 +17,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
-import { PaginationControls } from '@/components/ui/pagination-controls';
 import { exportCalls, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
 import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot } from 'lucide-react';
 import { VoiceCallModal } from '@/components/voice/VoiceCallModal';
@@ -54,7 +53,7 @@ function CallsPageContent() {
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
 
   // Real-time calls with limit
-  const { data: calls, loading, error: callsError } = useCalls({ limitCount: limit });
+  const { data: calls, loading, error: callsError } = useCalls();
 
   // Update URL params when filters change
   useEffect(() => {
@@ -153,7 +152,7 @@ function CallsPageContent() {
       if (customerIds.length > 0) {
         getCustomersBatch(customerIds)
           .then((customerMap) => {
-            setCustomers(customerMap);
+            setCustomers(Object.fromEntries(customerMap));
           })
           .catch((err: unknown) => {
             console.warn('Customer batch load error:', err);
@@ -212,18 +211,22 @@ function CallsPageContent() {
     let matchesDate = true;
     if (dateFrom || dateTo) {
       const callDate = toDate(call.timestamp || call.createdAt);
-      const callDateOnly = new Date(callDate.getFullYear(), callDate.getMonth(), callDate.getDate());
+      if (!callDate) {
+        matchesDate = false;
+      } else {
+        const callDateOnly = new Date(callDate.getFullYear(), callDate.getMonth(), callDate.getDate());
 
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        fromDate.setHours(0, 0, 0, 0);
-        if (callDateOnly < fromDate) matchesDate = false;
-      }
+        if (dateFrom) {
+          const fromDateVal = new Date(dateFrom);
+          fromDateVal.setHours(0, 0, 0, 0);
+          if (callDateOnly < fromDateVal) matchesDate = false;
+        }
 
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999);
-        if (callDateOnly > toDate) matchesDate = false;
+        if (dateTo) {
+          const toDateVal = new Date(dateTo);
+          toDateVal.setHours(23, 59, 59, 999);
+          if (callDateOnly > toDateVal) matchesDate = false;
+        }
       }
     }
 
@@ -249,7 +252,7 @@ function CallsPageContent() {
 
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
-      const exportData = exportCalls(filteredCalls, customers);
+      const exportData = exportCalls(filteredCalls as unknown as Array<Record<string, unknown>>, customers as unknown as Record<string, Record<string, unknown>>);
       const filename = `cagrilar-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
@@ -270,7 +273,7 @@ function CallsPageContent() {
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'destructive' });
+      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
     }
   }
 
@@ -443,7 +446,6 @@ function CallsPageContent() {
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
                 placeholder="Durum Seç"
-                label="Durum"
                 className="w-full bg-background rounded-xl border-border/60"
               />
             </div>
@@ -479,7 +481,6 @@ function CallsPageContent() {
                   selectedValues={intentFilters}
                   onSelectionChange={setIntentFilters}
                   placeholder="Intent (Niyet) Kategori Seçimi"
-                  label="Yapay Zeka Etiketi (Intent)"
                   className="w-full bg-background rounded-xl border-border/60"
                 />
               </div>
@@ -554,7 +555,7 @@ function CallsPageContent() {
                               <span className="font-semibold text-foreground">{customer?.name || call.customerName || 'Anonim Arayan'}</span>
                               <span className="text-xs text-muted-foreground mt-0.5">{customer?.phone || call.customerPhone || call.customerId || '-'}</span>
                               <span className="text-[10px] bg-muted w-fit px-1.5 py-0.5 rounded text-muted-foreground mt-1.5">
-                                {format(toDate(timestamp), 'dd MMM yyyy, HH:mm', { locale: tr })}
+                                {format(toDate(timestamp) ?? new Date(), 'dd MMM yyyy, HH:mm', { locale: tr })}
                               </span>
                             </div>
                           </TableCell>
@@ -588,16 +589,18 @@ function CallsPageContent() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="p-4 border-t bg-muted/10 flex justify-center">
+              <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
                 {!loading && filteredCalls.length > 0 && (
-                  <PaginationControls
-                    currentLimit={limit}
-                    totalItems={totalAvailable}
-                    filteredItems={filteredCalls.length}
-                    onLimitChange={handleLimitChange}
-                    onLoadMore={handleLoadMore}
-                    hasMore={hasMore}
-                  />
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredCalls.length} / {totalAvailable} çağrı gösteriliyor
+                    </p>
+                    {hasMore && (
+                      <Button variant="outline" size="sm" onClick={handleLoadMore}>
+                        Daha Fazla Yükle
+                      </Button>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -617,7 +620,7 @@ function CallsPageContent() {
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  {selectedCall && format(toDate(selectedCall.timestamp || selectedCall.createdAt), 'dd MMMM yyyy, HH:mm:ss', { locale: tr })}
+                  {selectedCall && format(toDate(selectedCall.timestamp || selectedCall.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm:ss', { locale: tr })}
                 </p>
               </div>
             </div>

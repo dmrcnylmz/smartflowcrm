@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { gpuCircuitBreaker, openaiCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 import { gpuManager } from '@/lib/voice/gpu-manager';
 import { inferCache, buildInferCacheKey, type CachedInferResponse } from '@/lib/voice/response-cache';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
@@ -422,11 +423,7 @@ export async function POST(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('[Voice Infer] Request error:', error);
-        return NextResponse.json(
-            { error: 'Inference error', details: String(error) },
-            { status: 500 },
-        );
+        return handleApiError(error, 'VoiceInfer');
     }
 }
 

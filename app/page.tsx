@@ -99,7 +99,7 @@ export default function DashboardPage() {
   });
 
   // Real-time activity logs
-  const { data: activity, loading: activityLoading, error: activityError } = useActivityLogs(10);
+  const { data: activity, loading: activityLoading, error: activityError } = useActivityLogs();
 
   // Prepare chart data with useMemo — types from DashboardCharts
   const callTrendData: CallTrendPoint[] = useMemo(() => {
@@ -116,7 +116,7 @@ export default function DashboardPage() {
     });
 
     chartData.calls.forEach(call => {
-      const callDate = toDate(call.timestamp || call.createdAt);
+      const callDate = toDate(call.timestamp || call.createdAt) ?? new Date();
       const dayIndex = days.findIndex(d => {
         const dDate = new Date(d.dateObj);
         dDate.setHours(0, 0, 0, 0);
@@ -298,13 +298,13 @@ export default function DashboardPage() {
 
       // Today's calls for stats
       const todayCalls = allCalls.filter(c => {
-        const callDate = toDate(c.timestamp || c.createdAt);
+        const callDate = toDate(c.timestamp || c.createdAt) ?? new Date(0);
         return callDate >= today;
       });
       const missedCalls = allCalls.filter(c => c.status === 'missed');
       const openComplaints = allComplaints.filter(c => c.status === 'open');
       const upcoming = allAppointments.filter(apt =>
-        apt.dateTime && toDate(apt.dateTime) >= today && apt.status === 'scheduled'
+        apt.dateTime && (toDate(apt.dateTime) ?? new Date(0)) >= today && apt.status === 'scheduled'
       );
 
       setStats({
@@ -336,11 +336,11 @@ export default function DashboardPage() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const todayCalls = demoCalls.filter(c => toDate(c.timestamp || c.createdAt) >= today);
+        const todayCalls = demoCalls.filter(c => (toDate(c.timestamp || c.createdAt) ?? new Date(0)) >= today);
         const missedCalls = demoCalls.filter(c => c.status === 'missed');
         const openComplaints = demoComplaints.filter(c => c.status === 'open');
         const upcoming = demoAppointments.filter(apt =>
-          apt.dateTime && toDate(apt.dateTime) >= today && apt.status === 'scheduled'
+          apt.dateTime && (toDate(apt.dateTime) ?? new Date(0)) >= today && apt.status === 'scheduled'
         );
 
         setStats({
@@ -584,7 +584,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{log.desc}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(toDate(log.createdAt), 'dd MMM HH:mm', { locale: tr })}
+                        {format(toDate(log.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: tr })}
                       </p>
                     </div>
                     <div className="shrink-0 bg-secondary px-2.5 py-1 rounded-full text-[10px] font-medium tracking-wider uppercase">

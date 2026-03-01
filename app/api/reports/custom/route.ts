@@ -42,11 +42,11 @@ export async function GET(request: NextRequest) {
     // Filter complaints and info requests by date range
     const rangeComplaints = complaints.filter(c => {
       const createdAt = toDate(c.createdAt);
-      return createdAt >= dateFrom && createdAt <= dateTo;
+      return createdAt != null && createdAt >= dateFrom && createdAt <= dateTo;
     });
     const rangeInfoRequests = infoRequests.filter(i => {
       const createdAt = toDate(i.createdAt);
-      return createdAt >= dateFrom && createdAt <= dateTo;
+      return createdAt != null && createdAt >= dateFrom && createdAt <= dateTo;
     });
 
     // Comparison data (if provided)
@@ -66,11 +66,11 @@ export async function GET(request: NextRequest) {
 
       const compareRangeComplaints = compareComplaints.filter(c => {
         const createdAt = toDate(c.createdAt);
-        return createdAt >= compareFrom && createdAt <= compareTo;
+        return createdAt != null && createdAt >= compareFrom && createdAt <= compareTo;
       });
       const compareRangeInfoRequests = compareInfoRequests.filter(i => {
         const createdAt = toDate(i.createdAt);
-        return createdAt >= compareFrom && createdAt <= compareTo;
+        return createdAt != null && createdAt >= compareFrom && createdAt <= compareTo;
       });
 
       comparison = {
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 
         const dayCalls = calls.filter(c => {
           const callDate = toDate(c.timestamp || c.createdAt);
-          return callDate >= dayStart && callDate <= dayEnd;
+          return callDate != null && callDate >= dayStart && callDate <= dayEnd;
         });
 
         return {
