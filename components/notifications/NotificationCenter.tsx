@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    Bell, BellDot, Check, CheckCheck, Trash2, X,
+    Bell, BellDot, CheckCheck, Trash2, X,
     Phone, Calendar, AlertTriangle, Info, CheckCircle,
-    MessageSquare, Zap, ExternalLink,
+    ExternalLink,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';

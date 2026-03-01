@@ -149,7 +149,7 @@ async function callPersonaplex(
     text: string,
     persona: string,
     language: string,
-): Promise<any> {
+): Promise<{ intent?: string; confidence?: number; response_text?: string; [key: string]: unknown }> {
     return gpuCircuitBreaker.execute(async () => {
         // Ensure GPU is awake before calling
         const isReady = await gpuManager.ensureReady();
@@ -218,9 +218,32 @@ export async function POST(request: NextRequest) {
             session_id,
         } = body;
 
-        if (!text || typeof text !== 'string') {
+        if (!text || typeof text !== 'string' || text.trim().length === 0) {
             return NextResponse.json(
-                { error: 'Text is required' },
+                { error: 'Text is required and must be a non-empty string' },
+                { status: 400 },
+            );
+        }
+
+        if (text.length > 2000) {
+            return NextResponse.json(
+                { error: 'Text exceeds maximum length of 2000 characters' },
+                { status: 400 },
+            );
+        }
+
+        const validPersonas = ['default', 'support', 'sales', 'receptionist'];
+        if (!validPersonas.includes(persona)) {
+            return NextResponse.json(
+                { error: `Invalid persona. Must be one of: ${validPersonas.join(', ')}` },
+                { status: 400 },
+            );
+        }
+
+        const validLanguages = ['tr', 'en'];
+        if (!validLanguages.includes(language)) {
+            return NextResponse.json(
+                { error: `Invalid language. Must be one of: ${validLanguages.join(', ')}` },
                 { status: 400 },
             );
         }

@@ -88,11 +88,11 @@ export async function GET(request: NextRequest) {
         id: c.id,
         category: c.category,
         status: c.status,
-        createdAt: toDate(c.createdAt).toISOString(),
+        createdAt: toDate(c.createdAt)?.toISOString() ?? '',
       })),
       appointments: scheduledAppointments.map(a => ({
         id: a.id,
-        dateTime: toDate(a.dateTime).toISOString(),
+        dateTime: toDate(a.dateTime)?.toISOString() ?? '',
         status: a.status,
       })),
     };
