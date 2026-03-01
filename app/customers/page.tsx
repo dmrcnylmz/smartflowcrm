@@ -237,11 +237,11 @@ function CustomersPageContent() {
   }).length;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Users className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+            <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
             Müşteri Portföyü
           </h1>
           <p className="text-muted-foreground mt-2">
@@ -325,7 +325,7 @@ function CustomersPageContent() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20">
+        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Toplam Müşteri</CardTitle>
             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -340,7 +340,7 @@ function CustomersPageContent() {
             </p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20">
+        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '220ms', animationFillMode: 'forwards' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Yeni Müşteriler</CardTitle>
             <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
@@ -355,7 +355,7 @@ function CustomersPageContent() {
             </p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20">
+        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '340ms', animationFillMode: 'forwards' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">İletişim Kalitesi</CardTitle>
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
@@ -373,7 +373,7 @@ function CustomersPageContent() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm">
+      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm animate-fade-in-up opacity-0" style={{ animationDelay: '460ms', animationFillMode: 'forwards' }}>
         <div className="p-4 border-b bg-muted/20 flex flex-col md:flex-row items-center gap-4">
           <div className="relative flex-1 w-full max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -769,9 +769,74 @@ function CustomersPageContent() {
   );
 }
 
+function CustomersPageSkeleton() {
+  return (
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      {/* Header skeleton */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-64 rounded-lg" />
+          <Skeleton className="h-5 w-80 rounded-lg" />
+        </div>
+        <div className="flex gap-3">
+          <Skeleton className="h-10 w-[140px] rounded-xl" />
+          <Skeleton className="h-10 w-[140px] rounded-xl" />
+        </div>
+      </div>
+
+      {/* Stat cards skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up opacity-0"
+            style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
+          >
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-28 rounded" />
+              <Skeleton className="h-8 w-8 rounded-lg" />
+            </div>
+            <Skeleton className="h-9 w-20 rounded" />
+            <Skeleton className="h-3 w-40 rounded" />
+          </div>
+        ))}
+      </div>
+
+      {/* Customer table skeleton */}
+      <div className="rounded-2xl border border-border/30 overflow-hidden bg-card/50">
+        {/* Search bar skeleton */}
+        <div className="p-4 border-b bg-muted/20">
+          <Skeleton className="h-10 w-full max-w-sm rounded-xl" />
+        </div>
+        {/* Table rows skeleton */}
+        <div className="p-6 space-y-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-4 animate-fade-in-up opacity-0"
+              style={{ animationDelay: `${300 + i * 80}ms`, animationFillMode: 'forwards' }}
+            >
+              <div className="flex-[2] space-y-1.5">
+                <Skeleton className="h-4 w-36 rounded" />
+                <Skeleton className="h-3 w-48 rounded" />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-3 w-36 rounded" />
+              </div>
+              <Skeleton className="h-4 w-24 rounded hidden md:block flex-1" />
+              <Skeleton className="h-8 w-8 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CustomersPage() {
   return (
-    <Suspense fallback={<div className="p-8">Yükleniyor...</div>}>
+    <Suspense fallback={<CustomersPageSkeleton />}>
       <CustomersPageContent />
     </Suspense>
   );

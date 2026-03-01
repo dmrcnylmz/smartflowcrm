@@ -301,7 +301,10 @@ export default function AgentsPage() {
         }
     }
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
     async function handleDelete(agentId: string) {
+        setDeleteConfirmId(null);
         setDeletingId(agentId);
         try {
             const res = await authFetch('/api/agents', {
@@ -417,9 +420,30 @@ export default function AgentsPage() {
 
             {/* Agent List */}
             {loading ? (
-                <div className="text-center py-12 text-muted-foreground">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3" />
-                    Yükleniyor...
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3].map(i => (
+                        <Card key={i} className="animate-pulse">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-muted" />
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-28 bg-muted rounded" />
+                                            <div className="h-3 w-20 bg-muted rounded" />
+                                        </div>
+                                    </div>
+                                    <div className="h-5 w-12 bg-muted rounded-full" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    <div className="h-3 w-full bg-muted rounded" />
+                                    <div className="h-3 w-3/4 bg-muted rounded" />
+                                    <div className="h-3 w-1/2 bg-muted rounded" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : agents.length === 0 ? (
                 <Card>
@@ -509,7 +533,7 @@ export default function AgentsPage() {
                                         variant="ghost"
                                         size="sm"
                                         className="text-red-400 hover:text-red-500 hover:bg-red-500/10 gap-1"
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(agent.id); }}
+                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(agent.id); }}
                                         disabled={deletingId === agent.id}
                                     >
                                         {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
@@ -935,6 +959,35 @@ export default function AgentsPage() {
                 tenantId="default"
                 agentName={testingAgent?.name || 'SmartFlow AI'}
             />
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <AlertTriangle className="h-5 w-5" />
+                            Asistanı Sil
+                        </DialogTitle>
+                        <DialogDescription>
+                            Bu asistanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+                            İptal
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
+                            disabled={!!deletingId}
+                            className="gap-2"
+                        >
+                            {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            Sil
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

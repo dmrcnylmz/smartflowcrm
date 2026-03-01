@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Bell, BellDot, Check, CheckCheck, Trash2, X,
     Phone, Calendar, AlertTriangle, Info, CheckCircle,
@@ -48,6 +49,7 @@ const typeColors: Record<string, string> = {
 
 export function NotificationCenter() {
     const authFetch = useAuthFetch();
+    const router = useRouter();
     const [open, setOpen] = useState(false);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -137,6 +139,17 @@ export function NotificationCenter() {
         } catch { /* ignore */ }
     };
 
+    // Handle notification click - mark as read and navigate if link exists
+    const handleNotificationClick = (notif: Notification) => {
+        if (!notif.read) {
+            markAsRead(notif.id);
+        }
+        if (notif.link) {
+            setOpen(false);
+            router.push(notif.link);
+        }
+    };
+
     return (
         <div className="relative" ref={panelRef}>
             {/* Bell Button */}
@@ -157,88 +170,96 @@ export function NotificationCenter() {
                 )}
             </button>
 
-            {/* Notification Panel */}
-            {open && (
-                <div className="absolute right-0 top-full mt-2 w-96 max-h-[480px] rounded-xl border bg-background shadow-xl z-50 flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-                        <h3 className="font-semibold text-sm">Bildirimler</h3>
-                        <div className="flex items-center gap-1">
-                            {unreadCount > 0 && (
-                                <button
-                                    onClick={markAllAsRead}
-                                    className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1 rounded hover:bg-accent"
-                                >
-                                    <CheckCheck className="h-3.5 w-3.5" />
-                                    Tümünü oku
-                                </button>
-                            )}
+            {/* Notification Panel with open/close animation */}
+            <div
+                className={`absolute right-0 top-full mt-2 w-96 max-h-[480px] rounded-xl border bg-background shadow-xl z-50 flex flex-col overflow-hidden
+                    transform transition-all duration-200 ease-out origin-top-right
+                    ${open
+                        ? 'opacity-100 scale-100 pointer-events-auto'
+                        : 'opacity-0 scale-95 pointer-events-none'
+                    }`}
+            >
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
+                    <h3 className="font-semibold text-sm">Bildirimler</h3>
+                    <div className="flex items-center gap-1">
+                        {unreadCount > 0 && (
                             <button
-                                onClick={() => setOpen(false)}
-                                className="p-1 rounded hover:bg-accent text-muted-foreground"
+                                onClick={markAllAsRead}
+                                className="text-xs text-primary hover:underline flex items-center gap-1 px-2 py-1 rounded hover:bg-accent"
                             >
-                                <X className="h-4 w-4" />
+                                <CheckCheck className="h-3.5 w-3.5" />
+                                Tümünü oku
                             </button>
-                        </div>
-                    </div>
-
-                    {/* Notification List */}
-                    <div className="flex-1 overflow-y-auto">
-                        {notifications.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                                <Bell className="h-10 w-10 mb-3 opacity-30" />
-                                <p className="text-sm">Henüz bildirim yok</p>
-                            </div>
-                        ) : (
-                            notifications.map(notif => {
-                                const Icon = typeIcons[notif.type] || Info;
-                                const colorClass = typeColors[notif.type] || typeColors.info;
-
-                                return (
-                                    <div
-                                        key={notif.id}
-                                        className={`flex gap-3 px-4 py-3 border-b last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${!notif.read ? 'bg-primary/5' : ''}`}
-                                        onClick={() => !notif.read && markAsRead(notif.id)}
-                                    >
-                                        <div className={`shrink-0 p-2 rounded-lg ${colorClass}`}>
-                                            <Icon className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <p className={`text-sm leading-tight ${!notif.read ? 'font-semibold' : 'font-medium'}`}>
-                                                    {notif.title}
-                                                </p>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
-                                                    className="shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground opacity-0 group-hover:opacity-100 hover:opacity-100"
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
-                                                </button>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                                                {notif.message}
-                                            </p>
-                                            <div className="flex items-center gap-2 mt-1.5">
-                                                {notif.createdAt && (
-                                                    <span className="text-[10px] text-muted-foreground">
-                                                        {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: tr })}
-                                                    </span>
-                                                )}
-                                                {!notif.read && (
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                                                )}
-                                                {notif.link && (
-                                                    <ExternalLink className="h-2.5 w-2.5 text-muted-foreground" />
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })
                         )}
+                        <button
+                            onClick={() => setOpen(false)}
+                            className="p-1 rounded hover:bg-accent text-muted-foreground"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
                     </div>
                 </div>
-            )}
+
+                {/* Notification List */}
+                <div className="flex-1 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-14 text-muted-foreground">
+                            <div className="rounded-full bg-muted/50 p-4 mb-4">
+                                <Bell className="h-8 w-8 opacity-40" />
+                            </div>
+                            <p className="text-sm font-medium">Bildirim yok</p>
+                            <p className="text-xs mt-1 opacity-60">Yeni bildirimler burada görünecek</p>
+                        </div>
+                    ) : (
+                        notifications.map(notif => {
+                            const Icon = typeIcons[notif.type] || Info;
+                            const colorClass = typeColors[notif.type] || typeColors.info;
+
+                            return (
+                                <div
+                                    key={notif.id}
+                                    className={`group flex gap-3 px-4 py-3 border-b last:border-0 hover:bg-accent/50 transition-colors cursor-pointer ${!notif.read ? 'bg-primary/5' : ''}`}
+                                    onClick={() => handleNotificationClick(notif)}
+                                >
+                                    <div className={`shrink-0 p-2 rounded-lg ${colorClass}`}>
+                                        <Icon className="h-4 w-4" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className={`text-sm leading-tight ${!notif.read ? 'font-semibold' : 'font-medium'}`}>
+                                                {notif.title}
+                                            </p>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
+                                                className="shrink-0 p-0.5 rounded hover:bg-accent text-muted-foreground opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 className="h-3 w-3" />
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                            {notif.message}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            {notif.createdAt && (
+                                                <span className="text-[10px] text-muted-foreground">
+                                                    {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true, locale: tr })}
+                                                </span>
+                                            )}
+                                            {!notif.read && (
+                                                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                            )}
+                                            {notif.link && (
+                                                <ExternalLink className="h-2.5 w-2.5 text-muted-foreground" />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

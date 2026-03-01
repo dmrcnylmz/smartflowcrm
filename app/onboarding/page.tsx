@@ -1,4 +1,5 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -8,6 +9,9 @@ import {
     Check, Loader2, Briefcase, ShoppingBag, HeartPulse, Headphones,
     GraduationCap, Utensils, Home as HomeIcon, Car
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 // =============================================
 // Types
@@ -401,15 +405,14 @@ function StepCompanyInfo({
         <div className="grid md:grid-cols-2 gap-6">
             {/* Company Name */}
             <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-2">
+                <Label className="mb-2">
                     Şirket Adı <span className="text-destructive">*</span>
-                </label>
-                <input
-                    type="text"
+                </Label>
+                <Input
                     value={data.companyName}
                     onChange={(e) => updateData({ companyName: e.target.value })}
                     placeholder="Şirketinizin adını girin"
-                    className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                    className="h-12 rounded-xl"
                 />
             </div>
 
@@ -461,35 +464,32 @@ function StepCompanyInfo({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Çalışma Saatleri</label>
-                    <input
-                        type="text"
+                    <Label className="mb-2">Çalışma Saatleri</Label>
+                    <Input
                         value={data.workingHours}
                         onChange={(e) => updateData({ workingHours: e.target.value })}
                         placeholder="09:00-18:00"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="h-12 rounded-xl"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Çalışma Günleri</label>
-                    <input
-                        type="text"
+                    <Label className="mb-2">Çalışma Günleri</Label>
+                    <Input
                         value={data.workingDays}
                         onChange={(e) => updateData({ workingDays: e.target.value })}
                         placeholder="Pazartesi-Cuma"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="h-12 rounded-xl"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Hizmetler (virgülle ayırın)</label>
-                    <input
-                        type="text"
+                    <Label className="mb-2">Hizmetler (virgülle ayırın)</Label>
+                    <Input
                         value={data.services}
                         onChange={(e) => updateData({ services: e.target.value })}
                         placeholder="Randevu, Bilgi, Şikayet, Destek"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="h-12 rounded-xl"
                     />
                 </div>
             </div>
@@ -592,24 +592,22 @@ function StepVoiceConfig({
                 </h3>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Asistan Adı</label>
-                    <input
-                        type="text"
+                    <Label className="mb-2">Asistan Adı</Label>
+                    <Input
                         value={data.agentName}
                         onChange={(e) => updateData({ agentName: e.target.value })}
                         placeholder="Asistan"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="h-12 rounded-xl"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Rolü</label>
-                    <input
-                        type="text"
+                    <Label className="mb-2">Rolü</Label>
+                    <Input
                         value={data.agentRole}
                         onChange={(e) => updateData({ agentRole: e.target.value })}
                         placeholder="Müşteri Temsilcisi"
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="h-12 rounded-xl"
                     />
                 </div>
 
@@ -677,24 +675,24 @@ function StepVoiceConfig({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Karşılama Mesajı</label>
-                    <textarea
+                    <Label className="mb-2">Karşılama Mesajı</Label>
+                    <Textarea
                         value={data.greeting}
                         onChange={(e) => updateData({ greeting: e.target.value })}
                         placeholder="Merhaba, şirketimize hoş geldiniz..."
                         rows={3}
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="rounded-xl resize-none"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Veda Mesajı</label>
-                    <textarea
+                    <Label className="mb-2">Veda Mesajı</Label>
+                    <Textarea
                         value={data.farewell}
                         onChange={(e) => updateData({ farewell: e.target.value })}
                         placeholder="Aradığınız için teşekkür ederiz. İyi günler."
                         rows={2}
-                        className="w-full px-4 py-3 rounded-xl border border-input bg-white dark:bg-gray-900 text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-sm"
+                        className="rounded-xl resize-none"
                     />
                 </div>
             </div>

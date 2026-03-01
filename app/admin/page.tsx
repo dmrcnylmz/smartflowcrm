@@ -17,7 +17,7 @@ import {
     Building2, Bot, Phone, Globe, Save, Loader2,
     Key, Eye, EyeOff, CheckCircle, XCircle, Mic,
     Mail, Bell, FileText, ToggleLeft, ToggleRight,
-    RefreshCw, Copy, Zap,
+    RefreshCw, Copy, Zap, ChevronDown, Clock,
 } from 'lucide-react';
 
 // =============================================
@@ -304,29 +304,37 @@ export default function AdminPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <Label htmlFor="language">Dil</Label>
-                                    <select
-                                        id="language"
-                                        value={settings.language}
-                                        onChange={(e) => updateSetting('language', e.target.value)}
-                                        className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                    >
-                                        <option value="tr">Türkçe</option>
-                                        <option value="en">English</option>
-                                    </select>
+                                    <div className="relative mt-1">
+                                        <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                        <select
+                                            id="language"
+                                            value={settings.language}
+                                            onChange={(e) => updateSetting('language', e.target.value)}
+                                            className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none cursor-pointer hover:border-primary/50 transition-colors"
+                                        >
+                                            <option value="tr">🇹🇷 Türkçe</option>
+                                            <option value="en">🇬🇧 English</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                    </div>
                                 </div>
                                 <div>
                                     <Label htmlFor="timezone">Saat Dilimi</Label>
-                                    <select
-                                        id="timezone"
-                                        value={settings.timezone}
-                                        onChange={(e) => updateSetting('timezone', e.target.value)}
-                                        className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                    >
-                                        <option value="Europe/Istanbul">Türkiye (UTC+3)</option>
-                                        <option value="Europe/London">Londra (UTC+0)</option>
-                                        <option value="Europe/Berlin">Berlin (UTC+1)</option>
-                                        <option value="America/New_York">New York (UTC-5)</option>
-                                    </select>
+                                    <div className="relative mt-1">
+                                        <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                        <select
+                                            id="timezone"
+                                            value={settings.timezone}
+                                            onChange={(e) => updateSetting('timezone', e.target.value)}
+                                            className="flex h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none cursor-pointer hover:border-primary/50 transition-colors"
+                                        >
+                                            <option value="Europe/Istanbul">Türkiye (UTC+3)</option>
+                                            <option value="Europe/London">Londra (UTC+0)</option>
+                                            <option value="Europe/Berlin">Berlin (UTC+1)</option>
+                                            <option value="America/New_York">New York (UTC-5)</option>
+                                        </select>
+                                        <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -497,37 +505,6 @@ export default function AdminPage() {
                                     status={settings.twilioConfigured ? 'ok' : 'warning'}
                                     detail={settings.twilioConfigured ? 'Bağlı' : 'Yapılandırılmamış'}
                                 />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Quick Stats */}
-                    <Card className="rounded-2xl">
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Database className="h-5 w-5" />
-                                Hızlı İstatistikler
-                            </CardTitle>
-                            <CardDescription>Sistem performansı</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="text-center">
-                                    <p className="text-3xl font-bold text-primary">99.9%</p>
-                                    <p className="text-sm text-muted-foreground mt-1">Uptime</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-3xl font-bold text-primary">124ms</p>
-                                    <p className="text-sm text-muted-foreground mt-1">Ort. Yanıt</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-3xl font-bold text-primary">1.2k</p>
-                                    <p className="text-sm text-muted-foreground mt-1">API Çağrıları</p>
-                                </div>
-                                <div className="text-center">
-                                    <p className="text-3xl font-bold text-primary">0</p>
-                                    <p className="text-sm text-muted-foreground mt-1">Hata</p>
-                                </div>
                             </div>
                         </CardContent>
                     </Card>

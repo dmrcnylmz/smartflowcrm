@@ -369,7 +369,7 @@ export default function DashboardPage() {
       icon: PhoneIncoming,
       gradient: 'from-blue-500/20 to-blue-600/5',
       iconColor: 'text-blue-500 bg-blue-500/10',
-      trend: '+12%',
+      trend: DEMO_MODE ? null : null, // No fake trends -- compute from real data when available
       trendUp: true,
     },
     {
@@ -378,7 +378,7 @@ export default function DashboardPage() {
       icon: Phone,
       gradient: 'from-rose-500/20 to-rose-600/5',
       iconColor: 'text-rose-500 bg-rose-500/10',
-      trend: '-2.4%',
+      trend: DEMO_MODE ? null : null,
       trendUp: true,
     },
     {
@@ -387,7 +387,7 @@ export default function DashboardPage() {
       icon: MessageSquareWarning,
       gradient: 'from-amber-500/20 to-amber-600/5',
       iconColor: 'text-amber-500 bg-amber-500/10',
-      trend: '+5%',
+      trend: DEMO_MODE ? null : null,
       trendUp: false,
     },
     {
@@ -396,7 +396,7 @@ export default function DashboardPage() {
       icon: Calendar,
       gradient: 'from-emerald-500/20 to-emerald-600/5',
       iconColor: 'text-emerald-500 bg-emerald-500/10',
-      trend: '+18%',
+      trend: DEMO_MODE ? null : null,
       trendUp: true,
     },
   ];
@@ -456,12 +456,30 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error / Demo Mode Notification */}
       {error && (
-        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
-          <AlertCircle className="h-5 w-5" />
-          <p className="font-medium">{error}</p>
-        </div>
+        DEMO_MODE ? (
+          /* Subtle bottom-right toast for demo mode */
+          <div className="fixed bottom-6 right-6 z-50 animate-slide-up-panel">
+            <div className="bg-background/95 text-muted-foreground border border-border/60 px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-lg backdrop-blur-xl text-sm max-w-xs">
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+              <p className="text-xs font-medium">Demo Modu -- Ornek veriler gosteriliyor</p>
+              <button
+                onClick={() => setError(null)}
+                className="ml-1 text-muted-foreground/60 hover:text-foreground transition-colors shrink-0"
+                aria-label="Kapat"
+              >
+                <span className="text-xs font-bold">&times;</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Standard inline error for real errors */
+          <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
+            <AlertCircle className="h-5 w-5" />
+            <p className="font-medium">{error}</p>
+          </div>
+        )
       )}
 
       {/* KPI Cards */}
@@ -476,17 +494,21 @@ export default function DashboardPage() {
             return (
               <div
                 key={card.title}
-                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up`}
-                style={{ animationDelay: `${idx * 100}ms` }}
+                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up opacity-0`}
+                style={{ animationDelay: `${idx * 120}ms`, animationFillMode: 'forwards' }}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-3 rounded-2xl ${card.iconColor}`}>
                     <Icon className="h-6 w-6" />
                   </div>
-                  <div className={`flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-full ${card.trendUp ? 'text-emerald-600 bg-emerald-500/10' : 'text-rose-600 bg-rose-500/10'}`}>
-                    {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
-                    {card.trend}
-                  </div>
+                  {card.trend ? (
+                    <div className={`flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-full ${card.trendUp ? 'text-emerald-600 bg-emerald-500/10' : 'text-rose-600 bg-rose-500/10'}`}>
+                      {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                      {card.trend}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50 px-2.5 py-1">&mdash;</span>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-muted-foreground font-medium mb-1">{card.title}</h3>
@@ -502,7 +524,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main Chart - Call Trends */}
-        <div className="xl:col-span-2 animate-fade-in-up stagger-5">
+        <div className="xl:col-span-2 animate-fade-in-up opacity-0" style={{ animationDelay: '500ms', animationFillMode: 'forwards' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden h-full hover-lift">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl">Son 7 Gün Çağrı Trendi</CardTitle>
@@ -535,7 +557,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Complaints Pie Chart */}
-        <div className="xl:col-span-1 animate-fade-in-up stagger-6">
+        <div className="xl:col-span-1 animate-fade-in-up opacity-0" style={{ animationDelay: '620ms', animationFillMode: 'forwards' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl h-full flex flex-col hover-lift">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl">Şikayet Kategorileri</CardTitle>
@@ -576,7 +598,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Appointment Bar Chart */}
-        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up stagger-7">
+        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up opacity-0" style={{ animationDelay: '740ms', animationFillMode: 'forwards' }}>
           <CardHeader>
             <CardTitle className="text-xl">Randevu Durumları</CardTitle>
             <CardDescription>Son 7 gündeki randevuların işlem durumu</CardDescription>
@@ -605,7 +627,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Activity Logs */}
-        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up stagger-8">
+        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up opacity-0" style={{ animationDelay: '860ms', animationFillMode: 'forwards' }}>
           <CardHeader className="bg-primary/5 border-b border-border/50">
             <CardTitle className="text-xl">Son Aktiviteler</CardTitle>
             <CardDescription>Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>

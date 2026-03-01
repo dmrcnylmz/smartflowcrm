@@ -6,12 +6,13 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, CloudLightning, Activity } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Progress } from '@/components/ui/progress';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 interface DailyReport {
   date: string;
@@ -96,9 +97,9 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
       {/* Header section with glassmorphism */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="animate-fade-in-down flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
             <BarChart3 className="h-8 w-8 text-primary" />
@@ -270,12 +271,87 @@ export default function ReportsPage() {
 
           </div>
 
-          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-4 text-primary">
-            <CloudLightning className="h-8 w-8 shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold text-sm">Gelişmiş AI Analizi Hazırlanıyor</p>
-              <p className="text-xs opacity-80 mt-1">SmartFlow 2.0 sürümünde, bu raporların analizlerini ve duygu durum saptamalarını saniyeler içerisinde Yapay Zeka botuna aktarabileceğiz.</p>
-            </div>
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Bar Chart - Performance Overview */}
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardDescription className="flex items-center gap-2 font-medium">
+                  <TrendingUp className="h-4 w-4 text-indigo-500" />
+                  Performans Dağılımı
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={[
+                      { name: 'Yanıtlanan', value: report.summary.answeredCalls, fill: '#10b981' },
+                      { name: 'Kaçırılan', value: report.summary.missedCalls, fill: '#ef4444' },
+                      { name: 'Randevu', value: report.summary.scheduledAppointments, fill: '#3b82f6' },
+                      { name: 'Tamamlanan', value: report.summary.completedAppointments, fill: '#6366f1' },
+                      { name: 'Şikayet', value: report.summary.totalComplaints, fill: '#f59e0b' },
+                      { name: 'Çözülen', value: report.summary.resolvedComplaints, fill: '#22c55e' },
+                    ]} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                        formatter={(value: number) => [`${value} adet`, 'Miktar']}
+                      />
+                      <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                        {[
+                          { fill: '#10b981' }, { fill: '#ef4444' }, { fill: '#3b82f6' },
+                          { fill: '#6366f1' }, { fill: '#f59e0b' }, { fill: '#22c55e' },
+                        ].map((entry, index) => (
+                          <Cell key={index} fill={entry.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pie Chart - Call Distribution */}
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden">
+              <CardHeader className="pb-2">
+                <CardDescription className="flex items-center gap-2 font-medium">
+                  <PhoneIncoming className="h-4 w-4 text-blue-500" />
+                  Çağrı Dağılımı
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-2">
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Yanıtlanan', value: report.summary.answeredCalls },
+                          { name: 'Kaçırılan', value: report.summary.missedCalls },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={4}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`}
+                        labelLine={{ strokeWidth: 1 }}
+                      >
+                        <Cell fill="#10b981" />
+                        <Cell fill="#ef4444" />
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+                        formatter={(value: number) => [`${value} çağrı`, '']}
+                      />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
         </div>
