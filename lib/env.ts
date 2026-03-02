@@ -51,3 +51,27 @@ function validateEnv(): Env {
 }
 
 export const env = validateEnv();
+
+/**
+ * Logs warnings for missing optional service keys.
+ * Call once at startup (e.g., from health route or server init).
+ */
+export function warnMissingOptionalKeys(): string[] {
+  const optionalKeys = [
+    { key: 'TWILIO_ACCOUNT_SID', label: 'Twilio (telefon)' },
+    { key: 'TWILIO_AUTH_TOKEN', label: 'Twilio (auth)' },
+    { key: 'RESEND_API_KEY', label: 'Resend (e-posta)' },
+    { key: 'OPENAI_API_KEY', label: 'OpenAI (AI)' },
+    { key: 'DEEPGRAM_API_KEY', label: 'Deepgram (STT)' },
+    { key: 'ELEVENLABS_API_KEY', label: 'ElevenLabs (TTS)' },
+  ] as const;
+
+  const missing = optionalKeys.filter(({ key }) => !process.env[key]);
+  if (missing.length > 0 && process.env.NODE_ENV !== 'test') {
+    console.warn(
+      `[env] Missing optional service keys (features may be limited):\n` +
+        missing.map(({ key, label }) => `  - ${key} (${label})`).join('\n'),
+    );
+  }
+  return missing.map(({ key }) => key);
+}

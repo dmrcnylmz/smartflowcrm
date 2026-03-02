@@ -1,13 +1,6 @@
 import './globals.css';
 import { ClientLayout } from '@/components/layout/ClientLayout';
-import { Inter } from 'next/font/google';
 import type { Metadata, Viewport } from 'next';
-
-const inter = Inter({
-    subsets: ['latin'],
-    display: 'swap',
-    variable: '--font-inter',
-});
 
 export const metadata: Metadata = {
     title: {
@@ -38,8 +31,8 @@ export default function RootLayout({
     children: React.ReactNode;
 }) {
     return (
-        <html lang="tr" className={inter.variable} suppressHydrationWarning>
-            <body className={inter.className}>
+        <html lang="tr" suppressHydrationWarning>
+            <body className="font-sans antialiased">
                 <ClientLayout>{children}</ClientLayout>
             </body>
         </html>

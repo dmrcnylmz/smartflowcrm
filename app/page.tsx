@@ -29,8 +29,8 @@ const DashboardCharts = nextDynamic(() => import('@/components/dashboard/Dashboa
 });
 import { Timestamp } from 'firebase/firestore';
 
-// Demo mode flag is tracked per-component instance via useRef
-// to avoid shared mutable state across hot reloads and SSR.
+// Demo mode activates when Firebase returns 3+ permission errors.
+// Shows a visible banner and uses demo data instead.
 
 // Demo data for development
 const generateDemoData = () => {
@@ -80,6 +80,10 @@ export default function DashboardPage() {
     openComplaints: 0,
     upcomingAppointments: 0,
   });
+  const [yesterdayStats, setYesterdayStats] = useState<{
+    todayCalls: number;
+    missedCalls: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +91,7 @@ export default function DashboardPage() {
   const [refreshInterval, setRefreshInterval] = useState(60000); // 1 minute default
   const [isLive, setIsLive] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const demoModeRef = useRef(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [chartData, setChartData] = useState<{
     calls: CallLog[];
     complaints: Complaint[];
@@ -287,9 +291,9 @@ export default function DashboardPage() {
       }
 
       // If all queries failed with permission errors, switch to demo mode
-      if (permissionErrors >= 3 && !demoModeRef.current) {
+      if (permissionErrors >= 3 && !isDemoMode) {
         // Demo mode activated silently when Firebase permissions unavailable
-        demoModeRef.current = true;
+        setIsDemoMode(true);
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         allCalls = demoCalls;
         allComplaints = demoComplaints;
@@ -307,6 +311,18 @@ export default function DashboardPage() {
         apt.dateTime && (toDate(apt.dateTime) ?? new Date(0)) >= today && apt.status === 'scheduled'
       );
 
+      // Yesterday's stats for trend comparison
+      const yesterday = subDays(today, 1);
+      const yesterdayCalls = allCalls.filter(c => {
+        const callDate = toDate(c.timestamp || c.createdAt) ?? new Date(0);
+        return callDate >= yesterday && callDate < today;
+      });
+      const yesterdayMissed = yesterdayCalls.filter(c => c.status === 'missed');
+      setYesterdayStats({
+        todayCalls: yesterdayCalls.length,
+        missedCalls: yesterdayMissed.length,
+      });
+
       setStats({
         todayCalls: todayCalls.length,
         missedCalls: missedCalls.length,
@@ -320,18 +336,16 @@ export default function DashboardPage() {
         appointments: allAppointments,
       });
 
-      // Show demo mode notice instead of error
-      if (demoModeRef.current) {
-        setError('🎭 Demo Modu - Firebase bağlantısı yok, demo veriler gösteriliyor');
-      } else if (errors.length > 0 && errors.length < 3) {
+      // Partial failure — log but don't block UI (demo mode handles full failure)
+      if (!isDemoMode && errors.length > 0 && errors.length < 3) {
         // Partial failure - log but don't block UI
         console.warn('Some data failed to load:', errors);
       }
     } catch (error: unknown) {
       console.error('Dashboard load error:', error);
       // Fallback to demo mode on any critical error
-      if (!demoModeRef.current) {
-        demoModeRef.current = true;
+      if (!isDemoMode) {
+        setIsDemoMode(true);
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -355,14 +369,21 @@ export default function DashboardPage() {
           complaints: demoComplaints,
           appointments: demoAppointments,
         });
-
-        setError('🎭 Demo Modu - Firebase bağlantısı yok, demo veriler gösteriliyor');
       }
     } finally {
       setLoading(false);
       setLastUpdated(new Date());
     }
   }
+
+  // Compute trend percentage (today vs yesterday). Returns null when no baseline.
+  const computeTrend = (today: number, yesterday: number | undefined): number | null => {
+    if (yesterday === undefined || yesterday === 0) return today > 0 ? 100 : null;
+    return Math.round(((today - yesterday) / yesterday) * 100);
+  };
+
+  const callsTrend = yesterdayStats ? computeTrend(stats.todayCalls, yesterdayStats.todayCalls) : null;
+  const missedTrend = yesterdayStats ? computeTrend(stats.missedCalls, yesterdayStats.missedCalls) : null;
 
   const kpiCards = [
     {
@@ -371,8 +392,8 @@ export default function DashboardPage() {
       icon: PhoneIncoming,
       gradient: 'from-blue-500/20 to-blue-600/5',
       iconColor: 'text-blue-500 bg-blue-500/10',
-      trend: demoModeRef.current ? null : null, // No fake trends -- compute from real data when available
-      trendUp: true,
+      trend: isDemoMode ? null : callsTrend,
+      trendUp: (callsTrend ?? 0) >= 0,
     },
     {
       title: 'Kaçırılan Çağrılar',
@@ -380,8 +401,8 @@ export default function DashboardPage() {
       icon: Phone,
       gradient: 'from-rose-500/20 to-rose-600/5',
       iconColor: 'text-rose-500 bg-rose-500/10',
-      trend: demoModeRef.current ? null : null,
-      trendUp: true,
+      trend: isDemoMode ? null : missedTrend,
+      trendUp: (missedTrend ?? 0) <= 0, // fewer missed = good
     },
     {
       title: 'Açık Şikayetler',
@@ -389,7 +410,7 @@ export default function DashboardPage() {
       icon: MessageSquareWarning,
       gradient: 'from-amber-500/20 to-amber-600/5',
       iconColor: 'text-amber-500 bg-amber-500/10',
-      trend: demoModeRef.current ? null : null,
+      trend: null, // complaints don't have daily trend comparison
       trendUp: false,
     },
     {
@@ -398,13 +419,23 @@ export default function DashboardPage() {
       icon: Calendar,
       gradient: 'from-emerald-500/20 to-emerald-600/5',
       iconColor: 'text-emerald-500 bg-emerald-500/10',
-      trend: demoModeRef.current ? null : null,
+      trend: null, // appointments are forward-looking, no yesterday comparison
       trendUp: true,
     },
   ];
 
   return (
     <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+      {/* Demo mode banner */}
+      {isDemoMode && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/50 px-4 py-3 text-sm text-amber-800 dark:text-amber-200 animate-fade-in-down">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>
+            <strong>Demo Modu</strong> — Firebase bağlantısı kurulamadı. Gösterilen veriler demo amaçlıdır.
+          </span>
+        </div>
+      )}
+
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
@@ -462,36 +493,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Error / Demo Mode Notification */}
-      {error && (
-        demoModeRef.current ? (
-          /* Subtle bottom-right toast for demo mode */
-          <div className="fixed bottom-6 right-6 z-50 animate-slide-up-panel">
-            <div className="bg-background/95 text-muted-foreground border border-border/60 px-4 py-2.5 rounded-xl flex items-center gap-2.5 shadow-lg backdrop-blur-xl text-sm max-w-xs">
-              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-              <p className="text-xs font-medium">Demo Modu -- Ornek veriler gosteriliyor</p>
-              <button
-                onClick={() => setError(null)}
-                className="ml-1 text-muted-foreground/60 hover:text-foreground transition-colors shrink-0"
-                aria-label="Kapat"
-              >
-                <span className="text-xs font-bold">&times;</span>
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Standard inline error for real errors */
-          <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
-            <AlertCircle className="h-5 w-5" />
-            <p className="font-medium">{error}</p>
-            <button
-              onClick={handleRefresh}
-              className="ml-2 px-3 py-1 text-xs font-medium rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
-            >
-              Tekrar Dene
-            </button>
-          </div>
-        )
+      {/* Error notification (demo mode has its own banner above) */}
+      {error && !isDemoMode && (
+        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
+          <AlertCircle className="h-5 w-5" />
+          <p className="font-medium">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="ml-2 px-3 py-1 text-xs font-medium rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
+          >
+            Tekrar Dene
+          </button>
+        </div>
       )}
 
       {/* KPI Cards */}

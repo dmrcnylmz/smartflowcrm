@@ -326,24 +326,19 @@ function BillingPageContent() {
                                                 Mevcut Plan
                                             </Button>
                                         ) : (
-                                            <Button
-                                                className={`w-full rounded-xl ${isPro ? 'shadow-lg shadow-primary/20' : ''}`}
-                                                variant={isPro ? 'default' : 'outline'}
-                                                onClick={() => handleCheckout(plan.id)}
-                                                disabled={!!checkoutLoading}
-                                            >
-                                                {checkoutLoading === plan.id ? (
-                                                    <>
-                                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                        Hazırlanıyor...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <CreditCard className="h-4 w-4 mr-2" />
-                                                        {subscription?.isActive ? 'Plan Değiştir' : 'Satın Al'}
-                                                    </>
-                                                )}
-                                            </Button>
+                                            <div className="relative group">
+                                                <Button
+                                                    className={`w-full rounded-xl ${isPro ? 'shadow-lg shadow-primary/20' : ''}`}
+                                                    variant={isPro ? 'default' : 'outline'}
+                                                    disabled
+                                                >
+                                                    <CreditCard className="h-4 w-4 mr-2" />
+                                                    Yakında Aktif
+                                                </Button>
+                                                <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                                    Ödeme entegrasyonu yakında aktif olacak
+                                                </span>
+                                            </div>
                                         )}
                                     </div>
                                 </CardContent>

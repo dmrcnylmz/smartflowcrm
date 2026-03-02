@@ -24,7 +24,7 @@ export function useCustomers(): UseQueryResult<Customer> {
       const result = await getCustomers();
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch customers'));
+      setError(err instanceof Error ? err : new Error('Müşteriler yüklenemedi'));
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ export function useCalls(): UseQueryResult<CallLog> {
       const result = await getCallLogs();
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch call logs'));
+      setError(err instanceof Error ? err : new Error('Çağrı kayıtları yüklenemedi'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +70,7 @@ export function useAppointments(): UseQueryResult<Appointment> {
       const result = await getAppointments();
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch appointments'));
+      setError(err instanceof Error ? err : new Error('Randevular yüklenemedi'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +93,7 @@ export function useComplaints(): UseQueryResult<Complaint> {
       const result = await getComplaints();
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch complaints'));
+      setError(err instanceof Error ? err : new Error('Şikayetler yüklenemedi'));
     } finally {
       setLoading(false);
     }
@@ -116,7 +116,7 @@ export function useActivityLogs(): UseQueryResult<ActivityLog> {
       const result = await getActivityLogs(20);
       setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to fetch activity logs'));
+      setError(err instanceof Error ? err : new Error('Aktivite kayıtları yüklenemedi'));
     } finally {
       setLoading(false);
     }

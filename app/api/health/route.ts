@@ -13,8 +13,12 @@
  */
 
 import { NextResponse } from 'next/server';
+import { warnMissingOptionalKeys } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
+
+// Log missing optional keys on first health check
+let _envWarned = false;
 
 interface ServiceCheck {
     name: string;
@@ -56,11 +60,8 @@ async function checkFirestore(): Promise<ServiceCheck> {
         const { getFirestore } = await import('firebase-admin/firestore');
         initAdmin();
         const db = getFirestore();
-        // Simple read to verify connectivity
-        await db.collection('_health').doc('ping').set({
-            timestamp: new Date(),
-            source: 'health-check',
-        });
+        // Read-only check — avoids permission-denied on strict Firestore rules
+        await db.listCollections();
         return { name: 'firestore', status: 'ok', latency_ms: Date.now() - start };
     } catch (err) {
         return {
@@ -74,6 +75,12 @@ async function checkFirestore(): Promise<ServiceCheck> {
 
 export async function GET() {
     const startTime = Date.now();
+
+    // Log missing optional keys once
+    if (!_envWarned) {
+        _envWarned = true;
+        warnMissingOptionalKeys();
+    }
 
     const personaplexUrl = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
 

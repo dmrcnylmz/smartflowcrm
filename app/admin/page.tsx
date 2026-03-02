@@ -101,18 +101,26 @@ export default function AdminPage() {
                 }
             }
 
-            // Health status
+            // Health status — parse config flags for integration display
             if (healthRes.ok) {
                 const health = await healthRes.json();
                 setHealthData(health);
+                // Update integration flags from health response
+                setSettings(prev => ({
+                    ...prev,
+                    twilioConfigured: health?.config?.twilio === 'configured',
+                    openaiConfigured: health?.config?.openai === 'configured',
+                }));
             }
 
-            // AI status
+            // AI status — override openai flag if AI endpoint gives more detail
             const aiData = aiRes.ok ? await aiRes.json() : {};
-            setSettings(prev => ({
-                ...prev,
-                openaiConfigured: aiData?.available === true,
-            }));
+            if (aiData?.available === true) {
+                setSettings(prev => ({
+                    ...prev,
+                    openaiConfigured: true,
+                }));
+            }
         } catch (err) {
             console.error('Settings fetch error:', err);
             setError(err instanceof Error ? err.message : 'Ayarlar yüklenirken bir hata oluştu');
@@ -531,8 +539,16 @@ export default function AdminPage() {
                                 />
                                 <ServiceStatus
                                     name="Firebase / Firestore"
-                                    status={(healthData as Record<string, Record<string, string>>)?.services?.firestore === 'ok' ? 'ok' : 'warning'}
-                                    detail={(healthData as Record<string, Record<string, string>>)?.services?.firestore === 'ok' ? 'Bağlı' : 'Kontrol edilemedi'}
+                                    status={
+                                        (healthData as Record<string, Record<string, Record<string, string>>>)?.services?.firestore?.status === 'ok'
+                                            ? 'ok'
+                                            : healthData ? 'warning' : 'error'
+                                    }
+                                    detail={
+                                        (healthData as Record<string, Record<string, Record<string, string>>>)?.services?.firestore?.status === 'ok'
+                                            ? 'Bağlı'
+                                            : healthData ? 'Kontrol edilemedi' : 'Bağlantı hatası'
+                                    }
                                 />
                                 <ServiceStatus
                                     name="OpenAI API"
@@ -543,6 +559,21 @@ export default function AdminPage() {
                                     name="Twilio Telefon"
                                     status={settings.twilioConfigured ? 'ok' : 'warning'}
                                     detail={settings.twilioConfigured ? 'Bağlı' : 'Yapılandırılmamış'}
+                                />
+                                <ServiceStatus
+                                    name="Deepgram (STT)"
+                                    status={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? 'ok' : 'warning'}
+                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
+                                />
+                                <ServiceStatus
+                                    name="ElevenLabs (TTS)"
+                                    status={(healthData as Record<string, Record<string, string>>)?.config?.elevenlabs === 'configured' ? 'ok' : 'warning'}
+                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.elevenlabs === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
+                                />
+                                <ServiceStatus
+                                    name="Resend (E-posta)"
+                                    status={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'ok' : 'warning'}
+                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
                                 />
                             </div>
                         </CardContent>

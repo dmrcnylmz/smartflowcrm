@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { Progress } from '@/components/ui/progress';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import nextDynamic from 'next/dynamic';
 
 // Lazy-load recharts (~100KB) -- only downloaded when report data is shown
@@ -42,6 +43,7 @@ interface DailyReport {
 }
 
 export default function ReportsPage() {
+  const authFetch = useAuthFetch();
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export default function ReportsPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/reports/daily?date=${selectedDate}`);
+      const response = await authFetch(`/api/reports/daily?date=${selectedDate}`);
       if (response.ok) {
         const data = await response.json();
         setReport(data);
@@ -67,7 +69,6 @@ export default function ReportsPage() {
         setReport(null);
       }
     } catch (err: unknown) {
-      console.error('Rapor hatası:', err);
       const errorMessage = err instanceof Error ? err.message : 'Rapor yüklenirken hata oluştu';
       setError(errorMessage);
       setReport(null);
