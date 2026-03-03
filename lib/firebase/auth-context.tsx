@@ -20,11 +20,14 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     error: string | null;
+    tenantId: string | null;
+    role: string | null;
     signIn: (email: string, password: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
     signUp: (email: string, password: string, displayName?: string) => Promise<void>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
+    refreshClaims: () => Promise<void>;
     clearError: () => void;
 }
 
@@ -34,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [tenantId, setTenantId] = useState<string | null>(null);
+    const [role, setRole] = useState<string | null>(null);
 
     useEffect(() => {
         // Handle redirect result (fallback for popup-blocked)
@@ -41,8 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // Silently ignore - no redirect was pending
         });
 
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            setUser(firebaseUser);
+            if (firebaseUser) {
+                // Read custom claims to know tenant assignment
+                try {
+                    const tokenResult = await firebaseUser.getIdTokenResult();
+                    setTenantId((tokenResult.claims.tenantId as string) || null);
+                    setRole((tokenResult.claims.role as string) || null);
+                } catch {
+                    setTenantId(null);
+                    setRole(null);
+                }
+            } else {
+                setTenantId(null);
+                setRole(null);
+            }
             setLoading(false);
         });
 
@@ -129,6 +148,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const refreshClaims = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        try {
+            const tokenResult = await currentUser.getIdTokenResult(true);
+            setTenantId((tokenResult.claims.tenantId as string) || null);
+            setRole((tokenResult.claims.role as string) || null);
+        } catch {
+            // silently ignore
+        }
+    };
+
     const clearError = () => setError(null);
 
     return (
@@ -137,11 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 user,
                 loading,
                 error,
+                tenantId,
+                role,
                 signIn,
                 signInWithGoogle,
                 signUp,
                 signOut,
                 resetPassword,
+                refreshClaims,
                 clearError,
             }}
         >

@@ -48,6 +48,14 @@ export async function GET(request: NextRequest) {
 
         const tenantRef = firestore.collection('tenants').doc(tenantId);
 
+        // Helper: run a query safely — returns empty result on failure (e.g. missing index)
+        const emptySnap = { docs: [], size: 0, empty: true } as unknown as FirebaseFirestore.QuerySnapshot;
+        const safeQuery = (q: FirebaseFirestore.Query) =>
+            q.get().catch((err: unknown) => {
+                console.warn('[Dashboard] Query fallback:', (err as Error).message?.substring(0, 120));
+                return emptySnap;
+            });
+
         // ─── Parallel Queries (with .select() projections to reduce bandwidth) ───
         const [
             todayCallsSnap,
@@ -60,52 +68,46 @@ export async function GET(request: NextRequest) {
             activitySnap,
         ] = await Promise.all([
             // Today's calls — only need status for answered/missed classification
-            tenantRef.collection('calls')
+            safeQuery(tenantRef.collection('calls')
                 .where('startedAt', '>=', todayStart)
-                .select('startedAt', 'status')
-                .get(),
+                .select('startedAt', 'status')),
 
             // Last 7 days calls (for trend chart) — need date, status, duration
-            tenantRef.collection('calls')
+            safeQuery(tenantRef.collection('calls')
                 .where('startedAt', '>=', sevenDaysAgo)
                 .orderBy('startedAt', 'desc')
-                .select('startedAt', 'status', 'durationSeconds')
-                .get(),
+                .select('startedAt', 'status', 'durationSeconds')),
 
             // Open complaints — only .size is used
-            tenantRef.collection('complaints')
+            safeQuery(tenantRef.collection('complaints')
                 .where('status', 'in', ['open', 'investigating'])
-                .select('status')
-                .get(),
+                .select('status')),
 
             // Recent complaints (last 30 days for category distribution)
-            tenantRef.collection('complaints')
+            safeQuery(tenantRef.collection('complaints')
                 .where('createdAt', '>=', thirtyDaysAgo)
-                .select('createdAt', 'category')
-                .get(),
+                .select('createdAt', 'category')),
 
-            // Upcoming appointments (next 48 hours) — only .size is used
-            tenantRef.collection('appointments')
+            // Upcoming appointments — only .size is used
+            safeQuery(tenantRef.collection('appointments')
                 .where('status', '==', 'scheduled')
                 .where('dateTime', '>=', now)
-                .select('status')
-                .get(),
+                .select('status')),
 
             // Usage stats — single document, no projection needed
-            tenantRef.collection('usage').doc('current').get(),
+            tenantRef.collection('usage').doc('current').get()
+                .catch(() => ({ exists: false, data: () => ({}) }) as unknown as FirebaseFirestore.DocumentSnapshot),
 
             // KB stats — only .size is used
-            tenantRef.collection('kb_documents')
+            safeQuery(tenantRef.collection('kb_documents')
                 .where('status', '==', 'ready')
-                .select('status')
-                .get(),
+                .select('status')),
 
             // Recent activity (last 20) — need all display fields
-            tenantRef.collection('activity_logs')
+            safeQuery(tenantRef.collection('activity_logs')
                 .orderBy('createdAt', 'desc')
                 .limit(20)
-                .select('type', 'description', 'createdAt', 'metadata', 'from', 'customerName', 'phoneNumber', 'title', 'planId')
-                .get(),
+                .select('type', 'description', 'createdAt', 'metadata', 'from', 'customerName', 'phoneNumber', 'title', 'planId')),
         ]);
 
         // ─── Process KPI Cards ───

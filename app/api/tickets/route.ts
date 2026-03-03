@@ -6,27 +6,33 @@ import {
   createInfoRequest,
   getInfoRequests,
   updateInfoRequest,
-} from '@/lib/firebase/db';
-import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
+  getTenantFromRequest,
+} from '@/lib/firebase/admin-db';
+import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/tickets?type=complaint|info&customerId=&status=
 export async function GET(request: NextRequest) {
   try {
+    const tenantId = getTenantFromRequest(request);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'complaint';
     const customerId = searchParams.get('customerId');
     const status = searchParams.get('status');
 
     if (type === 'complaint') {
-      const complaints = await getComplaints({
+      const complaints = await getComplaints(tenantId, {
         customerId: customerId || undefined,
         status: status || undefined,
       });
       return NextResponse.json(complaints);
     } else {
-      const infoRequests = await getInfoRequests({
+      const infoRequests = await getInfoRequests(tenantId, {
         customerId: customerId || undefined,
         status: status || undefined,
       });
@@ -40,6 +46,11 @@ export async function GET(request: NextRequest) {
 // POST /api/tickets - Create complaint or info request
 export async function POST(request: NextRequest) {
   try {
+    const tenantId = getTenantFromRequest(request);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { type = 'complaint', customerId, ...data } = body;
 
@@ -52,7 +63,7 @@ export async function POST(request: NextRequest) {
       const fieldValidation = requireFields(data, ['category', 'description']);
       if (fieldValidation) return errorResponse(fieldValidation);
 
-      const complaintRef = await createComplaint({
+      const complaintRef = await createComplaint(tenantId, {
         customerId,
         category: data.category,
         description: data.description,
@@ -64,7 +75,7 @@ export async function POST(request: NextRequest) {
       const fieldValidation = requireFields(data, ['topic', 'details']);
       if (fieldValidation) return errorResponse(fieldValidation);
 
-      const infoRequestRef = await createInfoRequest({
+      const infoRequestRef = await createInfoRequest(tenantId, {
         customerId,
         topic: data.topic,
         details: data.details,
@@ -83,6 +94,11 @@ export async function POST(request: NextRequest) {
 // PATCH /api/tickets - Update ticket
 export async function PATCH(request: NextRequest) {
   try {
+    const tenantId = getTenantFromRequest(request);
+    if (!tenantId) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { id, type = 'complaint', ...updateData } = body;
 
@@ -90,9 +106,9 @@ export async function PATCH(request: NextRequest) {
     if (validation) return errorResponse(validation);
 
     if (type === 'complaint') {
-      await updateComplaint(id, updateData);
+      await updateComplaint(tenantId, id, updateData);
     } else {
-      await updateInfoRequest(id, updateData);
+      await updateInfoRequest(tenantId, id, updateData);
     }
 
     return NextResponse.json({ success: true });

@@ -154,7 +154,7 @@ const TRAIT_OPTIONS = [
 
 export default function OnboardingPage() {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, refreshClaims } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,6 +231,13 @@ export default function OnboardingPage() {
             }
 
             await response.json();
+
+            // Force-refresh the Firebase token so the new custom claims
+            // (tenantId, role) are included in the JWT immediately.
+            // refreshClaims() calls getIdTokenResult(true) and updates
+            // the auth context state — without this, ClientLayout would
+            // redirect back to /onboarding because tenantId is still null.
+            await refreshClaims();
 
             // Redirect to main dashboard
             router.push('/');
