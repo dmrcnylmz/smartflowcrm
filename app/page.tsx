@@ -576,9 +576,9 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : activityError ? (
-              <div className="flex justify-center items-center h-full min-h-[200px] text-destructive">
+              <div className="flex justify-center items-center h-full min-h-[200px] text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-5 h-5 mr-2" />
-                Aktivite logları yüklenemedi
+                Aktivite verileri şu anda görüntülenemiyor
               </div>
             ) : activity.length === 0 ? (
               <div className="flex justify-center items-center h-full min-h-[200px] text-muted-foreground">

@@ -120,19 +120,19 @@ function KnowledgePageContent() {
         try {
             setError(null);
             const res = await authFetch('/api/knowledge');
-            if (!res.ok) throw new Error('Failed to fetch documents');
+            if (!res.ok) throw new Error('Belgeler yüklenemedi');
             const data = await res.json();
             setDocuments(data.documents || []);
         } catch (err) {
             console.error('KB fetch error:', err);
-            setError('Belgeler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+            setError('Bilgi bankası verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
         }
     }, [authFetch]);
 
     const fetchStats = useCallback(async () => {
         try {
             const res = await authFetch('/api/knowledge?action=stats');
-            if (!res.ok) throw new Error('Failed to fetch stats');
+            if (!res.ok) throw new Error('İstatistikler yüklenemedi');
             const data = await res.json();
             setStats(data);
         } catch (err) {
@@ -302,7 +302,7 @@ function KnowledgePageContent() {
                 body: JSON.stringify({ documentId }),
             });
 
-            if (!res.ok) throw new Error('Delete failed');
+            if (!res.ok) throw new Error('Belge silinemedi');
 
             toast({
                 title: 'Silindi',
@@ -329,7 +329,7 @@ function KnowledgePageContent() {
         setQuerying(true);
         try {
             const res = await authFetch(`/api/knowledge?query=${encodeURIComponent(queryText)}&topK=5`);
-            if (!res.ok) throw new Error('Query failed');
+            if (!res.ok) throw new Error('Sorgu çalıştırılamadı');
             const data = await res.json();
             setQueryResults(data.results || []);
         } catch (err) {
@@ -508,10 +508,10 @@ function KnowledgePageContent() {
                 <CardContent>
                     {error ? (
                         <div className="text-center py-16">
-                            <AlertTriangle className="h-16 w-16 text-red-400/50 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold mb-2">Veriler yüklenemedi</h3>
+                            <AlertTriangle className="h-16 w-16 text-amber-500/50 mx-auto mb-4" />
+                            <h3 className="text-lg font-semibold mb-2">Veriler Yüklenemedi</h3>
                             <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                                {error}
+                                Bilgi bankası verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.
                             </p>
                             <Button
                                 onClick={handleRetry}

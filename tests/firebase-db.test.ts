@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Firebase Firestore
 vi.mock('firebase/firestore', () => ({
-    collection: vi.fn((_, name: string) => ({ path: name })),
+    collection: vi.fn((...args: unknown[]) => ({ path: args.filter(a => typeof a === 'string').join('/') })),
     addDoc: vi.fn().mockResolvedValue({ id: 'new-doc-id' }),
     getDocs: vi.fn().mockResolvedValue({
         docs: [
@@ -36,8 +36,8 @@ vi.mock('firebase/firestore', () => ({
             createdAt: { seconds: 1700000000, nanoseconds: 0 },
         }),
     }),
-    doc: vi.fn((_, collection: string, id: string) => ({
-        path: `${collection}/${id}`,
+    doc: vi.fn((...args: unknown[]) => ({
+        path: args.filter(a => typeof a === 'string').join('/'),
     })),
     deleteDoc: vi.fn().mockResolvedValue(undefined),
     updateDoc: vi.fn().mockResolvedValue(undefined),
@@ -54,6 +54,14 @@ vi.mock('firebase/firestore', () => ({
 
 vi.mock('@/lib/firebase/config', () => ({
     db: {},
+    auth: {
+        currentUser: {
+            uid: 'test-user-123',
+            getIdTokenResult: vi.fn().mockResolvedValue({
+                claims: { tenantId: 'test-tenant' },
+            }),
+        },
+    },
 }));
 
 import {

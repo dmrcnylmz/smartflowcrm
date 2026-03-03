@@ -187,7 +187,12 @@ export default function OnboardingPage() {
         setError(null);
 
         try {
-            const token = await user?.getIdToken();
+            if (!user) {
+                setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+                setIsSubmitting(false);
+                return;
+            }
+            const token = await user.getIdToken();
             const response = await fetch('/api/tenants', {
                 method: 'POST',
                 headers: {
@@ -230,7 +235,7 @@ export default function OnboardingPage() {
             // Redirect to main dashboard
             router.push('/');
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bir hata oluştu');
+            setError('Kurulum tamamlanamadı. Lütfen tekrar deneyin.');
         } finally {
             setIsSubmitting(false);
         }

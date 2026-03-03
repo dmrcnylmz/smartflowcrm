@@ -64,13 +64,19 @@ export default function ReportsPage() {
         setReport(data);
         setError(null);
       } else {
-        await response.text();
-        setError(`Rapor yüklenemedi: ${response.status}`);
+        await response.text().catch(() => '');
+        // User-friendly messages — never expose raw HTTP status codes
+        if (response.status === 401 || response.status === 403) {
+          setError('Oturum süresi dolmuş olabilir. Lütfen sayfayı yenileyip tekrar giriş yapın.');
+        } else if (response.status >= 500) {
+          setError('Sunucu şu anda yanıt veremiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
+        } else {
+          setError('Rapor verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
+        }
         setReport(null);
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Rapor yüklenirken hata oluştu';
-      setError(errorMessage);
+      setError('Rapor servisine bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
       setReport(null);
     } finally {
       setLoading(false);

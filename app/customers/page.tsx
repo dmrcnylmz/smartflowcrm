@@ -426,13 +426,12 @@ function CustomersPageContent() {
               ))}
             </div>
           ) : customersError ? (
-            <div className="flex flex-col items-center justify-center py-12 text-destructive">
+            <div className="flex flex-col items-center justify-center py-12 text-amber-600 dark:text-amber-400">
               <AlertCircle className="mb-3 h-10 w-10 opacity-80" />
-              <span className="font-medium text-lg">
-                {customersError.message?.includes('permission')
-                  ? 'Erişim yetkiniz bulunmamaktadır.'
-                  : 'Müşteriler yüklenirken hata oluştu.'}
-              </span>
+              <span className="font-medium text-lg">Müşteri Verileri Yüklenemedi</span>
+              <p className="text-muted-foreground text-sm mt-2 max-w-sm text-center">
+                Müşteri verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
+              </p>
             </div>
           ) : paginatedCustomers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-center">

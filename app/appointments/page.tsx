@@ -533,14 +533,12 @@ function AppointmentsPageContent() {
             </div>
           ) : appointmentsError ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
                 <AlertCircle className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Bağlantı Hatası</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">Veriler Yüklenemedi</h3>
               <p className="text-muted-foreground max-w-sm">
-                {appointmentsError.message?.includes('permission')
-                  ? 'Veritabanı erişim izni reddedildi. Güvenlik kurallarını denetleyin.'
-                  : 'Randevu listesi yüklenirken beklenmedik bir sistem hatası belirdi.'}
+                Randevu verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
               </p>
             </div>
           ) : filteredAppointments.length === 0 && !loading ? (

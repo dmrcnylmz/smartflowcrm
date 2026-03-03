@@ -80,16 +80,16 @@ type TicketPriority = SupportTicket['priority'];
 // ---------------------------------------------------------------------------
 
 const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bgColor: string; icon: typeof AlertCircle }> = {
-  open: { label: 'Acik', color: 'text-rose-500', bgColor: 'bg-rose-500/10', icon: AlertCircle },
-  in_progress: { label: 'Islemde', color: 'text-amber-500', bgColor: 'bg-amber-500/10', icon: Clock },
-  resolved: { label: 'Cozuldu', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', icon: CheckCircle2 },
-  closed: { label: 'Kapatildi', color: 'text-slate-400', bgColor: 'bg-slate-400/10', icon: XCircle },
+  open: { label: 'Açık', color: 'text-rose-500', bgColor: 'bg-rose-500/10', icon: AlertCircle },
+  in_progress: { label: 'İşlemde', color: 'text-amber-500', bgColor: 'bg-amber-500/10', icon: Clock },
+  resolved: { label: 'Çözüldü', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', icon: CheckCircle2 },
+  closed: { label: 'Kapatıldı', color: 'text-slate-400', bgColor: 'bg-slate-400/10', icon: XCircle },
 };
 
 const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; bgColor: string; borderColor: string; icon: typeof AlertTriangle }> = {
-  low: { label: 'Dusuk', color: 'text-sky-500', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/20', icon: ArrowRight },
+  low: { label: 'Düşük', color: 'text-sky-500', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/20', icon: ArrowRight },
   medium: { label: 'Orta', color: 'text-amber-500', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20', icon: AlertTriangle },
-  high: { label: 'Yuksek', color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20', icon: Flame },
+  high: { label: 'Yüksek', color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20', icon: Flame },
   critical: { label: 'Kritik', color: 'text-rose-500', bgColor: 'bg-rose-500/10', borderColor: 'border-rose-500/20', icon: ShieldAlert },
 };
 
@@ -102,13 +102,13 @@ const STATUS_WORKFLOW: Record<TicketStatus, TicketStatus[]> = {
 
 const CATEGORIES = [
   'Teknik Destek',
-  'Fatura / Odeme',
-  'Urun Sorunu',
-  'Hesap Yonetimi',
+  'Fatura / Ödeme',
+  'Ürün Sorunu',
+  'Hesap Yönetimi',
   'Genel Bilgi',
   'Entegrasyon',
   'Performans',
-  'Diger',
+  'Diğer',
 ];
 
 // ---------------------------------------------------------------------------
@@ -193,7 +193,7 @@ function TicketsPageContent() {
 
     try {
       const res = await authFetch('/api/tickets');
-      if (!res.ok) throw new Error('API yanit vermedi');
+      if (!res.ok) throw new Error('Talep verileri yüklenemedi');
       const data = await res.json();
       const list: SupportTicket[] = Array.isArray(data) ? data : data.tickets || data.data || [];
       setTickets(list);
@@ -276,7 +276,7 @@ function TicketsPageContent() {
 
   async function handleCreateTicket() {
     if (!formTitle.trim() || !formCustomerName.trim()) {
-      toast({ title: 'Eksik Bilgi', description: 'Baslik ve musteri adi zorunludur.', variant: 'warning' });
+      toast({ title: 'Eksik Bilgi', description: 'Başlık ve müşteri adı zorunludur.', variant: 'warning' });
       return;
     }
 
@@ -311,16 +311,16 @@ function TicketsPageContent() {
             customerPhone: formCustomerPhone.trim() || undefined,
           }),
         });
-        if (!res.ok) throw new Error('Talep olusturulamadi');
+        if (!res.ok) throw new Error('Talep oluşturulamadı');
         await fetchTickets();
       }
 
-      toast({ title: 'Basarili', description: 'Yeni destek talebi olusturuldu.', variant: 'success' });
+      toast({ title: 'Başarılı', description: 'Yeni destek talebi oluşturuldu.', variant: 'success' });
       setCreateDialogOpen(false);
       resetCreateForm();
     } catch (err) {
       console.error('Create ticket error:', err);
-      toast({ title: 'Hata', description: 'Talep olusturulurken bir sorun olustu.', variant: 'error' });
+      toast({ title: 'Hata', description: 'Talep oluşturulurken bir sorun oluştu.', variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -347,7 +347,7 @@ function TicketsPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         });
-        if (!res.ok) throw new Error('Durum guncellenemedi');
+        if (!res.ok) throw new Error('Durum güncellenemedi');
         await fetchTickets();
       }
 
@@ -359,10 +359,10 @@ function TicketsPageContent() {
       }
 
       const statusLabel = STATUS_CONFIG[newStatus].label;
-      toast({ title: 'Durum Guncellendi', description: `Talep durumu "${statusLabel}" olarak degistirildi.`, variant: 'success' });
+      toast({ title: 'Durum Güncellendi', description: `Talep durumu "${statusLabel}" olarak değiştirildi.`, variant: 'success' });
     } catch (err) {
       console.error('Status update error:', err);
-      toast({ title: 'Hata', description: 'Durum guncellenirken bir sorun olustu.', variant: 'error' });
+      toast({ title: 'Hata', description: 'Durum güncellenirken bir sorun oluştu.', variant: 'error' });
     } finally {
       setUpdatingStatus(null);
     }
@@ -384,7 +384,7 @@ function TicketsPageContent() {
         await fetchTickets();
       }
 
-      toast({ title: 'Silindi', description: `"${ticketToDelete.title}" talebi basariyla silindi.`, variant: 'success' });
+      toast({ title: 'Silindi', description: `"${ticketToDelete.title}" talebi başarıyla silindi.`, variant: 'success' });
       setDeleteDialogOpen(false);
       setTicketToDelete(null);
       // Close detail dialog if the deleted ticket was open
@@ -394,7 +394,7 @@ function TicketsPageContent() {
       }
     } catch (err) {
       console.error('Delete ticket error:', err);
-      toast({ title: 'Hata', description: 'Talep silinirken bir sorun olustu.', variant: 'error' });
+      toast({ title: 'Hata', description: 'Talep silinirken bir sorun oluştu.', variant: 'error' });
     } finally {
       setDeleting(false);
     }
@@ -513,7 +513,7 @@ function TicketsPageContent() {
         <div className="animate-fade-in-down flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-sm text-amber-600 dark:text-amber-400">
           <WifiOff className="h-4 w-4 flex-shrink-0" />
           <span className="font-medium">Demo Modu</span>
-          <span className="text-amber-500/70">API baglantisi kurulamadi. Demo veriler gosteriliyor.</span>
+          <span className="text-amber-500/70">Veri kaynağına ulaşılamadı. Örnek veriler gösteriliyor.</span>
         </div>
       )}
 
@@ -527,7 +527,7 @@ function TicketsPageContent() {
             Destek Talepleri
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Musteri destek taleplerini olusturun, takip edin ve cozume ulastirin.
+            Müşteri destek taleplerini oluşturun, takip edin ve çözüme ulaştırın.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -548,7 +548,7 @@ function TicketsPageContent() {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Yeni Talep Olustur
+            Yeni Talep Oluştur
           </Button>
         </div>
       </div>
@@ -567,7 +567,7 @@ function TicketsPageContent() {
             <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Toplam</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Tum Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">Tüm Talepler</h3>
             <div className="text-4xl font-bold tracking-tight text-foreground">{stats.total}</div>
           </div>
         </div>
@@ -584,7 +584,7 @@ function TicketsPageContent() {
             <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Acil</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Acik Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">Açık Talepler</h3>
             <div className="text-4xl font-bold tracking-tight text-rose-500">{stats.open}</div>
           </div>
         </div>
@@ -601,7 +601,7 @@ function TicketsPageContent() {
             <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Devam</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Islemdeki Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">İşlemdeki Talepler</h3>
             <div className="text-4xl font-bold tracking-tight text-amber-500">{stats.inProgress}</div>
           </div>
         </div>
@@ -615,10 +615,10 @@ function TicketsPageContent() {
             <div className="p-3 rounded-2xl text-emerald-500 bg-emerald-500/10">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Basarili</span>
+            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Başarılı</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Cozume Ulasanlar</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">Çözüme Ulaşanlar</h3>
             <div className="text-4xl font-bold tracking-tight text-emerald-500">{stats.resolved}</div>
           </div>
         </div>
@@ -632,7 +632,7 @@ function TicketsPageContent() {
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/70" />
               <Input
-                placeholder="Talep ara (ID, baslik, musteri)..."
+                placeholder="Talep ara (ID, başlık, müşteri)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 rounded-2xl border-white/10 bg-background/50 h-12 w-full text-base transition-colors focus-visible:bg-background"
@@ -646,24 +646,24 @@ function TicketsPageContent() {
                   <SelectValue placeholder="Durum Filtrele" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
-                  <SelectItem value="all">Tum Durumlar</SelectItem>
-                  <SelectItem value="open">Acik</SelectItem>
-                  <SelectItem value="in_progress">Islemde</SelectItem>
-                  <SelectItem value="resolved">Cozuldu</SelectItem>
-                  <SelectItem value="closed">Kapatildi</SelectItem>
+                  <SelectItem value="all">Tüm Durumlar</SelectItem>
+                  <SelectItem value="open">Açık</SelectItem>
+                  <SelectItem value="in_progress">İşlemde</SelectItem>
+                  <SelectItem value="resolved">Çözüldü</SelectItem>
+                  <SelectItem value="closed">Kapatıldı</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] rounded-2xl h-12 border-white/10 bg-background/50 font-medium">
-                  <SelectValue placeholder="Oncelik Filtrele" />
+                  <SelectValue placeholder="Öncelik Filtrele" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
-                  <SelectItem value="all">Tum Oncelikler</SelectItem>
+                  <SelectItem value="all">Tüm Öncelikler</SelectItem>
                   <SelectItem value="critical">Kritik</SelectItem>
-                  <SelectItem value="high">Yuksek</SelectItem>
+                  <SelectItem value="high">Yüksek</SelectItem>
                   <SelectItem value="medium">Orta</SelectItem>
-                  <SelectItem value="low">Dusuk</SelectItem>
+                  <SelectItem value="low">Düşük</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -674,7 +674,7 @@ function TicketsPageContent() {
                   className="rounded-xl h-12 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Sifirla
+                  Sıfırla
                 </Button>
               )}
             </div>
@@ -686,8 +686,8 @@ function TicketsPageContent() {
           {filteredTickets.length === 0 && !loading ? (
             <div className="text-center py-16">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">Henüz bilet yok</h3>
-              <p className="text-sm text-muted-foreground/60 mt-1">Yeni bir destek bileti oluşturun</p>
+              <h3 className="text-lg font-medium text-muted-foreground">Henüz talep yok</h3>
+              <p className="text-sm text-muted-foreground/60 mt-1">Yeni bir destek talebi oluşturun</p>
             </div>
           ) : (
             <>
@@ -736,7 +736,7 @@ function TicketsPageContent() {
                       {/* Center: Description excerpt */}
                       <div className="w-full lg:flex-1 px-0 lg:px-4 hidden md:block">
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                          {ticket.description || 'Aciklama eklenmemis.'}
+                          {ticket.description || 'Açıklama eklenmemiş.'}
                         </p>
                         {ticket.category && (
                           <Badge variant="outline" className="mt-1.5 bg-background/50 border-white/10 text-xs text-muted-foreground">
@@ -811,7 +811,7 @@ function TicketsPageContent() {
                         {selectedTicket.id}
                       </DialogTitle>
                       <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                        Destek Talebi Detaylari
+                        Destek Talebi Detayları
                       </DialogDescription>
                     </div>
                   </div>
@@ -819,7 +819,7 @@ function TicketsPageContent() {
                   <div className="space-y-6">
                     {/* Customer profile */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Musteri Profili</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Müşteri Profili</h4>
                       <div className="bg-background/50 border border-white/10 p-4 rounded-2xl flex flex-col gap-1">
                         <span className="font-semibold text-lg">{selectedTicket.customerName}</span>
                         {selectedTicket.customerPhone && (
@@ -833,7 +833,7 @@ function TicketsPageContent() {
 
                     {/* Priority */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Oncelik Seviyesi</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Öncelik Seviyesi</h4>
                       <Badge
                         variant="secondary"
                         className={`px-3 py-1.5 text-sm border rounded-xl font-semibold ${priorityCfg.bgColor} ${priorityCfg.color} ${priorityCfg.borderColor}`}
@@ -845,7 +845,7 @@ function TicketsPageContent() {
 
                     {/* Status workflow */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Durum Yonetimi</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Durum Yönetimi</h4>
                       <div className="flex flex-wrap gap-2">
                         {nextStatuses.map((ns) => {
                           const nsCfg = STATUS_CONFIG[ns];
@@ -864,9 +864,9 @@ function TicketsPageContent() {
                               ) : (
                                 <NsIcon className="h-3.5 w-3.5 mr-1" />
                               )}
-                              {ns === 'in_progress' && 'Isleme Al'}
-                              {ns === 'resolved' && 'Cozuldu Isaretle'}
-                              {ns === 'closed' && 'Arsive Kapat'}
+                              {ns === 'in_progress' && 'İşleme Al'}
+                              {ns === 'resolved' && 'Çözüldü İşaretle'}
+                              {ns === 'closed' && 'Arşive Kapat'}
                             </Button>
                           );
                         })}
@@ -892,14 +892,14 @@ function TicketsPageContent() {
                     <div className="space-y-4 text-sm mt-4 border-t border-border/50 pt-6">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" /> Olusturma
+                          <Calendar className="h-3.5 w-3.5" /> Oluşturma
                         </span>
                         <span className="font-medium text-right ml-4">{formatDate(selectedTicket.createdAt)}</span>
                       </div>
                       {selectedTicket.updatedAt && (
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground flex items-center gap-1.5">
-                            <Pencil className="h-3.5 w-3.5" /> Guncelleme
+                            <Pencil className="h-3.5 w-3.5" /> Güncelleme
                           </span>
                           <span className="font-medium text-right ml-4">{formatDate(selectedTicket.updatedAt)}</span>
                         </div>
@@ -907,7 +907,7 @@ function TicketsPageContent() {
                       {selectedTicket.resolvedAt && (
                         <div className="flex justify-between items-center text-emerald-500">
                           <span className="flex items-center gap-1.5">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Cozum
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Çözüm
                           </span>
                           <span className="font-medium text-right ml-4">{formatDate(selectedTicket.resolvedAt)}</span>
                         </div>
@@ -935,15 +935,15 @@ function TicketsPageContent() {
                 {/* Right panel */}
                 <div className="w-full md:w-7/12 p-8 flex flex-col gap-6 overflow-y-auto">
                   <div>
-                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Talep Basligi</h3>
+                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Talep Başlığı</h3>
                     <div className="text-lg font-semibold text-foreground mb-4">{selectedTicket.title}</div>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Detayli Aciklama</h3>
+                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Detaylı Açıklama</h3>
                     <div className="bg-muted/30 border border-white/5 p-5 rounded-2xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
                       {selectedTicket.description || (
-                        <span className="italic text-muted-foreground opacity-50">Herhangi bir aciklama eklenmemis...</span>
+                        <span className="italic text-muted-foreground opacity-50">Herhangi bir açıklama eklenmemiş...</span>
                       )}
                     </div>
                   </div>
@@ -982,7 +982,7 @@ function TicketsPageContent() {
               Yeni Destek Talebi
             </DialogTitle>
             <DialogDescription>
-              Musteri talebini olusturmak icin asagidaki formu doldurun.
+              Müşteri talebini oluşturmak için aşağıdaki formu doldurun.
             </DialogDescription>
           </DialogHeader>
 
@@ -990,11 +990,11 @@ function TicketsPageContent() {
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="ticket-title" className="text-sm font-semibold">
-                Talep Basligi <span className="text-rose-500">*</span>
+                Talep Başlığı <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="ticket-title"
-                placeholder="Sorunu kisa ve net olarak tanimlayiniz..."
+                placeholder="Sorunu kısa ve net olarak tanımlayınız..."
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 className="rounded-xl border-white/10 bg-background/50 h-11"
@@ -1004,11 +1004,11 @@ function TicketsPageContent() {
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="ticket-desc" className="text-sm font-semibold">
-                Detayli Aciklama
+                Detaylı Açıklama
               </Label>
               <Textarea
                 id="ticket-desc"
-                placeholder="Sorunun detaylarini, tekrar etme kosullarini ve beklenen davranisi yaziniz..."
+                placeholder="Sorunun detaylarını, tekrar etme koşullarını ve beklenen davranışı yazınız..."
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 className="rounded-xl border-white/10 bg-background/50 min-h-[100px] resize-none"
@@ -1018,15 +1018,15 @@ function TicketsPageContent() {
             {/* Priority & Category row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Oncelik</Label>
+                <Label className="text-sm font-semibold">Öncelik</Label>
                 <Select value={formPriority} onValueChange={(v) => setFormPriority(v as TicketPriority)}>
                   <SelectTrigger className="rounded-xl border-white/10 bg-background/50 h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
-                    <SelectItem value="low">Dusuk</SelectItem>
+                    <SelectItem value="low">Düşük</SelectItem>
                     <SelectItem value="medium">Orta</SelectItem>
-                    <SelectItem value="high">Yuksek</SelectItem>
+                    <SelectItem value="high">Yüksek</SelectItem>
                     <SelectItem value="critical">Kritik</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1035,7 +1035,7 @@ function TicketsPageContent() {
                 <Label className="text-sm font-semibold">Kategori</Label>
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger className="rounded-xl border-white/10 bg-background/50 h-11">
-                    <SelectValue placeholder="Kategori secin..." />
+                    <SelectValue placeholder="Kategori seçin..." />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
                     {CATEGORIES.map((cat) => (
@@ -1050,7 +1050,7 @@ function TicketsPageContent() {
             <div className="border-t border-border/50 pt-4">
               <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                Musteri Bilgileri
+                Müşteri Bilgileri
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
@@ -1059,7 +1059,7 @@ function TicketsPageContent() {
                   </Label>
                   <Input
                     id="cust-name"
-                    placeholder="Musteri adi"
+                    placeholder="Müşteri adı"
                     value={formCustomerName}
                     onChange={(e) => setFormCustomerName(e.target.value)}
                     className="rounded-xl border-white/10 bg-background/50 h-10 text-sm"
@@ -1093,7 +1093,7 @@ function TicketsPageContent() {
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl">
-              Iptal
+              İptal
             </Button>
             <Button
               onClick={handleCreateTicket}
@@ -1103,12 +1103,12 @@ function TicketsPageContent() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Olusturuluyor...
+                  Oluşturuluyor...
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  Talebi Olustur
+                  Talebi Oluştur
                 </>
               )}
             </Button>
@@ -1125,14 +1125,14 @@ function TicketsPageContent() {
             <div className="mx-auto w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center mb-2">
               <Trash2 className="h-7 w-7 text-rose-500" />
             </div>
-            <DialogTitle className="text-center text-xl">Talebi Silmek Istediginizden Emin Misiniz?</DialogTitle>
+            <DialogTitle className="text-center text-xl">Talebi Silmek İstediğinizden Emin Misiniz?</DialogTitle>
             <DialogDescription className="text-center">
-              <span className="font-semibold text-foreground">{ticketToDelete?.title}</span> basligi ile kayitli destek talebi kalici olarak silinecektir. Bu islem geri alinamaz.
+              <span className="font-semibold text-foreground">{ticketToDelete?.title}</span> başlığı ile kayıtlı destek talebi kalıcı olarak silinecektir. Bu işlem geri alınamaz.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center gap-3 pt-2">
             <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} className="rounded-xl px-6">
-              Vazgec
+              Vazgeç
             </Button>
             <Button
               variant="destructive"

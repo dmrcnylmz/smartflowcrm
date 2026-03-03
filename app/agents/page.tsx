@@ -213,12 +213,12 @@ export default function AgentsPage() {
         try {
             setError(null);
             const res = await authFetch('/api/agents');
-            if (!res.ok) throw new Error('Failed to fetch agents');
+            if (!res.ok) throw new Error('Asistan verileri yüklenemedi');
             const data = await res.json();
             setAgents(data.agents || []);
         } catch (err) {
             console.error('Agents fetch error:', err);
-            setError(err instanceof Error ? err.message : 'Asistanlar yüklenirken bir hata oluştu');
+            setError('Asistan verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
         }
     }, [authFetch]);
 
@@ -282,7 +282,7 @@ export default function AgentsPage() {
                 }),
             });
 
-            if (!res.ok) throw new Error('Save failed');
+            if (!res.ok) throw new Error('Asistan kaydedilemedi');
 
             toast({
                 title: isNewAgent ? 'Oluşturuldu!' : 'Güncellendi!',
@@ -316,7 +316,7 @@ export default function AgentsPage() {
                 body: JSON.stringify({ id: agentId }),
             });
 
-            if (!res.ok) throw new Error('Delete failed');
+            if (!res.ok) throw new Error('Asistan silinemedi');
 
             toast({
                 title: 'Silindi',
@@ -453,14 +453,14 @@ export default function AgentsPage() {
                     ))}
                 </div>
             ) : error ? (
-                <Card className="animate-fade-in-up border-red-500/20">
+                <Card className="animate-fade-in-up border-amber-500/20">
                     <CardContent className="text-center py-16">
-                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-red-500/10 mb-4">
-                            <AlertTriangle className="h-8 w-8 text-red-400" />
+                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-amber-500/10 mb-4">
+                            <AlertTriangle className="h-8 w-8 text-amber-500" />
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Yükleme Hatası</h3>
+                        <h3 className="text-lg font-semibold mb-2">Veriler Yüklenemedi</h3>
                         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                            {error}
+                            Asistan verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.
                         </p>
                         <Button
                             onClick={() => {

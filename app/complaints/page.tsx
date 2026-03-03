@@ -405,14 +405,12 @@ function ComplaintsPageContent() {
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
                 <AlertCircle className="h-8 w-8" />
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Bağlantı Hatası</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">Veriler Yüklenemedi</h3>
               <p className="text-muted-foreground max-w-sm">
-                {error.message?.includes('permission')
-                  ? 'Veritabanı erişim izni reddedildi. Lütfen yöneticinizle iletişime geçin.'
-                  : 'Şikayet listesi yüklenirken beklenmedik bir sistem hatası oluştu.'}
+                Şikayet verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
               </p>
             </div>
           ) : paginatedComplaints.length === 0 && !loading ? (
@@ -596,7 +594,7 @@ function ComplaintsPageContent() {
                       variant="outline"
                       size="sm"
                       className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 border-rose-500/20 rounded-xl"
-                      onClick={() => handleStatusUpdate(selectedComplaint!.id, 'closed')}
+                      onClick={() => selectedComplaint && handleStatusUpdate(selectedComplaint.id, 'closed')}
                       disabled={updating === selectedComplaint?.id || selectedComplaint?.status === 'closed'}
                     >
                       <X className="h-3.5 w-3.5 mr-1" /> Arşive Kapat

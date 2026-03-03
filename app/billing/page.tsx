@@ -110,7 +110,7 @@ function BillingPageContent() {
             }
 
         } catch (err: unknown) {
-            setError('Veriler yüklenirken hata oluştu.');
+            setError('Faturalandırma verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
             console.error('Billing data load error:', err);
         } finally {
             setLoading(false);

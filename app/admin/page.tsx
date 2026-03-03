@@ -123,7 +123,7 @@ export default function AdminPage() {
             }
         } catch (err) {
             console.error('Settings fetch error:', err);
-            setError(err instanceof Error ? err.message : 'Ayarlar yüklenirken bir hata oluştu');
+            setError('Ayarlar şu anda yüklenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.');
         } finally {
             setLoading(false);
         }
@@ -170,7 +170,7 @@ export default function AdminPage() {
         } catch (err) {
             toast({
                 title: 'Hata',
-                description: err instanceof Error ? err.message : 'Ayarlar kaydedilirken bir hata oluştu',
+                description: 'Ayarlar kaydedilemedi. Lütfen tekrar deneyin.',
                 variant: 'error',
             });
         } finally {
@@ -211,14 +211,16 @@ export default function AdminPage() {
     if (error) {
         return (
             <div className="p-4 md:p-8 max-w-5xl mx-auto">
-                <Card className="rounded-2xl border-destructive/50">
+                <Card className="rounded-2xl border-amber-500/30">
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
-                        <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                            <AlertTriangle className="h-6 w-6 text-destructive" />
+                        <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
+                            <AlertTriangle className="h-6 w-6 text-amber-500" />
                         </div>
                         <div className="space-y-1">
-                            <h3 className="text-lg font-semibold text-foreground">Ayarlar yüklenemedi</h3>
-                            <p className="text-sm text-muted-foreground max-w-md">{error}</p>
+                            <h3 className="text-lg font-semibold text-foreground">Ayarlar Yüklenemedi</h3>
+                            <p className="text-sm text-muted-foreground max-w-md">
+                                Yönetim paneli ayarları şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
+                            </p>
                         </div>
                         <Button onClick={() => { setLoading(true); fetchSettings(); }} className="gap-2 mt-2">
                             <RefreshCw className="h-4 w-4" />

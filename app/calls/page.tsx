@@ -169,9 +169,8 @@ function CallsPageContent() {
     }
   }, [calls]);
 
-  const error = callsError ? callsError instanceof Error && 'code' in callsError && callsError.code === 'permission-denied'
-    ? 'Firebase izin hatası. Security rules kontrol edin.'
-    : callsError instanceof Error ? callsError.message : 'Çağrı verileri yüklenemedi.'
+  const error = callsError
+    ? 'Çağrı verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.'
     : null;
 
   const getStatusBadge = useCallback((status: string) => {
