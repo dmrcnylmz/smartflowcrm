@@ -124,7 +124,6 @@ function KnowledgePageContent() {
             const data = await res.json();
             setDocuments(data.documents || []);
         } catch (err) {
-            console.error('KB fetch error:', err);
             setError('Bilgi bankası verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
         }
     }, [authFetch]);
@@ -136,7 +135,6 @@ function KnowledgePageContent() {
             const data = await res.json();
             setStats(data);
         } catch (err) {
-            console.error('KB stats error:', err);
         }
     }, [authFetch]);
 
@@ -234,7 +232,6 @@ function KnowledgePageContent() {
                 description: 'Belge eklenirken bir hata oluştu',
                 variant: 'error',
             });
-            console.error('Ingest error:', err);
         } finally {
             setIngesting(false);
         }
@@ -279,7 +276,6 @@ function KnowledgePageContent() {
                 description: 'Dosya yüklenirken bir hata oluştu',
                 variant: 'error',
             });
-            console.error('File ingest error:', err);
         } finally {
             setIngesting(false);
         }
@@ -317,7 +313,6 @@ function KnowledgePageContent() {
                 description: 'Belge silinirken bir hata oluştu',
                 variant: 'error',
             });
-            console.error('Delete error:', err);
         } finally {
             setDeletingId(null);
         }
@@ -338,7 +333,6 @@ function KnowledgePageContent() {
                 description: 'Sorgulama sırasında bir hata oluştu',
                 variant: 'error',
             });
-            console.error('Query error:', err);
         } finally {
             setQuerying(false);
         }

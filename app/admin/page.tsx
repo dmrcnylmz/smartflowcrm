@@ -122,7 +122,6 @@ export default function AdminPage() {
                 }));
             }
         } catch (err) {
-            console.error('Settings fetch error:', err);
             setError('Ayarlar şu anda yüklenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.');
         } finally {
             setLoading(false);

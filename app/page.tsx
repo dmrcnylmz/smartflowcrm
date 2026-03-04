@@ -263,7 +263,6 @@ export default function DashboardPage() {
         const errorMsg = err instanceof Error ? err.message : 'Çağrı verileri yüklenemedi';
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-        console.warn('Calls load error:', err);
       }
 
       // Load all complaints (for pie chart)
@@ -274,7 +273,6 @@ export default function DashboardPage() {
         const errorMsg = err instanceof Error ? err.message : 'Şikayet verileri yüklenemedi';
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-        console.warn('Complaints load error:', err);
       }
 
       // Load all appointments (for bar chart)
@@ -287,7 +285,6 @@ export default function DashboardPage() {
         const errorMsg = err instanceof Error ? err.message : 'Randevu verileri yüklenemedi';
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-        console.warn('Appointments load error:', err);
       }
 
       // If all queries failed with permission errors, switch to demo mode
@@ -339,10 +336,8 @@ export default function DashboardPage() {
       // Partial failure — log but don't block UI (demo mode handles full failure)
       if (!isDemoMode && errors.length > 0 && errors.length < 3) {
         // Partial failure - log but don't block UI
-        console.warn('Some data failed to load:', errors);
       }
     } catch (error: unknown) {
-      console.error('Dashboard load error:', error);
       // Fallback to demo mode on any critical error
       if (!isDemoMode) {
         setIsDemoMode(true);

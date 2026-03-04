@@ -66,3 +66,9 @@ build.log
 
 # Sibling project (not part of this repo)
 call-center-platform/
+_call-center-platform-bak/
+
+# Test scripts and backups
+test-n8n-e2e.js
+test-whatsapp.js
+card_backup.txt

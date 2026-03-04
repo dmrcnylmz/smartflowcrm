@@ -111,7 +111,6 @@ function BillingPageContent() {
 
         } catch (err: unknown) {
             setError('Faturalandırma verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
-            console.error('Billing data load error:', err);
         } finally {
             setLoading(false);
         }
@@ -163,7 +162,6 @@ function BillingPageContent() {
             }
         } catch (err) {
             setError('Ödeme başlatılamadı. Lütfen tekrar deneyin.');
-            console.error('Checkout error:', err);
         } finally {
             setCheckoutLoading(null);
         }
