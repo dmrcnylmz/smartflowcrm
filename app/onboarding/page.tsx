@@ -276,7 +276,7 @@ export default function OnboardingPage() {
                         const isComplete = index < currentStep;
                         const isCurrent = index === currentStep;
                         return (
-                            <div key={step.id} className="flex-1 flex items-center gap-2 animate-fade-in-down opacity-0" style={{ animationDelay: `${index * 100}ms`, animationFillMode: 'forwards' }}>
+                            <div key={step.id} className="flex-1 flex items-center gap-2 animate-fade-in-down" style={{ animationDelay: `${index * 100}ms` }}>
                                 <button
                                     onClick={() => index <= currentStep && setCurrentStep(index)}
                                     disabled={index > currentStep}
@@ -535,8 +535,8 @@ function StepTemplateSelection({
                                 greeting: template.defaultGreeting,
                             });
                         }}
-                        style={{ animationDelay: `${idx * 80}ms`, animationFillMode: 'forwards' }}
-                        className={`relative group p-5 rounded-2xl border-2 text-left transition-all duration-300 hover:-translate-y-1 animate-fade-in-up opacity-0
+                        style={{ animationDelay: `${idx * 80}ms` }}
+                        className={`relative group p-5 rounded-2xl border-2 text-left transition-all duration-300 hover:-translate-y-1 animate-fade-in-up
                             ${isSelected
                                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-lg shadow-blue-500/10'
                                 : 'border-transparent bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-700 shadow-sm hover:shadow-md'

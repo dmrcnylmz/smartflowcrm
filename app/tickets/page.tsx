@@ -319,7 +319,6 @@ function TicketsPageContent() {
       setCreateDialogOpen(false);
       resetCreateForm();
     } catch (err) {
-      console.error('Create ticket error:', err);
       toast({ title: 'Hata', description: 'Talep oluşturulurken bir sorun oluştu.', variant: 'error' });
     } finally {
       setSaving(false);

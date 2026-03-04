@@ -44,6 +44,9 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/tickets - Create complaint or info request
+// Accepts either:
+//   - customerId (reference to existing customer)
+//   - customerName (inline, from the support ticket form)
 export async function POST(request: NextRequest) {
   try {
     const tenantId = getTenantFromRequest(request);
@@ -52,37 +55,43 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type = 'complaint', customerId, ...data } = body;
+    const { type = 'complaint', customerId, customerName, customerEmail, customerPhone, ...data } = body;
 
-    const custValidation = requireFields({ customerId }, ['customerId']);
-    if (custValidation) return errorResponse(custValidation);
+    // Require at least a customer identifier (id or name)
+    if (!customerId && !customerName) {
+      return NextResponse.json({ error: 'customerId veya customerName gerekli' }, { status: 400 });
+    }
+
+    const titleValidation = requireFields(data, ['title']);
+    if (titleValidation) return errorResponse(titleValidation);
 
     let ticketId: string;
 
-    if (type === 'complaint') {
-      const fieldValidation = requireFields(data, ['category', 'description']);
-      if (fieldValidation) return errorResponse(fieldValidation);
+    // Support ticket model: store inline customer info + title/description/priority
+    const ticketData: Record<string, unknown> = {
+      customerId: customerId || null,
+      customerName: customerName || null,
+      customerEmail: customerEmail || null,
+      customerPhone: customerPhone || null,
+      title: data.title,
+      description: data.description || '',
+      category: data.category || 'general',
+      priority: data.priority || 'medium',
+      status: 'open',
+      assignedTo: data.assignedTo || null,
+    };
 
-      const complaintRef = await createComplaint(tenantId, {
-        customerId,
-        category: data.category,
-        description: data.description,
-        status: 'open',
-        assignedTo: data.assignedTo || null,
-      });
-      ticketId = complaintRef.id;
-    } else {
-      const fieldValidation = requireFields(data, ['topic', 'details']);
-      if (fieldValidation) return errorResponse(fieldValidation);
-
+    if (type === 'info') {
       const infoRequestRef = await createInfoRequest(tenantId, {
-        customerId,
-        topic: data.topic,
-        details: data.details,
+        ...ticketData,
+        topic: data.title,
+        details: data.description || '',
         status: 'pending',
-        assignedTo: data.assignedTo || null,
       });
       ticketId = infoRequestRef.id;
+    } else {
+      const complaintRef = await createComplaint(tenantId, ticketData);
+      ticketId = complaintRef.id;
     }
 
     return NextResponse.json({ success: true, ticketId, type }, { status: 201 });
