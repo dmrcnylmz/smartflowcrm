@@ -193,14 +193,14 @@ export default function AdminPage() {
                     {[0, 1, 2, 3].map(i => (
                         <Skeleton
                             key={i}
-                            className="h-12 rounded-xl animate-fade-in-up opacity-0"
-                            style={{ animationDelay: `${100 + i * 80}ms`, animationFillMode: 'forwards' }}
+                            className="h-12 rounded-xl animate-fade-in-up"
+                            style={{ animationDelay: `${100 + i * 80}ms` }}
                         />
                     ))}
                 </div>
                 <Skeleton
-                    className="h-[400px] rounded-2xl animate-fade-in-up opacity-0"
-                    style={{ animationDelay: '450ms', animationFillMode: 'forwards' }}
+                    className="h-[400px] rounded-2xl animate-fade-in-up"
+                    style={{ animationDelay: '450ms' }}
                 />
             </div>
         );

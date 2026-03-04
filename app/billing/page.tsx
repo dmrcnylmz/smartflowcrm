@@ -509,8 +509,8 @@ function BillingPageSkeleton() {
                     {Array.from({ length: 3 }).map((_, i) => (
                         <div
                             key={i}
-                            className="rounded-2xl border border-border/30 p-6 space-y-4 bg-muted/10 animate-fade-in-up opacity-0"
-                            style={{ animationDelay: `${i * 120}ms`, animationFillMode: 'forwards' }}
+                            className="rounded-2xl border border-border/30 p-6 space-y-4 bg-muted/10 animate-fade-in-up"
+                            style={{ animationDelay: `${i * 120}ms` }}
                         >
                             <Skeleton className="h-12 w-12 rounded-xl" />
                             <Skeleton className="h-6 w-28 rounded" />
@@ -533,8 +533,8 @@ function BillingPageSkeleton() {
                 {Array.from({ length: 3 }).map((_, i) => (
                     <div
                         key={i}
-                        className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up opacity-0"
-                        style={{ animationDelay: `${360 + i * 120}ms`, animationFillMode: 'forwards' }}
+                        className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up"
+                        style={{ animationDelay: `${360 + i * 120}ms` }}
                     >
                         <div className="flex items-center justify-between">
                             <Skeleton className="h-4 w-36 rounded" />

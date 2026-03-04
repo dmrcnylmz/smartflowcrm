@@ -4,8 +4,8 @@ export default function Loading() {
             <div className="w-full max-w-6xl space-y-6">
                 {/* Header skeleton */}
                 <div
-                    className="flex items-center justify-between animate-fade-in-up opacity-0"
-                    style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}
+                    className="flex items-center justify-between animate-fade-in-up"
+                    style={{ animationDelay: '0ms' }}
                 >
                     <div className="space-y-2">
                         <div className="h-8 w-48 animate-pulse rounded-lg bg-muted" />
@@ -19,8 +19,8 @@ export default function Loading() {
                     {Array.from({ length: 4 }).map((_, i) => (
                         <div
                             key={i}
-                            className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up opacity-0"
-                            style={{ animationDelay: `${80 + i * 80}ms`, animationFillMode: 'forwards' }}
+                            className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up"
+                            style={{ animationDelay: `${80 + i * 80}ms` }}
                         >
                             <div className="flex items-center justify-between mb-3">
                                 <div className="h-4 w-24 animate-pulse rounded bg-muted" />
@@ -37,8 +37,8 @@ export default function Loading() {
                     {Array.from({ length: 2 }).map((_, i) => (
                         <div
                             key={i}
-                            className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up opacity-0"
-                            style={{ animationDelay: `${400 + i * 100}ms`, animationFillMode: 'forwards' }}
+                            className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up"
+                            style={{ animationDelay: `${400 + i * 100}ms` }}
                         >
                             <div className="mb-4 h-5 w-36 animate-pulse rounded bg-muted" />
                             <div className="h-48 w-full animate-pulse rounded-xl bg-muted/50" />
@@ -48,16 +48,16 @@ export default function Loading() {
 
                 {/* Table skeleton */}
                 <div
-                    className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up opacity-0"
-                    style={{ animationDelay: '600ms', animationFillMode: 'forwards' }}
+                    className="rounded-2xl border bg-card p-6 shadow-sm animate-fade-in-up"
+                    style={{ animationDelay: '600ms' }}
                 >
                     <div className="mb-4 h-5 w-40 animate-pulse rounded bg-muted" />
                     <div className="space-y-3">
                         {Array.from({ length: 5 }).map((_, i) => (
                             <div
                                 key={i}
-                                className="flex items-center gap-4 animate-fade-in-up opacity-0"
-                                style={{ animationDelay: `${700 + i * 60}ms`, animationFillMode: 'forwards' }}
+                                className="flex items-center gap-4 animate-fade-in-up"
+                                style={{ animationDelay: `${700 + i * 60}ms` }}
                             >
                                 <div className="h-4 w-1/4 animate-pulse rounded bg-muted" />
                                 <div className="h-4 w-1/3 animate-pulse rounded bg-muted/70" />

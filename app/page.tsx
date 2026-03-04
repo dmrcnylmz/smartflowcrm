@@ -514,8 +514,8 @@ export default function DashboardPage() {
             return (
               <div
                 key={card.title}
-                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up opacity-0`}
-                style={{ animationDelay: `${idx * 120}ms`, animationFillMode: 'forwards' }}
+                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up`}
+                style={{ animationDelay: `${idx * 120}ms` }}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div className={`p-3 rounded-2xl ${card.iconColor}`}>
@@ -552,7 +552,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Activity Logs */}
-        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up opacity-0" style={{ animationDelay: '860ms', animationFillMode: 'forwards' }}>
+        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up" style={{ animationDelay: '860ms' }}>
           <CardHeader className="bg-primary/5 border-b border-border/50">
             <CardTitle className="text-xl">Son Aktiviteler</CardTitle>
             <CardDescription>Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>

@@ -56,7 +56,7 @@ export default function DashboardCharts({
     <>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Main Chart - Call Trends */}
-        <div className="xl:col-span-2 animate-fade-in-up opacity-0" style={{ animationDelay: '500ms', animationFillMode: 'forwards' }}>
+        <div className="xl:col-span-2 animate-fade-in-up" style={{ animationDelay: '500ms' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden h-full hover-lift">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl">Son 7 Gün Çağrı Trendi</CardTitle>
@@ -86,7 +86,7 @@ export default function DashboardCharts({
         </div>
 
         {/* Complaints Pie Chart */}
-        <div className="xl:col-span-1 animate-fade-in-up opacity-0" style={{ animationDelay: '620ms', animationFillMode: 'forwards' }}>
+        <div className="xl:col-span-1 animate-fade-in-up" style={{ animationDelay: '620ms' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl h-full flex flex-col hover-lift">
             <CardHeader className="pb-2">
               <CardTitle className="text-xl">Şikayet Kategorileri</CardTitle>
@@ -125,7 +125,7 @@ export default function DashboardCharts({
       </div>
 
       {/* Appointment Bar Chart */}
-      <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up opacity-0" style={{ animationDelay: '740ms', animationFillMode: 'forwards' }}>
+      <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up" style={{ animationDelay: '740ms' }}>
         <CardHeader>
           <CardTitle className="text-xl">Randevu Durumları</CardTitle>
           <CardDescription>Son 7 gündeki randevuların işlem durumu</CardDescription>

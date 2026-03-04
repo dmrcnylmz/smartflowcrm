@@ -34,7 +34,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Bar Chart - Performance Overview */}
-      <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '280ms', animationFillMode: 'forwards' }}>
+      <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '280ms' }}>
         <CardHeader className="pb-2">
           <CardDescription className="flex items-center gap-2 font-medium">
             <TrendingUp className="h-4 w-4 text-indigo-500" />
@@ -74,7 +74,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
       </Card>
 
       {/* Pie Chart - Call Distribution */}
-      <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '360ms', animationFillMode: 'forwards' }}>
+      <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '360ms' }}>
         <CardHeader className="pb-2">
           <CardDescription className="flex items-center gap-2 font-medium">
             <PhoneIncoming className="h-4 w-4 text-blue-500" />

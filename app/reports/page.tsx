@@ -149,9 +149,9 @@ export default function ReportsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[0, 1, 2].map((idx) => (
-            <Skeleton key={idx} className="h-[200px] rounded-2xl animate-fade-in-up opacity-0" style={{ animationDelay: `${idx * 100}ms`, animationFillMode: 'forwards' }} />
+            <Skeleton key={idx} className="h-[200px] rounded-2xl animate-fade-in-up" style={{ animationDelay: `${idx * 100}ms` }} />
           ))}
-          <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3 animate-fade-in-up opacity-0" style={{ animationDelay: '300ms', animationFillMode: 'forwards' }} />
+          <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3 animate-fade-in-up" style={{ animationDelay: '300ms' }} />
         </div>
       ) : error ? (
         <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-6 rounded-2xl flex flex-col items-center justify-center gap-4">
@@ -180,7 +180,7 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* Çağrı Karnesi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '0ms', animationFillMode: 'forwards' }}>
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '0ms' }}>
               <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-indigo-800 dark:text-indigo-300">
                   <PhoneIncoming className="h-4 w-4" />
@@ -224,7 +224,7 @@ export default function ReportsPage() {
             </Card>
 
             {/* Randevu Dönüşümü */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up opacity-0" style={{ animationDelay: '80ms', animationFillMode: 'forwards' }}>
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '80ms' }}>
               <CardHeader className="bg-blue-50/50 dark:bg-blue-950/20 pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-300">
                   <Target className="h-4 w-4" />
@@ -261,7 +261,7 @@ export default function ReportsPage() {
             </Card>
 
             {/* Şikayet ve Talep Yönetimi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden relative animate-fade-in-up opacity-0" style={{ animationDelay: '160ms', animationFillMode: 'forwards' }}>
+            <Card className="rounded-2xl border-none shadow-md overflow-hidden relative animate-fade-in-up" style={{ animationDelay: '160ms' }}>
               <div className="absolute top-0 right-0 p-6 opacity-5">
                 <ShieldAlert className="h-32 w-32" />
               </div>

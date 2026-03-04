@@ -439,8 +439,8 @@ export default function AgentsPage() {
                     {[1, 2, 3].map((i) => (
                         <Card
                             key={i}
-                            className="animate-fade-in-up opacity-0"
-                            style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
+                            className="animate-fade-in-up"
+                            style={{ animationDelay: `${i * 100}ms` }}
                         >
                             <CardHeader className="pb-3">
                                 <div className="flex items-center justify-between">
@@ -497,8 +497,8 @@ export default function AgentsPage() {
                     {agents.map((agent, index) => (
                         <Card
                             key={agent.id}
-                            className="animate-fade-in-up opacity-0 cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5"
-                            style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'forwards' }}
+                            className="animate-fade-in-up cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5"
+                            style={{ animationDelay: `${index * 80}ms` }}
                             onClick={() => handleEdit(agent)}
                         >
                             <CardHeader className="pb-3">

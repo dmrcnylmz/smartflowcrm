@@ -342,7 +342,7 @@ function CustomersPageContent() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '100ms', animationFillMode: 'forwards' }}>
+        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Toplam Müşteri</CardTitle>
             <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -357,7 +357,7 @@ function CustomersPageContent() {
             </p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '220ms', animationFillMode: 'forwards' }}>
+        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20 animate-fade-in-up" style={{ animationDelay: '220ms' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Yeni Müşteriler</CardTitle>
             <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
@@ -372,7 +372,7 @@ function CustomersPageContent() {
             </p>
           </CardContent>
         </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20 animate-fade-in-up opacity-0" style={{ animationDelay: '340ms', animationFillMode: 'forwards' }}>
+        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20 animate-fade-in-up" style={{ animationDelay: '340ms' }}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">İletişim Kalitesi</CardTitle>
             <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
@@ -390,7 +390,7 @@ function CustomersPageContent() {
         </Card>
       </div>
 
-      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm animate-fade-in-up opacity-0" style={{ animationDelay: '460ms', animationFillMode: 'forwards' }}>
+      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm animate-fade-in-up" style={{ animationDelay: '460ms' }}>
         <div className="p-4 border-b bg-muted/20 flex flex-col md:flex-row items-center gap-4">
           <div className="relative flex-1 w-full max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -819,8 +819,8 @@ function CustomersPageSkeleton() {
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up opacity-0"
-            style={{ animationDelay: `${i * 100}ms`, animationFillMode: 'forwards' }}
+            className="rounded-2xl border border-border/30 p-6 space-y-3 bg-muted/10 animate-fade-in-up"
+            style={{ animationDelay: `${i * 100}ms` }}
           >
             <div className="flex items-center justify-between">
               <Skeleton className="h-4 w-28 rounded" />
@@ -843,8 +843,8 @@ function CustomersPageSkeleton() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-4 animate-fade-in-up opacity-0"
-              style={{ animationDelay: `${300 + i * 80}ms`, animationFillMode: 'forwards' }}
+              className="flex items-center gap-4 animate-fade-in-up"
+              style={{ animationDelay: `${300 + i * 80}ms` }}
             >
               <div className="flex-[2] space-y-1.5">
                 <Skeleton className="h-4 w-36 rounded" />
