@@ -587,10 +587,10 @@ export default function DashboardPage() {
                     className="flex items-center gap-4 p-4 hover:bg-white/5 transition-colors"
                   >
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                      {log.type.charAt(0).toUpperCase()}
+                      {(log.type ?? '?').charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{log.desc}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{log.desc || log.description || ''}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(toDate(log.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: tr })}
                       </p>

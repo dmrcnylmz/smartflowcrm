@@ -34,9 +34,9 @@ function getServiceAccountCredential() {
         }
     }
 
-    // Option 2: File path (for local development only, avoided in production)
+    // Option 2: File path (local dev or local production build)
     const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH;
-    if (keyPath && process.env.NODE_ENV !== 'production') {
+    if (keyPath) {
         try {
             // Dynamic import or require inside function to prevent Vercel full path tracing
             const fs = require('fs');
