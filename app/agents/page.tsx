@@ -217,7 +217,6 @@ export default function AgentsPage() {
             const data = await res.json();
             setAgents(data.agents || []);
         } catch (err) {
-            console.error('Agents fetch error:', err);
             setError('Asistan verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
         }
     }, [authFetch]);
@@ -284,6 +283,19 @@ export default function AgentsPage() {
 
             if (!res.ok) throw new Error('Asistan kaydedilemedi');
 
+            const result = await res.json();
+
+            // Optimistic update: add new agent to local state immediately
+            if (isNewAgent && result.id) {
+                const now = { _seconds: Math.floor(Date.now() / 1000) };
+                setAgents(prev => [{
+                    ...editingAgent,
+                    id: result.id,
+                    createdAt: now,
+                    updatedAt: now,
+                } as Agent, ...prev]);
+            }
+
             toast({
                 title: isNewAgent ? 'Oluşturuldu!' : 'Güncellendi!',
                 description: `"${editingAgent.name}" başarıyla ${isNewAgent ? 'oluşturuldu' : 'güncellendi'}`,
@@ -291,14 +303,15 @@ export default function AgentsPage() {
             });
 
             setEditorOpen(false);
-            await fetchAgents();
+
+            // Also refetch from server to sync
+            fetchAgents();
         } catch (err) {
             toast({
                 title: 'Hata',
                 description: 'Agent kaydedilirken bir hata oluştu',
                 variant: 'error',
             });
-            console.error('Save error:', err);
         } finally {
             setSaving(false);
         }
@@ -331,7 +344,6 @@ export default function AgentsPage() {
                 description: 'Agent silinirken bir hata oluştu',
                 variant: 'error',
             });
-            console.error('Delete error:', err);
         } finally {
             setDeletingId(null);
         }

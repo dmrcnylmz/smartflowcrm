@@ -43,7 +43,7 @@ function AppointmentsPageContent() {
   const [dateFrom, setDateFrom] = useState<string>(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState<string>(searchParams.get('dateTo') || '');
   const [limit, setLimit] = useState(50);
-  const { data: allAppointments, loading, error: appointmentsError } = useAppointments();
+  const { data: allAppointments, loading, error: appointmentsError, refetch: refetchAppointments } = useAppointments();
   const [formData, setFormData] = useState({
     customerId: '',
     dateTime: '',
@@ -67,7 +67,7 @@ function AppointmentsPageContent() {
             setCustomers(Object.fromEntries(customerMap));
           })
           .catch((err: unknown) => {
-            console.warn('Customer batch load error:', err);
+            void err;
           });
       }
     }
@@ -93,7 +93,7 @@ function AppointmentsPageContent() {
         window.history.replaceState({}, '', newUrl);
       }
     } catch (error) {
-      console.warn('URL update error:', error);
+      void error;
     }
   }, [searchTerm, statusFilters, dateFrom, dateTo]);
 
@@ -154,7 +154,7 @@ function AppointmentsPageContent() {
       const customerList = await getAllCustomers();
       setAllCustomers(customerList);
     } catch (error) {
-      console.error('Customers load error:', error);
+      void error;
     }
   }
 
@@ -186,8 +186,9 @@ function AppointmentsPageContent() {
         description: `${customer?.name || 'Müşteri'} için yeni randevu oluşturuldu.`,
         variant: 'success',
       });
+      refetchAppointments();
     } catch (error) {
-      console.error('Appointment create error:', error);
+      void error;
       const errorMessage = error instanceof Error ? error.message : 'Randevu oluşturulurken hata oluştu';
       toast({
         title: 'Hata',
@@ -211,8 +212,8 @@ function AppointmentsPageContent() {
         description: `Randevu "${statusLabels[newStatus]}" statüsüne alındı.`,
         variant: 'success',
       });
+      refetchAppointments();
     } catch (err) {
-      console.error('Status update error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Durum güncellenirken hata oluştu';
       toast({
         title: 'Hata',
@@ -251,8 +252,8 @@ function AppointmentsPageContent() {
         description: 'Randevu güncellendi',
         variant: 'success',
       });
+      refetchAppointments();
     } catch (error) {
-      console.error('Appointment update error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Randevu güncellenirken hata oluştu';
       toast({
         title: 'Hata',
@@ -274,8 +275,8 @@ function AppointmentsPageContent() {
         description: 'Randevu başarıyla kaldırıldı',
         variant: 'success',
       });
+      refetchAppointments();
     } catch (error) {
-      console.error('Appointment delete error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Randevu silinirken hata oluştu';
       toast({
         title: 'Hata',

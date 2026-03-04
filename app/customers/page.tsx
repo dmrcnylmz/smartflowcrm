@@ -27,7 +27,7 @@ import { toDate } from '@/lib/utils/date-helpers';
 import type { Customer, CallLog, Appointment, Complaint, InfoRequest } from '@/lib/firebase/types';
 
 function CustomersPageContent() {
-  const { data: customers, loading, error: customersError } = useCustomers();
+  const { data: customers, loading, error: customersError, refetch: refetchCustomers } = useCustomers();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -63,7 +63,7 @@ function CustomersPageContent() {
         window.history.replaceState({}, '', newUrl);
       }
     } catch (error) {
-      console.warn('URL update error:', error);
+      void error;
     }
   }, [searchTerm]);
 
@@ -101,8 +101,8 @@ function CustomersPageContent() {
         variant: 'success',
         duration: 3000,
       });
+      refetchCustomers();
     } catch (error) {
-      console.error('Customer create error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Müşteri oluşturulurken hata oluştu';
       toast({
         title: 'Hata',
@@ -134,7 +134,7 @@ function CustomersPageContent() {
 
       setCustomerHistory({ calls, appointments, complaints, infoRequests });
     } catch (error) {
-      console.error('History load error:', error);
+      void error;
       toast({
         title: 'Uyarı',
         description: 'Müşteri geçmişi yüklenirken hata oluştu',
@@ -171,8 +171,8 @@ function CustomersPageContent() {
         description: 'Müşteri bilgileri güncellendi',
         variant: 'success',
       });
+      refetchCustomers();
     } catch (error) {
-      console.error('Customer update error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Müşteri güncellenirken hata oluştu';
       toast({
         title: 'Hata',
