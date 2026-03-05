@@ -1,6 +1,6 @@
-// Voice Infer API — OpenAI GPT-Powered Intelligent Conversation
+// Voice Infer API — Multi-LLM Intelligent Conversation
+// Fallback: Groq (free) → Gemini (free) → OpenAI (paid) → Personaplex → Graceful
 // With Circuit Breaker, Response Cache, and GPU Manager integration
-// STT (browser) → GPT-4o-mini (here) → TTS (browser)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { gpuCircuitBreaker, openaiCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker } from '@/lib/voice/circuit-breaker';
@@ -343,158 +343,106 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // ---- Try OpenAI First ----
-        if (OPENAI_API_KEY && !openaiCircuitBreaker.isOpen()) {
-            try {
-                // Get or create conversation
-                let session = conversationStore.get(sessionId);
-                if (!session) {
-                    session = {
-                        messages: [{ role: 'system', content: SYSTEM_PROMPT }],
-                        lastActivity: Date.now(),
-                        turnCount: 0,
-                    };
-                    conversationStore.set(sessionId, session);
-                }
+        // Helper: get or create session for multi-turn conversation
+        const getSession = () => {
+            let session = conversationStore.get(sessionId);
+            if (!session) {
+                session = {
+                    messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+                    lastActivity: Date.now(),
+                    turnCount: 0,
+                };
+                conversationStore.set(sessionId, session);
+            }
+            return session;
+        };
 
-                // Add user message
+        const addUserMessage = (session: { messages: ConversationEntry[]; lastActivity: number; turnCount: number }) => {
+            if (session.messages[session.messages.length - 1]?.content !== text) {
                 session.messages.push({ role: 'user', content: text });
                 session.lastActivity = Date.now();
                 session.turnCount++;
-
-                // Keep conversation manageable (system + last 20 messages)
-                if (session.messages.length > 21) {
-                    session.messages = [
-                        session.messages[0], // system prompt
-                        ...session.messages.slice(-20),
-                    ];
-                }
-
-                // Call OpenAI (through circuit breaker)
-                const rawResponse = await callOpenAI(session.messages);
-
-                // Parse intent from response
-                const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
-
-                // Store assistant response in memory
-                session.messages.push({ role: 'assistant', content: cleanText });
-
-                const latencyMs = performance.now() - startMs;
-
-                // GPT inference complete
-
-                const result = {
-                    session_id: sessionId,
-                    intent,
-                    confidence,
-                    response_text: cleanText,
-                    latency_ms: latencyMs,
-                    source: 'openai-gpt',
-                    turn: session.turnCount,
-                };
-
-                // Cache the response
-                inferCache.set(cacheKey, {
-                    ...result,
-                    cached: true,
-                } as CachedInferResponse);
-
-                return NextResponse.json(result);
-            } catch {
-                // Fall through to Groq fallback
             }
-        }
+            // Keep conversation manageable (system + last 20 messages)
+            if (session.messages.length > 21) {
+                session.messages = [session.messages[0], ...session.messages.slice(-20)];
+            }
+        };
 
-        // ---- Fallback 2: Groq (free, fast) ----
+        const buildResult = (cleanText: string, intent: string, confidence: number, source: string, turn: number) => {
+            const latencyMs = performance.now() - startMs;
+            return {
+                session_id: sessionId,
+                intent,
+                confidence,
+                response_text: cleanText,
+                latency_ms: latencyMs,
+                source,
+                turn,
+            };
+        };
+
+        // ---- 1. Groq — free, ultra-fast (llama-3.3-70b) ----
         if (isGroqConfigured() && !groqCircuitBreaker.isOpen()) {
             try {
-                // Get or create conversation for Groq
-                let session = conversationStore.get(sessionId);
-                if (!session) {
-                    session = {
-                        messages: [{ role: 'system', content: SYSTEM_PROMPT }],
-                        lastActivity: Date.now(),
-                        turnCount: 0,
-                    };
-                    conversationStore.set(sessionId, session);
-                }
-
-                if (session.messages[session.messages.length - 1]?.content !== text) {
-                    session.messages.push({ role: 'user', content: text });
-                    session.lastActivity = Date.now();
-                    session.turnCount++;
-                }
+                const session = getSession();
+                addUserMessage(session);
 
                 const rawResponse = await groqCircuitBreaker.execute(() =>
-                    generateGroqResponse(session!.messages, { maxTokens: 150, temperature: 0.7 }),
+                    generateGroqResponse(session.messages, { maxTokens: 150, temperature: 0.7 }),
                 );
 
                 const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
                 session.messages.push({ role: 'assistant', content: cleanText });
 
-                const latencyMs = performance.now() - startMs;
-                const result = {
-                    session_id: sessionId,
-                    intent,
-                    confidence,
-                    response_text: cleanText,
-                    latency_ms: latencyMs,
-                    source: 'groq-llama',
-                    turn: session.turnCount,
-                };
-
+                const result = buildResult(cleanText, intent, confidence, 'groq-llama', session.turnCount);
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
                 return NextResponse.json(result);
             } catch {
-                // Fall through to Gemini fallback
+                // Fall through to Gemini
             }
         }
 
-        // ---- Fallback 3: Google Gemini (free) ----
+        // ---- 2. Google Gemini — free (Gemini 2.0 Flash) ----
         if (isGeminiConfigured() && !geminiCircuitBreaker.isOpen()) {
             try {
-                let session = conversationStore.get(sessionId);
-                if (!session) {
-                    session = {
-                        messages: [{ role: 'system', content: SYSTEM_PROMPT }],
-                        lastActivity: Date.now(),
-                        turnCount: 0,
-                    };
-                    conversationStore.set(sessionId, session);
-                }
-
-                if (session.messages[session.messages.length - 1]?.content !== text) {
-                    session.messages.push({ role: 'user', content: text });
-                    session.lastActivity = Date.now();
-                    session.turnCount++;
-                }
+                const session = getSession();
+                addUserMessage(session);
 
                 const rawResponse = await geminiCircuitBreaker.execute(() =>
-                    generateGeminiResponse(session!.messages, { maxTokens: 150, temperature: 0.7 }),
+                    generateGeminiResponse(session.messages, { maxTokens: 150, temperature: 0.7 }),
                 );
 
                 const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
                 session.messages.push({ role: 'assistant', content: cleanText });
 
-                const latencyMs = performance.now() - startMs;
-                const result = {
-                    session_id: sessionId,
-                    intent,
-                    confidence,
-                    response_text: cleanText,
-                    latency_ms: latencyMs,
-                    source: 'gemini-flash',
-                    turn: session.turnCount,
-                };
-
+                const result = buildResult(cleanText, intent, confidence, 'gemini-flash', session.turnCount);
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
                 return NextResponse.json(result);
             } catch {
-                // Fall through to Personaplex fallback
+                // Fall through to OpenAI
             }
         }
 
-        // ---- Fallback 4: Personaplex keyword-based ----
+        // ---- 3. OpenAI GPT-4o-mini — paid, last resort ----
+        if (OPENAI_API_KEY && !openaiCircuitBreaker.isOpen()) {
+            try {
+                const session = getSession();
+                addUserMessage(session);
+
+                const rawResponse = await callOpenAI(session.messages);
+                const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
+                session.messages.push({ role: 'assistant', content: cleanText });
+
+                const result = buildResult(cleanText, intent, confidence, 'openai-gpt', session.turnCount);
+                inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
+                return NextResponse.json(result);
+            } catch {
+                // Fall through to Personaplex
+            }
+        }
+
+        // ---- 4. Personaplex keyword-based (GPU) ----
         if (!gpuCircuitBreaker.isOpen()) {
             try {
                 const data = await callPersonaplex(text, persona, language);
