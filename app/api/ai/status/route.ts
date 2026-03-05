@@ -23,12 +23,11 @@ export async function GET() {
         }, {
             headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
         });
-    } catch (error) {
-        console.error('AI status check error:', error);
+    } catch {
         return NextResponse.json(
             {
                 status: 'error',
-                message: error instanceof Error ? error.message : 'Unknown error',
+                message: 'AI status check failed',
                 providers: {
                     ollama: { available: false, models: [] },
                     openai: { available: false, models: [] },

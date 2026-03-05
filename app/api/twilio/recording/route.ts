@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
         } = params;
 
         if (!callSid || !recordingSid) {
-            console.warn('[Twilio Recording] Missing CallSid or RecordingSid');
             return NextResponse.json({ ok: true });
         }
 
@@ -64,7 +63,6 @@ export async function POST(request: NextRequest) {
             .get();
 
         if (callQuery.empty) {
-            console.warn(`[Twilio Recording] Call not found: ${callSid}`);
             return NextResponse.json({ ok: true });
         }
 
@@ -123,13 +121,11 @@ export async function POST(request: NextRequest) {
                 updatedAt: FieldValue.serverTimestamp(),
             });
 
-            console.warn(`[Twilio Recording] ❌ Failed: ${recordingSid}`);
         }
 
         return NextResponse.json({ ok: true });
 
-    } catch (error) {
-        console.error('[Twilio Recording] Error:', error);
+    } catch {
         return NextResponse.json({ ok: true }); // Always return 200 to Twilio
     }
 }

@@ -55,8 +55,6 @@ export async function POST(request: NextRequest) {
         );
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
-            console.error(`[TTS] ElevenLabs error: ${response.status} ${errorText}`);
             return NextResponse.json(
                 { error: `ElevenLabs TTS error: ${response.status}` },
                 { status: response.status },

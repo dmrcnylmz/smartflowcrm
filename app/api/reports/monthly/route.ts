@@ -10,6 +10,7 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { startOfMonth, endOfMonth, subMonths, format, eachWeekOfInterval, endOfWeek } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { handleApiError } from '@/lib/utils/error-handler';
+import type { CallLog, Complaint, InfoRequest, Appointment } from '@/lib/firebase/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,29 +34,29 @@ export async function GET(request: NextRequest) {
     const prevMonthEnd = subMonths(monthEnd, 1);
 
     const [calls, complaints, infoRequests, appointments] = await Promise.all([
-      getCallLogs(tenantId, { dateFrom: monthStart, dateTo: monthEnd }),
-      getComplaints(tenantId),
-      getInfoRequests(tenantId),
-      getAppointments(tenantId, { dateFrom: monthStart, dateTo: monthEnd }),
+      getCallLogs(tenantId, { dateFrom: monthStart, dateTo: monthEnd }) as Promise<CallLog[]>,
+      getComplaints(tenantId) as Promise<Complaint[]>,
+      getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+      getAppointments(tenantId, { dateFrom: monthStart, dateTo: monthEnd }) as Promise<Appointment[]>,
     ]);
 
     const [prevCalls, , , prevAppointments] = await Promise.all([
-      getCallLogs(tenantId, { dateFrom: prevMonthStart, dateTo: prevMonthEnd }),
-      getComplaints(tenantId),
-      getInfoRequests(tenantId),
-      getAppointments(tenantId, { dateFrom: prevMonthStart, dateTo: prevMonthEnd }),
+      getCallLogs(tenantId, { dateFrom: prevMonthStart, dateTo: prevMonthEnd }) as Promise<CallLog[]>,
+      getComplaints(tenantId) as Promise<Complaint[]>,
+      getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+      getAppointments(tenantId, { dateFrom: prevMonthStart, dateTo: prevMonthEnd }) as Promise<Appointment[]>,
     ]);
 
-    const monthComplaints = complaints.filter((c: any) => {
+    const monthComplaints = complaints.filter((c) => {
       const createdAt = toDate(c.createdAt);
       return createdAt != null && createdAt >= monthStart && createdAt <= monthEnd;
     });
-    const monthInfoRequests = infoRequests.filter((i: any) => {
+    const monthInfoRequests = infoRequests.filter((i) => {
       const createdAt = toDate(i.createdAt);
       return createdAt != null && createdAt >= monthStart && createdAt <= monthEnd;
     });
 
-    const prevMonthComplaints = complaints.filter((c: any) => {
+    const prevMonthComplaints = complaints.filter((c) => {
       const createdAt = toDate(c.createdAt);
       return createdAt != null && createdAt >= prevMonthStart && createdAt <= prevMonthEnd;
     });
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
       const wEnd = endOfWeek(wStart, { weekStartsOn: 1, locale: tr });
       const weekEndDate = wEnd > monthEnd ? monthEnd : wEnd;
 
-      const weekCalls = calls.filter((c: any) => {
+      const weekCalls = calls.filter((c) => {
         const callDate = toDate(c.timestamp || c.createdAt);
         return callDate != null && callDate >= wStart && callDate <= weekEndDate;
       });
@@ -78,13 +79,13 @@ export async function GET(request: NextRequest) {
         week: format(wStart, 'd MMM', { locale: tr }),
         weekStart: wStart.toISOString(),
         calls: weekCalls.length,
-        answered: weekCalls.filter((c: any) => c.status === 'answered').length,
-        missed: weekCalls.filter((c: any) => c.status === 'missed').length,
+        answered: weekCalls.filter((c) => c.status === 'answered').length,
+        missed: weekCalls.filter((c) => c.status === 'missed').length,
       };
     });
 
     const avgCallDuration = calls.length > 0
-      ? calls.reduce((sum: number, c: any) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
+      ? calls.reduce((sum, c) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
       : 0;
 
     const report = {
@@ -92,15 +93,15 @@ export async function GET(request: NextRequest) {
       monthLabel: format(monthStart, 'MMMM yyyy', { locale: tr }),
       summary: {
         totalCalls: calls.length,
-        missedCalls: calls.filter((c: any) => c.status === 'missed').length,
-        answeredCalls: calls.filter((c: any) => c.status === 'answered').length,
+        missedCalls: calls.filter((c) => c.status === 'missed').length,
+        answeredCalls: calls.filter((c) => c.status === 'answered').length,
         avgCallDuration: Math.round(avgCallDuration),
-        openComplaints: monthComplaints.filter((c: any) => c.status === 'open').length,
+        openComplaints: monthComplaints.filter((c) => c.status === 'open').length,
         totalComplaints: monthComplaints.length,
-        resolvedComplaints: monthComplaints.filter((c: any) => c.status === 'resolved').length,
-        openInfoRequests: monthInfoRequests.filter((i: any) => i.status === 'pending').length,
-        scheduledAppointments: appointments.filter((a: any) => a.status === 'scheduled').length,
-        completedAppointments: appointments.filter((a: any) => a.status === 'completed').length,
+        resolvedComplaints: monthComplaints.filter((c) => c.status === 'resolved').length,
+        openInfoRequests: monthInfoRequests.filter((i) => i.status === 'pending').length,
+        scheduledAppointments: appointments.filter((a) => a.status === 'scheduled').length,
+        completedAppointments: appointments.filter((a) => a.status === 'completed').length,
       },
       comparison: {
         calls: {

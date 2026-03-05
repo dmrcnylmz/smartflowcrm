@@ -10,6 +10,7 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { handleApiError } from '@/lib/utils/error-handler';
+import type { CallLog, Complaint, InfoRequest, Appointment } from '@/lib/firebase/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,29 +34,29 @@ export async function GET(request: NextRequest) {
     const prevWeekEnd = subWeeks(weekEnd, 1);
 
     const [calls, complaints, infoRequests, appointments] = await Promise.all([
-      getCallLogs(tenantId, { dateFrom: weekStart, dateTo: weekEnd }),
-      getComplaints(tenantId),
-      getInfoRequests(tenantId),
-      getAppointments(tenantId, { dateFrom: weekStart, dateTo: weekEnd }),
+      getCallLogs(tenantId, { dateFrom: weekStart, dateTo: weekEnd }) as Promise<CallLog[]>,
+      getComplaints(tenantId) as Promise<Complaint[]>,
+      getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+      getAppointments(tenantId, { dateFrom: weekStart, dateTo: weekEnd }) as Promise<Appointment[]>,
     ]);
 
     const [prevCalls, , , prevAppointments] = await Promise.all([
-      getCallLogs(tenantId, { dateFrom: prevWeekStart, dateTo: prevWeekEnd }),
-      getComplaints(tenantId),
-      getInfoRequests(tenantId),
-      getAppointments(tenantId, { dateFrom: prevWeekStart, dateTo: prevWeekEnd }),
+      getCallLogs(tenantId, { dateFrom: prevWeekStart, dateTo: prevWeekEnd }) as Promise<CallLog[]>,
+      getComplaints(tenantId) as Promise<Complaint[]>,
+      getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+      getAppointments(tenantId, { dateFrom: prevWeekStart, dateTo: prevWeekEnd }) as Promise<Appointment[]>,
     ]);
 
-    const weekComplaints = complaints.filter((c: any) => {
+    const weekComplaints = complaints.filter((c) => {
       const createdAt = toDate(c.createdAt);
       return createdAt != null && createdAt >= weekStart && createdAt <= weekEnd;
     });
-    const weekInfoRequests = infoRequests.filter((i: any) => {
+    const weekInfoRequests = infoRequests.filter((i) => {
       const createdAt = toDate(i.createdAt);
       return createdAt != null && createdAt >= weekStart && createdAt <= weekEnd;
     });
 
-    const prevWeekComplaints = complaints.filter((c: any) => {
+    const prevWeekComplaints = complaints.filter((c) => {
       const createdAt = toDate(c.createdAt);
       return createdAt != null && createdAt >= prevWeekStart && createdAt <= prevWeekEnd;
     });
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
       const dayEnd = new Date(day);
       dayEnd.setHours(23, 59, 59, 999);
 
-      const dayCalls = calls.filter((c: any) => {
+      const dayCalls = calls.filter((c) => {
         const callDate = toDate(c.timestamp || c.createdAt);
         return callDate != null && callDate >= dayStart && callDate <= dayEnd;
       });
@@ -77,13 +78,13 @@ export async function GET(request: NextRequest) {
         date: format(day, 'dd MMM EEEE', { locale: tr }),
         dateObj: day.toISOString(),
         calls: dayCalls.length,
-        answered: dayCalls.filter((c: any) => c.status === 'answered').length,
-        missed: dayCalls.filter((c: any) => c.status === 'missed').length,
+        answered: dayCalls.filter((c) => c.status === 'answered').length,
+        missed: dayCalls.filter((c) => c.status === 'missed').length,
       };
     });
 
     const avgCallDuration = calls.length > 0
-      ? calls.reduce((sum: number, c: any) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
+      ? calls.reduce((sum, c) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
       : 0;
 
     const report = {
@@ -91,15 +92,15 @@ export async function GET(request: NextRequest) {
       weekLabel: `${format(weekStart, 'd MMM', { locale: tr })} - ${format(weekEnd, 'd MMM yyyy', { locale: tr })}`,
       summary: {
         totalCalls: calls.length,
-        missedCalls: calls.filter((c: any) => c.status === 'missed').length,
-        answeredCalls: calls.filter((c: any) => c.status === 'answered').length,
+        missedCalls: calls.filter((c) => c.status === 'missed').length,
+        answeredCalls: calls.filter((c) => c.status === 'answered').length,
         avgCallDuration: Math.round(avgCallDuration),
-        openComplaints: weekComplaints.filter((c: any) => c.status === 'open').length,
+        openComplaints: weekComplaints.filter((c) => c.status === 'open').length,
         totalComplaints: weekComplaints.length,
-        resolvedComplaints: weekComplaints.filter((c: any) => c.status === 'resolved').length,
-        openInfoRequests: weekInfoRequests.filter((i: any) => i.status === 'pending').length,
-        scheduledAppointments: appointments.filter((a: any) => a.status === 'scheduled').length,
-        completedAppointments: appointments.filter((a: any) => a.status === 'completed').length,
+        resolvedComplaints: weekComplaints.filter((c) => c.status === 'resolved').length,
+        openInfoRequests: weekInfoRequests.filter((i) => i.status === 'pending').length,
+        scheduledAppointments: appointments.filter((a) => a.status === 'scheduled').length,
+        completedAppointments: appointments.filter((a) => a.status === 'completed').length,
       },
       comparison: {
         calls: {

@@ -3,7 +3,7 @@
 // STT (browser) → GPT-4o-mini (here) → TTS (browser)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { gpuCircuitBreaker, openaiCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { gpuCircuitBreaker, openaiCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { gpuManager } from '@/lib/voice/gpu-manager';
 import { inferCache, buildInferCacheKey, type CachedInferResponse } from '@/lib/voice/response-cache';
 import { handleApiError } from '@/lib/utils/error-handler';
@@ -361,12 +361,7 @@ export async function POST(request: NextRequest) {
                 } as CachedInferResponse);
 
                 return NextResponse.json(result);
-            } catch (openaiError) {
-                const isCircuitOpen = openaiError instanceof CircuitOpenError;
-                console.error(
-                    `[Voice Infer] OpenAI failed${isCircuitOpen ? ' (circuit OPEN)' : ''}, falling back:`,
-                    isCircuitOpen ? openaiError.message : openaiError,
-                );
+            } catch {
                 // Fall through to Personaplex fallback
             }
         }
@@ -395,17 +390,12 @@ export async function POST(request: NextRequest) {
                 } as CachedInferResponse);
 
                 return NextResponse.json(result);
-            } catch (fallbackError) {
-                const isCircuitOpen = fallbackError instanceof CircuitOpenError;
-                console.error(
-                    `[Voice Infer] Personaplex failed${isCircuitOpen ? ' (circuit OPEN)' : ''}:`,
-                    isCircuitOpen ? fallbackError.message : fallbackError,
-                );
+            } catch {
+                // Personaplex also failed, fall through to graceful fallback
             }
         }
 
         // ---- All backends failed: Graceful degradation ----
-        console.warn('[Voice Infer] All backends unavailable — returning graceful fallback');
         const fallbackResponse = getGracefulFallbackResponse(language, sessionId);
         const latencyMs = performance.now() - startMs;
 

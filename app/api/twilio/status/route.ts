@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
             .get();
 
         if (callQuery.empty) {
-            console.warn(`[Twilio Status] Call not found: ${callSid}`);
             return NextResponse.json({ ok: true }); // Don't fail Twilio
         }
 
@@ -79,8 +78,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ ok: true });
 
-    } catch (error) {
-        console.error('[Twilio Status] Error:', error);
+    } catch {
         return NextResponse.json({ ok: true }); // Always return 200 to Twilio
     }
 }

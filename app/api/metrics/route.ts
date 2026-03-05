@@ -39,8 +39,7 @@ export async function GET() {
         }, {
             headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
         });
-    } catch (error) {
-        console.error('[Metrics API] Error:', error);
+    } catch {
         return NextResponse.json(
             { error: 'Metrics unavailable' },
             { status: 500 },

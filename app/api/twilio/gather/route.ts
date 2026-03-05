@@ -129,8 +129,7 @@ export async function POST(request: NextRequest) {
             headers: { 'Content-Type': 'text/xml' },
         });
 
-    } catch (error) {
-        console.error('[Twilio Gather] Error:', error);
+    } catch {
         const fallback = generateUnavailableTwiML({
             message: 'Bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar arayın.',
         });
@@ -152,7 +151,6 @@ async function generateLLMResponse(
 ): Promise<string> {
     const openaiKey = process.env.OPENAI_API_KEY;
     if (!openaiKey) {
-        console.error('[Twilio Gather] OPENAI_API_KEY not configured');
         return language === 'tr'
             ? 'Şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.'
             : 'I cannot respond right now. Please try again later.';
@@ -216,16 +214,13 @@ Kurallar:
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            console.error(`[Twilio Gather] OpenAI error: ${response.status} ${error}`);
             throw new Error(`OpenAI API error: ${response.status}`);
         }
 
         const data = await response.json();
         return data.choices?.[0]?.message?.content?.trim() || 'Yanıt oluşturulamadı.';
 
-    } catch (error) {
-        console.error('[Twilio Gather] LLM error:', error);
+    } catch {
         return language === 'tr'
             ? 'Bir aksaklık yaşıyoruz. Sizi yetkili bir temsilcimize aktarabilir miyim?'
             : 'We are experiencing an issue. May I transfer you to a representative?';

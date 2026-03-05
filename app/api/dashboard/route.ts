@@ -51,8 +51,7 @@ export async function GET(request: NextRequest) {
         // Helper: run a query safely — returns empty result on failure (e.g. missing index)
         const emptySnap = { docs: [], size: 0, empty: true } as unknown as FirebaseFirestore.QuerySnapshot;
         const safeQuery = (q: FirebaseFirestore.Query) =>
-            q.get().catch((err: unknown) => {
-                console.warn('[Dashboard] Query fallback:', (err as Error).message?.substring(0, 120));
+            q.get().catch(() => {
                 return emptySnap;
             });
 
@@ -217,9 +216,7 @@ export async function GET(request: NextRequest) {
             headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
         });
 
-    } catch (error) {
-        console.error('[Dashboard API] Error:', error);
-
+    } catch {
         // Return empty structure so frontend can show demo mode
         return NextResponse.json({
             kpis: {

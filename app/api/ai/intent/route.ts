@@ -26,8 +26,7 @@ export async function POST(request: NextRequest) {
       success: true,
       ...result,
     });
-  } catch (error) {
-    console.error('[API] Intent detection error:', error);
+  } catch {
     return NextResponse.json(
       { error: 'Intent detection failed' },
       { status: 500 }

@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
             const requestUrl = request.url;
 
             if (!validateTwilioSignature(config.authToken, requestUrl, params, signature)) {
-                console.warn('[Twilio] Invalid signature rejected');
                 return new NextResponse('Forbidden', { status: 403 });
             }
         }
@@ -68,7 +67,6 @@ export async function POST(request: NextRequest) {
         const tenantId = await resolveTenantFromPhone(getDb(), calledNumber);
 
         if (!tenantId) {
-            console.warn(`[Twilio] No tenant found for number: ${calledNumber}`);
             const twiml = generateUnavailableTwiML({
                 message: 'Bu numara henüz yapılandırılmamış. Lütfen daha sonra tekrar deneyin.',
             });
@@ -143,8 +141,7 @@ export async function POST(request: NextRequest) {
             headers: { 'Content-Type': 'text/xml' },
         });
 
-    } catch (error) {
-        console.error('[Twilio Incoming] Error:', error);
+    } catch {
         const fallback = generateUnavailableTwiML({
             message: 'Bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar arayın.',
         });

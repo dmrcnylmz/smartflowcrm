@@ -144,8 +144,7 @@ export async function GET() {
         }));
 
         return NextResponse.json({ plans });
-    } catch (error) {
-        console.error('[Checkout API] Plans error:', error);
+    } catch {
         return NextResponse.json(
             { error: 'Failed to load plans' },
             { status: 500 }

@@ -10,6 +10,7 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { format, differenceInDays, eachDayOfInterval } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { handleApiError } from '@/lib/utils/error-handler';
+import type { CallLog, Complaint, InfoRequest, Appointment } from '@/lib/firebase/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,17 +40,17 @@ export async function GET(request: NextRequest) {
     dateTo.setHours(23, 59, 59, 999);
 
     const [calls, complaints, infoRequests, appointments] = await Promise.all([
-      getCallLogs(tenantId, { dateFrom, dateTo }),
-      getComplaints(tenantId),
-      getInfoRequests(tenantId),
-      getAppointments(tenantId, { dateFrom, dateTo }),
+      getCallLogs(tenantId, { dateFrom, dateTo }) as Promise<CallLog[]>,
+      getComplaints(tenantId) as Promise<Complaint[]>,
+      getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+      getAppointments(tenantId, { dateFrom, dateTo }) as Promise<Appointment[]>,
     ]);
 
-    const rangeComplaints = complaints.filter((c: any) => {
+    const rangeComplaints = complaints.filter((c) => {
       const createdAt = toDate(c.createdAt);
       return createdAt != null && createdAt >= dateFrom && createdAt <= dateTo;
     });
-    const rangeInfoRequests = infoRequests.filter((i: any) => {
+    const rangeInfoRequests = infoRequests.filter((i) => {
       const createdAt = toDate(i.createdAt);
       return createdAt != null && createdAt >= dateFrom && createdAt <= dateTo;
     });
@@ -62,13 +63,13 @@ export async function GET(request: NextRequest) {
       compareTo.setHours(23, 59, 59, 999);
 
       const [compareCalls, compareComplaints, , compareAppointments] = await Promise.all([
-        getCallLogs(tenantId, { dateFrom: compareFrom, dateTo: compareTo }),
-        getComplaints(tenantId),
-        getInfoRequests(tenantId),
-        getAppointments(tenantId, { dateFrom: compareFrom, dateTo: compareTo }),
+        getCallLogs(tenantId, { dateFrom: compareFrom, dateTo: compareTo }) as Promise<CallLog[]>,
+        getComplaints(tenantId) as Promise<Complaint[]>,
+        getInfoRequests(tenantId) as Promise<InfoRequest[]>,
+        getAppointments(tenantId, { dateFrom: compareFrom, dateTo: compareTo }) as Promise<Appointment[]>,
       ]);
 
-      const compareRangeComplaints = compareComplaints.filter((c: any) => {
+      const compareRangeComplaints = compareComplaints.filter((c) => {
         const createdAt = toDate(c.createdAt);
         return createdAt != null && createdAt >= compareFrom && createdAt <= compareTo;
       });
@@ -113,7 +114,7 @@ export async function GET(request: NextRequest) {
         const dayEnd = new Date(day);
         dayEnd.setHours(23, 59, 59, 999);
 
-        const dayCalls = calls.filter((c: any) => {
+        const dayCalls = calls.filter((c) => {
           const callDate = toDate(c.timestamp || c.createdAt);
           return callDate != null && callDate >= dayStart && callDate <= dayEnd;
         });
@@ -122,14 +123,14 @@ export async function GET(request: NextRequest) {
           date: format(day, 'dd MMM', { locale: tr }),
           dateObj: day.toISOString(),
           calls: dayCalls.length,
-          answered: dayCalls.filter((c: any) => c.status === 'answered').length,
-          missed: dayCalls.filter((c: any) => c.status === 'missed').length,
+          answered: dayCalls.filter((c) => c.status === 'answered').length,
+          missed: dayCalls.filter((c) => c.status === 'missed').length,
         };
       });
     }
 
     const avgCallDuration = calls.length > 0
-      ? calls.reduce((sum: number, c: any) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
+      ? calls.reduce((sum, c) => sum + (c.durationSec ?? c.duration ?? 0), 0) / calls.length
       : 0;
 
     const report = {
@@ -138,15 +139,15 @@ export async function GET(request: NextRequest) {
       dateRangeLabel: `${format(dateFrom, 'd MMM', { locale: tr })} - ${format(dateTo, 'd MMM yyyy', { locale: tr })}`,
       summary: {
         totalCalls: calls.length,
-        missedCalls: calls.filter((c: any) => c.status === 'missed').length,
-        answeredCalls: calls.filter((c: any) => c.status === 'answered').length,
+        missedCalls: calls.filter((c) => c.status === 'missed').length,
+        answeredCalls: calls.filter((c) => c.status === 'answered').length,
         avgCallDuration: Math.round(avgCallDuration),
-        openComplaints: rangeComplaints.filter((c: any) => c.status === 'open').length,
+        openComplaints: rangeComplaints.filter((c) => c.status === 'open').length,
         totalComplaints: rangeComplaints.length,
-        resolvedComplaints: rangeComplaints.filter((c: any) => c.status === 'resolved').length,
-        openInfoRequests: rangeInfoRequests.filter((i: any) => i.status === 'pending').length,
-        scheduledAppointments: appointments.filter((a: any) => a.status === 'scheduled').length,
-        completedAppointments: appointments.filter((a: any) => a.status === 'completed').length,
+        resolvedComplaints: rangeComplaints.filter((c) => c.status === 'resolved').length,
+        openInfoRequests: rangeInfoRequests.filter((i) => i.status === 'pending').length,
+        scheduledAppointments: appointments.filter((a) => a.status === 'scheduled').length,
+        completedAppointments: appointments.filter((a) => a.status === 'completed').length,
       },
       comparison,
       breakdownType,

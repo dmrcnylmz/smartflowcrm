@@ -44,12 +44,10 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
         if (!token) {
-            console.error('[Webhook] No payment token received');
             return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=no_token`);
         }
 
         if (!tenantId || !planId) {
-            console.error('[Webhook] Missing tenantId or planId');
             return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=missing_context`);
         }
 
@@ -89,7 +87,6 @@ export async function POST(request: NextRequest) {
 
         } else {
             // Payment failed
-            console.error(`[Webhook] Payment failed: ${paymentResult.errorMessage}`);
 
             // Update pending checkout
             await getDb().collection('tenants').doc(tenantId)
@@ -106,8 +103,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-    } catch (error) {
-        console.error('[Webhook] Error:', error);
+    } catch {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
         return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=server_error`);
     }
@@ -147,8 +143,7 @@ export async function GET(request: NextRequest) {
             },
         });
 
-    } catch (error) {
-        console.error('[Webhook GET] Error:', error);
+    } catch {
         return NextResponse.json(
             { error: 'Failed to fetch subscription' },
             { status: 500 }

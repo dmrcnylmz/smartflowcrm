@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
                 },
             });
         } catch (err) {
-            console.error('[Pipeline API] Failed to start session:', err);
             return NextResponse.json(
                 { error: 'Failed to initialize pipeline', details: String(err) },
                 { status: 500 },
@@ -175,7 +174,6 @@ export async function POST(request: NextRequest) {
                 metrics: pipeline.getMetrics(),
             });
         } catch (err) {
-            console.error('[Pipeline API] Text processing error:', err);
             return NextResponse.json(
                 { error: 'Processing failed', details: String(err) },
                 { status: 500 },

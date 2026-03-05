@@ -171,14 +171,13 @@ export default function PrivacyPage() {
                                 </button>
                                 {isOpen && (
                                     <div className="px-5 pb-5">
-                                        <div
-                                            className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line prose prose-sm dark:prose-invert max-w-none"
-                                            dangerouslySetInnerHTML={{
-                                                __html: section.content
-                                                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                                    .replace(/\n/g, '<br />')
-                                            }}
-                                        />
+                                        <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line max-w-none">
+                                            {section.content.split(/(\*\*.*?\*\*)/).map((part, i) =>
+                                                part.startsWith('**') && part.endsWith('**')
+                                                    ? <strong key={i}>{part.slice(2, -2)}</strong>
+                                                    : <span key={i}>{part}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                             </div>
