@@ -51,7 +51,7 @@ export async function GET() {
             { input: 'Merhaba', expected: 'greeting' },
             { input: 'Randevu almak istiyorum', expected: 'appointment' },
             { input: 'Şikayetim var', expected: 'complaint' },
-            { input: 'Fiyat nedir?', expected: 'info_request' },
+            { input: 'Fiyat nedir?', expected: 'pricing' },
         ];
 
         let passed = 0;

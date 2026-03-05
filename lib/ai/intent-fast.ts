@@ -185,8 +185,8 @@ function detectLanguage(text: string): 'tr' | 'en' {
     const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
     if (turkishChars.test(text)) return 'tr';
 
-    // Common Turkish words
-    const turkishWords = /\b(bir|ve|bu|için|ile|var|olan|da|de|mi|mı|ne|nasıl)\b/i;
+    // Common Turkish words (including those without special characters)
+    const turkishWords = /\b(bir|ve|bu|için|ile|var|olan|da|de|mi|mı|ne|nasıl|merhaba|selam|evet|hayır|tamam|randevu|fiyat|istiyorum|nedir|almak|etmek|olarak|benim|sizin|lütfen)\b/i;
     if (turkishWords.test(text)) return 'tr';
 
     return 'en';

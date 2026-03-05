@@ -30,6 +30,9 @@ const PUBLIC_API_PATHS = [
     '/api/twilio/recording',
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
+    '/api/voice/test-e2e',
+    '/api/voice/infer',
+    '/api/twilio/test',
 ];
 
 /** Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin */
