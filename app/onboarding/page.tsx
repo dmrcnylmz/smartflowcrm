@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/firebase/auth-context';
+import { auth } from '@/lib/firebase/config';
 import {
     Building2, Mic, FileText, Rocket, ChevronRight, ChevronLeft,
     Check, Loader2, Briefcase, ShoppingBag, HeartPulse, Headphones,
@@ -187,11 +188,18 @@ const TRAIT_OPTIONS = [
 
 export default function OnboardingPage() {
     const router = useRouter();
-    const { user, refreshClaims } = useAuth();
+    const { user, loading: authLoading, refreshClaims } = useAuth();
     const [currentStep, setCurrentStep] = useState(0);
     const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        if (!authLoading && !user && !auth.currentUser) {
+            router.replace('/login');
+        }
+    }, [authLoading, user, router]);
 
     const updateData = useCallback((updates: Partial<OnboardingData>) => {
         setData(prev => ({ ...prev, ...updates }));
@@ -220,13 +228,16 @@ export default function OnboardingPage() {
         setError(null);
 
         try {
-            if (!user) {
+            // Use context user first, fall back to Firebase SDK directly
+            const currentUser = user ?? auth.currentUser;
+            if (!currentUser) {
                 setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+                router.replace('/login');
                 setIsSubmitting(false);
                 return;
             }
 
-            const token = await user.getIdToken(true); // force refresh token
+            const token = await currentUser.getIdToken(true); // force refresh token
             const response = await fetch('/api/tenants', {
                 method: 'POST',
                 headers: {
@@ -270,7 +281,8 @@ export default function OnboardingPage() {
             // Force-refresh Firebase token so new custom claims (tenantId, role) are in JWT
             await refreshClaims();
 
-            router.push('/');
+            // Go to knowledge base setup after company creation
+            router.push('/knowledge?setup=true');
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Bilinmeyen bir hata oluştu.';
             setError(`Kurulum tamamlanamadı: ${message}`);
