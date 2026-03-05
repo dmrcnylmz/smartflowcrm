@@ -1,0 +1,64 @@
+{
+  "name": "Daily Report Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily at 08:00",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://frontend:3000/api/reports/daily",
+        "method": "GET",
+        "options": {
+          "qs": {
+            "date": "={{ $now.toISOString().split('T')[0] }}"
+          }
+        }
+      },
+      "id": "fetch-report-data",
+      "name": "Fetch Report Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "subject": "Günlük Rapor - {{ $now.toISOString().split('T')[0] }}",
+        "emailType": "html",
+        "message": "={{ JSON.stringify($json, null, 2) }}",
+        "toList": "={{ $env.EMAIL_ADMIN }}"
+      },
+      "id": "send-email",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Daily at 08:00": {
+      "main": [[{ "node": "Fetch Report Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Report Data": {
+      "main": [[{ "node": "Send Email Report", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}
+

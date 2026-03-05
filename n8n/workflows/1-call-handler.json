@@ -1,0 +1,116 @@
+{
+    "name": "📞 Call Handler — Ana Çağrı Yönetimi",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "call-handler",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "wh-call-handler",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "call-handler"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/context",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"type\": \"call_start\",\n  \"data\": {\n    \"customer_name\": \"{{ $json.arguments?.customer_name || '' }}\",\n    \"customer_phone\": \"{{ $json.arguments?.customer_phone || '' }}\",\n    \"call_type\": \"{{ $json.arguments?.call_type || 'inbound' }}\",\n    \"tenant_id\": \"{{ $json.tenantId || '' }}\"\n  },\n  \"priority\": \"high\",\n  \"source\": \"n8n_call_handler\"\n}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "ctx-call-handler",
+            "name": "Inject Context",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                480,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/event",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"event\": \"call_start\",\n  \"customer_phone\": \"{{ $json.arguments?.customer_phone || '' }}\",\n  \"customer_name\": \"{{ $json.arguments?.customer_name || '' }}\"\n}",
+                "options": {
+                    "timeout": 5000
+                }
+            },
+            "id": "evt-call-handler",
+            "name": "Log Call Start",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                720,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"message\": \"Call context injected and session started\"\n}"
+            },
+            "id": "res-call-handler",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                960,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Inject Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Inject Context": {
+            "main": [
+                [
+                    {
+                        "node": "Log Call Start",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Call Start": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "pinData": {},
+    "tags": []
+}

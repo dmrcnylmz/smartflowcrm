@@ -1,0 +1,85 @@
+{
+    "name": "ℹ️ Info Handler — Bilgi Talebi",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "info-handler",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "wh-info",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1.1,
+            "position": [
+                240,
+                300
+            ],
+            "webhookId": "info-handler"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://localhost:8999/webhook/context",
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"type\": \"info_request\",\n  \"data\": {\n    \"topic\": \"{{ $json.arguments?.topic || '' }}\",\n    \"query\": \"{{ $json.arguments?.query || '' }}\",\n    \"category\": \"{{ $json.arguments?.category || 'general' }}\"\n  },\n  \"priority\": \"normal\",\n  \"source\": \"n8n_info\"\n}",
+                "options": {
+                    "timeout": 5000
+                }
+            },
+            "id": "ctx-info",
+            "name": "Log Info Request",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                480,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\n  \"success\": true,\n  \"action\": \"info_logged\",\n  \"message\": \"Bilgi talebi kaydedildi\",\n  \"topic\": \"{{ $json.arguments?.topic || 'general' }}\"\n}"
+            },
+            "id": "res-info",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                720,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Log Info Request",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Log Info Request": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "pinData": {},
+    "tags": []
+}

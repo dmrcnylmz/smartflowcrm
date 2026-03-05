@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: smartflow-n8n
+    restart: unless-stopped
+
+    ports:
+      - "5678:5678"
+
+    environment:
+      # Basic Config
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - WEBHOOK_URL=${WEBHOOK_URL:-http://localhost:5678}
+
+      # Security
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_USER:-admin}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_PASSWORD}
+
+      # Execution
+      - EXECUTIONS_PROCESS=main
+      - GENERIC_TIMEZONE=Europe/Istanbul
+
+      # Database (SQLite by default, use PostgreSQL for production)
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/data/database.sqlite
+
+      # Personaplex Integration
+      - PERSONAPLEX_URL=${PERSONAPLEX_URL:-https://voice.smartflow.example.com}
+      - PERSONAPLEX_API_KEY=${PERSONAPLEX_API_KEY}
+
+      # Firebase (for Firestore access)
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows:ro
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5678/healthz" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+volumes:
+  n8n_data:

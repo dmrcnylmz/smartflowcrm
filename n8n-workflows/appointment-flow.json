@@ -1,0 +1,103 @@
+{
+  "name": "Appointment Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "webhookId": "appointment-flow"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "url": "https://www.googleapis.com/calendar/v3/freebusy",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "timeMin",
+              "value": "={{ $json.dateTime }}"
+            },
+            {
+              "name": "timeMax",
+              "value": "={{ $json.dateTime }}"
+            },
+            {
+              "name": "items",
+              "value": "[{\"id\": \"primary\"}]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-google-calendar",
+      "name": "Check Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://frontend:3000/api/appointments",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "customerId",
+              "value": "={{ $json.customerId }}"
+            },
+            {
+              "name": "dateTime",
+              "value": "={{ $json.dateTime }}"
+            },
+            {
+              "name": "durationMin",
+              "value": "={{ $json.durationMin || 30 }}"
+            }
+          ]
+        }
+      },
+      "id": "create-appointment",
+      "name": "Create Appointment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "resource": "sms",
+        "operation": "send",
+        "from": "={{ $env.TWILIO_PHONE_NUMBER }}",
+        "to": "={{ $json.customerPhone }}",
+        "message": "Randevunuz onaylandı: {{ $json.dateTime }}"
+      },
+      "id": "send-sms",
+      "name": "Send SMS Confirmation",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Check Google Calendar", "type": "main", "index": 0 }]]
+    },
+    "Check Google Calendar": {
+      "main": [[{ "node": "Create Appointment", "type": "main", "index": 0 }]]
+    },
+    "Create Appointment": {
+      "main": [[{ "node": "Send SMS Confirmation", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": []
+}
+
