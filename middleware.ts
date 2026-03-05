@@ -32,6 +32,7 @@ const PUBLIC_API_PATHS = [
     '/api/cron/appointment-reminders',
     '/api/voice/test-e2e',
     '/api/voice/infer',
+    '/api/voice/tts',
     '/api/twilio/test',
 ];
 

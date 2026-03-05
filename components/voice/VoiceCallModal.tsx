@@ -139,6 +139,8 @@ export function VoiceCallModal({
     const transcriptEndRef = useRef<HTMLDivElement>(null);
     const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
     const sessionIdRef = useRef<string>(`session-${Date.now()}`);
+    const isSpeakingRef = useRef(false);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // Scroll to bottom when transcript updates
     useEffect(() => {
@@ -170,7 +172,76 @@ export function VoiceCallModal({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Text-only mode: use browser SpeechRecognition → /api/voice/infer → SpeechSynthesis
+    // --- TTS: ElevenLabs (primary) → Browser speechSynthesis (fallback) ---
+    const speakText = useCallback(async (text: string, onEnd?: () => void) => {
+        isSpeakingRef.current = true;
+
+        // 1. Pause STT to prevent echo
+        if (recognitionRef.current) {
+            try { recognitionRef.current.stop(); } catch { /* already stopped */ }
+        }
+        setIsListening(false);
+
+        const resumeListening = () => {
+            isSpeakingRef.current = false;
+            // 500ms settling delay before restarting mic
+            setTimeout(() => {
+                if (recognitionRef.current && !isSpeakingRef.current) {
+                    try {
+                        recognitionRef.current.start();
+                        setIsListening(true);
+                    } catch { /* already started */ }
+                }
+                onEnd?.();
+            }, 500);
+        };
+
+        // Try ElevenLabs first
+        try {
+            const ttsRes = await fetch('/api/voice/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text }),
+            });
+
+            if (ttsRes.ok && ttsRes.headers.get('content-type')?.includes('audio')) {
+                const audioBlob = await ttsRes.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audioRef.current = audio;
+
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    audioRef.current = null;
+                    resumeListening();
+                };
+                audio.onerror = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    audioRef.current = null;
+                    resumeListening();
+                };
+
+                await audio.play();
+                return;
+            }
+        } catch {
+            // ElevenLabs failed — fall through to browser TTS
+        }
+
+        // Fallback: Browser speechSynthesis
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
+            utterance.rate = 1.0;
+            utterance.onend = resumeListening;
+            utterance.onerror = resumeListening;
+            window.speechSynthesis.speak(utterance);
+        } else {
+            resumeListening();
+        }
+    }, [language]);
+
+    // Text-only mode: browser SpeechRecognition → /api/voice/infer → ElevenLabs TTS
     const startTextOnlyMode = useCallback(async () => {
         const SpeechRecognitionAPI = (
             (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).SpeechRecognition
@@ -189,11 +260,14 @@ export function VoiceCallModal({
         recognitionRef.current = recognition;
 
         recognition.onresult = async (event: SpeechRecognitionEvent) => {
+            // ECHO PREVENTION: Ignore all results while AI is speaking
+            if (isSpeakingRef.current) return;
+
             const lastResult = event.results[event.results.length - 1];
             const text = lastResult[0].transcript;
 
             if (!lastResult.isFinal) {
-                // Interim result — show as typing
+                // Interim result — show as typing (deduplicated)
                 setTranscript(prev => {
                     const last = prev[prev.length - 1];
                     if (last && last.speaker === 'user' && last.text.endsWith('...')) {
@@ -204,7 +278,7 @@ export function VoiceCallModal({
                 return;
             }
 
-            // Final result — send to LLM
+            // Final result — stop listening, send to LLM, speak response
             setTranscript(prev => {
                 const filtered = prev.filter(t => !(t.speaker === 'user' && t.text.endsWith('...')));
                 return [...filtered, { speaker: 'user', text, timestamp: new Date().toISOString() }];
@@ -212,6 +286,11 @@ export function VoiceCallModal({
 
             setIsListening(false);
             setIsThinking(true);
+
+            // Pause recognition immediately to prevent echo during processing
+            if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch { /* ok */ }
+            }
 
             try {
                 const response = await fetch('/api/voice/infer', {
@@ -226,7 +305,7 @@ export function VoiceCallModal({
                 });
 
                 const data = await response.json();
-                const aiText = data.response_text || 'Yanıt alınamadı.';
+                const aiText = data.response_text || (language === 'tr' ? 'Yanıt alınamadı.' : 'No response received.');
 
                 setTranscript(prev => [...prev, {
                     speaker: 'assistant',
@@ -234,22 +313,22 @@ export function VoiceCallModal({
                     timestamp: new Date().toISOString(),
                 }]);
 
-                // Speak the response using browser TTS
-                if ('speechSynthesis' in window) {
-                    const utterance = new SpeechSynthesisUtterance(aiText);
-                    utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
-                    utterance.rate = 1.0;
-                    window.speechSynthesis.speak(utterance);
-                }
+                setIsThinking(false);
+
+                // Speak with echo prevention — recognition auto-resumes after TTS ends
+                await speakText(aiText);
             } catch {
                 setTranscript(prev => [...prev, {
                     speaker: 'assistant',
                     text: language === 'tr' ? 'Bir hata oluştu. Tekrar deneyin.' : 'An error occurred. Please try again.',
                     timestamp: new Date().toISOString(),
                 }]);
-            } finally {
                 setIsThinking(false);
-                setIsListening(true);
+
+                // Resume listening after error
+                if (recognitionRef.current && !isSpeakingRef.current) {
+                    try { recognitionRef.current.start(); setIsListening(true); } catch { /* ok */ }
+                }
             }
         };
 
@@ -261,8 +340,8 @@ export function VoiceCallModal({
         };
 
         recognition.onend = () => {
-            // Restart recognition if call is still active
-            if (recognitionRef.current) {
+            // Auto-restart only if call active AND AI not speaking
+            if (recognitionRef.current && !isSpeakingRef.current) {
                 try {
                     recognitionRef.current.start();
                 } catch {
@@ -271,23 +350,22 @@ export function VoiceCallModal({
             }
         };
 
-        recognition.start();
-        setIsListening(true);
         setCallState('connected');
 
-        // Add greeting
+        // Play greeting first, THEN start listening
         const greeting = language === 'tr'
             ? 'Merhaba! Ben Callception AI asistanıyım. Size nasıl yardımcı olabilirim?'
             : 'Hello! I am the Callception AI assistant. How can I help you?';
 
         setTranscript([{ speaker: 'assistant', text: greeting, timestamp: new Date().toISOString() }]);
 
-        if ('speechSynthesis' in window) {
-            const utterance = new SpeechSynthesisUtterance(greeting);
-            utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
-            window.speechSynthesis.speak(utterance);
-        }
-    }, [language, persona, callState]);
+        // Speak greeting, then start recognition after it finishes
+        await speakText(greeting, () => {
+            // Recognition starts after greeting TTS completes — no echo
+        });
+
+        // Recognition is auto-started by speakText's resumeListening callback
+    }, [language, persona, speakText]);
 
     const startCall = useCallback(async () => {
         setCallState('connecting');
@@ -413,6 +491,7 @@ export function VoiceCallModal({
 
     const endCall = useCallback(() => {
         setCallState('ending');
+        isSpeakingRef.current = false;
 
         // Stop speech recognition (text-only mode)
         if (recognitionRef.current) {
@@ -420,7 +499,13 @@ export function VoiceCallModal({
             recognitionRef.current = null;
         }
 
-        // Stop speech synthesis
+        // Stop ElevenLabs audio playback
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+
+        // Stop browser speech synthesis
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
@@ -449,6 +534,7 @@ export function VoiceCallModal({
     // Cleanup on unmount
     useEffect(() => {
         return () => {
+            isSpeakingRef.current = false;
             if (clientRef.current) {
                 clientRef.current.disconnect();
             }
@@ -457,6 +543,9 @@ export function VoiceCallModal({
             }
             if (recognitionRef.current) {
                 recognitionRef.current.stop();
+            }
+            if (audioRef.current) {
+                audioRef.current.pause();
             }
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
