@@ -7,6 +7,7 @@ import {
   Timestamp,
 } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { sendWebhook } from '@/lib/n8n/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,18 @@ export async function POST(request: NextRequest) {
       notes: body.notes,
       googleCalendarEventId: body.googleCalendarEventId,
     });
+
+    // Fire on_new_appointment webhook (fire-and-forget)
+    sendWebhook('on_new_appointment', {
+      tenantId,
+      arguments: {
+        appointmentId: appointmentRef.id,
+        customerId: body.customerId,
+        dateTime: body.dateTime,
+        durationMin: body.durationMin || 30,
+        notes: body.notes || null,
+      },
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, appointmentId: appointmentRef.id }, { status: 201 });
   } catch (error: unknown) {

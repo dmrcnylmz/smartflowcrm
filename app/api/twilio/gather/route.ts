@@ -21,6 +21,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { generateResponseAndGatherTwiML, generateUnavailableTwiML } from '@/lib/twilio/telephony';
 import { detectIntentFast, shouldShortcut, getShortcutResponse } from '@/lib/ai/intent-fast';
 import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';
+import { sendWebhook } from '@/lib/n8n/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,7 +115,21 @@ export async function POST(request: NextRequest) {
                 lastActivityAt: FieldValue.serverTimestamp(),
             });
 
-        // 5. Build TwiML response
+        // 5. Fire n8n on_new_call webhook (fire-and-forget)
+        sendWebhook('on_new_call', {
+            tenantId,
+            sessionId: callSid,
+            arguments: {
+                callSid,
+                from: params.From || '',
+                to: params.To || '',
+                speechResult,
+                intent: intent.intent,
+                confidence,
+            },
+        }).catch(() => {});
+
+        // 6. Build TwiML response
         const host = request.headers.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}`;

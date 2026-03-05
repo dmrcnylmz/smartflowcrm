@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { meterCallEnd } from '@/lib/billing/metering';
+import { sendWebhook } from '@/lib/n8n/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,6 +76,20 @@ export async function POST(request: NextRequest) {
         }
 
         await callDoc.ref.update(updateData);
+
+        // Fire on_missed_call webhook for missed/unanswered calls (fire-and-forget)
+        if (['no-answer', 'busy', 'failed', 'canceled'].includes(callStatus)) {
+            sendWebhook('on_missed_call', {
+                tenantId,
+                sessionId: callSid,
+                arguments: {
+                    callSid,
+                    status: callStatus,
+                    to: toNumber || '',
+                    from: callData.from || '',
+                },
+            }).catch(() => {});
+        }
 
         return NextResponse.json({ ok: true });
 

@@ -10,6 +10,7 @@ import {
 } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { sendWebhook } from '@/lib/n8n/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,6 +96,22 @@ export async function POST(request: NextRequest) {
     } else {
       const complaintRef = await createComplaint(auth.tenantId, ticketData);
       ticketId = complaintRef.id;
+    }
+
+    // Fire on_new_complaint webhook (fire-and-forget)
+    if (type === 'complaint') {
+      sendWebhook('on_new_complaint', {
+        tenantId: auth.tenantId,
+        arguments: {
+          ticketId,
+          customerName: customerName || null,
+          customerPhone: customerPhone || null,
+          customerEmail: customerEmail || null,
+          title: data.title,
+          category: data.category || 'general',
+          priority: data.priority || 'medium',
+        },
+      }).catch(() => {});
     }
 
     return NextResponse.json({ success: true, ticketId, type }, { status: 201 });

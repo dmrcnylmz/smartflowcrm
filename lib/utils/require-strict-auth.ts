@@ -53,9 +53,28 @@ export async function requireStrictAuth(request: NextRequest): Promise<StrictAut
         };
     }
 
-    const tenantId = request.headers.get('x-user-tenant')
-        || result.payload.tenantId
-        || result.payload.uid;
+    // Determine tenantId strictly from JWT claims.
+    // The x-user-tenant header (set by middleware) is only trusted if it matches
+    // the JWT's own tenantId claim — never trust client-supplied headers alone.
+    let tenantId: string;
+    const jwtTenantId = result.payload.tenantId;
+    const headerTenantId = request.headers.get('x-user-tenant');
+
+    if (jwtTenantId) {
+        // JWT has an explicit tenantId claim — this is authoritative
+        if (headerTenantId && headerTenantId !== jwtTenantId) {
+            console.warn(
+                `[requireStrictAuth] x-user-tenant header "${headerTenantId}" does not match JWT tenantId "${jwtTenantId}" for uid=${result.payload.uid}. Ignoring header — possible spoofing attempt.`
+            );
+        }
+        tenantId = jwtTenantId;
+    } else {
+        // No tenantId in JWT claims — fall back to UID (single-user / personal account)
+        console.warn(
+            `[requireStrictAuth] No tenantId in JWT claims for uid=${result.payload.uid}. Falling back to UID as tenantId. Ensure custom claims are set for multi-tenant users.`
+        );
+        tenantId = result.payload.uid;
+    }
 
     return {
         uid: result.payload.uid,

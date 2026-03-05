@@ -39,7 +39,21 @@ const PUBLIC_API_PATHS = [
 /** Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin */
 const SERVER_TO_SERVER_PATHS = ['/api/webhook', '/api/twilio/', '/api/cron/', '/api/billing/webhook'];
 
+/** Validate that a string is a proper HTTPS URL suitable for CORS origin */
+function isValidCorsOrigin(url: string | undefined): url is string {
+    if (!url) return false;
+    if (!url.startsWith('https://')) return false;
+    try {
+        const parsed = new URL(url);
+        // Must be https, must have a valid hostname, no path/query/fragment beyond origin
+        return parsed.protocol === 'https:' && parsed.hostname.length > 0;
+    } catch {
+        return false;
+    }
+}
+
 /** Allowed origins for CORS */
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 const ALLOWED_ORIGINS = [
     ...(process.env.NODE_ENV !== 'production' ? [
         'http://localhost:3000',
@@ -49,7 +63,7 @@ const ALLOWED_ORIGINS = [
     ] : []),
     'https://callception.com',
     'https://www.callception.com',
-    process.env.NEXT_PUBLIC_APP_URL,
+    ...(isValidCorsOrigin(appUrl) ? [new URL(appUrl).origin] : []),
 ].filter(Boolean) as string[];
 
 /** Security headers applied to all responses */
@@ -86,6 +100,7 @@ const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy'];
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_GENERAL = 100;
 const RATE_LIMIT_MAX_SENSITIVE = 10;
+const RATE_LIMIT_MAX_TENANT = 500;
 
 // Sensitive endpoints get stricter limits
 const SENSITIVE_PREFIXES = ['/api/voice/connect', '/api/voice/session'];
@@ -222,6 +237,31 @@ export async function middleware(req: NextRequest) {
                     },
                     { status: 401 },
                 );
+            }
+
+            // Per-tenant rate limiting (500 req/min per tenant, separate from per-IP)
+            if (result.payload?.tenantId) {
+                const tenantRateLimitKey = `mw:tenant:${result.payload.tenantId}:general`;
+                const tenantRateLimit = checkApiRateLimit(tenantRateLimitKey, RATE_LIMIT_MAX_TENANT);
+                if (!tenantRateLimit.allowed) {
+                    const retryAfter = Math.ceil((tenantRateLimit.resetTime - Date.now()) / 1000);
+                    return NextResponse.json(
+                        {
+                            error: 'Tenant rate limit exceeded',
+                            message: 'Bu hesap için istek limiti aşıldı. Lütfen bekleyin.',
+                            retryAfter,
+                        },
+                        {
+                            status: 429,
+                            headers: {
+                                'Retry-After': retryAfter.toString(),
+                                'X-RateLimit-Limit': RATE_LIMIT_MAX_TENANT.toString(),
+                                'X-RateLimit-Remaining': '0',
+                                'X-RateLimit-Reset': Math.ceil(tenantRateLimit.resetTime / 1000).toString(),
+                            },
+                        },
+                    );
+                }
             }
 
             // Forward verified user info to API routes via headers

@@ -264,3 +264,12 @@ export async function createCustomer(
     createdAt: Timestamp.now(),
   });
 }
+
+export async function updateCustomer(
+  tenantId: string,
+  id: string,
+  data: Record<string, unknown>,
+) {
+  const { id: _id, ...updateData } = data;
+  await tenantDoc(tenantId, 'customers', id).update(updateData);
+}

@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { verifyPayment, activateSubscription } from '@/lib/billing/iyzico-service';
+import { verifyPayment, activateSubscription, PLANS } from '@/lib/billing/iyzico-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,8 +56,21 @@ export async function POST(request: NextRequest) {
         const paymentResult = await verifyPayment(token);
 
         if (paymentResult.status === 'success' && paymentResult.paymentId) {
-            // Payment successful - activate subscription
-            // Payment verified successfully; activating subscription
+            // Payment successful - validate planId against actual payment amount
+            // This prevents spoofed planId query params from granting a higher-tier plan
+            const plan = PLANS[planId];
+            if (!plan) {
+                console.error(`[billing/webhook] Invalid planId from query params: ${planId}`);
+                return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=invalid_plan`);
+            }
+
+            // Verify the paid amount matches the expected plan price
+            if (paymentResult.paidPrice !== undefined && paymentResult.paidPrice !== plan.priceTry) {
+                console.error(
+                    `[billing/webhook] Plan price mismatch — planId=${planId} expected=${plan.priceTry} paid=${paymentResult.paidPrice}. Possible planId spoofing attempt.`
+                );
+                return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=price_mismatch`);
+            }
 
             await activateSubscription(
                 getDb(),

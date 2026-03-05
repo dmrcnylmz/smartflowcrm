@@ -19,6 +19,10 @@ const TOOL_TYPE_MAP: Record<string, { type: string; priority: string }> = {
   'complaint-tracker': { type: 'complaint', priority: 'urgent' },
   'info-handler': { type: 'info_request', priority: 'normal' },
   'daily-report': { type: 'daily_report', priority: 'normal' },
+  'on_new_call': { type: 'new_call', priority: 'high' },
+  'on_missed_call': { type: 'missed_call', priority: 'urgent' },
+  'on_new_complaint': { type: 'new_complaint', priority: 'urgent' },
+  'on_new_appointment': { type: 'new_appointment', priority: 'high' },
 };
 
 // Kept for backward compatibility
