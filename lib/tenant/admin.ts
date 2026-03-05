@@ -194,18 +194,39 @@ export async function removeUserFromTenant(
 }
 
 /**
- * Get all members of a tenant.
+ * Get all members of a tenant, enriched with Firebase Auth user info (email, displayName).
  */
 export async function getTenantMembers(
     tenantId: string,
-): Promise<Array<{ uid: string; role: string; assignedAt: unknown }>> {
+): Promise<Array<{ uid: string; role: string; assignedAt: unknown; email?: string; displayName?: string }>> {
     const firestore = getDb();
+    const auth = getAuth();
+
     const snap = await firestore
         .collection('tenants')
         .doc(tenantId)
         .collection('members')
         .get();
-    return snap.docs.map(d => ({ uid: d.id, ...d.data() } as { uid: string; role: string; assignedAt: unknown }));
+
+    const members = snap.docs.map(d => ({ uid: d.id, ...d.data() } as { uid: string; role: string; assignedAt: unknown }));
+
+    // Enrich with Firebase Auth user info (email, displayName) — best-effort
+    const enriched = await Promise.all(
+        members.map(async (member) => {
+            try {
+                const authUser = await auth.getUser(member.uid);
+                return {
+                    ...member,
+                    email: authUser.email,
+                    displayName: authUser.displayName || undefined,
+                };
+            } catch {
+                return member; // Return without enrichment if user not found
+            }
+        }),
+    );
+
+    return enriched;
 }
 
 /**

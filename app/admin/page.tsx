@@ -18,11 +18,20 @@ import {
     Key, Eye, EyeOff, CheckCircle, XCircle, Mic,
     Mail, Bell, FileText,
     RefreshCw, Copy, Zap, ChevronDown, Clock, AlertTriangle,
+    UserCheck, Crown, UserCog, UserX,
 } from 'lucide-react';
 
 // =============================================
 // Types
 // =============================================
+
+interface TenantMember {
+    uid: string;
+    role: string;
+    email?: string;
+    displayName?: string;
+    assignedAt?: string;
+}
 
 interface TenantSettings {
     companyName: string;
@@ -79,8 +88,10 @@ export default function AdminPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [settings, setSettings] = useState<TenantSettings>(defaultSettings);
-    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'system'>('company');
+    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'users' | 'system'>('company');
     const [healthData, setHealthData] = useState<Record<string, unknown> | null>(null);
+    const [members, setMembers] = useState<TenantMember[]>([]);
+    const [membersLoading, setMembersLoading] = useState(false);
 
     // ─── Fetch Settings ───
     const fetchSettings = useCallback(async () => {
@@ -130,6 +141,26 @@ export default function AdminPage() {
     useEffect(() => {
         fetchSettings();
     }, [fetchSettings]);
+
+    // ─── Fetch Members ───
+    const fetchMembers = useCallback(async () => {
+        setMembersLoading(true);
+        try {
+            const res = await authFetch('/api/tenants/members');
+            if (res.ok) {
+                const data = await res.json();
+                setMembers(data.members || []);
+            }
+        } catch {
+            // silently fail
+        } finally {
+            setMembersLoading(false);
+        }
+    }, [authFetch]);
+
+    useEffect(() => {
+        if (activeTab === 'users') fetchMembers();
+    }, [activeTab, fetchMembers]);
 
     // ─── Save Settings ───
     async function handleSave() {
@@ -235,6 +266,7 @@ export default function AdminPage() {
         { id: 'company' as const, label: 'Şirket Bilgileri', icon: Building2 },
         { id: 'assistant' as const, label: 'AI Asistan', icon: Bot },
         { id: 'features' as const, label: 'Özellikler', icon: Zap },
+        { id: 'users' as const, label: 'Kullanıcılar', icon: Users },
         { id: 'system' as const, label: 'Sistem Durumu', icon: Activity },
     ];
 
@@ -510,6 +542,126 @@ export default function AdminPage() {
                 </div>
             )}
 
+            {/* ─── Users Tab ─── */}
+            {activeTab === 'users' && (
+                <div key="users" className="space-y-6 animate-fade-in-up">
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="rounded-2xl">
+                            <CardContent className="pt-5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                        <Users className="h-5 w-5 text-blue-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-foreground">{membersLoading ? '—' : members.length}</p>
+                                        <p className="text-xs text-muted-foreground">Toplam Kullanıcı</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-2xl">
+                            <CardContent className="pt-5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                                        <Crown className="h-5 w-5 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-foreground">{membersLoading ? '—' : members.filter(m => m.role === 'owner').length}</p>
+                                        <p className="text-xs text-muted-foreground">Owner</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-2xl">
+                            <CardContent className="pt-5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                                        <UserCog className="h-5 w-5 text-purple-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-foreground">{membersLoading ? '—' : members.filter(m => m.role === 'admin').length}</p>
+                                        <p className="text-xs text-muted-foreground">Admin</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="rounded-2xl">
+                            <CardContent className="pt-5 pb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                        <UserCheck className="h-5 w-5 text-emerald-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-foreground">{membersLoading ? '—' : members.filter(m => m.role === 'agent' || m.role === 'viewer').length}</p>
+                                        <p className="text-xs text-muted-foreground">Agent / Viewer</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Member List */}
+                    <Card className="rounded-2xl">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Users className="h-5 w-5 text-blue-500" />
+                                        Kayıtlı Kullanıcılar
+                                    </CardTitle>
+                                    <CardDescription>Bu tenant&apos;a atanmış tüm kullanıcılar</CardDescription>
+                                </div>
+                                <Button variant="outline" size="sm" onClick={fetchMembers} className="gap-2">
+                                    <RefreshCw className={`h-3.5 w-3.5 ${membersLoading ? 'animate-spin' : ''}`} />
+                                    Yenile
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            {membersLoading ? (
+                                <div className="space-y-3">
+                                    {[0, 1, 2].map(i => (
+                                        <Skeleton key={i} className="h-14 rounded-xl" />
+                                    ))}
+                                </div>
+                            ) : members.length === 0 ? (
+                                <div className="text-center py-12 text-muted-foreground">
+                                    <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                                    <p className="text-sm">Henüz kullanıcı yok</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y">
+                                    {members.map((member) => (
+                                        <div key={member.uid} className="flex items-center justify-between py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold">
+                                                    {(member.email || member.uid).charAt(0).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-foreground">
+                                                        {member.displayName || member.email || member.uid}
+                                                    </p>
+                                                    {member.email && member.displayName && (
+                                                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                                                    )}
+                                                    {member.assignedAt && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {new Date(member.assignedAt).toLocaleDateString('tr-TR')} tarihinde eklendi
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <RoleBadge role={member.role} />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
             {/* ─── System Tab ─── */}
             {activeTab === 'system' && (
                 <div key="system" className="space-y-6 animate-fade-in-up">
@@ -611,6 +763,21 @@ export default function AdminPage() {
 // =============================================
 // Sub-components
 // =============================================
+
+function RoleBadge({ role }: { role: string }) {
+    const config: Record<string, { label: string; className: string }> = {
+        owner: { label: 'Owner', className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+        admin: { label: 'Admin', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+        agent: { label: 'Agent', className: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+        viewer: { label: 'Viewer', className: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
+    };
+    const c = config[role] || { label: role, className: 'bg-gray-100 text-gray-600 border-gray-200' };
+    return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${c.className}`}>
+            {c.label}
+        </span>
+    );
+}
 
 function FeatureToggle({ icon: Icon, title, description, enabled, onChange, color }: {
     icon: React.ElementType;
