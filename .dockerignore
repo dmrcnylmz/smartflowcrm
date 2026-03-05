@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env*.local.save
+.DS_Store
+.vscode
+.idea
+personaplex_server
+n8n/workflows
+test-*.js
+vitest.config.*
+__tests__
+coverage
+.agents
