@@ -19,7 +19,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
-    optimizeCss: true,
+    // optimizeCss requires 'critters' package — enable in production if needed
+    // optimizeCss: true,
   },
 
   // TypeScript incremental build için (Next.js 16'da experimental'den çıktı)
