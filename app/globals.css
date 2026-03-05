@@ -1,0 +1,335 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ── Inception Dark Theme (Default) ── */
+  :root {
+    --background: 220 20% 4%;
+    --foreground: 210 20% 92%;
+    --card: 220 18% 7%;
+    --card-foreground: 210 20% 92%;
+    --popover: 220 18% 7%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 0 72% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 12%;
+    --secondary-foreground: 210 20% 88%;
+    --muted: 220 14% 11%;
+    --muted-foreground: 215 14% 50%;
+    --accent: 220 16% 14%;
+    --accent-foreground: 210 20% 92%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 14%;
+    --input: 220 14% 14%;
+    --ring: 0 72% 51%;
+    --radius: 0.625rem;
+    /* Charts — cinematic palette */
+    --chart-1: 0 72% 51%;
+    --chart-2: 174 60% 41%;
+    --chart-3: 220 60% 50%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 280 60% 55%;
+    /* Sidebar */
+    --sidebar-background: 220 20% 5%;
+    --sidebar-foreground: 210 20% 85%;
+    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 16% 10%;
+    --sidebar-accent-foreground: 210 20% 92%;
+    --sidebar-border: 220 14% 12%;
+    --sidebar-ring: 0 72% 51%;
+    /* Custom Inception tokens */
+    --inception-red: 0 72% 51%;
+    --inception-teal: 174 60% 41%;
+    --inception-cyan: 188 70% 45%;
+    --inception-gold: 38 92% 50%;
+    --inception-dark: 220 20% 4%;
+    --inception-surface: 220 18% 7%;
+    --inception-glow: 0 72% 51%;
+  }
+
+  /* ── Light Override (for accessibility) ── */
+  .light {
+    --background: 210 20% 96%;
+    --foreground: 220 20% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 8%;
+    --primary: 0 72% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 92%;
+    --secondary-foreground: 220 20% 8%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 215 14% 40%;
+    --accent: 220 14% 92%;
+    --accent-foreground: 220 20% 8%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 0 72% 48%;
+    --chart-1: 0 72% 51%;
+    --chart-2: 174 60% 41%;
+    --chart-3: 220 60% 50%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 280 60% 55%;
+    --sidebar-background: 220 16% 96%;
+    --sidebar-foreground: 220 20% 8%;
+    --sidebar-primary: 0 72% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent-foreground: 220 20% 8%;
+    --sidebar-border: 220 13% 88%;
+    --sidebar-ring: 0 72% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* ── Inception Brand Typography ── */
+.font-display {
+  font-family: 'Orbitron', 'Inter', system-ui, sans-serif;
+}
+
+/* ── Animation Utilities ── */
+@layer utilities {
+  .stagger-1 { animation-delay: 50ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 150ms; }
+  .stagger-4 { animation-delay: 200ms; }
+  .stagger-5 { animation-delay: 250ms; }
+  .stagger-6 { animation-delay: 300ms; }
+  .stagger-7 { animation-delay: 350ms; }
+  .stagger-8 { animation-delay: 400ms; }
+
+  /* Inception Glass Morphism */
+  .glass {
+    background: rgba(10, 10, 20, 0.6);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(220, 38, 38, 0.08);
+  }
+
+  .glass-card {
+    background: linear-gradient(135deg, rgba(15, 15, 25, 0.8) 0%, rgba(10, 10, 18, 0.9) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .glass-card:hover {
+    border-color: rgba(220, 38, 38, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(220, 38, 38, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .light .glass {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .light .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Smooth hover lift */
+  .hover-lift {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(220, 38, 38, 0.15), 0 4px 10px -6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Gradient text — Inception Red */
+  .text-gradient {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 40%, #f87171 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-teal {
+    background: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Red glow effects */
+  .glow-red {
+    box-shadow: 0 0 15px rgba(220, 38, 38, 0.2), 0 0 40px rgba(220, 38, 38, 0.08);
+  }
+
+  .glow-red-sm {
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.15);
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 15px rgba(13, 148, 136, 0.2), 0 0 40px rgba(13, 148, 136, 0.08);
+  }
+
+  /* Shimmer loading */
+  .shimmer-bg {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--accent)) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Circuit Board Pattern */
+  .circuit-pattern {
+    background-image:
+      linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Scan Line Effect */
+  .scan-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.3), transparent);
+    animation: scan-line 4s linear infinite;
+  }
+}
+
+/* ── Accessibility: Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Selection Styling — Inception Red ── */
+::selection {
+  background: hsl(0 72% 51% / 0.25);
+  color: hsl(var(--foreground));
+}
+
+/* ── Focus Ring ── */
+.focus-ring {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ── Smooth Scroll ── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Scrollbar — Dark Cinematic ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(220, 38, 38, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(220, 38, 38, 0.4);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(220, 38, 38, 0.2) transparent;
+}
+
+/* ── Page Transition ── */
+.page-transition {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+/* ── Sidebar Transitions ── */
+.sidebar-transition {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Skip to Content ── */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.5rem;
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border-radius: 0 0 var(--radius) var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+.skip-to-content:focus {
+  top: 0;
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ── High Contrast Mode ── */
+@media (prefers-contrast: high) {
+  :root {
+    --border: 0 0% 40%;
+    --ring: 0 72% 51%;
+  }
+}
+
+/* ── Print Stylesheet ── */
+@media print {
+  nav, aside, .skip-to-content, button, [role="dialog"], [role="alert"], .fixed {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+  h1, h2, h3 { page-break-after: avoid; }
+  table, figure, .card { page-break-inside: avoid; }
+  * { box-shadow: none !important; text-shadow: none !important; }
+}
