@@ -20,6 +20,7 @@ import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { generateResponseAndGatherTwiML, generateUnavailableTwiML } from '@/lib/twilio/telephony';
 import { detectIntentFast, shouldShortcut, getShortcutResponse } from '@/lib/ai/intent-fast';
+import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Generate LLM response using OpenAI with tenant context.
+ * Generate LLM response using shared fallback chain (OpenAI → Groq → Gemini).
  */
 async function generateLLMResponse(
     userMessage: string,
@@ -149,13 +150,6 @@ async function generateLLMResponse(
     callSid: string,
     language: string
 ): Promise<string> {
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey) {
-        return language === 'tr'
-            ? 'Şu anda yanıt veremiyorum. Lütfen daha sonra tekrar deneyin.'
-            : 'I cannot respond right now. Please try again later.';
-    }
-
     try {
         // Build system prompt from tenant data
         const agentName = tenantData?.agent?.name || 'Asistan';
@@ -194,31 +188,17 @@ Kurallar:
                 content: turn.content,
             }));
 
-        // Call OpenAI
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${openaiKey}`,
-            },
-            body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...history,
-                    { role: 'user', content: userMessage },
-                ],
-                temperature: 0.3,
-                max_tokens: 150,
-            }),
-        });
+        // Use shared fallback chain (OpenAI → Groq → Gemini → graceful)
+        const result = await generateWithFallback(
+            [
+                { role: 'system', content: systemPrompt },
+                ...history,
+                { role: 'user', content: userMessage },
+            ],
+            { maxTokens: 150, temperature: 0.3, language },
+        );
 
-        if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.choices?.[0]?.message?.content?.trim() || 'Yanıt oluşturulamadı.';
+        return result.text || 'Yanıt oluşturulamadı.';
 
     } catch {
         return language === 'tr'

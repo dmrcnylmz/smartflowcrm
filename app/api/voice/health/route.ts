@@ -1,55 +1,69 @@
 // Voice Health Check API
-// With GPU Manager integration for cached health checks and sleep/wake detection
+// GPU-optional: reports healthy if any LLM provider is available
 
 import { NextRequest, NextResponse } from 'next/server';
 import { metrics, METRICS } from '@/lib/voice/logging';
 import { gpuManager } from '@/lib/voice/gpu-manager';
-import { gpuCircuitBreaker, openaiCircuitBreaker, ttsCircuitBreaker } from '@/lib/voice/circuit-breaker';
+import { gpuCircuitBreaker, openaiCircuitBreaker, ttsCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { inferCache, ttsCache } from '@/lib/voice/response-cache';
+import { isGroqConfigured } from '@/lib/ai/groq-client';
+import { isGeminiConfigured } from '@/lib/ai/gemini-client';
 
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_API_KEY = process.env.PERSONAPLEX_API_KEY || '';
 const ENABLE_MOCK = process.env.PERSONAPLEX_MOCK_MODE === 'true' || !PERSONAPLEX_API_KEY;
 
-// Mock response for demo/testing
-function getMockResponse() {
-    const mockHealth = gpuManager.getMockHealth();
-    return NextResponse.json({
-        status: 'healthy',
-        personaplex: true,
-        model_loaded: true,
-        gpu: mockHealth.gpu_name,
-        active_sessions: 0,
-        max_sessions: 4,
-        latency_ms: mockHealth.latency_ms,
-        mode: 'mock',
-        message: 'Demo mode - GPU sunucu bağlantısı gerekmiyor',
-    });
+function getCapabilities() {
+    return {
+        gpu: !gpuCircuitBreaker.isOpen() && !!PERSONAPLEX_API_KEY,
+        openai: !!OPENAI_API_KEY && !openaiCircuitBreaker.isOpen(),
+        groq: isGroqConfigured() && !groqCircuitBreaker.isOpen(),
+        gemini: isGeminiConfigured() && !geminiCircuitBreaker.isOpen(),
+    };
+}
+
+function hasAnyLLM(caps: ReturnType<typeof getCapabilities>): boolean {
+    return caps.openai || caps.groq || caps.gemini;
 }
 
 export async function GET(request: NextRequest) {
-    // Check for explicit mock mode
+    const startTime = performance.now();
     const useMock = request.nextUrl.searchParams.get('mock') === 'true';
+    const caps = getCapabilities();
+
+    // Mock mode or no GPU key → still healthy if LLM available
     if (useMock || ENABLE_MOCK) {
-        return getMockResponse();
+        const mockHealth = gpuManager.getMockHealth();
+        const mode = hasAnyLLM(caps) ? 'text-only' : 'mock';
+        return NextResponse.json({
+            status: 'healthy',
+            personaplex: false,
+            model_loaded: false,
+            gpu: mockHealth.gpu_name,
+            active_sessions: 0,
+            max_sessions: 4,
+            latency_ms: mockHealth.latency_ms,
+            mode,
+            capabilities: caps,
+            message: mode === 'text-only'
+                ? 'LLM aktif — GPU olmadan metin tabanlı AI çalışıyor'
+                : 'Demo mode - GPU sunucu bağlantısı gerekmiyor',
+        });
     }
 
-    const startTime = performance.now();
-
     try {
-        // Use GPU Manager's cached health check (avoids hammering GPU)
         const forceRefresh = request.nextUrl.searchParams.get('refresh') === 'true';
         const health = await gpuManager.checkHealth(forceRefresh);
-
         const latency = performance.now() - startTime;
 
         metrics.observe(METRICS.API_LATENCY, latency, { endpoint: 'health' });
         metrics.set(METRICS.SESSIONS_ACTIVE, health.active_sessions || 0);
 
-        // If GPU is sleeping/unhealthy, fall back to mock
         if (health.status !== 'healthy') {
-            // GPU not healthy; returning degraded status
+            // GPU down — but still healthy if LLM is available
+            const anyLLM = hasAnyLLM(caps);
             return NextResponse.json({
-                status: 'degraded',
+                status: anyLLM ? 'healthy' : 'degraded',
                 personaplex: false,
                 model_loaded: false,
                 gpu: null,
@@ -57,11 +71,14 @@ export async function GET(request: NextRequest) {
                 active_sessions: 0,
                 max_sessions: 0,
                 latency_ms: Math.round(latency),
-                mode: 'degraded',
+                mode: anyLLM ? 'text-only' : 'degraded',
                 cached: health.cached,
-                message: health.status === 'sleeping'
-                    ? 'GPU uyku modunda — ilk çağrıda otomatik uyanır'
-                    : 'GPU erişilemiyor',
+                capabilities: caps,
+                message: anyLLM
+                    ? 'GPU kapalı — LLM ile metin tabanlı AI aktif'
+                    : health.status === 'sleeping'
+                        ? 'GPU uyku modunda — ilk çağrıda otomatik uyanır'
+                        : 'GPU erişilemiyor',
             });
         }
 
@@ -77,12 +94,14 @@ export async function GET(request: NextRequest) {
             latency_ms: Math.round(latency),
             mode: 'live',
             cached: health.cached,
-            // Include system-wide stats
+            capabilities: caps,
             system: {
                 gpu: gpuManager.getStatus().metrics,
                 circuitBreakers: {
                     gpu: gpuCircuitBreaker.getState(),
                     openai: openaiCircuitBreaker.getState(),
+                    groq: groqCircuitBreaker.getState(),
+                    gemini: geminiCircuitBreaker.getState(),
                     tts: ttsCircuitBreaker.getState(),
                 },
                 cache: {
@@ -92,13 +111,27 @@ export async function GET(request: NextRequest) {
             },
         });
 
-    } catch (error) {
+    } catch {
         const latency = performance.now() - startTime;
         metrics.increment(METRICS.API_ERRORS, 1, { endpoint: 'health' });
         metrics.observe(METRICS.API_LATENCY, latency, { endpoint: 'health' });
 
-        // Fallback to mock mode on connection failure
-        // GPU unreachable; falling back to mock mode
-        return getMockResponse();
+        // GPU unreachable — still report healthy if LLM available
+        const anyLLM = hasAnyLLM(caps);
+        const mockHealth = gpuManager.getMockHealth();
+        return NextResponse.json({
+            status: anyLLM ? 'healthy' : 'degraded',
+            personaplex: false,
+            model_loaded: false,
+            gpu: mockHealth.gpu_name,
+            active_sessions: 0,
+            max_sessions: 0,
+            latency_ms: Math.round(latency),
+            mode: anyLLM ? 'text-only' : 'mock',
+            capabilities: caps,
+            message: anyLLM
+                ? 'GPU erişilemiyor — LLM ile metin tabanlı AI aktif'
+                : 'Demo mode aktif',
+        });
     }
 }

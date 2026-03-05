@@ -19,7 +19,41 @@ import {
     AlertCircle,
     Volume2,
     Globe,
+    MessageSquare,
 } from 'lucide-react';
+
+// Web Speech API type declarations
+interface SpeechRecognitionEvent extends Event {
+    results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+    error: string;
+}
+interface SpeechRecognitionResultList {
+    length: number;
+    [index: number]: SpeechRecognitionResult;
+}
+interface SpeechRecognitionResult {
+    isFinal: boolean;
+    [index: number]: SpeechRecognitionAlternative;
+}
+interface SpeechRecognitionAlternative {
+    transcript: string;
+    confidence: number;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+    lang: string;
+    continuous: boolean;
+    interimResults: boolean;
+    start(): void;
+    stop(): void;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+    onend: (() => void) | null;
+}
+interface SpeechRecognitionConstructor {
+    new(): SpeechRecognitionInstance;
+}
 
 interface VoiceCallModalProps {
     open: boolean;
@@ -31,6 +65,7 @@ interface VoiceCallModalProps {
 }
 
 type CallState = 'idle' | 'connecting' | 'connected' | 'ending' | 'error';
+type CallMode = 'gpu' | 'text-only' | 'mock';
 type Language = 'tr' | 'en';
 
 const LABELS = {
@@ -46,8 +81,12 @@ const LABELS = {
         waitForCall: 'Görüşme başladığında konuşma burada görünecek',
         instructions: 'Sesli AI görüşmesi başlatmak için yeşil butona tıklayın.',
         micRequired: 'Mikrofon izni gereklidir.',
-        serverUnavailable: 'Personaplex sunucusu erişilemez durumda',
+        serverUnavailable: 'Hiçbir AI servisi erişilemez durumda',
         connectionError: 'Bağlantı hatası',
+        textMode: 'Metin Modu',
+        textModeInfo: 'GPU kapalı — Tarayıcı ses tanıma + LLM ile çalışıyor',
+        listening: 'Dinleniyor...',
+        thinking: 'Düşünüyor...',
     },
     en: {
         title: 'Voice AI Call',
@@ -61,8 +100,12 @@ const LABELS = {
         waitForCall: 'Transcript will appear here when the call starts',
         instructions: 'Click the green button to start a Voice AI call.',
         micRequired: 'Microphone permission is required.',
-        serverUnavailable: 'Personaplex server is unreachable',
+        serverUnavailable: 'No AI service is reachable',
         connectionError: 'Connection error',
+        textMode: 'Text Mode',
+        textModeInfo: 'GPU offline — Using browser speech recognition + LLM',
+        listening: 'Listening...',
+        thinking: 'Thinking...',
     }
 };
 
@@ -75,6 +118,7 @@ export function VoiceCallModal({
     onCallEnd,
 }: VoiceCallModalProps) {
     const [callState, setCallState] = useState<CallState>('idle');
+    const [callMode, setCallMode] = useState<CallMode>('gpu');
     const [session, setSession] = useState<VoiceSession | null>(null);
     const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
     const [isMuted, setIsMuted] = useState(false);
@@ -84,6 +128,8 @@ export function VoiceCallModal({
     const [callDuration, setCallDuration] = useState(0);
     const [language, setLanguage] = useState<Language>('tr');
     const [persona, setPersona] = useState('default');
+    const [isListening, setIsListening] = useState(false);
+    const [isThinking, setIsThinking] = useState(false);
 
     const labels = LABELS[language];
 
@@ -91,6 +137,8 @@ export function VoiceCallModal({
     const visualizerRef = useRef<AudioVisualizer | null>(null);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
+    const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const sessionIdRef = useRef<string>(`session-${Date.now()}`);
 
     // Scroll to bottom when transcript updates
     useEffect(() => {
@@ -122,29 +170,162 @@ export function VoiceCallModal({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    // Text-only mode: use browser SpeechRecognition → /api/voice/infer → SpeechSynthesis
+    const startTextOnlyMode = useCallback(async () => {
+        const SpeechRecognitionAPI = (
+            (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).SpeechRecognition
+            || (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).webkitSpeechRecognition
+        );
+
+        if (!SpeechRecognitionAPI) {
+            throw new Error('Tarayıcınız ses tanımayı desteklemiyor. Chrome kullanmanızı öneririz.');
+        }
+
+        const recognition = new SpeechRecognitionAPI();
+        recognition.lang = language === 'tr' ? 'tr-TR' : 'en-US';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognitionRef.current = recognition;
+
+        recognition.onresult = async (event: SpeechRecognitionEvent) => {
+            const lastResult = event.results[event.results.length - 1];
+            const text = lastResult[0].transcript;
+
+            if (!lastResult.isFinal) {
+                // Interim result — show as typing
+                setTranscript(prev => {
+                    const last = prev[prev.length - 1];
+                    if (last && last.speaker === 'user' && last.text.endsWith('...')) {
+                        return [...prev.slice(0, -1), { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
+                    }
+                    return [...prev, { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
+                });
+                return;
+            }
+
+            // Final result — send to LLM
+            setTranscript(prev => {
+                const filtered = prev.filter(t => !(t.speaker === 'user' && t.text.endsWith('...')));
+                return [...filtered, { speaker: 'user', text, timestamp: new Date().toISOString() }];
+            });
+
+            setIsListening(false);
+            setIsThinking(true);
+
+            try {
+                const response = await fetch('/api/voice/infer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text,
+                        persona,
+                        language,
+                        session_id: sessionIdRef.current,
+                    }),
+                });
+
+                const data = await response.json();
+                const aiText = data.response_text || 'Yanıt alınamadı.';
+
+                setTranscript(prev => [...prev, {
+                    speaker: 'assistant',
+                    text: aiText,
+                    timestamp: new Date().toISOString(),
+                }]);
+
+                // Speak the response using browser TTS
+                if ('speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(aiText);
+                    utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
+                    utterance.rate = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch {
+                setTranscript(prev => [...prev, {
+                    speaker: 'assistant',
+                    text: language === 'tr' ? 'Bir hata oluştu. Tekrar deneyin.' : 'An error occurred. Please try again.',
+                    timestamp: new Date().toISOString(),
+                }]);
+            } finally {
+                setIsThinking(false);
+                setIsListening(true);
+            }
+        };
+
+        recognition.onerror = (event) => {
+            const errEvent = event as SpeechRecognitionErrorEvent;
+            if (errEvent.error !== 'no-speech' && errEvent.error !== 'aborted') {
+                setError(`Ses tanıma hatası: ${errEvent.error}`);
+            }
+        };
+
+        recognition.onend = () => {
+            // Restart recognition if call is still active
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.start();
+                } catch {
+                    // Already started or stopped
+                }
+            }
+        };
+
+        recognition.start();
+        setIsListening(true);
+        setCallState('connected');
+
+        // Add greeting
+        const greeting = language === 'tr'
+            ? 'Merhaba! Ben Callception AI asistanıyım. Size nasıl yardımcı olabilirim?'
+            : 'Hello! I am the Callception AI assistant. How can I help you?';
+
+        setTranscript([{ speaker: 'assistant', text: greeting, timestamp: new Date().toISOString() }]);
+
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(greeting);
+            utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
+            window.speechSynthesis.speak(utterance);
+        }
+    }, [language, persona, callState]);
+
     const startCall = useCallback(async () => {
         setCallState('connecting');
         setError(null);
         setTranscript([]);
         setCallDuration(0);
+        sessionIdRef.current = `session-${Date.now()}`;
 
         try {
-            // Check server availability first (use public health endpoint)
+            // Check server availability first
             const statusRes = await fetch('/api/voice/health');
             const status = await statusRes.json();
 
-            // Accept both 'healthy' and 'ok' status, including mock/demo mode
-            const isAvailable = status.status === 'healthy' || status.status === 'ok' || status.personaplex === true;
+            const isAvailable = status.status === 'healthy' || status.status === 'ok';
+
             if (!isAvailable) {
                 throw new Error(labels.serverUnavailable);
             }
 
-            // Map persona based on language
+            // Determine mode based on capabilities
+            const mode: CallMode = status.mode === 'live' ? 'gpu'
+                : status.mode === 'text-only' ? 'text-only'
+                : status.mode === 'mock' ? 'mock'
+                : 'text-only';
+
+            setCallMode(mode);
+
+            if (mode !== 'gpu') {
+                // Text-only mode: browser STT → LLM → browser TTS
+                await startTextOnlyMode();
+                return;
+            }
+
+            // GPU mode: full Personaplex integration
             const effectivePersona = language === 'en' && !persona.endsWith('_en')
                 ? `${persona}_en`
                 : persona;
 
-            // Initialize client
             const serverUrl = process.env.NEXT_PUBLIC_PERSONAPLEX_URL || 'http://localhost:8998';
             const client = new PersonaplexClient({ serverUrl });
 
@@ -156,7 +337,6 @@ export function VoiceCallModal({
             client.onSessionEnded = async (summary) => {
                 setCallState('idle');
 
-                // Save to Firestore
                 try {
                     await fetch('/api/voice/session', {
                         method: 'POST',
@@ -182,8 +362,6 @@ export function VoiceCallModal({
 
             client.onTranscriptUpdate = (turn) => {
                 setTranscript(prev => {
-                    // If this is an interim user result (ends with ...), 
-                    // replace the last interim entry instead of adding
                     if (turn.speaker === 'user' && turn.text.endsWith('...')) {
                         const lastIdx = prev.length - 1;
                         if (lastIdx >= 0 && prev[lastIdx].speaker === 'user' && prev[lastIdx].text.endsWith('...')) {
@@ -192,7 +370,6 @@ export function VoiceCallModal({
                             return updated;
                         }
                     }
-                    // If this is a final user result, remove the last interim
                     if (turn.speaker === 'user' && !turn.text.endsWith('...')) {
                         const lastIdx = prev.length - 1;
                         if (lastIdx >= 0 && prev[lastIdx].speaker === 'user' && prev[lastIdx].text.endsWith('...')) {
@@ -210,40 +387,43 @@ export function VoiceCallModal({
                 setCallState('error');
             };
 
-            // Connect and start session
             await client.connect();
             client.startSession(effectivePersona);
-
-            // Start audio capture
             await client.startAudioCapture();
 
-            // Initialize visualizer (getUserMedia requires HTTPS or localhost)
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                console.warn('getUserMedia not available - requires HTTPS or localhost');
-                // Continue without visualizer - call still works
-                clientRef.current = client;
-                return;
+            if (navigator.mediaDevices?.getUserMedia) {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const visualizer = new AudioVisualizer();
+                visualizer.onVisualizerData = (data) => {
+                    setVolume(data.volume);
+                    setAudioData(data.waveform);
+                };
+                visualizer.start(stream);
+                visualizerRef.current = visualizer;
             }
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const visualizer = new AudioVisualizer();
-            visualizer.onVisualizerData = (data) => {
-                setVolume(data.volume);
-                setAudioData(data.waveform);
-            };
-            visualizer.start(stream);
 
             clientRef.current = client;
-            visualizerRef.current = visualizer;
 
         } catch (err) {
             console.error('Failed to start call:', err);
             setError(err instanceof Error ? err.message : labels.connectionError);
             setCallState('error');
         }
-    }, [customerId, customerName, customerPhone, persona, language, labels, onCallEnd, onOpenChange]);
+    }, [customerId, customerName, customerPhone, persona, language, labels, onCallEnd, onOpenChange, startTextOnlyMode]);
 
     const endCall = useCallback(() => {
         setCallState('ending');
+
+        // Stop speech recognition (text-only mode)
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+        }
+
+        // Stop speech synthesis
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
 
         if (visualizerRef.current) {
             visualizerRef.current.stop();
@@ -257,12 +437,13 @@ export function VoiceCallModal({
         }
 
         setSession(null);
+        setIsListening(false);
+        setIsThinking(false);
         setCallState('idle');
     }, []);
 
     const toggleMute = useCallback(() => {
         setIsMuted(prev => !prev);
-        // In real implementation, would mute audio capture
     }, []);
 
     // Cleanup on unmount
@@ -273,6 +454,12 @@ export function VoiceCallModal({
             }
             if (visualizerRef.current) {
                 visualizerRef.current.stop();
+            }
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
             }
         };
     }, []);
@@ -286,6 +473,12 @@ export function VoiceCallModal({
                         {labels.title}
                         {customerName && (
                             <Badge variant="secondary">{customerName}</Badge>
+                        )}
+                        {callState === 'connected' && callMode === 'text-only' && (
+                            <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
+                                <MessageSquare className="h-3 w-3 mr-1" />
+                                {labels.textMode}
+                            </Badge>
                         )}
                     </DialogTitle>
                 </DialogHeader>
@@ -309,6 +502,18 @@ export function VoiceCallModal({
                                     {labels.active}
                                 </Badge>
                             )}
+                            {callState === 'connected' && isListening && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300 animate-pulse">
+                                    <Mic className="h-3 w-3 mr-1" />
+                                    {labels.listening}
+                                </Badge>
+                            )}
+                            {callState === 'connected' && isThinking && (
+                                <Badge variant="outline" className="text-purple-600 border-purple-300 animate-pulse">
+                                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    {labels.thinking}
+                                </Badge>
+                            )}
                             {callState === 'error' && (
                                 <Badge variant="destructive">
                                     <AlertCircle className="h-3 w-3 mr-1" />
@@ -328,7 +533,7 @@ export function VoiceCallModal({
                                             : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
-                                        🇹🇷 TR
+                                        TR
                                     </button>
                                     <button
                                         onClick={() => setLanguage('en')}
@@ -337,14 +542,14 @@ export function VoiceCallModal({
                                             : 'text-muted-foreground hover:text-foreground'
                                             }`}
                                     >
-                                        🇬🇧 EN
+                                        EN
                                     </button>
                                 </div>
                             )}
                             {callState === 'connected' && (
                                 <div className="flex items-center gap-1">
                                     <Globe className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">{language === 'tr' ? '🇹🇷' : '🇬🇧'}</span>
+                                    <span className="text-sm font-medium">{language.toUpperCase()}</span>
                                 </div>
                             )}
 
@@ -355,6 +560,13 @@ export function VoiceCallModal({
                             )}
                         </div>
                     </div>
+
+                    {/* Text Mode Info */}
+                    {callState === 'connected' && callMode === 'text-only' && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
+                            <p className="text-sm text-amber-700">{labels.textModeInfo}</p>
+                        </div>
+                    )}
 
                     {/* Error Message */}
                     {error && (
@@ -368,24 +580,26 @@ export function VoiceCallModal({
                         </Card>
                     )}
 
-                    {/* Audio Visualization */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">{labels.audioSignal}</span>
-                            {callState === 'connected' && (
-                                <div className="flex items-center gap-2">
-                                    <Volume2 className="h-4 w-4 text-muted-foreground" />
-                                    <VolumeMeter volume={volume} />
-                                </div>
-                            )}
+                    {/* Audio Visualization (only in GPU mode) */}
+                    {callMode === 'gpu' && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">{labels.audioSignal}</span>
+                                {callState === 'connected' && (
+                                    <div className="flex items-center gap-2">
+                                        <Volume2 className="h-4 w-4 text-muted-foreground" />
+                                        <VolumeMeter volume={volume} />
+                                    </div>
+                                )}
+                            </div>
+                            <AudioWaveform
+                                audioData={audioData}
+                                volume={volume}
+                                isActive={callState === 'connected'}
+                                color={isMuted ? '#ef4444' : '#22c55e'}
+                            />
                         </div>
-                        <AudioWaveform
-                            audioData={audioData}
-                            volume={volume}
-                            isActive={callState === 'connected'}
-                            color={isMuted ? '#ef4444' : '#22c55e'}
-                        />
-                    </div>
+                    )}
 
                     {/* Transcript */}
                     <div className="space-y-2">

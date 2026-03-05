@@ -3,10 +3,12 @@
 // STT (browser) → GPT-4o-mini (here) → TTS (browser)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { gpuCircuitBreaker, openaiCircuitBreaker } from '@/lib/voice/circuit-breaker';
+import { gpuCircuitBreaker, openaiCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { gpuManager } from '@/lib/voice/gpu-manager';
 import { inferCache, buildInferCacheKey, type CachedInferResponse } from '@/lib/voice/response-cache';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { generateGroqResponse, isGroqConfigured } from '@/lib/ai/groq-client';
+import { generateGeminiResponse, isGeminiConfigured } from '@/lib/ai/gemini-client';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
@@ -255,36 +257,73 @@ export async function POST(request: NextRequest) {
         // --- MOCK MODE OVERRIDE ---
         if (process.env.PERSONAPLEX_MOCK_MODE === 'true') {
             const lowerText = text.toLowerCase();
-            let intent = 'unknown';
-            let response_text = 'Simülasyon modundayız. Size nasıl yardımcı olabilirim?';
 
-            // Simplified Intent Matching for Mock Mode
-            if (/randevu|tarih|saat|görüşme/.test(lowerText)) {
+            // Get mock session for multi-turn tracking
+            let mockSession = conversationStore.get(sessionId);
+            if (!mockSession) {
+                mockSession = { messages: [], lastActivity: Date.now(), turnCount: 0 };
+                conversationStore.set(sessionId, mockSession);
+            }
+            mockSession.turnCount++;
+            mockSession.lastActivity = Date.now();
+
+            let intent = 'unknown';
+            let response_text = '';
+            let confidence = 0.95;
+
+            // Multi-turn mock scenarios with context awareness
+            if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
+                intent = 'greeting';
+                response_text = 'Merhaba! Callception\'a hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim?';
+            } else if (/randevu|tarih|saat|görüşme/.test(lowerText)) {
                 intent = 'appointment';
-                response_text = 'Tabii, randevu oluşturabilirim. Hangi gün ve saat uygun olur?';
+                if (mockSession.turnCount <= 2) {
+                    response_text = 'Tabii, randevu oluşturabilirim. Hangi gün ve saat uygun olur?';
+                } else {
+                    response_text = 'Randevunuzu aldım. Onay mesajı kısa süre içinde gönderilecektir. Başka bir isteğiniz var mı?';
+                }
             } else if (/şikayet|sorun|problem|memnun/.test(lowerText)) {
                 intent = 'complaint';
-                response_text = 'Yaşadığınız sorun için üzgünüm. Detayları alabilir miyim?';
+                if (mockSession.turnCount <= 2) {
+                    response_text = 'Yaşadığınız sorun için üzgünüm. Detayları alabilir miyim? Adınız ve sorunun ne olduğunu söyler misiniz?';
+                } else {
+                    response_text = 'Şikayetinizi kaydettim. En kısa sürede sizi bilgilendireceğiz. Başka yardımcı olabileceğim bir konu var mı?';
+                }
             } else if (/bilgi|fiyat|nasıl|nedir/.test(lowerText)) {
                 intent = 'info_request';
-                response_text = 'Fiyat bilgisi için size yardımcı olabilirim. Hangi ürün/hizmet ile ilgileniyorsunuz?';
-            } else if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
-                intent = 'greeting';
-                response_text = 'Merhaba! Callception\'a hoş geldiniz. Size nasıl yardımcı olabilirim?';
+                response_text = 'Size yardımcı olabilirim. Hangi hizmetimiz hakkında bilgi almak istiyorsunuz?';
+            } else if (/iptal|değişiklik|vazgeç/.test(lowerText)) {
+                intent = 'cancellation';
+                response_text = 'İptal talebinizi aldım. Randevu numaranızı veya adınızı söyler misiniz?';
+            } else if (/teşekkür|sağ ol|eyvallah/.test(lowerText)) {
+                intent = 'thanks';
+                response_text = 'Rica ederim! Başka bir konuda yardımcı olabilir miyim?';
+            } else if (/hoşça kal|görüşürüz|bay bay|güle güle/.test(lowerText)) {
+                intent = 'farewell';
+                response_text = 'İyi günler dilerim! Tekrar aramaktan çekinmeyin.';
+            } else {
+                // Context-aware fallback
+                confidence = 0.6;
+                const responses = [
+                    'Anlıyorum. Bu konuda size nasıl yardımcı olabilirim?',
+                    'Daha detaylı açıklar mısınız? Size en iyi şekilde yardımcı olmak istiyorum.',
+                    'Tabii, bu konuyu not aldım. Başka eklemek istediğiniz bir şey var mı?',
+                ];
+                response_text = responses[mockSession.turnCount % responses.length];
             }
 
             const latencyMs = performance.now() - startMs;
-            // Mock mode inference complete
 
             return NextResponse.json({
                 session_id: sessionId,
                 intent,
-                confidence: 0.95,
+                confidence,
                 response_text,
-                latency_ms: latencyMs + 100, // add some artificial delay
+                latency_ms: latencyMs + 100,
                 source: 'mock-engine',
                 cached: false,
-                mode: 'mock'
+                mode: 'mock',
+                turn: mockSession.turnCount,
             });
         }
 
@@ -362,11 +401,100 @@ export async function POST(request: NextRequest) {
 
                 return NextResponse.json(result);
             } catch {
+                // Fall through to Groq fallback
+            }
+        }
+
+        // ---- Fallback 2: Groq (free, fast) ----
+        if (isGroqConfigured() && !groqCircuitBreaker.isOpen()) {
+            try {
+                // Get or create conversation for Groq
+                let session = conversationStore.get(sessionId);
+                if (!session) {
+                    session = {
+                        messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+                        lastActivity: Date.now(),
+                        turnCount: 0,
+                    };
+                    conversationStore.set(sessionId, session);
+                }
+
+                if (session.messages[session.messages.length - 1]?.content !== text) {
+                    session.messages.push({ role: 'user', content: text });
+                    session.lastActivity = Date.now();
+                    session.turnCount++;
+                }
+
+                const rawResponse = await groqCircuitBreaker.execute(() =>
+                    generateGroqResponse(session!.messages, { maxTokens: 150, temperature: 0.7 }),
+                );
+
+                const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
+                session.messages.push({ role: 'assistant', content: cleanText });
+
+                const latencyMs = performance.now() - startMs;
+                const result = {
+                    session_id: sessionId,
+                    intent,
+                    confidence,
+                    response_text: cleanText,
+                    latency_ms: latencyMs,
+                    source: 'groq-llama',
+                    turn: session.turnCount,
+                };
+
+                inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
+                return NextResponse.json(result);
+            } catch {
+                // Fall through to Gemini fallback
+            }
+        }
+
+        // ---- Fallback 3: Google Gemini (free) ----
+        if (isGeminiConfigured() && !geminiCircuitBreaker.isOpen()) {
+            try {
+                let session = conversationStore.get(sessionId);
+                if (!session) {
+                    session = {
+                        messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+                        lastActivity: Date.now(),
+                        turnCount: 0,
+                    };
+                    conversationStore.set(sessionId, session);
+                }
+
+                if (session.messages[session.messages.length - 1]?.content !== text) {
+                    session.messages.push({ role: 'user', content: text });
+                    session.lastActivity = Date.now();
+                    session.turnCount++;
+                }
+
+                const rawResponse = await geminiCircuitBreaker.execute(() =>
+                    generateGeminiResponse(session!.messages, { maxTokens: 150, temperature: 0.7 }),
+                );
+
+                const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
+                session.messages.push({ role: 'assistant', content: cleanText });
+
+                const latencyMs = performance.now() - startMs;
+                const result = {
+                    session_id: sessionId,
+                    intent,
+                    confidence,
+                    response_text: cleanText,
+                    latency_ms: latencyMs,
+                    source: 'gemini-flash',
+                    turn: session.turnCount,
+                };
+
+                inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
+                return NextResponse.json(result);
+            } catch {
                 // Fall through to Personaplex fallback
             }
         }
 
-        // ---- Fallback: Personaplex keyword-based ----
+        // ---- Fallback 4: Personaplex keyword-based ----
         if (!gpuCircuitBreaker.isOpen()) {
             try {
                 const data = await callPersonaplex(text, persona, language);
@@ -404,6 +532,8 @@ export async function POST(request: NextRequest) {
             latency_ms: latencyMs,
             circuit_breaker: {
                 openai: openaiCircuitBreaker.getStats(),
+                groq: groqCircuitBreaker.getStats(),
+                gemini: geminiCircuitBreaker.getStats(),
                 gpu: gpuCircuitBreaker.getStats(),
             },
         });
@@ -421,7 +551,14 @@ export async function GET() {
         cache: inferCache.getStats(),
         circuitBreakers: {
             openai: openaiCircuitBreaker.getStats(),
+            groq: groqCircuitBreaker.getStats(),
+            gemini: geminiCircuitBreaker.getStats(),
             gpu: gpuCircuitBreaker.getStats(),
+        },
+        providers: {
+            openai: !!OPENAI_API_KEY,
+            groq: isGroqConfigured(),
+            gemini: isGeminiConfigured(),
         },
         gpu: gpuManager.getStatus(),
     });

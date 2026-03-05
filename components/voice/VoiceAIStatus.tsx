@@ -12,7 +12,17 @@ import {
     Timer,
     HardDrive,
     RefreshCw,
+    MessageSquare,
+    CheckCircle2,
+    XCircle,
 } from 'lucide-react';
+
+interface Capabilities {
+    gpu: boolean;
+    openai: boolean;
+    groq: boolean;
+    gemini: boolean;
+}
 
 interface GPUHealth {
     status: 'healthy' | 'degraded' | 'offline';
@@ -24,8 +34,10 @@ interface GPUHealth {
     max_sessions: number;
     latency_ms: number;
     uptime_seconds?: number;
-    mode: 'live' | 'mock' | 'degraded';
+    mode: 'live' | 'text-only' | 'mock' | 'degraded';
     cached?: boolean;
+    capabilities?: Capabilities;
+    message?: string;
     system?: {
         circuitBreakers?: Record<string, string>;
         cache?: Record<string, { hits: number; misses: number; size: number }>;
@@ -78,9 +90,14 @@ export function VoiceAIStatus() {
 
     useEffect(() => {
         fetchHealth();
-        const interval = setInterval(fetchHealth, 30000); // Refresh every 30s
+        const interval = setInterval(fetchHealth, 30000);
         return () => clearInterval(interval);
     }, [fetchHealth]);
+
+    const isTextOnly = health?.mode === 'text-only';
+    const hasAnyProvider = health?.capabilities
+        ? (health.capabilities.openai || health.capabilities.groq || health.capabilities.gemini)
+        : false;
 
     const statusColor = health?.status === 'healthy'
         ? 'text-emerald-400'
@@ -109,19 +126,44 @@ export function VoiceAIStatus() {
         return `${hours}h ${mins}m`;
     };
 
+    const getStatusLabel = () => {
+        if (health?.status === 'healthy' && isTextOnly) return 'Metin Modu';
+        if (health?.status === 'healthy') return 'Çevrimiçi';
+        if (health?.status === 'degraded') return 'Kısıtlı';
+        return 'Çevrimdışı';
+    };
+
+    const getModeLabel = () => {
+        if (health?.mode === 'live') return 'Canlı (GPU)';
+        if (health?.mode === 'text-only') return 'Metin Modu (LLM)';
+        if (health?.mode === 'mock') return 'Demo';
+        return 'Kapalı';
+    };
+
+    const getModeEmoji = () => {
+        if (health?.mode === 'live') return '🟢';
+        if (health?.mode === 'text-only') return '🟡';
+        if (health?.mode === 'mock') return '🟠';
+        return '🔴';
+    };
+
     return (
         <Card className={`border ${statusBg} transition-all duration-500`}>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
-                        <Cpu className={`h-5 w-5 ${statusColor}`} />
+                        {isTextOnly ? (
+                            <MessageSquare className={`h-5 w-5 text-amber-400`} />
+                        ) : (
+                            <Cpu className={`h-5 w-5 ${statusColor}`} />
+                        )}
                         Voice AI Durumu
                     </CardTitle>
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
                             <span className={`inline-block h-2 w-2 rounded-full ${statusDot} ${health?.status === 'healthy' ? 'animate-pulse' : ''}`} />
                             <span className={`text-xs font-medium ${statusColor}`}>
-                                {health?.status === 'healthy' ? 'Çevrimiçi' : health?.status === 'degraded' ? 'Kısıtlı' : 'Çevrimdışı'}
+                                {getStatusLabel()}
                             </span>
                         </div>
                         <button
@@ -136,65 +178,91 @@ export function VoiceAIStatus() {
                 </div>
             </CardHeader>
             <CardContent>
-                {/* GPU Info Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    {/* GPU */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
-                        <HardDrive className="h-4 w-4 text-violet-400 shrink-0" />
-                        <div className="min-w-0">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">GPU</p>
-                            <p className="text-xs font-medium truncate">
-                                {health?.gpu || 'N/A'}
-                            </p>
-                        </div>
+                {/* Info Message for text-only mode */}
+                {isTextOnly && health?.message && (
+                    <div className="mb-3 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                        <p className="text-xs text-amber-300">{health.message}</p>
                     </div>
+                )}
 
-                    {/* Sessions */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
-                        <Users className="h-4 w-4 text-blue-400 shrink-0" />
-                        <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Oturumlar</p>
-                            <p className="text-xs font-medium">
-                                {health?.active_sessions ?? 0} / {health?.max_sessions ?? 0}
-                            </p>
-                        </div>
+                {/* LLM Provider Status */}
+                {health?.capabilities && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <ProviderBadge name="GPU" active={health.capabilities.gpu} />
+                        <ProviderBadge name="OpenAI" active={health.capabilities.openai} />
+                        <ProviderBadge name="Groq" active={health.capabilities.groq} />
+                        <ProviderBadge name="Gemini" active={health.capabilities.gemini} />
                     </div>
+                )}
 
-                    {/* Latency */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
-                        <Zap className="h-4 w-4 text-amber-400 shrink-0" />
-                        <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gecikme</p>
-                            <p className="text-xs font-medium">
-                                {health?.latency_ms ? `${health.latency_ms}ms` : '—'}
-                            </p>
+                {/* GPU Info Row (only if GPU is active) */}
+                {health?.personaplex && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <HardDrive className="h-4 w-4 text-violet-400 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">GPU</p>
+                                <p className="text-xs font-medium truncate">{health?.gpu || 'N/A'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <Users className="h-4 w-4 text-blue-400 shrink-0" />
+                            <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Oturumlar</p>
+                                <p className="text-xs font-medium">{health?.active_sessions ?? 0} / {health?.max_sessions ?? 0}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <Zap className="h-4 w-4 text-amber-400 shrink-0" />
+                            <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gecikme</p>
+                                <p className="text-xs font-medium">{health?.latency_ms ? `${health.latency_ms}ms` : '—'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <Timer className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Çalışma</p>
+                                <p className="text-xs font-medium">{formatUptime(health?.uptime_seconds)}</p>
+                            </div>
                         </div>
                     </div>
+                )}
 
-                    {/* Uptime */}
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
-                        <Timer className="h-4 w-4 text-emerald-400 shrink-0" />
-                        <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Çalışma</p>
-                            <p className="text-xs font-medium">
-                                {formatUptime(health?.uptime_seconds)}
-                            </p>
+                {/* Latency row for text-only mode */}
+                {!health?.personaplex && health?.latency_ms != null && (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <Zap className="h-4 w-4 text-amber-400 shrink-0" />
+                            <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gecikme</p>
+                                <p className="text-xs font-medium">{health.latency_ms ? `${health.latency_ms}ms` : '—'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <Activity className="h-4 w-4 text-blue-400 shrink-0" />
+                            <div>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Mod</p>
+                                <p className="text-xs font-medium">{getModeLabel()}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* Pipeline Providers */}
                 <div className="flex items-center gap-4 text-xs">
                     <div className="flex items-center gap-1.5">
                         {pipeline?.pipeline?.providers?.stt?.includes('deepgram') ? (
                             <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+                        ) : isTextOnly ? (
+                            <Wifi className="h-3.5 w-3.5 text-amber-400" />
                         ) : (
                             <WifiOff className="h-3.5 w-3.5 text-red-400" />
                         )}
                         <span className="text-muted-foreground">STT</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        {pipeline?.pipeline?.providers?.llm?.includes('gpt') ? (
+                        {hasAnyProvider ? (
                             <Activity className="h-3.5 w-3.5 text-emerald-400" />
                         ) : (
                             <Activity className="h-3.5 w-3.5 text-red-400" />
@@ -204,13 +272,15 @@ export function VoiceAIStatus() {
                     <div className="flex items-center gap-1.5">
                         {pipeline?.pipeline?.providers?.tts?.includes('elevenlabs') ? (
                             <Wifi className="h-3.5 w-3.5 text-emerald-400" />
+                        ) : isTextOnly ? (
+                            <Wifi className="h-3.5 w-3.5 text-amber-400" />
                         ) : (
                             <WifiOff className="h-3.5 w-3.5 text-red-400" />
                         )}
                         <span className="text-muted-foreground">TTS</span>
                     </div>
                     <div className="ml-auto text-[10px] text-muted-foreground">
-                        {health?.mode === 'live' ? '🟢 Canlı' : health?.mode === 'mock' ? '🟡 Demo' : '🔴 Kapalı'}
+                        {getModeEmoji()} {getModeLabel()}
                         {lastChecked && ` · ${lastChecked.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}`}
                     </div>
                 </div>
@@ -232,5 +302,23 @@ export function VoiceAIStatus() {
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+function ProviderBadge({ name, active }: { name: string; active: boolean }) {
+    return (
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+            {active ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+            ) : (
+                <XCircle className="h-4 w-4 text-red-400/50 shrink-0" />
+            )}
+            <div>
+                <p className="text-xs font-medium">{name}</p>
+                <p className={`text-[10px] ${active ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                    {active ? 'Aktif' : 'Kapalı'}
+                </p>
+            </div>
+        </div>
     );
 }

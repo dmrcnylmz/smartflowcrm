@@ -280,3 +280,19 @@ export const ttsCircuitBreaker = new CircuitBreaker({
     resetTimeout: 20_000,
     failureWindowMs: 60_000,
 });
+
+/** Circuit breaker for Groq API calls (free LLM fallback) */
+export const groqCircuitBreaker = new CircuitBreaker({
+    name: 'groq-api',
+    failureThreshold: 5,
+    resetTimeout: 15_000,
+    failureWindowMs: 120_000,
+});
+
+/** Circuit breaker for Google Gemini API calls (free LLM fallback) */
+export const geminiCircuitBreaker = new CircuitBreaker({
+    name: 'gemini-api',
+    failureThreshold: 5,
+    resetTimeout: 15_000,
+    failureWindowMs: 120_000,
+});
