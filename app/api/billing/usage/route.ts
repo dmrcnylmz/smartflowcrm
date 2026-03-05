@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getUsage, getUsageHistory, estimateCost } from '@/lib/billing/metering';
+import { getUsage, getUsageHistory, estimateCost, checkUsageLimits, estimatePerCallCost, SUBSCRIPTION_TIERS } from '@/lib/billing/metering';
 import { handleApiError } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
@@ -33,8 +33,17 @@ export async function GET(request: NextRequest) {
         // Get current usage
         const usage = await getUsage(getDb(), tenantId, period);
 
-        // Estimate cost
+        // Detailed cost breakdown
         const cost = estimateCost(usage, tier);
+
+        // Usage limits check
+        const limits = checkUsageLimits(usage, tier);
+
+        // Per-call cost estimate (3-min average)
+        const perCallCost = estimatePerCallCost(3);
+
+        // Tier info
+        const tierInfo = SUBSCRIPTION_TIERS[tier] || SUBSCRIPTION_TIERS.starter;
 
         // Get history if requested
         let history = undefined;
@@ -45,6 +54,9 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             usage,
             cost,
+            limits,
+            perCallCost,
+            tierInfo: { name: tierInfo.name, includedMinutes: tierInfo.includedMinutes, includedCalls: tierInfo.includedCalls },
             ...(history ? { history } : {}),
         }, {
             headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },

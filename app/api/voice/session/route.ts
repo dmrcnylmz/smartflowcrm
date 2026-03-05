@@ -162,7 +162,6 @@ export async function POST(request: NextRequest) {
 
         // Import Firestore functions
         const { addCallLog } = await import('@/lib/firebase/db');
-        const { Timestamp } = await import('firebase/firestore');
 
         // Create call log entry
         const callLog = await addCallLog({
@@ -173,7 +172,7 @@ export async function POST(request: NextRequest) {
             status: 'answered',
             duration: Math.round(duration || 0),
             durationSec: Math.round(duration || 0),
-            timestamp: Timestamp.now(),
+            timestamp: new Date(),
             intent: 'unknown',
             transcript: transcript?.map((t: { speaker: string; text: string }) =>
                 `${t.speaker}: ${t.text}`
