@@ -45,7 +45,7 @@ if (typeof setInterval !== 'undefined') {
 // =============================================
 // CRM System Prompt (Turkish AI Receptionist)
 // =============================================
-const SYSTEM_PROMPT = `Sen SmartFlow CRM'in AI resepsiyonistisin. Adın Ayşe. Türkçe konuşuyorsun.
+const SYSTEM_PROMPT = `Sen Callception'ın AI resepsiyonistisin. Adın Ayşe. Türkçe konuşuyorsun.
 
 GÖREVLER:
 1. Müşterileri sıcak ve profesyonel karşıla
@@ -66,7 +66,7 @@ Her yanıtının sonuna aşağıdaki intent etiketini ekle (tek satırda):
 [INTENT:appointment|complaint|info_request|cancellation|greeting|unknown CONFIDENCE:0.0-1.0]
 
 Örnek:
-"Merhaba! SmartFlow CRM'e hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim? [INTENT:greeting CONFIDENCE:0.95]"
+"Merhaba! Callception'a hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim? [INTENT:greeting CONFIDENCE:0.95]"
 "Randevunuzu aldım. Hangi gün ve saat uygun olur? [INTENT:appointment CONFIDENCE:0.9]"`;
 
 // =============================================
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
                 response_text = 'Fiyat bilgisi için size yardımcı olabilirim. Hangi ürün/hizmet ile ilgileniyorsunuz?';
             } else if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
                 intent = 'greeting';
-                response_text = 'Merhaba! SmartFlow CRM\'e hoş geldiniz. Size nasıl yardımcı olabilirim?';
+                response_text = 'Merhaba! Callception\'a hoş geldiniz. Size nasıl yardımcı olabilirim?';
             }
 
             const latencyMs = performance.now() - startMs;

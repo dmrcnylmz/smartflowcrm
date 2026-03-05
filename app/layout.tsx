@@ -4,12 +4,12 @@ import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
     title: {
-        default: 'SmartFlow CRM - AI Receptionist',
-        template: '%s | SmartFlow CRM',
+        default: 'Callception - AI Destekli Çağrı Yönetimi',
+        template: '%s | Callception',
     },
-    description: 'Yapay zeka destekli sesli asistan ve müşteri hizmetleri platformu. Çağrılarınızı otomatikleştirin, müşterilerinizi yönetin.',
-    keywords: ['CRM', 'AI', 'sesli asistan', 'müşteri hizmetleri', 'çağrı merkezi', 'SmartFlow'],
-    authors: [{ name: 'SmartFlow' }],
+    description: 'Callception - Yapay zeka destekli sesli asistan ve müşteri hizmetleri platformu. Çağrılarınızı otomatikleştirin, müşterilerinizi yönetin.',
+    keywords: ['CRM', 'AI', 'sesli asistan', 'müşteri hizmetleri', 'çağrı merkezi', 'Callception'],
+    authors: [{ name: 'Callception' }],
     robots: 'noindex, nofollow',
     icons: {
         icon: '/favicon.ico',

@@ -1,7 +1,7 @@
 /**
  * iyzico Payment Service — Turkish Payment Gateway Integration
  *
- * Handles subscription billing for SmartFlow CRM:
+ * Handles subscription billing for Callception:
  * - Checkout form initialization (iyzico hosted payment page)
  * - Payment verification
  * - Subscription management in Firestore
@@ -230,7 +230,7 @@ export async function createCheckoutForm(options: {
         basketItems: [
             {
                 id: planId,
-                name: `SmartFlow ${plan.name} - Aylık Abonelik`,
+                name: `Callception ${plan.name} - Aylık Abonelik`,
                 category1: 'SaaS Abonelik',
                 category2: 'AI Asistan',
                 itemType: Iyzipay.BASKET_ITEM_TYPE.VIRTUAL,

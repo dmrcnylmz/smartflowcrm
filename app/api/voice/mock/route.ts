@@ -29,7 +29,7 @@ const MOCK_RESPONSES: Record<string, { intent: string; response: string; confide
     },
     merhaba: {
         intent: 'greeting',
-        response: 'Merhaba! SmartFlow CRM\'e hoş geldiniz. Size nasıl yardımcı olabilirim?',
+        response: 'Merhaba! Callception\'a hoş geldiniz. Size nasıl yardımcı olabilirim?',
         confidence: 0.95,
     },
     teşekkür: {

@@ -43,6 +43,8 @@ const ALLOWED_ORIGINS = [
         'http://localhost:3009',
         'http://127.0.0.1:3009',
     ] : []),
+    'https://callception.com',
+    'https://www.callception.com',
     process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 

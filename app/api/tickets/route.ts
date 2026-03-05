@@ -31,13 +31,17 @@ export async function GET(request: NextRequest) {
         customerId: customerId || undefined,
         status: status || undefined,
       });
-      return NextResponse.json(complaints);
+      return NextResponse.json(complaints, {
+        headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+      });
     } else {
       const infoRequests = await getInfoRequests(tenantId, {
         customerId: customerId || undefined,
         status: status || undefined,
       });
-      return NextResponse.json(infoRequests);
+      return NextResponse.json(infoRequests, {
+        headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+      });
     }
   } catch (error: unknown) {
     return handleApiError(error, 'Tickets GET');

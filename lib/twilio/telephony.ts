@@ -1,7 +1,7 @@
 /**
  * Twilio Telephony Helpers
  *
- * Manages Twilio integration for SmartFlow:
+ * Manages Twilio integration for Callception:
  * - TwiML generation for ConversationRelay
  * - Call status tracking
  * - Phone number management per tenant
@@ -60,7 +60,7 @@ export interface CallRecord {
 
 /**
  * Generate TwiML for incoming calls using ConversationRelay.
- * This connects human caller → Twilio STT → WebSocket → SmartFlow → TTS.
+ * This connects human caller → Twilio STT → WebSocket → Callception → TTS.
  */
 export function generateConversationRelayTwiML(options: {
     wsUrl: string;
@@ -72,7 +72,7 @@ export function generateConversationRelayTwiML(options: {
 }): string {
     const {
         wsUrl,
-        welcomeGreeting = 'Merhaba, SmartFlow sesli asistanına hoşgeldiniz. Size nasıl yardımcı olabilirim?',
+        welcomeGreeting = 'Merhaba, Callception sesli asistanına hoşgeldiniz. Size nasıl yardımcı olabilirim?',
         language = 'tr-TR',
         voice = 'Google.tr-TR-Standard-A',
         dtmfDetection = true,

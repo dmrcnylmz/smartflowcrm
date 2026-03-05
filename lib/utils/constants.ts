@@ -1,4 +1,4 @@
-export const APP_NAME = 'SmartFlow CRM';
+export const APP_NAME = 'Callception';
 export const APP_VERSION = '1.0.0';
 
 export const ITEMS_PER_PAGE = 20;

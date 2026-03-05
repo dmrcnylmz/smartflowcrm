@@ -54,7 +54,7 @@ export interface CallSummaryData {
 // Email Service
 // =============================================
 
-const FROM_EMAIL = process.env.EMAIL_FROM || 'SmartFlow CRM <noreply@smartflowcrm.com>';
+const FROM_EMAIL = process.env.EMAIL_FROM || 'Callception <noreply@callception.com>';
 
 let resend: Resend | null = null;
 
@@ -153,7 +153,7 @@ export async function sendAppointmentReminder(data: AppointmentReminderData) {
         Değişiklik veya iptal için: <a href="tel:${data.companyPhone}" style="color: #3b82f6; text-decoration: none; font-weight: 500;">${escapeHtml(data.companyPhone)}</a>
       </p>` : ''}
       <p style="color: #94a3b8; margin: 24px 0 0; font-size: 12px;">
-        Bu e-posta ${escapeHtml(data.companyName)} tarafından SmartFlow CRM aracılığıyla gönderilmiştir.
+        Bu e-posta ${escapeHtml(data.companyName)} tarafından Callception aracılığıyla gönderilmiştir.
       </p>
     </div>
   </div>
@@ -186,7 +186,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px;">
   <div style="max-width: 560px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
     <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 24px 32px;">
-      <h1 style="color: white; margin: 0; font-size: 20px;">🎉 SmartFlow CRM'e Hoş Geldiniz!</h1>
+      <h1 style="color: white; margin: 0; font-size: 20px;">🎉 Callception'a Hoş Geldiniz!</h1>
     </div>
     <div style="padding: 32px;">
       <p style="color: #334155; margin: 0 0 16px; font-size: 15px;">
@@ -210,7 +210,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
         </ol>
       </div>
       <p style="color: #94a3b8; margin: 0; font-size: 12px;">
-        Sorularınız için: info@smartflowcrm.com
+        Sorularınız için: info@callception.com
       </p>
     </div>
   </div>
@@ -219,7 +219,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData) {
 
     return sendEmail({
         to: data.userEmail,
-        subject: `🎉 SmartFlow CRM'e Hoş Geldiniz - ${data.companyName}`,
+        subject: `🎉 Callception'a Hoş Geldiniz - ${data.companyName}`,
         html,
         tags: [
             { name: 'type', value: 'welcome' },
@@ -279,7 +279,7 @@ export async function sendCallSummary(data: CallSummaryData) {
         </p>
       </div>
       <p style="color: #94a3b8; margin: 0; font-size: 12px;">
-        SmartFlow CRM - AI Sesli Asistan
+        Callception - AI Çağrı Yönetimi
       </p>
     </div>
   </div>

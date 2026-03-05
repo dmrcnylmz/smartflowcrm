@@ -32,7 +32,7 @@ interface VoiceTestModalProps {
 
 export function VoiceTestModal({
     tenantId = 'default',
-    agentName = 'SmartFlow AI',
+    agentName = 'Callception AI',
     isOpen,
     onClose,
 }: VoiceTestModalProps) {

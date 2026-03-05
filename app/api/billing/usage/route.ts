@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
             usage,
             cost,
             ...(history ? { history } : {}),
+        }, {
+            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
         });
 
     } catch (error) {

@@ -79,7 +79,7 @@ async function processUrl(source: DocumentSource): Promise<ProcessedDocument> {
     try {
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'SmartFlow-KB-Bot/1.0',
+                'User-Agent': 'Callception-KB-Bot/1.0',
                 'Accept': 'text/html,application/xhtml+xml,text/plain',
             },
             signal: AbortSignal.timeout(15000),

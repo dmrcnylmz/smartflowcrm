@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
       dateTo: dateTo ? new Date(dateTo) : undefined,
     });
 
-    return NextResponse.json(appointments);
+    return NextResponse.json(appointments, {
+      headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+    });
   } catch (error: unknown) {
     return handleApiError(error, 'Appointments GET');
   }

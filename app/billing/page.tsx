@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/lib/firebase/auth-context';
@@ -466,7 +465,7 @@ function BillingPageContent() {
                                 {planIcons[subscription.planId] || <ShieldCheck className="h-8 w-8" />}
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold capitalize">SmartFlow {subscription.planId} Plan</h3>
+                                <h3 className="text-xl font-bold capitalize">Callception {subscription.planId} Plan</h3>
                                 <p className="text-muted-foreground text-sm mt-1">
                                     {subscription.status === 'trialing'
                                         ? `Deneme süresi: ${subscription.trialEndsAt ? new Date(subscription.trialEndsAt).toLocaleDateString('tr-TR') : '-'}  tarihine kadar`

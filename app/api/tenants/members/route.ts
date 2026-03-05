@@ -89,6 +89,8 @@ export async function GET(request: NextRequest) {
             tenantId,
             members,
             count: members.length,
+        }, {
+            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
         });
 
     } catch (error) {

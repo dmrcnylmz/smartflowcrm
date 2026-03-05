@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -12,7 +11,7 @@ import { Shield, ChevronDown, ChevronUp } from 'lucide-react';
 const SECTIONS = [
     {
         title: '1. Veri Sorumlusu',
-        content: `SmartFlow CRM ("Şirket"), kişisel verilerinizin işlenmesinde veri sorumlusu sıfatıyla hareket etmektedir. Şirket, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") kapsamında kişisel verilerinizi aşağıda açıklanan amaçlar doğrultusunda, hukuka ve dürüstlük kurallarına uygun olarak işlemektedir.`,
+        content: `Callception ("Şirket"), kişisel verilerinizin işlenmesinde veri sorumlusu sıfatıyla hareket etmektedir. Şirket, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") kapsamında kişisel verilerinizi aşağıda açıklanan amaçlar doğrultusunda, hukuka ve dürüstlük kurallarına uygun olarak işlemektedir.`,
     },
     {
         title: '2. İşlenen Kişisel Veriler',
@@ -131,7 +130,7 @@ export default function PrivacyPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Gizlilik ve KVKK Aydınlatma Metni</h1>
-                        <p className="text-sm text-muted-foreground">SmartFlow CRM Kişisel Verilerin Korunması</p>
+                        <p className="text-sm text-muted-foreground">Callception Kişisel Verilerin Korunması</p>
                     </div>
                 </div>
 

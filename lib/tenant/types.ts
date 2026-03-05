@@ -216,14 +216,14 @@ export interface SessionMetrics {
 
 export const DEFAULT_TENANT: TenantConfig = {
     id: 'default',
-    companyName: 'SmartFlow Demo',
+    companyName: 'Callception Demo',
     sector: 'Teknoloji',
     language: 'tr-en',
     agent: {
         name: 'Ayşe',
         role: 'Müşteri Temsilcisi',
         traits: ['profesyonel', 'nazik', 'çözüm odaklı', 'sabırlı'],
-        greeting: 'Merhaba, SmartFlow Demo\'ya hoş geldiniz. Ben Ayşe, size nasıl yardımcı olabilirim?',
+        greeting: 'Merhaba, Callception Demo\'ya hoş geldiniz. Ben Ayşe, size nasıl yardımcı olabilirim?',
         farewell: 'Aradığınız için teşekkür ederiz. İyi günler dileriz.',
     },
     business: {
@@ -231,8 +231,8 @@ export const DEFAULT_TENANT: TenantConfig = {
         workingDays: 'Pazartesi-Cuma',
         services: ['CRM Yönetimi', 'Sesli AI Asistan', 'Otomasyon'],
         phone: '+90 212 000 00 00',
-        email: 'info@smartflow.demo',
-        website: 'https://smartflow.demo',
+        email: 'info@callception.com',
+        website: 'https://callception.com',
     },
     voice: {
         voiceId: 'EXAVITQu4vr4xnSDxMaL', // Sarah - professional female

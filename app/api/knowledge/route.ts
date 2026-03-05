@@ -78,16 +78,22 @@ export async function GET(request: NextRequest) {
         if (query) {
             const topK = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get('topK') || '5') || 5, 1), 50);
             const results = await queryKnowledgeBase(tenantId!, query, topK);
-            return NextResponse.json({ query, results, count: results.length });
+            return NextResponse.json({ query, results, count: results.length }, {
+                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            });
         }
 
         if (action === 'stats') {
             const stats = await getKBStats(tenantId!);
-            return NextResponse.json(stats);
+            return NextResponse.json(stats, {
+                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            });
         }
 
         const documents = await listKBDocuments(tenantId!);
-        return NextResponse.json({ documents, count: documents.length });
+        return NextResponse.json({ documents, count: documents.length }, {
+            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+        });
 
     } catch (error) {
         return handleApiError(error, 'Knowledge GET');

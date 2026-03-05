@@ -46,75 +46,76 @@ export async function GET(request: NextRequest) {
         const firestore = getDb();
         const now = new Date();
         const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        const in1Hour = new Date(now.getTime() + 1 * 60 * 60 * 1000);
 
-        // Get all active tenants
-        const tenantsSnap = await firestore
-            .collection('tenants')
-            .where('active', '==', true)
+        // Single collectionGroup query instead of N+1 per-tenant queries
+        const appointmentsSnap = await firestore
+            .collectionGroup('appointments')
+            .where('status', '==', 'scheduled')
+            .where('dateTime', '>=', now)
+            .where('dateTime', '<=', in24Hours)
             .get();
+
+        // Build tenant cache for company info (lazy-loaded)
+        const tenantCache = new Map<string, Record<string, unknown>>();
+
+        async function getTenantData(tenantId: string) {
+            if (tenantCache.has(tenantId)) return tenantCache.get(tenantId)!;
+            const doc = await firestore.collection('tenants').doc(tenantId).get();
+            const data = doc.data() || {};
+            tenantCache.set(tenantId, data);
+            return data;
+        }
 
         let totalReminders = 0;
         let totalErrors = 0;
 
-        for (const tenantDoc of tenantsSnap.docs) {
-            const tenantId = tenantDoc.id;
-            const tenantData = tenantDoc.data();
+        for (const aptDoc of appointmentsSnap.docs) {
+            const apt = aptDoc.data();
 
-            // Find upcoming appointments (next 24 hours, not yet reminded)
-            const appointmentsSnap = await firestore
-                .collection('tenants').doc(tenantId)
-                .collection('appointments')
-                .where('status', '==', 'scheduled')
-                .where('dateTime', '>=', now)
-                .where('dateTime', '<=', in24Hours)
-                .get();
+            // Skip if already reminded
+            if (apt.reminderSent) continue;
 
-            for (const aptDoc of appointmentsSnap.docs) {
-                const apt = aptDoc.data();
+            // Skip if no customer email
+            const customerEmail = apt.customerEmail;
+            if (!customerEmail) continue;
 
-                // Skip if already reminded
-                if (apt.reminderSent) continue;
+            // Determine reminder timing
+            const aptTime = apt.dateTime?.toDate?.() || new Date(apt.dateTime);
+            const hoursUntil = (aptTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-                // Skip if no customer email
-                const customerEmail = apt.customerEmail;
-                if (!customerEmail) continue;
+            // Send reminder for appointments within 1-24 hours
+            if (hoursUntil < 1 || hoursUntil > 24) continue;
 
-                // Determine reminder timing
-                const aptTime = apt.dateTime?.toDate?.() || new Date(apt.dateTime);
-                const hoursUntil = (aptTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+            // Extract tenantId from doc path: tenants/{tenantId}/appointments/{aptId}
+            const tenantId = aptDoc.ref.parent.parent?.id;
+            if (!tenantId) continue;
 
-                // Send reminder for appointments within 1-24 hours
-                if (hoursUntil < 1 || hoursUntil > 24) continue;
+            try {
+                const tenantData = await getTenantData(tenantId);
 
-                try {
-                    const result = await sendAppointmentReminder({
-                        customerName: apt.customerName || 'Değerli Müşterimiz',
-                        customerEmail,
-                        appointmentDate: formatDate(aptTime),
-                        appointmentTime: formatTime(aptTime),
-                        companyName: tenantData.companyName || tenantId,
-                        companyPhone: tenantData.business?.phone,
-                        notes: apt.notes,
+                const result = await sendAppointmentReminder({
+                    customerName: apt.customerName || 'Değerli Müşterimiz',
+                    customerEmail,
+                    appointmentDate: formatDate(aptTime),
+                    appointmentTime: formatTime(aptTime),
+                    companyName: (tenantData.companyName as string) || tenantId,
+                    companyPhone: (tenantData.business as Record<string, unknown>)?.phone as string | undefined,
+                    notes: apt.notes,
+                });
+
+                if (result.success) {
+                    // Mark as reminded
+                    await aptDoc.ref.update({
+                        reminderSent: true,
+                        reminderSentAt: FieldValue.serverTimestamp(),
+                        reminderEmailId: result.id,
                     });
-
-                    if (result.success) {
-                        // Mark as reminded
-                        await aptDoc.ref.update({
-                            reminderSent: true,
-                            reminderSentAt: FieldValue.serverTimestamp(),
-                            reminderEmailId: result.id,
-                        });
-                        totalReminders++;
-                        // Reminder sent successfully
-                    } else {
-                        totalErrors++;
-                        console.error(`[Cron] ❌ Reminder failed: ${customerEmail}: ${result.error}`);
-                    }
-                } catch (err) {
+                    totalReminders++;
+                } else {
                     totalErrors++;
-                    console.error(`[Cron] ❌ Reminder error for ${customerEmail}:`, err);
                 }
+            } catch {
+                totalErrors++;
             }
         }
 

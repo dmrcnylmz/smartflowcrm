@@ -108,13 +108,17 @@ export async function GET(request: NextRequest) {
             if (!doc.exists) {
                 return errorResponse(createApiError('NOT_FOUND', 'Agent bulunamadı'));
             }
-            return NextResponse.json({ id: doc.id, ...doc.data() });
+            return NextResponse.json({ id: doc.id, ...doc.data() }, {
+                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            });
         }
 
         const snap = await tenantAgents(tenantId!).orderBy('createdAt', 'desc').get();
         const agents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-        return NextResponse.json({ agents, count: agents.length });
+        return NextResponse.json({ agents, count: agents.length }, {
+            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+        });
 
     } catch (error) {
         return handleApiError(error, 'Agents GET');

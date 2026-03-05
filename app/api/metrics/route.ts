@@ -36,6 +36,8 @@ export async function GET() {
                 uptime: Math.round(process.uptime?.() || 0),
             },
             recentMetrics: metrics.slice(-20), // Last 20 performance entries
+        }, {
+            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
         });
     } catch (error) {
         console.error('[Metrics API] Error:', error);

@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,7 +108,7 @@ Davranış Kuralları:
 Çalışma Saatleri: {working_hours}
 Adres: {address}`,
         variables: [
-            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'SmartFlow' },
+            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'Callception' },
             { key: 'working_hours', label: 'Çalışma Saatleri', defaultValue: '09:00-18:00' },
             { key: 'address', label: 'Adres', defaultValue: '' },
         ],
@@ -136,7 +135,7 @@ Sorun Çözüm Akışı:
 - Şikayet durumunda empati göster
 - Ürün bilgileri: {product_info}`,
         variables: [
-            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'SmartFlow' },
+            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'Callception' },
             { key: 'product_info', label: 'Ürün Bilgileri', defaultValue: '' },
         ],
     },
@@ -161,7 +160,7 @@ Satış Tekniği:
 Fiyat Listesi: {price_list}
 Kampanyalar: {campaigns}`,
         variables: [
-            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'SmartFlow' },
+            { key: 'company_name', label: 'Şirket Adı', defaultValue: 'Callception' },
             { key: 'price_list', label: 'Fiyat Listesi', defaultValue: '' },
             { key: 'campaigns', label: 'Kampanyalar', defaultValue: '' },
         ],
@@ -763,7 +762,7 @@ export default function AgentsPage() {
                                                         <Input
                                                             value={v.defaultValue}
                                                             onChange={(e) => updateVariable(i, 'defaultValue', e.target.value)}
-                                                            placeholder="SmartFlow"
+                                                            placeholder="Callception"
                                                             className="mt-1 text-sm"
                                                         />
                                                     </div>
@@ -991,7 +990,7 @@ export default function AgentsPage() {
                 isOpen={!!testingAgent}
                 onClose={() => setTestingAgent(null)}
                 tenantId="default"
-                agentName={testingAgent?.name || 'SmartFlow AI'}
+                agentName={testingAgent?.name || 'Callception AI'}
             />
 
             {/* Delete Confirmation Dialog */}

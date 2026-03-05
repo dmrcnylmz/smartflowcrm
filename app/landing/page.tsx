@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -63,7 +62,7 @@ export default function LandingPage() {
                             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                                 <Bot className="h-5 w-5 text-white" />
                             </div>
-                            <span className="text-xl font-bold">SmartFlow</span>
+                            <span className="text-xl font-bold">Callception</span>
                         </div>
 
                         {/* Desktop Nav */}
@@ -136,7 +135,7 @@ export default function LandingPage() {
                     </h1>
 
                     <p className="mt-6 text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-                        SmartFlow ile gelen çağrıları yapay zeka otomatik yanıtlar, randevu alır,
+                        Callception ile gelen çağrıları yapay zeka otomatik yanıtlar, randevu alır,
                         şikayet kaydeder ve müşteri memnuniyetini arttırır.
                         7/24 kesintisiz hizmet, sıfır bekleme süresi.
                     </p>
@@ -205,7 +204,7 @@ export default function LandingPage() {
                         <Badge className="mb-4 bg-blue-500/10 text-blue-400 border-blue-500/20">Özellikler</Badge>
                         <h2 className="text-3xl sm:text-4xl font-bold">İşletmenize Güç Katan Özellikler</h2>
                         <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-                            SmartFlow, müşteri hizmetlerinizi uçtan uca dijitalleştiren kapsamlı bir platform sunar.
+                            Callception, müşteri hizmetlerinizi uçtan uca dijitalleştiren kapsamlı bir platform sunar.
                         </p>
                     </div>
 
@@ -434,7 +433,7 @@ export default function LandingPage() {
                                 <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                                     <Bot className="h-5 w-5 text-white" />
                                 </div>
-                                <span className="text-lg font-bold">SmartFlow</span>
+                                <span className="text-lg font-bold">Callception</span>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed">
                                 Yapay zeka destekli müşteri hizmetleri ve CRM platformu. Türkiye&apos;nin en gelişmiş AI resepsiyonisti.
@@ -473,7 +472,7 @@ export default function LandingPage() {
 
                     <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                         <p className="text-xs text-slate-600">
-                            &copy; {new Date().getFullYear()} SmartFlow. Tüm hakları saklıdır.
+                            &copy; {new Date().getFullYear()} Callception. Tüm hakları saklıdır.
                         </p>
                         <div className="flex items-center gap-2 text-xs text-slate-600">
                             <Shield className="h-3.5 w-3.5" />
@@ -598,7 +597,7 @@ const testimonials = [
     {
         name: 'Ahmet Yılmaz',
         role: 'Kurucu, TechStart',
-        text: 'SmartFlow sayesinde kaçırılan çağrı oranı %30\'dan %3\'e düştü. AI asistan müşterilerimizi biz kadar iyi tanıyor.',
+        text: 'Callception sayesinde kaçırılan çağrı oranı %30\'dan %3\'e düştü. AI asistan müşterilerimizi biz kadar iyi tanıyor.',
     },
     {
         name: 'Zeynep Kara',
@@ -614,8 +613,8 @@ const testimonials = [
 
 const faqs = [
     {
-        question: 'SmartFlow nasıl çalışır?',
-        answer: 'SmartFlow, işletmenize özel bir telefon numarası atar. Gelen çağrılar yapay zeka tarafından yanıtlanır, müşteri niyeti anlaşılır ve uygun aksiyonlar (randevu, şikayet kaydı, bilgi verme) otomatik olarak gerçekleştirilir.',
+        question: 'Callception nasıl çalışır?',
+        answer: 'Callception, işletmenize özel bir telefon numarası atar. Gelen çağrılar yapay zeka tarafından yanıtlanır, müşteri niyeti anlaşılır ve uygun aksiyonlar (randevu, şikayet kaydı, bilgi verme) otomatik olarak gerçekleştirilir.',
     },
     {
         question: 'Kurulum ne kadar sürer?',
@@ -623,11 +622,11 @@ const faqs = [
     },
     {
         question: 'Türkçe\'yi ne kadar iyi anlıyor?',
-        answer: 'SmartFlow, Google ve Deepgram\'in gelişmiş Türkçe doğal dil işleme motorlarını kullanır. Lehçe farklılıkları, argo ve sektöre özel terimleri başarıyla anlar.',
+        answer: 'Callception, Google ve Deepgram\'in gelişmiş Türkçe doğal dil işleme motorlarını kullanır. Lehçe farklılıkları, argo ve sektöre özel terimleri başarıyla anlar.',
     },
     {
         question: 'Mevcut CRM\'imle entegre olabilir mi?',
-        answer: 'Evet! SmartFlow yerleşik CRM sunmanın yanı sıra, n8n otomasyon entegrasyonu ile Salesforce, HubSpot, Zendesk gibi platformlarla da çalışabilir.',
+        answer: 'Evet! Callception yerleşik CRM sunmanın yanı sıra, n8n otomasyon entegrasyonu ile Salesforce, HubSpot, Zendesk gibi platformlarla da çalışabilir.',
     },
     {
         question: 'Verilerim güvenli mi?',

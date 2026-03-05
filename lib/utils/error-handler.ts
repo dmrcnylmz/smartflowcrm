@@ -2,7 +2,7 @@
  * Centralized Error Handler
  * 
  * Provides consistent error formatting, logging, and response generation
- * for all API routes in SmartFlow CRM.
+ * for all API routes in Callception.
  */
 
 import { NextResponse } from 'next/server';

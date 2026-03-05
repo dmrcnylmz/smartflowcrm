@@ -110,7 +110,9 @@ export async function GET(request: NextRequest) {
             if (!tenant) {
                 return errorResponse(createApiError('NOT_FOUND', 'Tenant bulunamadı'));
             }
-            return NextResponse.json(tenant);
+            return NextResponse.json(tenant, {
+                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            });
         }
 
         // No tenant context — should not list all tenants for regular users

@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -43,7 +42,7 @@ export default function LoginPage() {
 
     // Load saved email from localStorage on mount
     useEffect(() => {
-        const savedEmail = localStorage.getItem('smartflow_remembered_email');
+        const savedEmail = localStorage.getItem('callception_remembered_email');
         if (savedEmail) {
             setLoginData(prev => ({ ...prev, email: savedEmail }));
             setRememberMe(true);
@@ -63,9 +62,9 @@ export default function LoginPage() {
         try {
             // Save or clear remembered email
             if (rememberMe) {
-                localStorage.setItem('smartflow_remembered_email', loginData.email);
+                localStorage.setItem('callception_remembered_email', loginData.email);
             } else {
-                localStorage.removeItem('smartflow_remembered_email');
+                localStorage.removeItem('callception_remembered_email');
             }
             await signIn(loginData.email, loginData.password);
             router.push('/');
@@ -225,9 +224,9 @@ export default function LoginPage() {
             <Card className="w-full max-w-md relative z-10 shadow-2xl border-white/20 dark:border-white/10 backdrop-blur-sm animate-scale-in">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 animate-float">
-                        <span className="text-2xl text-white font-bold">SF</span>
+                        <span className="text-2xl text-white font-bold">C</span>
                     </div>
-                    <CardTitle className="text-2xl text-gradient">SmartFlow CRM</CardTitle>
+                    <CardTitle className="text-2xl text-gradient">Callception</CardTitle>
                     <CardDescription>
                         AI destekli çağrı yönetimi ve müşteri hizmetleri platformu
                     </CardDescription>

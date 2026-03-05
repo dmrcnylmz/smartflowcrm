@@ -45,6 +45,8 @@ export async function GET(request: NextRequest) {
                 settings: getDefaultSettings(),
                 tenantId: resolvedTenantId,
                 exists: false,
+            }, {
+                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
             });
         }
 
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
             language: data.language || 'tr',
             timezone: data.timezone || 'Europe/Istanbul',
             // AI Assistant
-            agentName: data.agent?.name || data.agentName || 'SmartFlow Asistan',
+            agentName: data.agent?.name || data.agentName || 'Callception Asistan',
             agentGreeting: data.agent?.greeting || data.agentGreeting || 'Merhaba, size nasıl yardımcı olabilirim?',
             agentPersonality: data.agent?.personality || data.agentPersonality || 'Profesyonel, yardımsever ve nazik bir asistan.',
             agentFallbackMessage: data.agent?.fallbackMessage || data.agentFallbackMessage || 'Anlayamadım, tekrar eder misiniz?',
@@ -79,6 +81,8 @@ export async function GET(request: NextRequest) {
             settings,
             tenantId: resolvedTenantId,
             exists: true,
+        }, {
+            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
         });
 
     } catch (error) {
@@ -167,7 +171,7 @@ function getDefaultSettings() {
         companyWebsite: '',
         language: 'tr',
         timezone: 'Europe/Istanbul',
-        agentName: 'SmartFlow Asistan',
+        agentName: 'Callception Asistan',
         agentGreeting: 'Merhaba, size nasıl yardımcı olabilirim?',
         agentPersonality: 'Profesyonel, yardımsever ve nazik bir asistan. Türkçe konuşur.',
         agentFallbackMessage: 'Anlayamadım, tekrar eder misiniz?',

@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -255,10 +254,10 @@ export default function OnboardingPage() {
                 <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-center">
-                            <span className="text-sm font-bold text-white">SF</span>
+                            <span className="text-sm font-bold text-white">C</span>
                         </div>
                         <div>
-                            <h1 className="text-lg font-semibold text-foreground">SmartFlow</h1>
+                            <h1 className="text-lg font-semibold text-foreground">Callception</h1>
                             <p className="text-xs text-muted-foreground">Şirket Onboarding</p>
                         </div>
                     </div>

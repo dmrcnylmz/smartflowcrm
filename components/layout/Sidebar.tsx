@@ -139,8 +139,8 @@ export const Sidebar = memo(function Sidebar() {
       )}>
         {!collapsed && (
           <div className="animate-fade-in">
-            <h1 className="text-lg font-bold text-gradient">SmartFlow CRM</h1>
-            <p className="text-[11px] text-muted-foreground mt-0.5">AI Receptionist</p>
+            <h1 className="text-lg font-bold text-gradient">Callception</h1>
+            <p className="text-[11px] text-muted-foreground mt-0.5">AI Çağrı Yönetimi</p>
           </div>
         )}
         <div className="flex items-center gap-1">

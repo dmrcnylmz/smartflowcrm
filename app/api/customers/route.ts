@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     }
 
     const customers = await getAllCustomers(tenantId);
-    return NextResponse.json(customers);
+    return NextResponse.json(customers, {
+      headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+    });
   } catch (error: unknown) {
     return handleApiError(error, 'Customers GET');
   }

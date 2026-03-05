@@ -1,8 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -127,7 +124,7 @@ function generateDemoTickets(): SupportTicket[] {
     { id: 'TK-1005', title: 'API entegrasyon hatasi', description: 'Webhook endpointleri 500 hatasi donuyor. Uretim ortaminda son 24 saatte 150+ basarisiz istek var.', status: 'in_progress', priority: 'critical', category: 'Entegrasyon', customerName: 'Can Aksoy', customerEmail: 'can@techfirm.com', assignee: 'Zeynep A.', createdAt: day(2), updatedAt: day(0) },
     { id: 'TK-1006', title: 'Raporlama modulunde yavas yuklenme', description: 'Gunluk rapor sayfasi 30 saniyeden fazla yukleniyor, kullanici deneyimi cok kotu.', status: 'open', priority: 'medium', category: 'Performans', customerName: 'Elif Sahin', createdAt: day(0) },
     { id: 'TK-1007', title: 'Mobil uygulama cokme sorunu', description: 'iOS 17 guncellemesinden sonra uygulama acilista cokerek kapaniyor.', status: 'resolved', priority: 'high', category: 'Teknik Destek', customerName: 'Burak Yildiz', customerPhone: '+905551112233', createdAt: day(5), resolvedAt: day(2) },
-    { id: 'TK-1008', title: 'Toplu veri aktarimi talebi', description: 'Musteri mevcut CRM sisteminden SmartFlow a 50.000 kayit aktarmak istiyor.', status: 'open', priority: 'low', category: 'Genel Bilgi', customerName: 'Selin Arslan', customerEmail: 'selin@bigcorp.com', createdAt: day(1) },
+    { id: 'TK-1008', title: 'Toplu veri aktarimi talebi', description: 'Musteri mevcut CRM sisteminden Callception a 50.000 kayit aktarmak istiyor.', status: 'open', priority: 'low', category: 'Genel Bilgi', customerName: 'Selin Arslan', customerEmail: 'selin@bigcorp.com', createdAt: day(1) },
     { id: 'TK-1009', title: 'Cagri kaydi eksik', description: 'Dunku cagri kayitlarindan 5 tanesi sistemde gorunmuyor.', status: 'closed', priority: 'medium', category: 'Teknik Destek', customerName: 'Emre Celik', createdAt: day(7), resolvedAt: day(4) },
     { id: 'TK-1010', title: 'Ozel alan ekleme talebi', description: 'Musteri formlarina ozel alan eklemek istiyor, mevcut yapida bu ozellik yok.', status: 'closed', priority: 'low', category: 'Urun Sorunu', customerName: 'Deniz Koc', createdAt: day(10), resolvedAt: day(6) },
     { id: 'TK-1011', title: 'Dashboard grafikleri yuklenmiyor', description: 'Tarayicida konsol hatasi veriyor, grafik kutuphanesi yuklenmemis olabilir.', status: 'in_progress', priority: 'medium', category: 'Teknik Destek', customerName: 'Gizem Tas', assignee: 'Mehmet K.', createdAt: day(0), updatedAt: day(0) },

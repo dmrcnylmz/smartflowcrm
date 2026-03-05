@@ -1,5 +1,4 @@
 'use client';
-export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/firebase/auth-context';
@@ -55,7 +54,7 @@ const defaultSettings: TenantSettings = {
     companyWebsite: '',
     language: 'tr',
     timezone: 'Europe/Istanbul',
-    agentName: 'SmartFlow Asistan',
+    agentName: 'Callception Asistan',
     agentGreeting: 'Merhaba, size nasıl yardımcı olabilirim?',
     agentPersonality: 'Profesyonel, yardımsever ve nazik bir asistan. Türkçe konuşur.',
     agentFallbackMessage: 'Anlayamadım, tekrar eder misiniz?',
@@ -302,7 +301,7 @@ export default function AdminPage() {
                                         id="companyName"
                                         value={settings.companyName}
                                         onChange={(e) => updateSetting('companyName', e.target.value)}
-                                        placeholder="SmartFlow A.Ş."
+                                        placeholder="Callception A.Ş."
                                         className="mt-1"
                                     />
                                 </div>
@@ -410,7 +409,7 @@ export default function AdminPage() {
                                     id="agentName"
                                     value={settings.agentName}
                                     onChange={(e) => updateSetting('agentName', e.target.value)}
-                                    placeholder="SmartFlow Asistan"
+                                    placeholder="Callception Asistan"
                                     className="mt-1"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
