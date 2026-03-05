@@ -96,18 +96,25 @@ export async function GET(request: NextRequest) {
         const authErr = requireAuth(userId);
         if (authErr) return errorResponse(authErr);
 
+        const userTenantId = request.headers.get('x-user-tenant');
         const tenantId = request.nextUrl.searchParams.get('tenantId');
 
-        if (tenantId) {
-            const tenant = await getTenant(tenantId);
+        // Tenant isolation: users can only access their own tenant
+        if (tenantId && userTenantId && tenantId !== userTenantId) {
+            return errorResponse(createApiError('AUTH_ERROR', 'Başka tenant verilerine erişim engellendi'));
+        }
+
+        const targetTenant = tenantId || userTenantId;
+        if (targetTenant) {
+            const tenant = await getTenant(targetTenant);
             if (!tenant) {
                 return errorResponse(createApiError('NOT_FOUND', 'Tenant bulunamadı'));
             }
             return NextResponse.json(tenant);
         }
 
-        const tenants = await listTenants();
-        return NextResponse.json({ tenants, count: tenants.length });
+        // No tenant context — should not list all tenants for regular users
+        return errorResponse(createApiError('VALIDATION_ERROR', 'tenantId gerekli'));
 
     } catch (error) {
         return handleApiError(error, 'Tenants GET');

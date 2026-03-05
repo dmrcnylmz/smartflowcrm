@@ -23,30 +23,26 @@ const PUBLIC_API_PATHS = [
     '/api/webhook',
     '/api/health',
     '/api/voice/health',
-    '/api/voice/pipeline',
-    '/api/voice/test',
-    '/api/voice/mock',
-    '/api/voice/infer',
-    '/api/voice/ws-proxy',
-    '/api/voice/connect',
-    '/api/voice/tts',
     '/api/ai/status',
     '/api/twilio/incoming',
     '/api/twilio/status',
     '/api/twilio/gather',
     '/api/twilio/recording',
     '/api/billing/webhook',
-    '/api/automation',
     '/api/cron/appointment-reminders',
-    '/api/monitoring/errors',
 ];
+
+/** Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin */
+const SERVER_TO_SERVER_PATHS = ['/api/webhook', '/api/twilio/', '/api/cron/', '/api/billing/webhook'];
 
 /** Allowed origins for CORS */
 const ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3009',
-    'http://127.0.0.1:3009',
+    ...(process.env.NODE_ENV !== 'production' ? [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3009',
+        'http://127.0.0.1:3009',
+    ] : []),
     process.env.NEXT_PUBLIC_APP_URL,
 ].filter(Boolean) as string[];
 
@@ -137,7 +133,9 @@ export async function middleware(req: NextRequest) {
     // 2. CORS handling for API routes
     if (pathname.startsWith('/api')) {
         const origin = req.headers.get('origin') || '';
-        const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || !origin;
+        // Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin
+        const isServerPath = SERVER_TO_SERVER_PATHS.some(p => pathname.startsWith(p));
+        const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || (!origin && isServerPath);
 
         // Handle preflight
         if (req.method === 'OPTIONS') {

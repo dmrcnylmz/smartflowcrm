@@ -9,6 +9,7 @@ import {
   getTenantFromRequest,
 } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,10 +50,8 @@ export async function GET(request: NextRequest) {
 //   - customerName (inline, from the support ticket form)
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = getTenantFromRequest(request);
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-    }
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
 
     const body = await request.json();
     const { type = 'complaint', customerId, customerName, customerEmail, customerPhone, ...data } = body;
@@ -82,7 +81,7 @@ export async function POST(request: NextRequest) {
     };
 
     if (type === 'info') {
-      const infoRequestRef = await createInfoRequest(tenantId, {
+      const infoRequestRef = await createInfoRequest(auth.tenantId, {
         ...ticketData,
         topic: data.title,
         details: data.description || '',
@@ -90,7 +89,7 @@ export async function POST(request: NextRequest) {
       });
       ticketId = infoRequestRef.id;
     } else {
-      const complaintRef = await createComplaint(tenantId, ticketData);
+      const complaintRef = await createComplaint(auth.tenantId, ticketData);
       ticketId = complaintRef.id;
     }
 
@@ -103,10 +102,8 @@ export async function POST(request: NextRequest) {
 // PATCH /api/tickets - Update ticket
 export async function PATCH(request: NextRequest) {
   try {
-    const tenantId = getTenantFromRequest(request);
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-    }
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
 
     const body = await request.json();
     const { id, type = 'complaint', ...updateData } = body;
@@ -115,9 +112,9 @@ export async function PATCH(request: NextRequest) {
     if (validation) return errorResponse(validation);
 
     if (type === 'complaint') {
-      await updateComplaint(tenantId, id, updateData);
+      await updateComplaint(auth.tenantId, id, updateData);
     } else {
-      await updateInfoRequest(tenantId, id, updateData);
+      await updateInfoRequest(auth.tenantId, id, updateData);
     }
 
     return NextResponse.json({ success: true });

@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,9 +47,8 @@ function tenantAgents(tenantId: string) {
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const body = await request.json();
         const validation = requireFields(body, ['name', 'systemPrompt']);
@@ -70,13 +70,13 @@ export async function POST(request: NextRequest) {
         let agentId = id;
 
         if (id) {
-            await tenantAgents(tenantId!).doc(id).update(agentData);
+            await tenantAgents(auth.tenantId).doc(id).update(agentData);
         } else {
-            const ref = tenantAgents(tenantId!).doc();
+            const ref = tenantAgents(auth.tenantId).doc();
             agentId = ref.id;
             await ref.set({
                 ...agentData,
-                tenantId,
+                tenantId: auth.tenantId,
                 createdAt: FieldValue.serverTimestamp(),
             });
         }
@@ -127,9 +127,8 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         // Role check: only admins and owners can delete agents
         const callerRole = request.headers.get('x-user-role');
@@ -144,7 +143,7 @@ export async function DELETE(request: NextRequest) {
         const validation = requireFields(body, ['id']);
         if (validation) return errorResponse(validation);
 
-        await tenantAgents(tenantId!).doc(body.id).delete();
+        await tenantAgents(auth.tenantId).doc(body.id).delete();
 
         return NextResponse.json({ message: `Agent ${body.id} deleted` });
 

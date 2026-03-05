@@ -31,7 +31,8 @@ export async function GET(request: NextRequest) {
 
         const action = request.nextUrl.searchParams.get('action') as AuditAction | null;
         const userId = request.nextUrl.searchParams.get('userId');
-        const limit = parseInt(request.nextUrl.searchParams.get('limit') || '50', 10);
+        const rawLimit = parseInt(request.nextUrl.searchParams.get('limit') || '50', 10);
+        const limit = Math.min(Math.max(rawLimit || 50, 1), 200);
         const includeRetention = request.nextUrl.searchParams.get('retention') === 'true';
 
         const logs = await queryAuditLogs(getDb(), tenantId!, {

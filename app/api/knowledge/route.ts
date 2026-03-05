@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
 import { handleApiError, requireAuth, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // File processing can take longer
@@ -28,9 +29,8 @@ function getTenantId(request: NextRequest): string | null {
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const contentType = request.headers.get('content-type') || '';
         let source: DocumentSource;
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
             };
         }
 
-        const result = await ingestDocument(tenantId!, source);
+        const result = await ingestDocument(auth.tenantId, source);
 
         return NextResponse.json(result, {
             status: result.status === 'error' ? 500 : 201,
@@ -100,15 +100,14 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const body = await request.json();
         const validation = requireFields(body, ['documentId']);
         if (validation) return errorResponse(validation);
 
-        await deleteKBDocument(tenantId!, body.documentId);
+        await deleteKBDocument(auth.tenantId, body.documentId);
 
         return NextResponse.json({ message: `Document ${body.documentId} deleted` });
 
@@ -155,9 +154,22 @@ async function parseMultipartUpload(request: NextRequest): Promise<DocumentSourc
         || inferTypeFromFilename(file.name)
         || 'file';
 
+    // Reject unknown MIME types not in allowlist
+    if (!ALLOWED_MIME_TYPES[mimeType] && !inferTypeFromFilename(file.name)) {
+        throw new Error(`Desteklenmeyen dosya türü: ${mimeType}`);
+    }
+
     // Read file content
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Validate PDF magic bytes
+    if (resolvedType === 'pdf') {
+        const header = buffer.slice(0, 5).toString('ascii');
+        if (!header.startsWith('%PDF')) {
+            throw new Error('Geçersiz PDF dosyası');
+        }
+    }
 
     // For text-based types, convert to string; for binary (PDF), use base64
     let content: string;
@@ -167,10 +179,15 @@ async function parseMultipartUpload(request: NextRequest): Promise<DocumentSourc
         content = buffer.toString('utf-8');
     }
 
+    // Sanitize filename to prevent path traversal
+    const safeName = (filename || file.name)
+        .replace(/[^a-zA-Z0-9._\-\u00C0-\u024F\u0400-\u04FF]/g, '_')
+        .substring(0, 255);
+
     return {
         type: resolvedType,
         content,
-        filename: filename || file.name,
+        filename: safeName,
         mimeType,
     };
 }

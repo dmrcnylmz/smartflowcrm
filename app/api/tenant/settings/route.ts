@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,13 +92,10 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const userRole = request.headers.get('x-user-role');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const resolvedTenantId = tenantId || userId!;
+        const userRole = request.headers.get('x-user-role');
 
         // Role check — only owner/admin can update settings
         if (userRole && userRole !== 'owner' && userRole !== 'admin') {
@@ -109,7 +107,7 @@ export async function PUT(request: NextRequest) {
 
         const body = await request.json();
         const firestore = getDb();
-        const tenantRef = firestore.collection('tenants').doc(resolvedTenantId);
+        const tenantRef = firestore.collection('tenants').doc(auth.tenantId);
 
         // Build the Firestore update object (flattened for merge)
         const updateData: Record<string, unknown> = {
@@ -143,7 +141,7 @@ export async function PUT(request: NextRequest) {
             type: 'settings_update',
             description: 'Tenant ayarları güncellendi',
             changes: Object.keys(body),
-            updatedBy: userId || 'unknown',
+            updatedBy: auth.uid || 'unknown',
             createdAt: FieldValue.serverTimestamp(),
         });
 
