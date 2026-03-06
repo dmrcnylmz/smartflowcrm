@@ -1,19 +1,39 @@
 /**
- * Billing Webhook API — iyzico Payment Callback
+ * Billing Webhook API — Lemon Squeezy Event Handler
  *
- * POST: Called by iyzico after payment attempt
+ * POST: Receives webhook events from Lemon Squeezy.
+ *       Verifies HMAC-SHA256 signature, then processes subscription events.
  *
- * Flow:
- * 1. iyzico sends POST with token
- * 2. We verify the payment using the token
- * 3. If successful, activate subscription
- * 4. Redirect user to billing page with success/failure status
+ * Handled events:
+ *   - subscription_created    → Create subscription record + lookup map
+ *   - subscription_updated    → Update status, period, card info
+ *   - subscription_cancelled  → Mark as cancelled with end date
+ *   - subscription_payment_success → Log successful payment
+ *   - subscription_payment_failed  → Mark as past_due
+ *
+ * GET: Returns subscription status for authenticated tenants.
+ *
+ * Security:
+ *   - POST is public (LS needs to reach it) — signature verification enforced
+ *   - GET requires x-user-tenant header (set by middleware)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { verifyPayment, activateSubscription, PLANS } from '@/lib/billing/iyzico-service';
+import { invalidateSubscriptionCache } from '@/lib/billing/subscription-guard';
+import {
+    verifyWebhookSignature,
+    buildSubscriptionRecord,
+    buildSubscriptionUpdate,
+    upsertSubscription,
+    createSubscriptionMapEntry,
+    findTenantByLsSubscriptionId,
+    logBillingActivity,
+    isSubscriptionActive,
+    getPlanIdFromVariantId,
+    type LsWebhookPayload,
+} from '@/lib/billing/lemonsqueezy';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,113 +43,267 @@ function getDb() {
     return db;
 }
 
+// =============================================
+// POST: Webhook Event Handler
+// =============================================
+
 export async function POST(request: NextRequest) {
+    // 1. Read raw body BEFORE parsing (required for HMAC verification)
+    let rawBody: string;
     try {
-        // iyzico sends the token in POST body (form-encoded)
-        const contentType = request.headers.get('content-type') || '';
-        let token: string | null = null;
-
-        if (contentType.includes('application/x-www-form-urlencoded')) {
-            const formData = await request.formData();
-            token = formData.get('token') as string;
-        } else {
-            const body = await request.json().catch(() => ({}));
-            token = body.token;
-        }
-
-        // Get context from query params
-        const url = new URL(request.url);
-        const tenantId = url.searchParams.get('tenantId');
-        const planId = url.searchParams.get('planId');
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
-        if (!token) {
-            return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=no_token`);
-        }
-
-        if (!tenantId || !planId) {
-            return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=missing_context`);
-        }
-
-        // Verify payment with iyzico
-        // Verifying payment with iyzico
-        const paymentResult = await verifyPayment(token);
-
-        if (paymentResult.status === 'success' && paymentResult.paymentId) {
-            // Payment successful - validate planId against actual payment amount
-            // This prevents spoofed planId query params from granting a higher-tier plan
-            const plan = PLANS[planId];
-            if (!plan) {
-                console.error(`[billing/webhook] Invalid planId from query params: ${planId}`);
-                return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=invalid_plan`);
-            }
-
-            // Verify the paid amount matches the expected plan price
-            if (paymentResult.paidPrice !== undefined && paymentResult.paidPrice !== plan.priceTry) {
-                console.error(
-                    `[billing/webhook] Plan price mismatch — planId=${planId} expected=${plan.priceTry} paid=${paymentResult.paidPrice}. Possible planId spoofing attempt.`
-                );
-                return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=price_mismatch`);
-            }
-
-            await activateSubscription(
-                getDb(),
-                tenantId,
-                planId,
-                paymentResult.paymentId,
-            );
-
-            // Store payment record
-            await getDb().collection('tenants').doc(tenantId)
-                .collection('billing').doc('pending_checkout')
-                .update({
-                    status: 'completed',
-                    paymentId: paymentResult.paymentId,
-                    paidPrice: paymentResult.paidPrice,
-                    currency: paymentResult.currency,
-                    cardAssociation: paymentResult.cardAssociation,
-                    cardFamily: paymentResult.cardFamily,
-                    lastFourDigits: paymentResult.lastFourDigits,
-                    completedAt: Date.now(),
-                });
-
-            // Redirect to billing page with success
-            return NextResponse.redirect(
-                `${appUrl}/billing?payment=success&plan=${planId}`
-            );
-
-        } else {
-            // Payment failed
-
-            // Update pending checkout
-            await getDb().collection('tenants').doc(tenantId)
-                .collection('billing').doc('pending_checkout')
-                .update({
-                    status: 'failed',
-                    errorMessage: paymentResult.errorMessage,
-                    errorCode: paymentResult.errorCode,
-                    failedAt: Date.now(),
-                }).catch(() => {/* ignore */});
-
-            return NextResponse.redirect(
-                `${appUrl}/billing?payment=failed&reason=${encodeURIComponent(paymentResult.errorMessage || 'unknown')}`
-            );
-        }
-
+        rawBody = await request.text();
     } catch {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        return NextResponse.redirect(`${appUrl}/billing?payment=error&reason=server_error`);
+        console.error('[billing/webhook] Failed to read request body');
+        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
+
+    // 2. Verify webhook signature
+    const signature = request.headers.get('x-signature') || '';
+    if (!verifyWebhookSignature(rawBody, signature)) {
+        console.error('[billing/webhook] Invalid webhook signature');
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    // 3. Parse the payload
+    let payload: LsWebhookPayload;
+    try {
+        payload = JSON.parse(rawBody);
+    } catch {
+        console.error('[billing/webhook] Failed to parse webhook payload');
+        return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
+    const eventName = payload.meta?.event_name;
+    const customData = payload.meta?.custom_data;
+    const lsSubscriptionId = payload.data?.id;
+
+    console.log(`[billing/webhook] Event: ${eventName}, LS Sub ID: ${lsSubscriptionId}`);
+
+    // 4. Resolve tenant_id
+    //    - subscription_created: from custom_data (passed through checkout)
+    //    - Other events: custom_data or fallback to ls_subscription_map lookup
+    let tenantId = customData?.tenant_id || null;
+
+    if (!tenantId && lsSubscriptionId) {
+        try {
+            tenantId = await findTenantByLsSubscriptionId(getDb(), lsSubscriptionId);
+        } catch (err) {
+            console.error('[billing/webhook] Error looking up tenant:', err);
+        }
+    }
+
+    if (!tenantId) {
+        console.error(
+            `[billing/webhook] Cannot resolve tenant for event=${eventName}, lsSubId=${lsSubscriptionId}. ` +
+            'Manual investigation required.'
+        );
+        // Return 200 to prevent LS from retrying — we log for manual investigation
+        return NextResponse.json({ received: true, warning: 'tenant_not_found' });
+    }
+
+    // 5. Route by event type
+    try {
+        switch (eventName) {
+            case 'subscription_created':
+                await handleSubscriptionCreated(tenantId, payload);
+                break;
+
+            case 'subscription_updated':
+                await handleSubscriptionUpdated(tenantId, payload);
+                break;
+
+            case 'subscription_cancelled':
+                await handleSubscriptionCancelled(tenantId, payload);
+                break;
+
+            case 'subscription_payment_success':
+                await handlePaymentSuccess(tenantId, payload);
+                break;
+
+            case 'subscription_payment_failed':
+                await handlePaymentFailed(tenantId, payload);
+                break;
+
+            default:
+                console.log(`[billing/webhook] Unhandled event: ${eventName}`);
+        }
+    } catch (error) {
+        // Log but still return 200 — we don't want LS to retry on our internal errors
+        console.error(`[billing/webhook] Error processing ${eventName}:`, error);
+    }
+
+    // 6. Invalidate subscription cache so next API call sees fresh status
+    invalidateSubscriptionCache(tenantId);
+
+    // 7. Always return 200
+    return NextResponse.json({ received: true });
+}
+
+// =============================================
+// Event Handlers
+// =============================================
+
+/**
+ * subscription_created — New subscription activated.
+ * Write full subscription record + create lookup map entry.
+ */
+async function handleSubscriptionCreated(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const customData = payload.meta.custom_data;
+    const attrs = payload.data.attributes;
+
+    // Resolve plan ID from custom_data or variant reverse lookup
+    const planId = customData?.plan_id
+        || getPlanIdFromVariantId(attrs.variant_id)
+        || 'unknown';
+
+    console.log(
+        `[billing/webhook] subscription_created — tenant=${tenantId}, plan=${planId}, ` +
+        `lsSubId=${payload.data.id}, email=${attrs.user_email}`
+    );
+
+    // Build and save subscription record
+    const record = buildSubscriptionRecord(tenantId, planId, payload);
+    await upsertSubscription(getDb(), tenantId, record);
+
+    // Create reverse lookup map: ls_subscription_map/{lsSubId} → tenantId
+    await createSubscriptionMapEntry(getDb(), payload.data.id, tenantId, planId);
+
+    // Log activity
+    await logBillingActivity(getDb(), tenantId, 'subscription_created', {
+        planId,
+        lsSubscriptionId: payload.data.id,
+        customerEmail: attrs.user_email,
+        status: attrs.status,
+        variantName: attrs.variant_name,
+        testMode: attrs.test_mode,
+    });
 }
 
 /**
- * GET: Subscription status endpoint
+ * subscription_updated — Status, plan, card, or period changed.
+ * Partial update to existing subscription record.
  */
+async function handleSubscriptionUpdated(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const attrs = payload.data.attributes;
+
+    console.log(
+        `[billing/webhook] subscription_updated — tenant=${tenantId}, ` +
+        `status=${attrs.status}, lsSubId=${payload.data.id}`
+    );
+
+    const update = buildSubscriptionUpdate(payload);
+    await upsertSubscription(getDb(), tenantId, update);
+
+    await logBillingActivity(getDb(), tenantId, 'subscription_updated', {
+        lsSubscriptionId: payload.data.id,
+        status: attrs.status,
+        variantId: attrs.variant_id,
+        renewsAt: attrs.renews_at,
+    });
+}
+
+/**
+ * subscription_cancelled — User cancelled their subscription.
+ * The subscription remains active until the current period ends.
+ */
+async function handleSubscriptionCancelled(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const attrs = payload.data.attributes;
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] subscription_cancelled — tenant=${tenantId}, ` +
+        `endsAt=${attrs.ends_at}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'cancelled',
+        cancelledAt: now,
+        endsAt: attrs.ends_at ? new Date(attrs.ends_at).getTime() : undefined,
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, 'subscription_cancelled', {
+        lsSubscriptionId: payload.data.id,
+        endsAt: attrs.ends_at,
+        cancelledAt: new Date(now).toISOString(),
+    });
+}
+
+/**
+ * subscription_payment_success — Recurring payment succeeded.
+ * Log the payment and update last payment date.
+ */
+async function handlePaymentSuccess(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const attrs = payload.data.attributes;
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] payment_success — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'active',
+        currentPeriodEnd: new Date(attrs.renews_at).getTime(),
+        cardBrand: attrs.card_brand || undefined,
+        cardLastFour: attrs.card_last_four || undefined,
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, 'payment_success', {
+        lsSubscriptionId: payload.data.id,
+        renewsAt: attrs.renews_at,
+    });
+}
+
+/**
+ * subscription_payment_failed — Recurring payment failed.
+ * Mark subscription as past_due to trigger grace period warnings.
+ */
+async function handlePaymentFailed(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] payment_failed — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'past_due',
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, 'payment_failed', {
+        lsSubscriptionId: payload.data.id,
+        failedAt: new Date(now).toISOString(),
+    });
+}
+
+// =============================================
+// GET: Subscription Status Endpoint
+// =============================================
+
 export async function GET(request: NextRequest) {
     try {
         const tenantId = request.headers.get('x-user-tenant');
         if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant required' }, { status: 403 });
+            return NextResponse.json(
+                { error: 'Tenant kimliği gerekli.' },
+                { status: 403 }
+            );
         }
 
         const doc = await getDb().collection('tenants').doc(tenantId)
@@ -138,16 +312,12 @@ export async function GET(request: NextRequest) {
         if (!doc.exists) {
             return NextResponse.json({
                 subscription: null,
-                message: 'No active subscription',
+                message: 'Aktif abonelik bulunamadı.',
             });
         }
 
-        const sub = doc.data();
-
-        // Check if subscription is still active
-        const isActive = sub?.status === 'active' ||
-            (sub?.status === 'trialing' && (sub?.trialEndsAt || 0) > Date.now()) ||
-            (sub?.status === 'canceled' && (sub?.currentPeriodEnd || 0) > Date.now());
+        const sub = doc.data() as Record<string, unknown>;
+        const isActive = isSubscriptionActive(sub as Parameters<typeof isSubscriptionActive>[0]);
 
         return NextResponse.json({
             subscription: {
@@ -158,7 +328,7 @@ export async function GET(request: NextRequest) {
 
     } catch {
         return NextResponse.json(
-            { error: 'Failed to fetch subscription' },
+            { error: 'Abonelik bilgisi alınamadı.' },
             { status: 500 }
         );
     }

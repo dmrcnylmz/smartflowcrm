@@ -12,6 +12,7 @@ import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,11 +71,20 @@ export async function GET(request: NextRequest) {
             callRecording: data.settings?.callRecording ?? data.callRecording ?? false,
             emailNotifications: data.settings?.emailNotifications ?? data.emailNotifications ?? true,
             autoAppointments: data.settings?.autoAppointments ?? data.autoAppointments ?? true,
-            // System (read-only)
+            // Business info (for smart variable resolution in Agent Wizard)
+            business: {
+                workingHours: data.business?.workingHours || '',
+                workingDays: data.business?.workingDays || '',
+                services: data.business?.services || [],
+                phone: data.business?.phone || data.companyPhone || '',
+                email: data.business?.email || data.companyEmail || '',
+                address: data.business?.address || '',
+                website: data.business?.website || data.companyWebsite || '',
+            },
+            // System (read-only) — fetch real subscription from billing/subscription
             twilioConfigured: !!data.twilio?.accountSid || !!process.env.TWILIO_ACCOUNT_SID,
             openaiConfigured: !!process.env.OPENAI_API_KEY,
-            subscriptionPlan: data.subscription?.plan || data.subscriptionPlan || 'free_trial',
-            subscriptionStatus: data.subscription?.status || data.subscriptionStatus || 'active',
+            ...(await getSubscriptionInfo(firestore, resolvedTenantId)),
         };
 
         return NextResponse.json({
@@ -182,5 +192,46 @@ function getDefaultSettings() {
         openaiConfigured: !!process.env.OPENAI_API_KEY,
         subscriptionPlan: 'free_trial',
         subscriptionStatus: 'active',
+        subscriptionActive: true,
     };
+}
+
+/**
+ * Fetch real subscription info from billing/subscription Firestore doc.
+ * Falls back to free_trial defaults if no subscription exists.
+ */
+async function getSubscriptionInfo(
+    firestore: FirebaseFirestore.Firestore,
+    tenantId: string,
+): Promise<{
+    subscriptionPlan: string;
+    subscriptionStatus: string;
+    subscriptionActive: boolean;
+    billingInterval?: string;
+    currentPeriodEnd?: number;
+}> {
+    try {
+        const sub = await getSubscription(firestore, tenantId);
+        if (!sub) {
+            return {
+                subscriptionPlan: 'free_trial',
+                subscriptionStatus: 'active',
+                subscriptionActive: true,
+            };
+        }
+        return {
+            subscriptionPlan: sub.planId,
+            subscriptionStatus: sub.status,
+            subscriptionActive: isSubscriptionActive(sub),
+            billingInterval: sub.billingInterval,
+            currentPeriodEnd: sub.currentPeriodEnd,
+        };
+    } catch {
+        // Fail-open: return defaults if billing read fails
+        return {
+            subscriptionPlan: 'free_trial',
+            subscriptionStatus: 'active',
+            subscriptionActive: true,
+        };
+    }
 }

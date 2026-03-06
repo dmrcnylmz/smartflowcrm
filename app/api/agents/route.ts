@@ -13,6 +13,7 @@ import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,13 +51,22 @@ export async function POST(request: NextRequest) {
         const auth = await requireStrictAuth(request);
         if (auth.error) return auth.error;
 
+        // Subscription guard — block agent creation for expired/cancelled accounts
+        const subGuard = await checkSubscriptionActive(getDb(), auth.tenantId);
+        if (!subGuard.active) {
+            return NextResponse.json(
+                { error: 'Subscription inactive', message: subGuard.reason },
+                { status: 403 },
+            );
+        }
+
         const body = await request.json();
         const validation = requireFields(body, ['name', 'systemPrompt']);
         if (validation) return errorResponse(validation);
 
-        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive } = body;
+        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive, templateId, templateColor } = body;
 
-        const agentData = {
+        const agentData: Record<string, unknown> = {
             name,
             role: role || 'assistant',
             systemPrompt,
@@ -66,6 +76,10 @@ export async function POST(request: NextRequest) {
             isActive: isActive ?? true,
             updatedAt: FieldValue.serverTimestamp(),
         };
+
+        // Optional template metadata
+        if (templateId !== undefined) agentData.templateId = templateId;
+        if (templateColor !== undefined) agentData.templateColor = templateColor;
 
         let agentId = id;
 

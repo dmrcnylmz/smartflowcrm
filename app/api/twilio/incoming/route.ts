@@ -25,6 +25,8 @@ import {
     getTwilioConfig,
     type TwilioCallEvent,
 } from '@/lib/twilio/telephony';
+import { checkCallAllowed } from '@/lib/billing/usage-guard';
+import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,7 +77,31 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Load tenant config for greeting
+        // ── Subscription & Usage Guard ──────────────────────────────
+        // 1. Check subscription status (cancelled/expired → reject)
+        const subscription = await getSubscription(getDb(), tenantId);
+        if (subscription && !isSubscriptionActive(subscription)) {
+            const twiml = generateUnavailableTwiML({
+                message: 'Bu hattın aboneliği sona ermiştir. Lütfen hesabınızı yenileyip tekrar deneyin.',
+            });
+            return new NextResponse(twiml, {
+                headers: { 'Content-Type': 'text/xml' },
+            });
+        }
+
+        // 2. Check plan usage limits (minutes & call count)
+        const tierName = subscription?.planId || 'starter';
+        const usageCheck = await checkCallAllowed(getDb(), tenantId, tierName);
+        if (!usageCheck.allowed) {
+            const twiml = generateUnavailableTwiML({
+                message: usageCheck.reason || 'Aylık kullanım limitiniz dolmuştur. Lütfen planınızı yükseltin.',
+            });
+            return new NextResponse(twiml, {
+                headers: { 'Content-Type': 'text/xml' },
+            });
+        }
+
+        // ── Load tenant config for greeting ─────────────────────────
         const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
         const tenantData = tenantSnap.data();
         const greeting = tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
