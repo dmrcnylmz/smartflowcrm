@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
+import { AgentCreationWizard } from '@/components/agents/AgentCreationWizard';
 import {
     Bot,
     Plus,
@@ -31,42 +32,38 @@ import {
     Copy,
     CheckCircle,
     XCircle,
+    Search,
+    ToggleLeft,
+    ToggleRight,
+    HeartPulse,
+    ShoppingBag,
+    Briefcase,
+    Headphones,
+    GraduationCap,
+    Utensils,
+    Home as HomeIcon,
+    Car,
+    Scale,
+    Shield,
 } from 'lucide-react';
+import type { Agent, AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
+import { AGENT_TEMPLATES, getTemplateById } from '@/lib/agents/templates';
 
 // =============================================
-// Types
+// Icon Map for template colors
 // =============================================
 
-interface AgentVariable {
-    key: string;
-    label: string;
-    defaultValue: string;
+const TEMPLATE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    HeartPulse, ShoppingBag, Briefcase, Headphones, GraduationCap,
+    Utensils, Home: HomeIcon, Car, Scale, Shield,
+};
+
+function getTemplateIcon(iconName: string) {
+    return TEMPLATE_ICON_MAP[iconName] || Bot;
 }
 
-interface FallbackRule {
-    condition: string;
-    action: string;
-    value: string;
-}
-
-interface VoiceConfig {
-    style: string;
-    temperature: number;
-    maxTokens: number;
-    language: string;
-}
-
-interface Agent {
-    id: string;
-    name: string;
-    role: string;
-    systemPrompt: string;
-    variables: AgentVariable[];
-    voiceConfig: VoiceConfig;
-    fallbackRules: FallbackRule[];
-    isActive: boolean;
-    createdAt?: { _seconds: number };
-}
+// Re-export VoiceConfig as alias for backward compat
+type VoiceConfig = AgentVoiceConfig;
 
 // =============================================
 // Constants
@@ -200,6 +197,10 @@ export default function AgentsPage() {
     const [isNewAgent, setIsNewAgent] = useState(true);
     const [activeTab, setActiveTab] = useState<'prompt' | 'variables' | 'voice' | 'rules'>('prompt');
 
+    // Wizard state
+    const [wizardOpen, setWizardOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
     // Delete state
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [testingAgent, setTestingAgent] = useState<Agent | null>(null);
@@ -229,10 +230,13 @@ export default function AgentsPage() {
     // ─────────────────────────────────────────────
 
     function handleNew() {
-        setEditingAgent({ ...DEFAULT_AGENT });
-        setIsNewAgent(true);
-        setActiveTab('prompt');
-        setEditorOpen(true);
+        // Open wizard instead of editor for new agents
+        setWizardOpen(true);
+    }
+
+    function handleWizardComplete(agentId: string) {
+        setWizardOpen(false);
+        fetchAgents();
     }
 
     function handleEdit(agent: Agent) {
@@ -240,6 +244,58 @@ export default function AgentsPage() {
         setIsNewAgent(false);
         setActiveTab('prompt');
         setEditorOpen(true);
+    }
+
+    async function handleDuplicate(agent: Agent) {
+        try {
+            const res = await authFetch('/api/agents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: `${agent.name} (Kopya)`,
+                    role: agent.role,
+                    systemPrompt: agent.systemPrompt,
+                    variables: agent.variables,
+                    voiceConfig: agent.voiceConfig,
+                    fallbackRules: agent.fallbackRules,
+                    isActive: false,
+                    templateId: (agent as Agent & { templateId?: string }).templateId,
+                    templateColor: (agent as Agent & { templateColor?: string }).templateColor,
+                }),
+            });
+            if (!res.ok) throw new Error('Kopyalanamadi');
+            toast({ title: 'Kopyalandi', description: `"${agent.name}" basariyla kopyalandi.` });
+            fetchAgents();
+        } catch {
+            toast({ title: 'Hata', description: 'Asistan kopyalanirken hata olustu.', variant: 'destructive' });
+        }
+    }
+
+    async function handleToggleActive(agent: Agent) {
+        try {
+            const res = await authFetch('/api/agents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: agent.id,
+                    name: agent.name,
+                    systemPrompt: agent.systemPrompt,
+                    isActive: !agent.isActive,
+                }),
+            });
+            if (!res.ok) throw new Error('Durum degistirilemedi');
+
+            // Optimistic update
+            setAgents(prev => prev.map(a =>
+                a.id === agent.id ? { ...a, isActive: !a.isActive } : a
+            ));
+            toast({
+                title: agent.isActive ? 'Pasif yapildi' : 'Aktif yapildi',
+                description: `"${agent.name}" ${agent.isActive ? 'pasif' : 'aktif'} duruma getirildi.`,
+            });
+        } catch {
+            toast({ title: 'Hata', description: 'Durum degistirilemedi.', variant: 'destructive' });
+        }
     }
 
     function handleApplyTemplate(templateIndex: number) {
@@ -417,18 +473,34 @@ export default function AgentsPage() {
                         <h1 className="text-3xl font-bold flex items-center gap-3">
                             <Bot className="h-8 w-8 text-violet-500" />
                             Sesli Asistanlar
+                            {agents.length > 0 && (
+                                <Badge variant="secondary" className="text-xs ml-1">{agents.length}</Badge>
+                            )}
                         </h1>
                         <p className="text-muted-foreground mt-1">
-                            Sesli asistan promptlarını ve davranışlarını yapılandırın
+                            Sesli asistan promptlarini ve davranislarini yapilandirin
                         </p>
                     </div>
-                    <Button
-                        onClick={handleNew}
-                        className="gap-2 bg-violet-600 hover:bg-violet-700"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Yeni Asistan
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        {agents.length > 0 && (
+                            <div className="relative">
+                                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Asistan ara..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9 w-48 h-9"
+                                />
+                            </div>
+                        )}
+                        <Button
+                            onClick={handleNew}
+                            className="gap-2 bg-violet-600 hover:bg-violet-700"
+                        >
+                            <Wand2 className="h-4 w-4" />
+                            Yeni Asistan
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -486,96 +558,156 @@ export default function AgentsPage() {
                     </CardContent>
                 </Card>
             ) : agents.length === 0 && !loading ? (
-                <div className="text-center py-16">
-                    <Bot className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-                    <h3 className="text-lg font-medium text-muted-foreground">Henüz asistan yok</h3>
-                    <p className="text-sm text-muted-foreground/60 mt-1">Bir AI asistanı oluşturun</p>
+                /* ─── Template-based Empty State ─── */
+                <div className="animate-fade-in-up">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
+                            <Wand2 className="h-8 w-8 text-violet-500" />
+                        </div>
+                        <h3 className="text-xl font-bold">Ilk Asistanizi Olusturun</h3>
+                        <p className="text-muted-foreground mt-1 max-w-md mx-auto">
+                            Sektorunuze uygun bir sablon secin ve adim adim asistanizi olusturun
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-4xl mx-auto">
+                        {AGENT_TEMPLATES.map((template, idx) => {
+                            const Icon = getTemplateIcon(template.icon);
+                            return (
+                                <button
+                                    key={template.id}
+                                    onClick={() => setWizardOpen(true)}
+                                    style={{ animationDelay: `${idx * 60}ms` }}
+                                    className="group p-4 rounded-xl border border-border/50 bg-card hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5 text-left transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up"
+                                >
+                                    <div className={`h-10 w-10 rounded-lg bg-gradient-to-r ${template.color} flex items-center justify-center mb-3 shadow-sm`}>
+                                        <Icon className="h-5 w-5 text-white" />
+                                    </div>
+                                    <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
+                                    <p className="text-xs text-muted-foreground line-clamp-2">{template.description}</p>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {agents.map((agent, index) => (
-                        <Card
-                            key={agent.id}
-                            className="animate-fade-in-up cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5"
-                            style={{ animationDelay: `${index * 80}ms` }}
-                            onClick={() => handleEdit(agent)}
-                        >
-                            <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                                            <Bot className="h-5 w-5 text-violet-500" />
+                    {agents
+                        .filter(a => !searchQuery || a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.role.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map((agent, index) => {
+                        const agentExt = agent as Agent & { templateId?: string; templateColor?: string };
+                        const template = agentExt.templateId ? getTemplateById(agentExt.templateId) : null;
+                        const TemplateIcon = template ? getTemplateIcon(template.icon) : null;
+
+                        return (
+                            <Card
+                                key={agent.id}
+                                className="animate-fade-in-up cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5 overflow-hidden"
+                                style={{ animationDelay: `${index * 80}ms` }}
+                                onClick={() => handleEdit(agent)}
+                            >
+                                {/* Template color strip */}
+                                {template && (
+                                    <div className={`h-1 bg-gradient-to-r ${template.color}`} />
+                                )}
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${template ? `bg-gradient-to-r ${template.color}` : 'bg-violet-500/10'}`}>
+                                                {TemplateIcon ? (
+                                                    <TemplateIcon className="h-5 w-5 text-white" />
+                                                ) : (
+                                                    <Bot className="h-5 w-5 text-violet-500" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <CardTitle className="text-base">{agent.name}</CardTitle>
+                                                <p className="text-xs text-muted-foreground capitalize">{agent.role}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <CardTitle className="text-base">{agent.name}</CardTitle>
-                                            <p className="text-xs text-muted-foreground capitalize">{agent.role}</p>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant="outline" className="text-[10px] px-1.5">
+                                                <Globe className="h-2.5 w-2.5 mr-0.5" />
+                                                {agent.voiceConfig?.language === 'tr' ? 'TR' : agent.voiceConfig?.language?.toUpperCase() || 'TR'}
+                                            </Badge>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleToggleActive(agent); }}
+                                                className="transition-colors"
+                                                title={agent.isActive ? 'Pasif yap' : 'Aktif yap'}
+                                            >
+                                                {agent.isActive ? (
+                                                    <ToggleRight className="h-6 w-6 text-emerald-500" />
+                                                ) : (
+                                                    <ToggleLeft className="h-6 w-6 text-muted-foreground" />
+                                                )}
+                                            </button>
                                         </div>
                                     </div>
-                                    <Badge
-                                        className={agent.isActive
-                                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                                            : 'bg-gray-500/20 text-gray-400 border-gray-500/30'
-                                        }
-                                    >
-                                        {agent.isActive ? 'Aktif' : 'Pasif'}
-                                    </Badge>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground line-clamp-3">
-                                    {agent.systemPrompt?.slice(0, 150)}...
-                                </p>
-                                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                                    {agent.variables && agent.variables.length > 0 && (
-                                        <span className="flex items-center gap-1">
-                                            <Code2 className="h-3 w-3" />
-                                            {agent.variables.length} değişken
-                                        </span>
-                                    )}
-                                    {agent.fallbackRules && agent.fallbackRules.length > 0 && (
-                                        <span className="flex items-center gap-1">
-                                            <AlertTriangle className="h-3 w-3" />
-                                            {agent.fallbackRules.length} kural
-                                        </span>
-                                    )}
-                                    <span className="flex items-center gap-1">
-                                        <Globe className="h-3 w-3" />
-                                        {agent.voiceConfig?.language === 'tr' ? 'TR' : agent.voiceConfig?.language?.toUpperCase() || 'TR'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-end gap-2 mt-4">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
-                                        onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); }}
-                                    >
-                                        <MessageCircle className="h-3 w-3" />
-                                        Test Et
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="gap-1"
-                                        onClick={(e) => { e.stopPropagation(); handleEdit(agent); }}
-                                    >
-                                        <Edit3 className="h-3 w-3" />
-                                        Düzenle
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-red-400 hover:text-red-500 hover:bg-red-500/10 gap-1"
-                                        onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(agent.id); }}
-                                        disabled={deletingId === agent.id}
-                                    >
-                                        {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                                        Sil
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardHeader>
+                                <CardContent>
+                                    <p className="text-sm text-muted-foreground line-clamp-2">
+                                        {agent.systemPrompt?.slice(0, 120)}...
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
+                                        {agent.variables && agent.variables.length > 0 && (
+                                            <span className="flex items-center gap-1">
+                                                <Code2 className="h-3 w-3" />
+                                                {agent.variables.length} degisken
+                                            </span>
+                                        )}
+                                        {agent.fallbackRules && agent.fallbackRules.length > 0 && (
+                                            <span className="flex items-center gap-1">
+                                                <AlertTriangle className="h-3 w-3" />
+                                                {agent.fallbackRules.length} kural
+                                            </span>
+                                        )}
+                                        {template && (
+                                            <Badge variant="outline" className="text-[10px] px-1.5">
+                                                {template.name}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-end gap-1 mt-4">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2"
+                                            onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); }}
+                                        >
+                                            <MessageCircle className="h-3 w-3" />
+                                            Test
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="gap-1 h-7 px-2"
+                                            onClick={(e) => { e.stopPropagation(); handleDuplicate(agent); }}
+                                        >
+                                            <Copy className="h-3 w-3" />
+                                            Kopyala
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="gap-1 h-7 px-2"
+                                            onClick={(e) => { e.stopPropagation(); handleEdit(agent); }}
+                                        >
+                                            <Edit3 className="h-3 w-3" />
+                                            Duzenle
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-red-400 hover:text-red-500 hover:bg-red-500/10 gap-1 h-7 px-2"
+                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(agent.id); }}
+                                            disabled={deletingId === agent.id}
+                                        >
+                                            {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
             )}
 
@@ -984,6 +1116,13 @@ export default function AgentsPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Agent Creation Wizard */}
+            <AgentCreationWizard
+                open={wizardOpen}
+                onComplete={handleWizardComplete}
+                onCancel={() => setWizardOpen(false)}
+            />
 
             {/* Voice Test Modal */}
             <VoiceTestModal

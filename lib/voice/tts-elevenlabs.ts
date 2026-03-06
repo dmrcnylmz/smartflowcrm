@@ -29,8 +29,14 @@ export interface TTSStreamOptions {
 // --- Constants ---
 
 const ELEVENLABS_WS_URL = 'wss://api.elevenlabs.io/v1/text-to-speech';
-const DEFAULT_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - professional female
-const DEFAULT_MODEL = 'eleven_flash_v2_5';
+
+// Turkish-optimized voices
+const TURKISH_VOICE_ID = 'pFZP5JQG7iQjIQuC4Bku'; // Yildiz — native Turkish female
+const ENGLISH_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Sarah — professional English female
+const DEFAULT_VOICE_ID = TURKISH_VOICE_ID;           // Default to Turkish
+
+// Use multilingual_v2 for proper Turkish pronunciation (prevents Chinese artifacts)
+const DEFAULT_MODEL = 'eleven_multilingual_v2';
 const DEFAULT_FORMAT = 'pcm_16000'; // 16kHz PCM for phone quality
 
 // Sentence boundary chars — flush TTS buffer on these
@@ -61,7 +67,10 @@ export class ElevenLabsTTS {
      * Use this for complete text or when WebSocket is not needed.
      */
     async *streamText(text: string, options?: TTSStreamOptions): AsyncGenerator<Buffer> {
-        const voiceId = options?.voiceId || this.config.voiceId;
+        const isTurkish = (options?.language || 'tr') === 'tr';
+
+        // Select voice based on language — prevents garbled audio
+        const voiceId = options?.voiceId || (isTurkish ? TURKISH_VOICE_ID : ENGLISH_VOICE_ID);
 
         const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`;
 
@@ -77,8 +86,10 @@ export class ElevenLabsTTS {
                 model_id: this.config.modelId,
                 output_format: this.config.outputFormat,
                 optimize_streaming_latency: this.config.optimizeLatency,
+                // Explicit language code prevents TTS from guessing wrong language
+                language_code: isTurkish ? 'tr' : 'en',
                 voice_settings: {
-                    stability: 0.5,
+                    stability: isTurkish ? 0.6 : 0.5, // Higher stability for Turkish
                     similarity_boost: 0.75,
                     style: 0.0,
                     use_speaker_boost: true,

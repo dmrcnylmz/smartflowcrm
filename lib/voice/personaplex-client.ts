@@ -166,20 +166,19 @@ function createSpeechRecognition(): SpeechRecognitionInstance | null {
 // Text-to-Speech (TTS) Helper — ElevenLabs via API proxy
 // ============================================
 
-// ElevenLabs voice configuration
-const ELEVENLABS_VOICE_ID = 'EXAVITQu4vr4xnSDxMaL'; // Sarah - professional female
+// Voice configuration — language-aware TTS
 const TTS_API_URL = '/api/voice/tts';
 
-async function speak(text: string, onEnd?: () => void): Promise<void> {
+async function speak(text: string, onEnd?: () => void, language: string = 'tr'): Promise<void> {
     try {
-        // Try ElevenLabs first via server-side proxy
+        // Try ElevenLabs first via server-side proxy (with language for correct voice)
         logger.debug('[TTS] Requesting ElevenLabs audio...');
         const response = await fetch(TTS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text,
-                voice_id: ELEVENLABS_VOICE_ID,
+                language, // TTS route picks the right voice + language_code
             }),
         });
 
@@ -517,7 +516,7 @@ export class PersonaplexClient {
                         }
                     }, 500); // 500ms buffer to let mic settle
                 }
-            });
+            }, 'tr'); // Pass language explicitly to TTS
 
         } catch (error) {
             console.error('[Personaplex] Inference error:', error);

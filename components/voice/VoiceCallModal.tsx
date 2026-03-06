@@ -84,7 +84,7 @@ const LABELS = {
         serverUnavailable: 'Hiçbir AI servisi erişilemez durumda',
         connectionError: 'Bağlantı hatası',
         textMode: 'Metin Modu',
-        textModeInfo: 'GPU kapalı — Tarayıcı ses tanıma + LLM ile çalışıyor',
+        textModeInfo: 'AI ses tanıma + LLM ile çalışıyor',
         listening: 'Dinleniyor...',
         thinking: 'Düşünüyor...',
     },
@@ -103,7 +103,7 @@ const LABELS = {
         serverUnavailable: 'No AI service is reachable',
         connectionError: 'Connection error',
         textMode: 'Text Mode',
-        textModeInfo: 'GPU offline — Using browser speech recognition + LLM',
+        textModeInfo: 'Using AI speech recognition + LLM',
         listening: 'Listening...',
         thinking: 'Thinking...',
     }
@@ -142,6 +142,21 @@ export function VoiceCallModal({
     const isSpeakingRef = useRef(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    // --- Deepgram STT refs ---
+    const [sttMode, setSttMode] = useState<'browser' | 'deepgram'>('browser');
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const mediaStreamRef = useRef<MediaStream | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const vadIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const silenceStartRef = useRef<number>(0);
+    const speechDetectedRef = useRef(false);
+    const speechStartTimeRef = useRef<number>(0);
+    // Ref-based function pointers to avoid circular useCallback deps
+    const startListeningRef = useRef<(() => void) | null>(null);
+    const stopListeningRef = useRef<(() => void) | null>(null);
+
     // Scroll to bottom when transcript updates
     useEffect(() => {
         transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -172,36 +187,47 @@ export function VoiceCallModal({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // --- TTS: ElevenLabs (primary) → Browser speechSynthesis (fallback) ---
-    const speakText = useCallback(async (text: string, onEnd?: () => void) => {
+    // --- TTS: Server API (ElevenLabs/OpenAI) → Browser speechSynthesis (last resort) ---
+    // Greeting/Body Strategy:
+    //   greeting=true  → ElevenLabs premium (marka algısı)
+    //   greeting=false → OpenAI TTS (ucuz + güvenilir)
+    const speakText = useCallback(async (text: string, onEnd?: () => void, isGreeting = false) => {
         isSpeakingRef.current = true;
 
-        // 1. Pause STT to prevent echo
+        // 1. Pause ALL STT to prevent echo (browser Speech API + Deepgram)
         if (recognitionRef.current) {
             try { recognitionRef.current.stop(); } catch { /* already stopped */ }
         }
+        stopListeningRef.current?.();
         setIsListening(false);
 
         const resumeListening = () => {
             isSpeakingRef.current = false;
             // 500ms settling delay before restarting mic
             setTimeout(() => {
+                // Restart browser Speech API (if active in browser mode)
                 if (recognitionRef.current && !isSpeakingRef.current) {
                     try {
                         recognitionRef.current.start();
                         setIsListening(true);
                     } catch { /* already started */ }
                 }
+                // Restart Deepgram recording (if active in deepgram mode)
+                startListeningRef.current?.();
                 onEnd?.();
             }, 500);
         };
 
-        // Try ElevenLabs first
+        // Try server-side TTS (ElevenLabs or OpenAI based on greeting flag)
         try {
             const ttsRes = await fetch('/api/voice/tts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text }),
+                body: JSON.stringify({
+                    text,
+                    language,
+                    greeting: isGreeting, // Premium voice for greeting, budget for body
+                }),
             });
 
             if (ttsRes.ok && ttsRes.headers.get('content-type')?.includes('audio')) {
@@ -225,14 +251,31 @@ export function VoiceCallModal({
                 return;
             }
         } catch {
-            // ElevenLabs failed — fall through to browser TTS
+            // Server TTS failed — fall through to browser TTS (last resort)
         }
 
-        // Fallback: Browser speechSynthesis
+        // Last resort: Browser speechSynthesis (only if API completely fails)
         if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
             utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Explicitly find correct language voice
+            const voices = window.speechSynthesis.getVoices();
+            if (language === 'tr') {
+                const turkishVoice = voices.find(v => v.lang === 'tr-TR')
+                    || voices.find(v => v.lang.startsWith('tr'));
+                if (turkishVoice) utterance.voice = turkishVoice;
+            } else {
+                const englishVoice = voices.find(v => v.lang === 'en-US')
+                    || voices.find(v => v.lang.startsWith('en'));
+                if (englishVoice) utterance.voice = englishVoice;
+            }
+
             utterance.onend = resumeListening;
             utterance.onerror = resumeListening;
             window.speechSynthesis.speak(utterance);
@@ -241,130 +284,355 @@ export function VoiceCallModal({
         }
     }, [language]);
 
-    // Text-only mode: browser SpeechRecognition → /api/voice/infer → ElevenLabs TTS
+    // Text-only mode: Deepgram STT (primary) or Browser SpeechRecognition (fallback) → LLM → TTS
     const startTextOnlyMode = useCallback(async () => {
-        const SpeechRecognitionAPI = (
-            (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).SpeechRecognition
-            || (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).webkitSpeechRecognition
-        );
 
-        if (!SpeechRecognitionAPI) {
-            throw new Error('Tarayıcınız ses tanımayı desteklemiyor. Chrome kullanmanızı öneririz.');
+        // --- Check Deepgram availability ---
+        let useDeepgram = false;
+        try {
+            const sttStatus = await fetch('/api/voice/stt');
+            if (sttStatus.ok) {
+                const status = await sttStatus.json();
+                useDeepgram = status.configured === true;
+            }
+        } catch {
+            useDeepgram = false;
         }
 
-        const recognition = new SpeechRecognitionAPI();
-        recognition.lang = language === 'tr' ? 'tr-TR' : 'en-US';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognitionRef.current = recognition;
-
-        recognition.onresult = async (event: SpeechRecognitionEvent) => {
-            // ECHO PREVENTION: Ignore all results while AI is speaking
-            if (isSpeakingRef.current) return;
-
-            const lastResult = event.results[event.results.length - 1];
-            const text = lastResult[0].transcript;
-
-            if (!lastResult.isFinal) {
-                // Interim result — show as typing (deduplicated)
-                setTranscript(prev => {
-                    const last = prev[prev.length - 1];
-                    if (last && last.speaker === 'user' && last.text.endsWith('...')) {
-                        return [...prev.slice(0, -1), { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
-                    }
-                    return [...prev, { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
-                });
-                return;
-            }
-
-            // Final result — stop listening, send to LLM, speak response
-            setTranscript(prev => {
-                const filtered = prev.filter(t => !(t.speaker === 'user' && t.text.endsWith('...')));
-                return [...filtered, { speaker: 'user', text, timestamp: new Date().toISOString() }];
-            });
-
-            setIsListening(false);
-            setIsThinking(true);
-
-            // Pause recognition immediately to prevent echo during processing
-            if (recognitionRef.current) {
-                try { recognitionRef.current.stop(); } catch { /* ok */ }
-            }
-
-            try {
-                const response = await fetch('/api/voice/infer', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text,
-                        persona,
-                        language,
-                        session_id: sessionIdRef.current,
-                    }),
-                });
-
-                const data = await response.json();
-                const aiText = data.response_text || (language === 'tr' ? 'Yanıt alınamadı.' : 'No response received.');
-
-                setTranscript(prev => [...prev, {
-                    speaker: 'assistant',
-                    text: aiText,
-                    timestamp: new Date().toISOString(),
-                }]);
-
-                setIsThinking(false);
-
-                // Speak with echo prevention — recognition auto-resumes after TTS ends
-                await speakText(aiText);
-            } catch {
-                setTranscript(prev => [...prev, {
-                    speaker: 'assistant',
-                    text: language === 'tr' ? 'Bir hata oluştu. Tekrar deneyin.' : 'An error occurred. Please try again.',
-                    timestamp: new Date().toISOString(),
-                }]);
-                setIsThinking(false);
-
-                // Resume listening after error
-                if (recognitionRef.current && !isSpeakingRef.current) {
-                    try { recognitionRef.current.start(); setIsListening(true); } catch { /* ok */ }
-                }
-            }
-        };
-
-        recognition.onerror = (event) => {
-            const errEvent = event as SpeechRecognitionErrorEvent;
-            if (errEvent.error !== 'no-speech' && errEvent.error !== 'aborted') {
-                setError(`Ses tanıma hatası: ${errEvent.error}`);
-            }
-        };
-
-        recognition.onend = () => {
-            // Auto-restart only if call active AND AI not speaking
-            if (recognitionRef.current && !isSpeakingRef.current) {
-                try {
-                    recognitionRef.current.start();
-                } catch {
-                    // Already started or stopped
-                }
-            }
-        };
-
-        setCallState('connected');
-
-        // Play greeting first, THEN start listening
+        // Common greeting
         const greeting = language === 'tr'
             ? 'Merhaba! Ben Callception AI asistanıyım. Size nasıl yardımcı olabilirim?'
             : 'Hello! I am the Callception AI assistant. How can I help you?';
 
-        setTranscript([{ speaker: 'assistant', text: greeting, timestamp: new Date().toISOString() }]);
+        if (useDeepgram) {
+            // ================================================================
+            // DEEPGRAM STT MODE (Enterprise-Grade)
+            // Flow: MediaRecorder → VAD → Deepgram Nova-2 → LLM → TTS
+            // ================================================================
+            setSttMode('deepgram');
 
-        // Speak greeting, then start recognition after it finishes
-        await speakText(greeting, () => {
-            // Recognition starts after greeting TTS completes — no echo
-        });
+            // Get microphone access
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
 
-        // Recognition is auto-started by speakText's resumeListening callback
+            // Create AudioContext for Voice Activity Detection (VAD)
+            const ctx = new AudioContext();
+            audioContextRef.current = ctx;
+            const source = ctx.createMediaStreamSource(stream);
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 512;
+            source.connect(analyser);
+            analyserRef.current = analyser;
+
+            // --- VAD Configuration ---
+            const SPEECH_THRESHOLD = 15;     // RMS level to detect speech
+            const SILENCE_DURATION = 1500;   // 1.5s silence = end of utterance
+            const MIN_SPEECH_MS = 300;       // Minimum speech to process (filter noise)
+
+            // --- Process recorded utterance (stop → transcribe → LLM → TTS → restart) ---
+            const processUtterance = async () => {
+                // Stop VAD monitoring
+                if (vadIntervalRef.current) {
+                    clearInterval(vadIntervalRef.current);
+                    vadIntervalRef.current = null;
+                }
+                // Stop MediaRecorder
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    mediaRecorderRef.current.stop();
+                }
+
+                setIsListening(false);
+                speechDetectedRef.current = false;
+                silenceStartRef.current = 0;
+
+                // Wait for final MediaRecorder data chunks
+                await new Promise(resolve => setTimeout(resolve, 250));
+
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                audioChunksRef.current = [];
+
+                // Skip too-small recordings (noise/silence)
+                if (audioBlob.size < 1000) {
+                    startDeepgramRecording();
+                    return;
+                }
+
+                setIsThinking(true);
+
+                try {
+                    // Send to Deepgram STT
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.webm');
+                    formData.append('language', language);
+
+                    const sttResponse = await fetch('/api/voice/stt', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const sttData = await sttResponse.json();
+
+                    if (!sttData.success || sttData.isEmpty || !sttData.transcript) {
+                        // No speech detected by Deepgram — restart listening
+                        setIsThinking(false);
+                        startDeepgramRecording();
+                        return;
+                    }
+
+                    const userText = sttData.transcript;
+
+                    // Show user transcript
+                    setTranscript(prev => [...prev, {
+                        speaker: 'user',
+                        text: userText,
+                        timestamp: new Date().toISOString(),
+                    }]);
+
+                    // Send to LLM
+                    const response = await fetch('/api/voice/infer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: userText,
+                            persona,
+                            language,
+                            session_id: sessionIdRef.current,
+                        }),
+                    });
+
+                    const data = await response.json();
+                    const aiText = data.response_text || (language === 'tr' ? 'Yanıt alınamadı.' : 'No response received.');
+
+                    setTranscript(prev => [...prev, {
+                        speaker: 'assistant',
+                        text: aiText,
+                        timestamp: new Date().toISOString(),
+                    }]);
+
+                    setIsThinking(false);
+
+                    // Speak body response (budget voice → OpenAI TTS)
+                    // Deepgram recording restarts via speakText's resumeListening → startListeningRef
+                    await speakText(aiText, undefined, false);
+
+                } catch (err) {
+                    console.error('[STT:Deepgram] Processing error:', err);
+                    setTranscript(prev => [...prev, {
+                        speaker: 'assistant',
+                        text: language === 'tr' ? 'Bir hata oluştu. Tekrar deneyin.' : 'An error occurred. Please try again.',
+                        timestamp: new Date().toISOString(),
+                    }]);
+                    setIsThinking(false);
+                    startDeepgramRecording();
+                }
+            };
+
+            // --- Start recording with VAD monitoring ---
+            const startDeepgramRecording = () => {
+                if (!mediaStreamRef.current || isSpeakingRef.current) return;
+
+                setIsListening(true);
+                speechDetectedRef.current = false;
+                silenceStartRef.current = 0;
+                speechStartTimeRef.current = 0;
+                audioChunksRef.current = [];
+
+                // Start MediaRecorder
+                try {
+                    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                        ? 'audio/webm;codecs=opus'
+                        : 'audio/webm';
+                    const recorder = new MediaRecorder(mediaStreamRef.current, { mimeType });
+                    mediaRecorderRef.current = recorder;
+
+                    recorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            audioChunksRef.current.push(event.data);
+                        }
+                    };
+
+                    recorder.start(100); // Collect chunks every 100ms
+                } catch (err) {
+                    console.error('[STT:Deepgram] MediaRecorder error:', err);
+                    return;
+                }
+
+                // Start VAD monitoring loop
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                vadIntervalRef.current = setInterval(() => {
+                    if (!analyserRef.current || isSpeakingRef.current) return;
+
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    const rms = Math.sqrt(
+                        dataArray.reduce((sum, val) => sum + val * val, 0) / dataArray.length,
+                    );
+
+                    if (rms > SPEECH_THRESHOLD) {
+                        // Speech detected
+                        if (!speechDetectedRef.current) {
+                            speechStartTimeRef.current = Date.now();
+                        }
+                        speechDetectedRef.current = true;
+                        silenceStartRef.current = 0;
+                    } else if (speechDetectedRef.current) {
+                        // Silence after speech
+                        if (silenceStartRef.current === 0) {
+                            silenceStartRef.current = Date.now();
+                        } else if (Date.now() - silenceStartRef.current > SILENCE_DURATION) {
+                            // Check minimum speech duration (filter noise)
+                            const speechDuration = silenceStartRef.current - speechStartTimeRef.current;
+                            if (speechDuration > MIN_SPEECH_MS) {
+                                processUtterance();
+                            } else {
+                                // Too short — noise, reset
+                                speechDetectedRef.current = false;
+                                silenceStartRef.current = 0;
+                            }
+                        }
+                    }
+                }, 50); // Check every 50ms
+            };
+
+            // Store function pointers for speakText integration
+            startListeningRef.current = startDeepgramRecording;
+            stopListeningRef.current = () => {
+                if (vadIntervalRef.current) {
+                    clearInterval(vadIntervalRef.current);
+                    vadIntervalRef.current = null;
+                }
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                    try { mediaRecorderRef.current.stop(); } catch { /* ok */ }
+                }
+                audioChunksRef.current = [];
+                speechDetectedRef.current = false;
+                silenceStartRef.current = 0;
+                setIsListening(false);
+            };
+
+            setCallState('connected');
+
+            setTranscript([{ speaker: 'assistant', text: greeting, timestamp: new Date().toISOString() }]);
+
+            // Speak greeting with PREMIUM voice, then start Deepgram recording
+            await speakText(greeting, () => {
+                // Deepgram recording starts via startListeningRef in speakText's resumeListening
+            }, true); // greeting=true → ElevenLabs premium voice
+
+        } else {
+            // ================================================================
+            // BROWSER SPEECH API FALLBACK
+            // Flow: Web Speech API → LLM → TTS
+            // ================================================================
+            setSttMode('browser');
+
+            const SpeechRecognitionAPI = (
+                (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).SpeechRecognition
+                || (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).webkitSpeechRecognition
+            );
+
+            if (!SpeechRecognitionAPI) {
+                throw new Error('Tarayıcınız ses tanımayı desteklemiyor. Chrome kullanmanızı öneririz.');
+            }
+
+            const recognition = new SpeechRecognitionAPI();
+            recognition.lang = language === 'tr' ? 'tr-TR' : 'en-US';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognitionRef.current = recognition;
+
+            recognition.onresult = async (event: SpeechRecognitionEvent) => {
+                // ECHO PREVENTION: Ignore all results while AI is speaking
+                if (isSpeakingRef.current) return;
+
+                const lastResult = event.results[event.results.length - 1];
+                const text = lastResult[0].transcript;
+
+                if (!lastResult.isFinal) {
+                    // Interim result — show as typing (deduplicated)
+                    setTranscript(prev => {
+                        const last = prev[prev.length - 1];
+                        if (last && last.speaker === 'user' && last.text.endsWith('...')) {
+                            return [...prev.slice(0, -1), { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
+                        }
+                        return [...prev, { speaker: 'user', text: text + '...', timestamp: new Date().toISOString() }];
+                    });
+                    return;
+                }
+
+                // Final result — stop listening, send to LLM, speak response
+                setTranscript(prev => {
+                    const filtered = prev.filter(t => !(t.speaker === 'user' && t.text.endsWith('...')));
+                    return [...filtered, { speaker: 'user', text, timestamp: new Date().toISOString() }];
+                });
+
+                setIsListening(false);
+                setIsThinking(true);
+
+                if (recognitionRef.current) {
+                    try { recognitionRef.current.stop(); } catch { /* ok */ }
+                }
+
+                try {
+                    const response = await fetch('/api/voice/infer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text,
+                            persona,
+                            language,
+                            session_id: sessionIdRef.current,
+                        }),
+                    });
+
+                    const data = await response.json();
+                    const aiText = data.response_text || (language === 'tr' ? 'Yanıt alınamadı.' : 'No response received.');
+
+                    setTranscript(prev => [...prev, {
+                        speaker: 'assistant',
+                        text: aiText,
+                        timestamp: new Date().toISOString(),
+                    }]);
+
+                    setIsThinking(false);
+                    await speakText(aiText, undefined, false);
+                } catch {
+                    setTranscript(prev => [...prev, {
+                        speaker: 'assistant',
+                        text: language === 'tr' ? 'Bir hata oluştu. Tekrar deneyin.' : 'An error occurred. Please try again.',
+                        timestamp: new Date().toISOString(),
+                    }]);
+                    setIsThinking(false);
+
+                    if (recognitionRef.current && !isSpeakingRef.current) {
+                        try { recognitionRef.current.start(); setIsListening(true); } catch { /* ok */ }
+                    }
+                }
+            };
+
+            recognition.onerror = (event) => {
+                const errEvent = event as SpeechRecognitionErrorEvent;
+                if (errEvent.error !== 'no-speech' && errEvent.error !== 'aborted') {
+                    setError(`Ses tanıma hatası: ${errEvent.error}`);
+                }
+            };
+
+            recognition.onend = () => {
+                if (recognitionRef.current && !isSpeakingRef.current) {
+                    try { recognitionRef.current.start(); } catch { /* ok */ }
+                }
+            };
+
+            setCallState('connected');
+
+            setTranscript([{ speaker: 'assistant', text: greeting, timestamp: new Date().toISOString() }]);
+
+            // Speak greeting with PREMIUM voice, then start browser recognition
+            await speakText(greeting, () => {
+                // Browser recognition starts via recognitionRef in speakText's resumeListening
+            }, true); // greeting=true → ElevenLabs premium voice
+        }
     }, [language, persona, speakText]);
 
     const startCall = useCallback(async () => {
@@ -493,19 +761,42 @@ export function VoiceCallModal({
         setCallState('ending');
         isSpeakingRef.current = false;
 
-        // Stop speech recognition (text-only mode)
+        // Stop browser Speech Recognition (browser STT mode)
         if (recognitionRef.current) {
             recognitionRef.current.stop();
             recognitionRef.current = null;
         }
 
-        // Stop ElevenLabs audio playback
+        // Stop Deepgram STT resources
+        stopListeningRef.current?.();
+        if (vadIntervalRef.current) {
+            clearInterval(vadIntervalRef.current);
+            vadIntervalRef.current = null;
+        }
+        if (mediaRecorderRef.current) {
+            try { if (mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop(); } catch { /* ok */ }
+            mediaRecorderRef.current = null;
+        }
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            mediaStreamRef.current = null;
+        }
+        if (audioContextRef.current) {
+            audioContextRef.current.close().catch(() => { /* ok */ });
+            audioContextRef.current = null;
+        }
+        analyserRef.current = null;
+        startListeningRef.current = null;
+        stopListeningRef.current = null;
+        audioChunksRef.current = [];
+
+        // Stop TTS audio playback
         if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current = null;
         }
 
-        // Stop browser speech synthesis
+        // Stop browser speech synthesis (last resort TTS)
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
@@ -549,6 +840,19 @@ export function VoiceCallModal({
             }
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
+            }
+            // Cleanup Deepgram STT resources
+            if (vadIntervalRef.current) {
+                clearInterval(vadIntervalRef.current);
+            }
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+                try { mediaRecorderRef.current.stop(); } catch { /* ok */ }
+            }
+            if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (audioContextRef.current) {
+                audioContextRef.current.close().catch(() => { /* ok */ });
             }
         };
     }, []);
@@ -652,8 +956,16 @@ export function VoiceCallModal({
 
                     {/* Text Mode Info */}
                     {callState === 'connected' && callMode === 'text-only' && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
-                            <p className="text-sm text-amber-700">{labels.textModeInfo}</p>
+                        <div className={`rounded-lg border px-4 py-2 ${sttMode === 'deepgram'
+                            ? 'border-emerald-200 bg-emerald-50'
+                            : 'border-amber-200 bg-amber-50'
+                            }`}>
+                            <p className={`text-sm ${sttMode === 'deepgram' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                {sttMode === 'deepgram'
+                                    ? (language === 'tr' ? '🎯 Deepgram Nova-2 + LLM + TTS' : '🎯 Deepgram Nova-2 + LLM + TTS')
+                                    : labels.textModeInfo
+                                }
+                            </p>
                         </div>
                     )}
 

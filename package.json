@@ -53,7 +53,6 @@
     "firebase": "^11.1.0",
     "firebase-admin": "^13.6.1",
     "fraction.js": "^5.3.4",
-    "iyzipay": "^2.0.65",
     "jspdf": "^4.0.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.552.0",

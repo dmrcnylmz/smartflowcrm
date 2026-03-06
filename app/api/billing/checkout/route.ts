@@ -1,45 +1,51 @@
 /**
- * Billing Checkout API — iyzico Payment Initiation
+ * Billing Checkout API — Lemon Squeezy Checkout Session
  *
- * POST: Creates an iyzico checkout form for subscription payment
+ * POST: Creates a Lemon Squeezy checkout URL for subscription payment.
+ *       The user is redirected to LS hosted checkout page.
+ *       custom_data.tenant_id is embedded in the checkout for webhook correlation.
  *
  * Request body:
  * {
- *   planId: "starter" | "professional" | "enterprise",
- *   buyer: { name, surname, email, phone?, identityNumber?, city?, address? }
+ *   planId: "starter" | "professional" | "enterprise"
  * }
  *
  * Response:
  * {
- *   checkoutFormContent: "<html>...",  // iyzico payment form HTML
- *   token: "...",                       // conversation token for verification
+ *   success: true,
+ *   checkoutUrl: "https://callception.lemonsqueezy.com/checkout/..."
  * }
+ *
+ * GET: Returns available plans for pricing display (public).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { initAdmin } from '@/lib/auth/firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
-import { createCheckoutForm, PLANS } from '@/lib/billing/iyzico-service';
+import { createCheckout, PLANS, type BillingInterval } from '@/lib/billing/lemonsqueezy';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
-let db: FirebaseFirestore.Firestore | null = null;
-function getDb() {
-    if (!db) { initAdmin(); db = getFirestore(); }
-    return db;
-}
+// Zod schema for request validation
+const checkoutSchema = z.object({
+    planId: z.enum(['starter', 'professional', 'enterprise']),
+    billingInterval: z.enum(['monthly', 'yearly']).default('monthly'),
+});
 
+/**
+ * POST: Create a Lemon Squeezy checkout URL
+ */
 export async function POST(request: NextRequest) {
     try {
-        // Auth check
+        // Auth check — middleware injects these headers
         const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-id');
+        const userId = request.headers.get('x-user-id') || request.headers.get('x-user-uid');
         const userRole = request.headers.get('x-user-role');
+        const userEmail = request.headers.get('x-user-email');
 
         if (!tenantId || !userId) {
             return NextResponse.json(
-                { error: 'Authentication required' },
+                { error: 'Kimlik doğrulaması gerekli.' },
                 { status: 401 }
             );
         }
@@ -47,76 +53,46 @@ export async function POST(request: NextRequest) {
         // Only owner/admin can manage billing
         if (userRole !== 'owner' && userRole !== 'admin') {
             return NextResponse.json(
-                { error: 'Only owners and admins can manage billing' },
+                { error: 'Yalnızca sahip ve yöneticiler faturalandırmayı yönetebilir.' },
                 { status: 403 }
             );
         }
 
+        // Parse and validate request body
         const body = await request.json();
-        const { planId, buyer } = body;
+        const parsed = checkoutSchema.safeParse(body);
 
-        // Validate plan
-        if (!planId || !PLANS[planId]) {
+        if (!parsed.success) {
             return NextResponse.json(
-                { error: 'Invalid plan. Choose: starter, professional, or enterprise' },
+                { error: 'Geçersiz plan. Seçenekler: starter, professional, enterprise' },
                 { status: 400 }
             );
         }
 
-        // Validate buyer info
-        if (!buyer?.name || !buyer?.surname || !buyer?.email) {
-            return NextResponse.json(
-                { error: 'Buyer name, surname, and email are required' },
-                { status: 400 }
-            );
-        }
+        const { planId, billingInterval } = parsed.data;
 
-        // Get client IP
-        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-            || request.headers.get('x-real-ip')
-            || '127.0.0.1';
-
-        // Build callback URL
+        // Build redirect URL
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        const callbackUrl = `${appUrl}/api/billing/webhook?tenantId=${tenantId}&planId=${planId}`;
+        const redirectUrl = `${appUrl}/billing?payment=success&plan=${planId}&interval=${billingInterval}`;
 
-        // Store pending checkout in Firestore for verification
-        await getDb().collection('tenants').doc(tenantId)
-            .collection('billing').doc('pending_checkout').set({
-                planId,
-                buyerEmail: buyer.email,
-                createdAt: Date.now(),
-                status: 'pending',
-            });
-
-        // Create iyzico checkout form
-        const result = await createCheckoutForm({
+        // Create Lemon Squeezy checkout
+        const result = await createCheckout({
             tenantId,
             planId,
-            buyer: {
-                id: userId,
-                name: buyer.name,
-                surname: buyer.surname,
-                email: buyer.email,
-                phone: buyer.phone,
-                identityNumber: buyer.identityNumber,
-                city: buyer.city,
-                country: 'Turkey',
-                address: buyer.address,
-                ip,
-            },
-            callbackUrl,
+            billingInterval,
+            userEmail: userEmail || '',
+            userId,
+            redirectUrl,
         });
 
-        if (result.status === 'success') {
+        if (result.success && result.checkoutUrl) {
             return NextResponse.json({
                 success: true,
-                checkoutFormContent: result.checkoutFormContent,
-                token: result.token,
+                checkoutUrl: result.checkoutUrl,
             });
         } else {
             return NextResponse.json(
-                { error: result.errorMessage || 'Payment form creation failed' },
+                { error: result.error || 'Ödeme sayfası oluşturulamadı.' },
                 { status: 500 }
             );
         }
@@ -137,6 +113,7 @@ export async function GET() {
             nameTr: plan.nameTr,
             description: plan.description,
             priceTry: plan.priceTry,
+            priceYearlyTry: plan.priceYearlyTry,
             includedMinutes: plan.includedMinutes,
             includedCalls: plan.includedCalls,
             maxConcurrentSessions: plan.maxConcurrentSessions,
@@ -146,7 +123,7 @@ export async function GET() {
         return NextResponse.json({ plans });
     } catch {
         return NextResponse.json(
-            { error: 'Failed to load plans' },
+            { error: 'Plan listesi yüklenemedi.' },
             { status: 500 }
         );
     }
