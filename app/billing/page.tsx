@@ -88,6 +88,14 @@ interface SubscriptionPlan {
 
 type BillingInterval = 'monthly' | 'yearly';
 
+interface BillingActivity {
+    id: string;
+    type: string;
+    description?: string;
+    details?: Record<string, unknown>;
+    createdAt: { _seconds?: number; seconds?: number } | string;
+}
+
 interface Subscription {
     planId: string;
     status: string;
@@ -125,13 +133,17 @@ function BillingPageContent() {
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
     const [swapLoading, setSwapLoading] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'plans' | 'usage' | 'calculator' | 'pipeline'>('plans');
+    const [activeTab, setActiveTab] = useState<'plans' | 'usage' | 'calculator' | 'pipeline' | 'invoices'>('plans');
     const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly');
 
     // Voice pipeline analytics state
     const [pipelineData, setPipelineData] = useState<any>(null);
     const [emergencyData, setEmergencyData] = useState<any>(null);
     const [pipelineLoading, setPipelineLoading] = useState(false);
+
+    // Invoice history state
+    const [invoices, setInvoices] = useState<BillingActivity[]>([]);
+    const [invoicesLoading, setInvoicesLoading] = useState(false);
 
     // Scaling calculator state
     const [calcUsers, setCalcUsers] = useState(10);
@@ -210,9 +222,30 @@ function BillingPageContent() {
         }
     }, [user]);
 
+    // Load invoice history when tab switches
+    const loadInvoices = useCallback(async () => {
+        if (!user) return;
+        setInvoicesLoading(true);
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/billing/invoices', {
+                headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setInvoices(data.activities || []);
+            }
+        } catch {
+            // Non-critical
+        } finally {
+            setInvoicesLoading(false);
+        }
+    }, [user]);
+
     useEffect(() => {
         if (activeTab === 'pipeline') loadPipelineData();
-    }, [activeTab, loadPipelineData]);
+        if (activeTab === 'invoices') loadInvoices();
+    }, [activeTab, loadPipelineData, loadInvoices]);
 
     const handleEmergencyToggle = useCallback(async (action: 'activate' | 'deactivate') => {
         if (!user) return;
@@ -458,6 +491,7 @@ function BillingPageContent() {
                     {[
                         { id: 'plans' as const, label: 'Planlar', icon: CreditCard },
                         { id: 'usage' as const, label: 'Kullanim', icon: BarChart3 },
+                        { id: 'invoices' as const, label: 'Faturalar', icon: Wallet },
                         { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
                         ...(role === 'owner' || role === 'admin' ? [{ id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator }] : []),
                     ].map(tab => (
@@ -989,6 +1023,93 @@ function BillingPageContent() {
                         providerData={pipelineData?.providers || { stt: {}, llm: {}, tts: {} }}
                         isLoading={pipelineLoading}
                     />
+                </div>
+            )}
+
+            {/* ===================== INVOICES TAB ===================== */}
+            {activeTab === 'invoices' && (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="rounded-2xl bg-white/[0.02] border border-white/[0.08] p-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-white mb-1">Fatura & Ödeme Geçmişi</h3>
+                                <p className="text-sm text-white/50">Abonelik işlemleri ve ödeme kayıtları</p>
+                            </div>
+                            {subscription?.customerPortalUrl && (
+                                <a
+                                    href={subscription.customerPortalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.08] text-sm text-white/70 hover:text-white hover:bg-white/[0.1] transition-colors flex items-center gap-2"
+                                >
+                                    <ExternalLink className="h-4 w-4" />
+                                    Ödeme Portalı
+                                </a>
+                            )}
+                        </div>
+
+                        {invoicesLoading ? (
+                            <div className="flex items-center justify-center py-12">
+                                <Loader2 className="h-6 w-6 animate-spin text-white/40" />
+                            </div>
+                        ) : invoices.length === 0 ? (
+                            <div className="text-center py-12">
+                                <Wallet className="h-10 w-10 text-white/20 mx-auto mb-3" />
+                                <p className="text-white/40 text-sm">Henüz ödeme kaydı bulunmuyor</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {invoices.map((activity) => {
+                                    const ts = typeof activity.createdAt === 'string'
+                                        ? new Date(activity.createdAt)
+                                        : new Date(((activity.createdAt as any)?._seconds || (activity.createdAt as any)?.seconds || 0) * 1000);
+                                    const typeMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
+                                        subscription_created: { label: 'Abonelik Başlatıldı', color: 'text-green-400', icon: CheckCircle2 },
+                                        subscription_updated: { label: 'Abonelik Güncellendi', color: 'text-blue-400', icon: RefreshCw },
+                                        subscription_cancelled: { label: 'Abonelik İptal Edildi', color: 'text-orange-400', icon: XCircle },
+                                        subscription_expired: { label: 'Abonelik Sona Erdi', color: 'text-red-400', icon: XCircle },
+                                        subscription_paused: { label: 'Abonelik Duraklatıldı', color: 'text-yellow-400', icon: Info },
+                                        subscription_resumed: { label: 'Abonelik Devam Ettirildi', color: 'text-green-400', icon: CheckCircle2 },
+                                        subscription_unpaused: { label: 'Abonelik Devam Ettirildi', color: 'text-green-400', icon: CheckCircle2 },
+                                        payment_success: { label: 'Ödeme Başarılı', color: 'text-emerald-400', icon: CheckCircle2 },
+                                        payment_failed: { label: 'Ödeme Başarısız', color: 'text-red-400', icon: XCircle },
+                                        payment_refunded: { label: 'İade Yapıldı', color: 'text-orange-400', icon: Repeat },
+                                        settings_update: { label: 'Ayar Güncellendi', color: 'text-white/50', icon: Info },
+                                    };
+                                    const info = typeMap[activity.type] || { label: activity.type, color: 'text-white/50', icon: Info };
+                                    const Icon = info.icon;
+
+                                    return (
+                                        <div
+                                            key={activity.id}
+                                            className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.04] transition-colors"
+                                        >
+                                            <div className={`p-2 rounded-lg bg-white/[0.06] ${info.color}`}>
+                                                <Icon className="h-4 w-4" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={`text-sm font-medium ${info.color}`}>{info.label}</p>
+                                                {activity.details?.planId && (
+                                                    <p className="text-xs text-white/40 mt-0.5">
+                                                        Plan: {String(activity.details.planId)}
+                                                        {activity.details?.status && ` — ${String(activity.details.status)}`}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="text-right shrink-0">
+                                                <p className="text-xs text-white/40">
+                                                    {ts.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </p>
+                                                <p className="text-xs text-white/30 mt-0.5">
+                                                    {ts.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

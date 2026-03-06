@@ -8,8 +8,13 @@
  *   - subscription_created    → Create subscription record + lookup map
  *   - subscription_updated    → Update status, period, card info
  *   - subscription_cancelled  → Mark as cancelled with end date
+ *   - subscription_resumed    → Re-activate after pause/cancel
+ *   - subscription_expired    → Mark as expired (grace period ended)
+ *   - subscription_paused     → Mark as paused
+ *   - subscription_unpaused   → Re-activate after pause
  *   - subscription_payment_success → Log successful payment
  *   - subscription_payment_failed  → Mark as past_due
+ *   - subscription_payment_refunded → Log refund
  *
  * GET: Returns subscription status for authenticated tenants.
  *
@@ -122,6 +127,23 @@ export async function POST(request: NextRequest) {
 
             case 'subscription_payment_failed':
                 await handlePaymentFailed(tenantId, payload);
+                break;
+
+            case 'subscription_resumed':
+            case 'subscription_unpaused':
+                await handleSubscriptionReactivated(tenantId, payload, eventName);
+                break;
+
+            case 'subscription_expired':
+                await handleSubscriptionExpired(tenantId, payload);
+                break;
+
+            case 'subscription_paused':
+                await handleSubscriptionPaused(tenantId, payload);
+                break;
+
+            case 'subscription_payment_refunded':
+                await handlePaymentRefunded(tenantId, payload);
                 break;
 
             default:
@@ -289,6 +311,109 @@ async function handlePaymentFailed(
     await logBillingActivity(getDb(), tenantId, 'payment_failed', {
         lsSubscriptionId: payload.data.id,
         failedAt: new Date(now).toISOString(),
+    });
+}
+
+/**
+ * subscription_resumed / subscription_unpaused — Subscription re-activated.
+ * User resumed after cancellation or unpause. Set back to active.
+ */
+async function handleSubscriptionReactivated(
+    tenantId: string,
+    payload: LsWebhookPayload,
+    eventName: string,
+): Promise<void> {
+    const attrs = payload.data.attributes;
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] ${eventName} — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'active',
+        currentPeriodEnd: attrs.renews_at ? new Date(attrs.renews_at).getTime() : undefined,
+        cancelledAt: undefined,
+        endsAt: undefined,
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, eventName, {
+        lsSubscriptionId: payload.data.id,
+        status: 'active',
+        renewsAt: attrs.renews_at,
+    });
+}
+
+/**
+ * subscription_expired — Subscription fully expired (grace period ended).
+ * All access should be blocked.
+ */
+async function handleSubscriptionExpired(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] subscription_expired — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'expired',
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, 'subscription_expired', {
+        lsSubscriptionId: payload.data.id,
+        expiredAt: new Date(now).toISOString(),
+    });
+}
+
+/**
+ * subscription_paused — User paused their subscription.
+ * Access should be suspended until resumed.
+ */
+async function handleSubscriptionPaused(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const attrs = payload.data.attributes;
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] subscription_paused — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await upsertSubscription(getDb(), tenantId, {
+        status: 'paused',
+        updatedAt: now,
+    });
+
+    await logBillingActivity(getDb(), tenantId, 'subscription_paused', {
+        lsSubscriptionId: payload.data.id,
+        pausedAt: new Date(now).toISOString(),
+        resumesAt: attrs.pause?.resumes_at || null,
+    });
+}
+
+/**
+ * subscription_payment_refunded — A payment was refunded.
+ * Log the refund but don't change subscription status (LS handles that separately).
+ */
+async function handlePaymentRefunded(
+    tenantId: string,
+    payload: LsWebhookPayload,
+): Promise<void> {
+    const now = Date.now();
+
+    console.log(
+        `[billing/webhook] payment_refunded — tenant=${tenantId}, lsSubId=${payload.data.id}`
+    );
+
+    await logBillingActivity(getDb(), tenantId, 'payment_refunded', {
+        lsSubscriptionId: payload.data.id,
+        refundedAt: new Date(now).toISOString(),
     });
 }
 

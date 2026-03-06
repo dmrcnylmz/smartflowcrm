@@ -12,6 +12,9 @@ import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, 
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
 import { handleApiError, requireAuth, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { meterKbQuery } from '@/lib/billing/metering';
+import { initAdmin } from '@/lib/auth/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // File processing can take longer
@@ -78,6 +81,11 @@ export async function GET(request: NextRequest) {
         if (query) {
             const topK = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get('topK') || '5') || 5, 1), 50);
             const results = await queryKnowledgeBase(tenantId!, query, topK);
+
+            // Fire-and-forget: meter KB query
+            initAdmin();
+            meterKbQuery(getFirestore(), tenantId!).catch(() => {});
+
             return NextResponse.json({ query, results, count: results.length }, {
                 headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
             });
