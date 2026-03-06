@@ -47,6 +47,41 @@ export async function GET() {
         });
     }
 
+    // Payment — Lemon Squeezy (critical for billing)
+    const paymentEnvs: [string, string][] = [
+        ['LEMONSQUEEZY_API_KEY', 'Lemon Squeezy API'],
+        ['LEMONSQUEEZY_STORE_ID', 'Lemon Squeezy Store'],
+        ['LEMONSQUEEZY_WEBHOOK_SECRET', 'Lemon Squeezy Webhook'],
+    ];
+
+    for (const [key, label] of paymentEnvs) {
+        checks.push({
+            name: `env:${key}`,
+            status: process.env[key] ? 'ok' : 'error',
+            detail: process.env[key] ? `${label} — configured` : `${label} — MISSING (payments broken!)`,
+            critical: true,
+        });
+    }
+
+    // Variant IDs — all 6 needed for checkout
+    const variantKeys = [
+        'LEMONSQUEEZY_VARIANT_STARTER',
+        'LEMONSQUEEZY_VARIANT_STARTER_YEARLY',
+        'LEMONSQUEEZY_VARIANT_PROFESSIONAL',
+        'LEMONSQUEEZY_VARIANT_PROFESSIONAL_YEARLY',
+        'LEMONSQUEEZY_VARIANT_ENTERPRISE',
+        'LEMONSQUEEZY_VARIANT_ENTERPRISE_YEARLY',
+    ];
+    const variantsMissing = variantKeys.filter(k => !process.env[k]);
+    checks.push({
+        name: 'billing:variants',
+        status: variantsMissing.length === 0 ? 'ok' : 'error',
+        detail: variantsMissing.length === 0
+            ? `All 6 plan variants configured (3 monthly + 3 yearly)`
+            : `Missing ${variantsMissing.length} variant(s): ${variantsMissing.join(', ')}`,
+        critical: true,
+    });
+
     // Optional but recommended
     const optionalEnvs: [string, string][] = [
         ['GROQ_API_KEY', 'Groq LLM (primary, fast)'],
