@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2024-11-XX
 
 ### Added
-- Initial release of SmartFlow CRM
+- Initial release of Callception (formerly SmartFlow CRM)
 - Dashboard with real-time KPI metrics
 - AI-powered intent detection system
 - Appointment management (CRUD operations)
@@ -55,5 +55,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security rules template
 - Environment variable examples
 
-[1.0.0]: https://github.com/yourusername/smartflow-crm/releases/tag/v1.0.0
+[1.0.0]: https://github.com/dmrcnylmz/smartflowcrm/releases/tag/v1.0.0
 

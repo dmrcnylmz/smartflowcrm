@@ -1,4 +1,4 @@
-# 🚀 SmartFlow CRM - Akıllı Müşteri İlişkileri Yönetim Sistemi
+# 🚀 Callception - AI Destekli Çağrı Yönetim Platformu
 
 ## 📋 İçindekiler
 - [Genel Bakış](#genel-bakış)
