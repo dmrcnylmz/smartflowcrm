@@ -1,5 +1,14 @@
 // Voice Infer API — Multi-LLM Intelligent Conversation
-// Fallback: Groq (free) → Gemini (free) → OpenAI (paid) → Personaplex → Graceful
+//
+// Fallback Chain (data-driven, 2024-03-06 test results):
+//   1. Groq llama-3.3-70b (free, 601ms)  → PRIMARY
+//   2. OpenAI GPT-4o-mini (paid, 1157ms)  → SECONDARY
+//   3. Personaplex GPU                     → TERTIARY
+//   4. Graceful fallback                   → LAST RESORT
+//
+// ❌ Gemini DEVRE DIŞI — HTTP 429 kota aşıldı, güvenilmez
+//    Pipeline'dan çıkarıldı (2024-03-06)
+//
 // With Circuit Breaker, Response Cache, and GPU Manager integration
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,6 +18,8 @@ import { inferCache, buildInferCacheKey, type CachedInferResponse } from '@/lib/
 import { handleApiError } from '@/lib/utils/error-handler';
 import { generateGroqResponse, isGroqConfigured } from '@/lib/ai/groq-client';
 import { generateGeminiResponse, isGeminiConfigured } from '@/lib/ai/gemini-client';
+import { metricsLogger } from '@/lib/billing/metrics-logger';
+import { sessionRegistry } from '@/lib/voice/session-registry';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
@@ -30,6 +41,7 @@ const conversationStore = new Map<string, {
 // Auto-cleanup sessions older than 30 minutes
 const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 min
 const SESSION_TTL = 30 * 60 * 1000; // 30 min
+const MAX_CONVERSATIONS = 50_000; // Memory safety cap — prevents unbounded growth
 
 if (typeof setInterval !== 'undefined') {
     setInterval(() => {
@@ -39,6 +51,18 @@ if (typeof setInterval !== 'undefined') {
                 conversationStore.delete(id);
             }
         }
+
+        // Hard cap eviction — if still over limit after TTL cleanup, remove oldest
+        if (conversationStore.size > MAX_CONVERSATIONS) {
+            const sorted = [...conversationStore.entries()]
+                .sort((a, b) => a[1].lastActivity - b[1].lastActivity);
+            const toRemove = sorted.slice(0, conversationStore.size - MAX_CONVERSATIONS);
+            for (const [id] of toRemove) {
+                conversationStore.delete(id);
+            }
+            console.warn(`[Infer] conversationStore capped at ${MAX_CONVERSATIONS}, evicted ${toRemove.length} oldest`);
+        }
+
         // Also purge expired cache entries
         inferCache.purgeExpired();
     }, CLEANUP_INTERVAL);
@@ -47,7 +71,12 @@ if (typeof setInterval !== 'undefined') {
 // =============================================
 // CRM System Prompt (Turkish AI Receptionist)
 // =============================================
-const SYSTEM_PROMPT = `Sen Callception'ın AI resepsiyonistisin. Adın Ayşe. Türkçe konuşuyorsun.
+const SYSTEM_PROMPT = `Sen Callception'ın AI resepsiyonistisin. Adın Ayşe.
+
+DİL KURALI (KESİNLİKLE UYULMALI):
+- SADECE Türkçe yanıt ver. Başka hiçbir dilde (İngilizce, Çince, Arapça vb.) kelime veya karakter KULLANMA.
+- Tüm yanıtların Türkçe olmalı. Latin alfabesi dışında karakter kullanma.
+- Bu kural istisnasız her yanıt için geçerlidir.
 
 GÖREVLER:
 1. Müşterileri sıcak ve profesyonel karşıla
@@ -62,14 +91,36 @@ KURALLAR:
 - Müşterinin söylediğini anladığını göster
 - Gerekli bilgileri sormayı unutma (isim, tarih, detay vb.)
 - Konuşmayı takip et, önceki mesajları hatırla
+- Yanıtta emoji, özel karakter veya Latince olmayan harf KULLANMA
 
 YANIT FORMATI:
 Her yanıtının sonuna aşağıdaki intent etiketini ekle (tek satırda):
 [INTENT:appointment|complaint|info_request|cancellation|greeting|unknown CONFIDENCE:0.0-1.0]
 
 Örnek:
-"Merhaba! Callception'a hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim? [INTENT:greeting CONFIDENCE:0.95]"
-"Randevunuzu aldım. Hangi gün ve saat uygun olur? [INTENT:appointment CONFIDENCE:0.9]"`;
+"Merhaba! Callception'a hos geldiniz, ben Ayse. Size nasil yardimci olabilirim? [INTENT:greeting CONFIDENCE:0.95]"
+"Randevunuzu aldim. Hangi gun ve saat uygun olur? [INTENT:appointment CONFIDENCE:0.9]"`;
+
+// =============================================
+// Output Language Sanitizer
+// Removes non-Latin characters that cause TTS artifacts
+// =============================================
+function sanitizeResponseText(text: string): string {
+    // Remove CJK characters (Chinese/Japanese/Korean) — these cause garbled TTS
+    // Unicode ranges: CJK Unified Ideographs, Hiragana, Katakana, Hangul
+    let cleaned = text.replace(/[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\u3400-\u4dbf]/g, '');
+
+    // Remove Arabic/Hebrew script
+    cleaned = cleaned.replace(/[\u0600-\u06ff\u0590-\u05ff]/g, '');
+
+    // Remove Cyrillic script
+    cleaned = cleaned.replace(/[\u0400-\u04ff]/g, '');
+
+    // Collapse multiple spaces from removed characters
+    cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+
+    return cleaned;
+}
 
 // =============================================
 // Intent Parser
@@ -79,18 +130,21 @@ function parseIntentFromResponse(text: string): {
     intent: string;
     confidence: number;
 } {
-    const intentMatch = text.match(/\[INTENT:(\w+)\s+CONFIDENCE:([\d.]+)\]/);
+    // First, sanitize any non-Latin characters that cause TTS artifacts
+    const sanitized = sanitizeResponseText(text);
+
+    const intentMatch = sanitized.match(/\[INTENT:(\w+)\s+CONFIDENCE:([\d.]+)\]/);
 
     if (intentMatch) {
         return {
-            cleanText: text.replace(/\s*\[INTENT:\w+\s+CONFIDENCE:[\d.]+\]/, '').trim(),
+            cleanText: sanitized.replace(/\s*\[INTENT:\w+\s+CONFIDENCE:[\d.]+\]/, '').trim(),
             intent: intentMatch[1],
             confidence: parseFloat(intentMatch[2]),
         };
     }
 
     // Fallback: basic keyword intent detection
-    const lower = text.toLowerCase();
+    const lower = sanitized.toLowerCase();
     let intent = 'unknown';
     let confidence = 0.5;
 
@@ -108,7 +162,7 @@ function parseIntentFromResponse(text: string): {
         confidence = 0.9;
     }
 
-    return { cleanText: text.trim(), intent, confidence };
+    return { cleanText: sanitized.trim(), intent, confidence };
 }
 
 // =============================================
@@ -397,34 +451,27 @@ export async function POST(request: NextRequest) {
 
                 const result = buildResult(cleanText, intent, confidence, 'groq-llama', session.turnCount);
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
-                return NextResponse.json(result);
-            } catch {
-                // Fall through to Gemini
-            }
-        }
 
-        // ---- 2. Google Gemini — free (Gemini 2.0 Flash) ----
-        if (isGeminiConfigured() && !geminiCircuitBreaker.isOpen()) {
-            try {
-                const session = getSession();
-                addUserMessage(session);
+                // Fire-and-forget: Log LLM metric
+                const inferTenantId = sessionRegistry.getTenant(sessionId) || 'default';
+                if (inferTenantId !== 'default') {
+                    metricsLogger.logLlmMetric(inferTenantId, result.latency_ms, 'groq-llama', sessionId, intent, false);
+                }
 
-                const rawResponse = await geminiCircuitBreaker.execute(() =>
-                    generateGeminiResponse(session.messages, { maxTokens: 150, temperature: 0.7 }),
-                );
-
-                const { cleanText, intent, confidence } = parseIntentFromResponse(rawResponse);
-                session.messages.push({ role: 'assistant', content: cleanText });
-
-                const result = buildResult(cleanText, intent, confidence, 'gemini-flash', session.turnCount);
-                inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
                 return NextResponse.json(result);
             } catch {
                 // Fall through to OpenAI
             }
         }
 
-        // ---- 3. OpenAI GPT-4o-mini — paid, last resort ----
+        // ---- 2. Google Gemini — DEVRE DIŞI ----
+        // ⚠️ 2024-03-06 test: HTTP 429 (kota aşıldı), güvenilmez
+        // Gemini aktif olduğunda pipeline'a gereksiz latency ekliyor
+        // ve circuit breaker açılana kadar her çağrıda 429 dönüyor.
+        // Kota sorunu çözülürse tekrar aktif edilebilir.
+        // if (isGeminiConfigured() && !geminiCircuitBreaker.isOpen()) { ... }
+
+        // ---- 3. OpenAI GPT-4o-mini — paid, secondary ----
         if (OPENAI_API_KEY && !openaiCircuitBreaker.isOpen()) {
             try {
                 const session = getSession();
@@ -436,13 +483,20 @@ export async function POST(request: NextRequest) {
 
                 const result = buildResult(cleanText, intent, confidence, 'openai-gpt', session.turnCount);
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
+
+                // Fire-and-forget: Log LLM metric
+                const inferTenantId2 = sessionRegistry.getTenant(sessionId) || 'default';
+                if (inferTenantId2 !== 'default') {
+                    metricsLogger.logLlmMetric(inferTenantId2, result.latency_ms, 'openai-gpt', sessionId, intent, false);
+                }
+
                 return NextResponse.json(result);
             } catch {
                 // Fall through to Personaplex
             }
         }
 
-        // ---- 4. Personaplex keyword-based (GPU) ----
+        // ---- 3b. Personaplex keyword-based (GPU) ----
         if (!gpuCircuitBreaker.isOpen()) {
             try {
                 const data = await callPersonaplex(text, persona, language);
@@ -504,9 +558,9 @@ export async function GET() {
             gpu: gpuCircuitBreaker.getStats(),
         },
         providers: {
-            openai: !!OPENAI_API_KEY,
-            groq: isGroqConfigured(),
-            gemini: isGeminiConfigured(),
+            groq: { configured: isGroqConfigured(), role: 'primary (free, 601ms)' },
+            openai: { configured: !!OPENAI_API_KEY, role: 'secondary (paid, 1157ms)' },
+            gemini: { configured: isGeminiConfigured(), role: 'DISABLED — quota exceeded (HTTP 429)' },
         },
         gpu: gpuManager.getStatus(),
     });

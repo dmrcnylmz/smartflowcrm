@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff, Zap, Activity } from 'lucide-react';
 import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
 import { getCallLogs, getComplaints, getAppointments } from '@/lib/firebase/db';
 import { useActivityLogs } from '@/lib/firebase/hooks';
@@ -91,6 +91,17 @@ export default function DashboardPage() {
   const [isLive, setIsLive] = useState(true);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [voicePipeline, setVoicePipeline] = useState<{
+    totalCalls?: number;
+    avgPipelineMs?: number;
+    avgSttMs?: number;
+    avgLlmMs?: number;
+    avgTtsMs?: number;
+    totalTtsChars?: number;
+    estimatedCostUsd?: number;
+    emergencyModeActive?: boolean;
+    callsTrend?: number;
+  } | null>(null);
   const [chartData, setChartData] = useState<{
     calls: CallLog[];
     complaints: Complaint[];
@@ -190,6 +201,11 @@ export default function DashboardPage() {
         openComplaints: data.kpis.openComplaints || 0,
         upcomingAppointments: data.kpis.upcomingAppointments || 0,
       });
+
+      // Voice pipeline summary from server
+      if (data.voicePipeline) {
+        setVoicePipeline(data.voicePipeline);
+      }
 
       // Convert server data to chart format if available
       if (data.callTrend && Array.isArray(data.callTrend)) {
@@ -416,6 +432,32 @@ export default function DashboardPage() {
       trend: null, // appointments are forward-looking, no yesterday comparison
       trendUp: true,
     },
+    // Voice Pipeline KPIs (only show when data available)
+    ...(voicePipeline ? [
+      {
+        title: 'Ort. Yanit Suresi',
+        value: voicePipeline.avgPipelineMs ? parseFloat((voicePipeline.avgPipelineMs / 1000).toFixed(1)) : 0,
+        icon: Zap,
+        gradient: 'from-purple-500/20 to-purple-600/5',
+        iconColor: 'text-purple-500 bg-purple-500/10',
+        trend: null,
+        trendUp: true,
+        suffix: 's',
+      },
+      {
+        title: 'Bu Ay Cagri',
+        value: voicePipeline.totalCalls || 0,
+        icon: Activity,
+        gradient: voicePipeline.emergencyModeActive
+          ? 'from-red-500/20 to-red-600/5'
+          : 'from-teal-500/20 to-teal-600/5',
+        iconColor: voicePipeline.emergencyModeActive
+          ? 'text-red-500 bg-red-500/10'
+          : 'text-teal-500 bg-teal-500/10',
+        trend: voicePipeline.callsTrend || null,
+        trendUp: (voicePipeline.callsTrend ?? 0) >= 0,
+      },
+    ] : []),
   ];
 
   return (
@@ -502,13 +544,13 @@ export default function DashboardPage() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${kpiCards.length > 4 ? 'xl:grid-cols-6' : 'xl:grid-cols-4'} gap-6`}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[160px] rounded-3xl" />
           ))
         ) : (
-          kpiCards.map((card, idx) => {
+          kpiCards.map((card: any, idx: number) => {
             const Icon = card.icon;
             return (
               <div
@@ -532,7 +574,7 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="text-muted-foreground font-medium mb-1">{card.title}</h3>
                   <div className="text-4xl font-bold tracking-tight text-foreground">
-                    {card.value}
+                    {card.value}{card.suffix && <span className="text-lg font-normal text-muted-foreground ml-0.5">{card.suffix}</span>}
                   </div>
                 </div>
               </div>

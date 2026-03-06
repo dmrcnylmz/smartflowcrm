@@ -33,7 +33,10 @@ const PUBLIC_API_PATHS = [
     '/api/voice/test-e2e',
     '/api/voice/infer',
     '/api/voice/tts',
+    '/api/voice/stt',
     '/api/twilio/test',
+    '/api/billing/alert-test',
+    '/api/system/go-live-check',
 ];
 
 /** Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin */

@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getPipelineSummary, getLatencyStats } from '@/lib/billing/analytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -204,6 +205,28 @@ export async function GET(request: NextRequest) {
             };
         });
 
+        // ─── Voice Pipeline Summary (fire-and-forget safe) ───
+        let voicePipeline = null;
+        try {
+            const [summary, latency] = await Promise.all([
+                getPipelineSummary(firestore, tenantId, 30),
+                getLatencyStats(firestore, tenantId, 7),
+            ]);
+            voicePipeline = {
+                totalCalls: summary.totalCalls,
+                avgPipelineMs: summary.avgPipelineMs || latency.avgPipelineMs,
+                avgSttMs: latency.avgSttMs,
+                avgLlmMs: latency.avgLlmMs,
+                avgTtsMs: latency.avgTtsMs,
+                totalTtsChars: summary.totalTtsChars,
+                estimatedCostUsd: summary.estimatedCostUsd,
+                emergencyModeActive: summary.emergencyModeActive,
+                callsTrend: summary.callsTrend,
+            };
+        } catch {
+            // Non-critical — dashboard still works without pipeline data
+        }
+
         // ─── Response ───
         return NextResponse.json({
             kpis,
@@ -211,6 +234,7 @@ export async function GET(request: NextRequest) {
             complaintCategories: Object.entries(complaintCategories).map(([name, value]) => ({ name, value })),
             usage,
             activity,
+            voicePipeline,
             generatedAt: now.toISOString(),
         }, {
             headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },

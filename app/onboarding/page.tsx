@@ -268,6 +268,7 @@ export default function OnboardingPage() {
                         similarityBoost: 0.75,
                     },
                 }),
+                signal: AbortSignal.timeout(30_000), // 30s timeout — never hang indefinitely
             });
 
             const responseData = await response.json();
@@ -279,12 +280,22 @@ export default function OnboardingPage() {
             }
 
             // Force-refresh Firebase token so new custom claims (tenantId, role) are in JWT
-            await refreshClaims();
+            try {
+                await refreshClaims();
+            } catch {
+                // Retry once — claims refresh is critical for redirect to work
+                await new Promise(r => setTimeout(r, 1000));
+                await refreshClaims();
+            }
 
             // Go to knowledge base setup after company creation
             router.push('/knowledge?setup=true');
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Bilinmeyen bir hata oluştu.';
+            const message = err instanceof Error
+                ? err.name === 'TimeoutError'
+                    ? 'Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'
+                    : err.message
+                : 'Bilinmeyen bir hata oluştu.';
             setError(`Kurulum tamamlanamadı: ${message}`);
         } finally {
             setIsSubmitting(false);

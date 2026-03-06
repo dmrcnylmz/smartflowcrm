@@ -8,9 +8,20 @@ import {
     BarChart3, ShieldCheck, Wallet, Sparkles,
     Crown, Building2, Loader2, CheckCircle2, XCircle,
     Phone, MessageSquare, TrendingUp, DollarSign,
-    Calculator, ArrowRight, Info, Volume2
+    Calculator, ArrowRight, Info, Volume2,
+    ArrowUpRight, Calendar, RefreshCw, ExternalLink,
+    ChevronUp, Repeat
 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import nextDynamic from 'next/dynamic';
+
+// Lazy-load heavy chart components
+const VoiceAnalyticsCharts = nextDynamic(() => import('@/components/dashboard/VoiceAnalyticsCharts'), {
+    ssr: false,
+    loading: () => <div className="h-[400px] animate-pulse rounded-3xl bg-muted" />,
+});
+import EmergencyModeCard from '@/components/billing/EmergencyModeCard';
+import VoicePipelineStats from '@/components/billing/VoicePipelineStats';
 
 // =============================================
 // Types
@@ -68,26 +79,40 @@ interface SubscriptionPlan {
     nameTr: string;
     description: string;
     priceTry: number;
+    priceYearlyTry: number;
     includedMinutes: number;
     includedCalls: number;
     maxConcurrentSessions: number;
     features: string[];
 }
 
+type BillingInterval = 'monthly' | 'yearly';
+
 interface Subscription {
     planId: string;
     status: string;
     isActive: boolean;
     currentPeriodEnd: number;
+    billingInterval?: BillingInterval;
     trialEndsAt?: number;
+    cancelledAt?: number;
+    endsAt?: number;
+    customerPortalUrl?: string;
+    updatePaymentMethodUrl?: string;
+    cardBrand?: string;
+    cardLastFour?: string;
+    lsSubscriptionId?: string;
 }
+
+// Plan sıralaması (swap butonları için)
+const PLAN_ORDER: Record<string, number> = { starter: 1, professional: 2, enterprise: 3 };
 
 // =============================================
 // Billing Page
 // =============================================
 
 function BillingPageContent() {
-    const { user } = useAuth();
+    const { user, role } = useAuth();
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -98,8 +123,15 @@ function BillingPageContent() {
     const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
     const [plans] = useState<SubscriptionPlan[]>(defaultPlans);
     const [subscription, setSubscription] = useState<Subscription | null>(null);
-    const [paymentHtml, setPaymentHtml] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'plans' | 'usage' | 'calculator'>('plans');
+    const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+    const [swapLoading, setSwapLoading] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'plans' | 'usage' | 'calculator' | 'pipeline'>('plans');
+    const [billingInterval, setBillingInterval] = useState<BillingInterval>('monthly');
+
+    // Voice pipeline analytics state
+    const [pipelineData, setPipelineData] = useState<any>(null);
+    const [emergencyData, setEmergencyData] = useState<any>(null);
+    const [pipelineLoading, setPipelineLoading] = useState(false);
 
     // Scaling calculator state
     const [calcUsers, setCalcUsers] = useState(10);
@@ -108,6 +140,7 @@ function BillingPageContent() {
 
     const paymentResult = searchParams?.get('payment');
     const paymentPlan = searchParams?.get('plan');
+    const paymentInterval = searchParams?.get('interval');
 
     const loadData = useCallback(async () => {
         if (!user) return;
@@ -132,7 +165,13 @@ function BillingPageContent() {
 
             if (subRes?.ok) {
                 const data = await subRes.json();
-                setSubscription(data.subscription || null);
+                if (data.subscription) {
+                    setSubscription(data.subscription);
+                    // Mevcut aboneliğin interval'ini toggle'a yansıt
+                    if (data.subscription.billingInterval) {
+                        setBillingInterval(data.subscription.billingInterval);
+                    }
+                }
             }
         } catch {
             setError('Veriler yüklenemedi.');
@@ -143,6 +182,49 @@ function BillingPageContent() {
 
     useEffect(() => { loadData(); }, [loadData]);
 
+    // Load voice pipeline analytics when tab switches
+    const loadPipelineData = useCallback(async () => {
+        if (!user) return;
+        setPipelineLoading(true);
+        try {
+            const token = await user.getIdToken();
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            const [analyticsRes, emergencyRes] = await Promise.all([
+                fetch('/api/billing/analytics?range=30d&type=summary', { headers }).catch(() => null),
+                fetch('/api/billing/emergency', { headers }).catch(() => null),
+            ]);
+
+            if (analyticsRes?.ok) {
+                const data = await analyticsRes.json();
+                setPipelineData(data);
+            }
+            if (emergencyRes?.ok) {
+                const data = await emergencyRes.json();
+                setEmergencyData(data);
+            }
+        } catch {
+            // Non-critical — billing page still works
+        } finally {
+            setPipelineLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        if (activeTab === 'pipeline') loadPipelineData();
+    }, [activeTab, loadPipelineData]);
+
+    const handleEmergencyToggle = useCallback(async (action: 'activate' | 'deactivate') => {
+        if (!user) return;
+        const token = await user.getIdToken();
+        await fetch('/api/billing/emergency', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action }),
+        });
+        await loadPipelineData();
+    }, [user, loadPipelineData]);
+
     // Scaling calculator computed values
     const totalCalls = calcUsers * calcCallsPerUser;
     const totalMinutes = totalCalls * calcAvgDuration;
@@ -151,33 +233,152 @@ function BillingPageContent() {
     const calcLlm = totalCalls * 0.02;
     const calcInfra = calcTwilio + calcTts + calcLlm;
 
-    // iyzico payment form
-    if (paymentHtml) {
-        const iframeSrcDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font-family:system-ui;background:#080810;color:#fff;}</style></head><body>${paymentHtml}</body></html>`;
-        return (
-            <div className="p-6 max-w-3xl mx-auto">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <CreditCard className="h-5 w-5 text-red-500" />
-                        Ödeme
-                    </h2>
-                    <button
-                        onClick={() => setPaymentHtml(null)}
-                        className="px-4 py-2 rounded-xl bg-white/[0.06] border border-white/[0.08] text-sm text-white/70 hover:text-white hover:bg-white/[0.1] transition-colors"
-                    >
-                        Vazgeç
-                    </button>
-                </div>
-                <div className="rounded-2xl overflow-hidden border border-white/[0.08] bg-white/[0.02]">
-                    <iframe
-                        srcDoc={iframeSrcDoc}
-                        sandbox="allow-scripts allow-forms allow-same-origin"
-                        className="w-full border-0 min-h-[600px]"
-                        title="Ödeme Formu"
-                    />
-                </div>
-            </div>
-        );
+    // Lemon Squeezy checkout — redirect to hosted payment page
+    async function handleCheckout(planId: string) {
+        if (!user) return;
+        setCheckoutLoading(planId);
+        setError(null);
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ planId, billingInterval }),
+            });
+            const data = await res.json();
+            if (data.success && data.checkoutUrl) {
+                window.location.href = data.checkoutUrl;
+            } else {
+                setError(data.error || 'Ödeme sayfası oluşturulamadı.');
+            }
+        } catch {
+            setError('Ödeme sayfası oluşturulurken bir hata oluştu.');
+        } finally {
+            setCheckoutLoading(null);
+        }
+    }
+
+    // Plan swap — change plan or billing interval
+    async function handleSwap(planId: string, interval: BillingInterval) {
+        if (!user || !subscription?.isActive) return;
+        const key = `${planId}-${interval}`;
+        setSwapLoading(key);
+        setError(null);
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/billing/swap', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ planId, billingInterval: interval, prorate: true }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Veri yenileme — webhook Firestore'u güncelledikten sonra
+                setTimeout(() => loadData(), 3000);
+                setError(null);
+                // Geçici başarı mesajı
+                setError(null);
+                // Başarı banner göster (error state'i kötüye kullanmak yerine)
+                alert('Plan değişikliği başarılı! Abonelik bilgileriniz birkaç saniye içinde güncellenecek.');
+            } else {
+                setError(data.error || 'Plan değişikliği yapılamadı.');
+            }
+        } catch {
+            setError('Plan değişikliği sırasında bir hata oluştu.');
+        } finally {
+            setSwapLoading(null);
+        }
+    }
+
+    // Plan kartı buton metni ve aksiyonu belirleme
+    function getPlanAction(plan: SubscriptionPlan): {
+        label: string;
+        icon: React.ReactNode;
+        action: () => void;
+        disabled: boolean;
+        variant: 'current' | 'upgrade' | 'swap' | 'interval' | 'select';
+    } {
+        const isLoading = checkoutLoading !== null || swapLoading !== null;
+        const currentKey = `${plan.id}-${billingInterval}`;
+        const isSwapLoading = swapLoading === currentKey;
+        const isCheckoutLoading = checkoutLoading === plan.id;
+
+        // Abonelik yoksa → "Planı Seç"
+        if (!subscription?.isActive) {
+            return {
+                label: isCheckoutLoading ? 'Yönlendiriliyor...' : 'Planı Seç',
+                icon: isCheckoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />,
+                action: () => handleCheckout(plan.id),
+                disabled: isLoading,
+                variant: 'select',
+            };
+        }
+
+        const currentOrder = PLAN_ORDER[subscription.planId] || 0;
+        const targetOrder = PLAN_ORDER[plan.id] || 0;
+        const isSamePlan = subscription.planId === plan.id;
+        const isSameInterval = (subscription.billingInterval || 'monthly') === billingInterval;
+
+        // Aynı plan ve aynı interval → "Mevcut Plan ✓"
+        if (isSamePlan && isSameInterval) {
+            return {
+                label: 'Mevcut Plan',
+                icon: <CheckCircle2 className="h-4 w-4" />,
+                action: () => {},
+                disabled: true,
+                variant: 'current',
+            };
+        }
+
+        // Aynı plan, farklı interval → "Süreyi Değiştir"
+        if (isSamePlan && !isSameInterval) {
+            return {
+                label: isSwapLoading ? 'Değiştiriliyor...' : (billingInterval === 'yearly' ? 'Yıllığa Geç' : 'Aylığa Geç'),
+                icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />,
+                action: () => handleSwap(plan.id, billingInterval),
+                disabled: isLoading,
+                variant: 'interval',
+            };
+        }
+
+        // Üst plan → "Yükselt ↑"
+        if (targetOrder > currentOrder) {
+            return {
+                label: isSwapLoading ? 'Yükseltiliyor...' : 'Yükselt',
+                icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronUp className="h-4 w-4" />,
+                action: () => handleSwap(plan.id, billingInterval),
+                disabled: isLoading,
+                variant: 'upgrade',
+            };
+        }
+
+        // Alt plan → "Değiştir"
+        return {
+            label: isSwapLoading ? 'Değiştiriliyor...' : 'Değiştir',
+            icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />,
+            action: () => handleSwap(plan.id, billingInterval),
+            disabled: isLoading,
+            variant: 'swap',
+        };
+    }
+
+    // Fiyatı göster — aylık veya yıllık
+    function getDisplayPrice(plan: SubscriptionPlan): { price: number; period: string; note?: string } {
+        if (billingInterval === 'yearly') {
+            const monthlyEquivalent = Math.round(plan.priceYearlyTry / 12);
+            return {
+                price: monthlyEquivalent,
+                period: '/ay',
+                note: `Yıllık faturalanır — ${plan.priceYearlyTry.toLocaleString('tr-TR')} ₺/yıl`,
+            };
+        }
+        return { price: plan.priceTry, period: '/ay' };
     }
 
     return (
@@ -190,6 +391,7 @@ function BillingPageContent() {
                         <p className="font-semibold text-emerald-300">Ödeme Başarılı!</p>
                         <p className="text-sm text-emerald-400/70">
                             {paymentPlan ? `${paymentPlan.charAt(0).toUpperCase() + paymentPlan.slice(1)} planınız aktif.` : 'Aboneliğiniz aktif.'}
+                            {paymentInterval === 'yearly' && ' (Yıllık)'}
                         </p>
                     </div>
                 </div>
@@ -198,6 +400,12 @@ function BillingPageContent() {
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
                     <XCircle className="h-5 w-5 text-red-400" />
                     <p className="font-semibold text-red-300">Ödeme başarısız. Lütfen tekrar deneyin.</p>
+                </div>
+            )}
+            {error && (
+                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
+                    <AlertCircle className="h-5 w-5 text-red-400" />
+                    <p className="text-sm text-red-300">{error}</p>
                 </div>
             )}
 
@@ -217,12 +425,30 @@ function BillingPageContent() {
                     </div>
 
                     {subscription?.isActive && (
-                        <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-5 py-3 flex items-center gap-3">
-                            <ShieldCheck className="h-6 w-6 text-emerald-400" />
-                            <div>
-                                <p className="text-xs text-white/40">Aktif Plan</p>
-                                <p className="text-lg font-bold text-white capitalize">{subscription.planId}</p>
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/[0.04] border border-white/[0.08] rounded-2xl px-5 py-3 flex items-center gap-3">
+                                <ShieldCheck className="h-6 w-6 text-emerald-400" />
+                                <div>
+                                    <p className="text-xs text-white/40">Aktif Plan</p>
+                                    <p className="text-lg font-bold text-white capitalize">
+                                        {subscription.planId}
+                                        <span className="text-xs font-normal text-white/40 ml-2">
+                                            ({subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'})
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
+                            {subscription.customerPortalUrl && (
+                                <a
+                                    href={subscription.customerPortalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.08] text-sm text-white/70 hover:text-white hover:bg-white/[0.1] transition-colors flex items-center gap-2"
+                                >
+                                    <CreditCard className="h-4 w-4" />
+                                    Aboneliği Yönet
+                                </a>
+                            )}
                         </div>
                     )}
                 </div>
@@ -231,8 +457,9 @@ function BillingPageContent() {
                 <div className="flex gap-1 mt-6 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 w-fit">
                     {[
                         { id: 'plans' as const, label: 'Planlar', icon: CreditCard },
-                        { id: 'usage' as const, label: 'Kullanım', icon: BarChart3 },
-                        { id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator },
+                        { id: 'usage' as const, label: 'Kullanim', icon: BarChart3 },
+                        { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
+                        ...(role === 'owner' || role === 'admin' ? [{ id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator }] : []),
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -266,6 +493,151 @@ function BillingPageContent() {
             {/* ===================== PLANS TAB ===================== */}
             {activeTab === 'plans' && (
                 <div className="space-y-8 animate-fade-in">
+
+                    {/* ── Active Subscription Detail Card ── */}
+                    {subscription?.isActive && (
+                        <div className="rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.01] p-6">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                                        <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs text-white/40 uppercase tracking-wider">Aktif Abonelik</p>
+                                        <p className="text-lg font-bold text-white capitalize">
+                                            {subscription.planId}
+                                            <span className="ml-2 text-xs font-normal bg-white/[0.06] px-2 py-0.5 rounded-full text-white/50">
+                                                {subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    {subscription.updatePaymentMethodUrl && (
+                                        <a
+                                            href={subscription.updatePaymentMethodUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-white/60 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center gap-1.5"
+                                        >
+                                            <CreditCard className="h-3.5 w-3.5" />
+                                            Ödeme Yöntemi
+                                        </a>
+                                    )}
+                                    {subscription.customerPortalUrl && (
+                                        <a
+                                            href={subscription.customerPortalUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-white/60 hover:text-white hover:bg-white/[0.08] transition-colors flex items-center gap-1.5"
+                                        >
+                                            <ExternalLink className="h-3.5 w-3.5" />
+                                            Müşteri Portalı
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Subscription details row */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <div className="bg-white/[0.03] rounded-xl px-4 py-3">
+                                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Durum</p>
+                                    <p className={`text-sm font-semibold mt-0.5 ${
+                                        subscription.status === 'active' ? 'text-emerald-400' :
+                                        subscription.status === 'cancelled' ? 'text-amber-400' :
+                                        subscription.status === 'past_due' ? 'text-red-400' :
+                                        'text-white/60'
+                                    }`}>
+                                        {subscription.status === 'active' ? 'Aktif' :
+                                         subscription.status === 'cancelled' ? 'İptal Edildi' :
+                                         subscription.status === 'past_due' ? 'Ödeme Gecikmiş' :
+                                         subscription.status === 'on_trial' ? 'Deneme' :
+                                         subscription.status}
+                                    </p>
+                                </div>
+                                <div className="bg-white/[0.03] rounded-xl px-4 py-3">
+                                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Yenilenme Tarihi</p>
+                                    <p className="text-sm font-semibold text-white mt-0.5">
+                                        {subscription.currentPeriodEnd
+                                            ? new Date(subscription.currentPeriodEnd).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+                                            : '—'}
+                                    </p>
+                                </div>
+                                <div className="bg-white/[0.03] rounded-xl px-4 py-3">
+                                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Ödeme Döngüsü</p>
+                                    <p className="text-sm font-semibold text-white mt-0.5">
+                                        {subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'}
+                                    </p>
+                                </div>
+                                <div className="bg-white/[0.03] rounded-xl px-4 py-3">
+                                    <p className="text-[10px] text-white/30 uppercase tracking-wider">Ödeme Yöntemi</p>
+                                    <p className="text-sm font-semibold text-white mt-0.5">
+                                        {subscription.cardBrand && subscription.cardLastFour
+                                            ? `${subscription.cardBrand} •••• ${subscription.cardLastFour}`
+                                            : '—'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Cancellation warning */}
+                            {subscription.status === 'cancelled' && subscription.endsAt && (
+                                <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-amber-300">Aboneliğiniz iptal edildi</p>
+                                        <p className="text-xs text-amber-400/70 mt-1">
+                                            {new Date(subscription.endsAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {' '}tarihine kadar erişiminiz devam edecektir. Yeniden abone olmak için bir plan seçin.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Past due warning */}
+                            {subscription.status === 'past_due' && (
+                                <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-red-300">Ödeme gecikmiş</p>
+                                        <p className="text-xs text-red-400/70 mt-1">
+                                            Son ödemeniz alınamadı. Lütfen ödeme yönteminizi güncelleyin, aksi halde aboneliğiniz askıya alınabilir.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Billing Interval Toggle ── */}
+                    <div className="flex items-center justify-center gap-3">
+                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-1 flex items-center">
+                            <button
+                                onClick={() => setBillingInterval('monthly')}
+                                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
+                                    billingInterval === 'monthly'
+                                        ? 'bg-white/[0.1] text-white shadow-sm'
+                                        : 'text-white/40 hover:text-white/60'
+                                }`}
+                            >
+                                Aylık
+                            </button>
+                            <button
+                                onClick={() => setBillingInterval('yearly')}
+                                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                                    billingInterval === 'yearly'
+                                        ? 'bg-white/[0.1] text-white shadow-sm'
+                                        : 'text-white/40 hover:text-white/60'
+                                }`}
+                            >
+                                Yıllık
+                                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    2 Ay Hediye
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Per-call cost info banner */}
                     <div className="bg-gradient-to-r from-red-600/10 via-purple-600/10 to-blue-600/10 border border-white/[0.08] rounded-2xl p-5">
                         <div className="flex items-start gap-3">
@@ -293,7 +665,8 @@ function BillingPageContent() {
                     {/* Plan cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {plans.map((plan, idx) => {
-                            const isCurrentPlan = subscription?.planId === plan.id && subscription?.isActive;
+                            const planAction = getPlanAction(plan);
+                            const displayPrice = getDisplayPrice(plan);
                             const isPro = plan.id === 'professional';
                             const gradients: Record<string, string> = {
                                 starter: 'from-blue-600 to-indigo-700',
@@ -329,12 +702,16 @@ function BillingPageContent() {
                                         <h3 className="text-lg font-bold text-white">{plan.nameTr}</h3>
                                         <p className="text-white/40 text-sm mt-1">{plan.description}</p>
 
-                                        <div className="mt-4 mb-6">
+                                        <div className="mt-4 mb-1">
                                             <span className="text-3xl font-bold text-white">
-                                                {plan.priceTry.toLocaleString('tr-TR')}
+                                                {displayPrice.price.toLocaleString('tr-TR')}
                                             </span>
-                                            <span className="text-white/40 ml-1">₺/ay</span>
+                                            <span className="text-white/40 ml-1">₺{displayPrice.period}</span>
                                         </div>
+                                        {displayPrice.note && (
+                                            <p className="text-[11px] text-emerald-400/70 mb-4">{displayPrice.note}</p>
+                                        )}
+                                        {!displayPrice.note && <div className="mb-4" />}
 
                                         {/* Quota summary */}
                                         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -358,21 +735,33 @@ function BillingPageContent() {
                                             ))}
                                         </div>
 
-                                        {isCurrentPlan ? (
+                                        {/* Action button — contextual */}
+                                        {planAction.variant === 'current' ? (
                                             <button className="w-full py-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-sm font-medium cursor-default flex items-center justify-center gap-2">
-                                                <CheckCircle2 className="h-4 w-4" />
-                                                Mevcut Plan
+                                                {planAction.icon}
+                                                {planAction.label}
+                                            </button>
+                                        ) : planAction.variant === 'upgrade' ? (
+                                            <button
+                                                className="w-full py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-600/20"
+                                                onClick={planAction.action}
+                                                disabled={planAction.disabled}
+                                            >
+                                                {planAction.icon}
+                                                {planAction.label}
                                             </button>
                                         ) : (
                                             <button
-                                                className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all ${
-                                                    isPro
+                                                className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                                                    isPro && planAction.variant === 'select'
                                                         ? 'bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-600/20'
                                                         : 'bg-white/[0.06] text-white/70 hover:bg-white/[0.1] hover:text-white border border-white/[0.08]'
                                                 }`}
-                                                disabled
+                                                onClick={planAction.action}
+                                                disabled={planAction.disabled}
                                             >
-                                                Yakında Aktif
+                                                {planAction.icon}
+                                                {planAction.label}
                                             </button>
                                         )}
                                     </div>
@@ -559,8 +948,52 @@ function BillingPageContent() {
                 </div>
             )}
 
-            {/* ===================== CALCULATOR TAB ===================== */}
-            {activeTab === 'calculator' && (
+            {/* ===================== PIPELINE TAB ===================== */}
+            {activeTab === 'pipeline' && (
+                <div className="space-y-6 animate-fade-in">
+                    {/* Pipeline Stats + Emergency Mode — Side by Side */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="xl:col-span-2">
+                            <VoicePipelineStats
+                                totalCalls={pipelineData?.summary?.totalCalls || 0}
+                                avgPipelineMs={pipelineData?.summary?.avgPipelineMs || pipelineData?.latency?.avgPipelineMs || 0}
+                                avgSttMs={pipelineData?.latency?.avgSttMs || 0}
+                                avgLlmMs={pipelineData?.latency?.avgLlmMs || 0}
+                                avgTtsMs={pipelineData?.latency?.avgTtsMs || 0}
+                                totalTtsChars={pipelineData?.summary?.totalTtsChars || 0}
+                                estimatedCostUsd={pipelineData?.summary?.estimatedCostUsd || 0}
+                                emergencyModeActive={emergencyData?.active || false}
+                                callsTrend={pipelineData?.summary?.callsTrend || 0}
+                                isLoading={pipelineLoading}
+                            />
+                        </div>
+                        <div>
+                            <EmergencyModeCard
+                                active={emergencyData?.active || false}
+                                manualOverride={emergencyData?.manualOverride || false}
+                                ttsCharsUsed={emergencyData?.ttsCharsUsed || 0}
+                                ttsCharsBudget={emergencyData?.ttsCharsBudget || 500000}
+                                percentUsed={emergencyData?.percentUsed || 0}
+                                estimatedCostUsd={emergencyData?.estimatedCostUsd || 0}
+                                recentAlerts={emergencyData?.recentAlerts || []}
+                                onToggle={handleEmergencyToggle}
+                                isLoading={pipelineLoading}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Analytics Charts */}
+                    <VoiceAnalyticsCharts
+                        latencyData={pipelineData?.latency?.dailyBreakdown || []}
+                        costData={pipelineData?.costTrend?.months || []}
+                        providerData={pipelineData?.providers || { stt: {}, llm: {}, tts: {} }}
+                        isLoading={pipelineLoading}
+                    />
+                </div>
+            )}
+
+            {/* ===================== CALCULATOR TAB (Admin Only) ===================== */}
+            {activeTab === 'calculator' && (role === 'owner' || role === 'admin') && (
                 <div className="space-y-6 animate-fade-in">
                     <div className="rounded-2xl bg-white/[0.02] border border-white/[0.08] p-6">
                         <h3 className="text-lg font-bold text-white mb-1">Ölçeklendirme Hesaplayıcı</h3>
@@ -851,6 +1284,7 @@ const defaultPlans: SubscriptionPlan[] = [
         nameTr: 'Başlangıç',
         description: 'Girişimler ve küçük işletmeler için ideal.',
         priceTry: 990,
+        priceYearlyTry: 9490,
         includedMinutes: 100,
         includedCalls: 500,
         maxConcurrentSessions: 2,
@@ -868,6 +1302,7 @@ const defaultPlans: SubscriptionPlan[] = [
         nameTr: 'Profesyonel',
         description: 'Büyüyen işletmeler için gelişmiş özellikler.',
         priceTry: 2990,
+        priceYearlyTry: 28690,
         includedMinutes: 500,
         includedCalls: 2000,
         maxConcurrentSessions: 5,
@@ -887,6 +1322,7 @@ const defaultPlans: SubscriptionPlan[] = [
         nameTr: 'Kurumsal',
         description: 'Kurumsal düzeyde tam çözüm.',
         priceTry: 7990,
+        priceYearlyTry: 76590,
         includedMinutes: 2000,
         includedCalls: 10000,
         maxConcurrentSessions: 20,

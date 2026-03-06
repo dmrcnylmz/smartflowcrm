@@ -12,8 +12,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { registerPhoneNumber } from '@/lib/twilio/telephony';
+import { configurePhoneWebhooks } from '@/lib/twilio/subaccounts';
 import { handleApiError } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
@@ -60,7 +61,19 @@ export async function GET(request: NextRequest) {
 /**
  * POST - Register a phone number to this tenant
  *
- * Body: { phoneNumber: "+905551234567" }
+ * Supports 3 modes:
+ *
+ * Mode 1: Tenant has subaccount + provides phoneNumberSid
+ *   → Auto-configure webhooks on Twilio (best UX)
+ *   Body: { phoneNumber: "+905551234567", phoneNumberSid: "PNxxxxxxx" }
+ *
+ * Mode 2: Tenant has subaccount, system looks up phoneNumberSid
+ *   → Searches subaccount's numbers, auto-configures if found
+ *   Body: { phoneNumber: "+905551234567", autoConfigureWebhook: true }
+ *
+ * Mode 3: No subaccount (manual Twilio setup)
+ *   → Returns webhook URLs for manual configuration
+ *   Body: { phoneNumber: "+905551234567" }
  */
 export async function POST(request: NextRequest) {
     try {
@@ -76,7 +89,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { phoneNumber } = body;
+        const { phoneNumber, phoneNumberSid, autoConfigureWebhook } = body;
 
         if (!phoneNumber) {
             return NextResponse.json({ error: 'phoneNumber is required' }, { status: 400 });
@@ -100,8 +113,73 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Register the number
+        // Determine webhook base URL
+        const host = request.headers.get('host') || '';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const webhookBaseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+
+        // Load tenant's Twilio config (subaccount credentials)
+        const tenantDoc = await getDb().collection('tenants').doc(tenantId).get();
+        const tenantData = tenantDoc.data();
+        const twilioConfig = tenantData?.twilio;
+
+        let webhookConfigured = false;
+        let resolvedPhoneNumberSid = phoneNumberSid || null;
+
+        // ─── Mode 1 & 2: Auto-configure webhooks if subaccount exists ───
+        if (twilioConfig?.subaccountSid && twilioConfig?.authToken) {
+            const subSid = twilioConfig.subaccountSid;
+            const subToken = twilioConfig.authToken;
+
+            // If we have phoneNumberSid, configure directly
+            if (resolvedPhoneNumberSid) {
+                try {
+                    await configurePhoneWebhooks(subSid, subToken, resolvedPhoneNumberSid, webhookBaseUrl);
+                    webhookConfigured = true;
+                } catch (err) {
+                    console.error('[PhoneNumbers] Webhook config failed:', err instanceof Error ? err.message : err);
+                    // Continue — register the number anyway, user can configure manually
+                }
+            }
+
+            // If autoConfigureWebhook but no SID, look up the number in subaccount
+            if (!resolvedPhoneNumberSid && autoConfigureWebhook) {
+                try {
+                    const lookupUrl = `https://api.twilio.com/2010-04-01/Accounts/${subSid}/IncomingPhoneNumbers.json?PhoneNumber=${encodeURIComponent(normalized)}`;
+                    const lookupRes = await fetch(lookupUrl, {
+                        headers: {
+                            'Authorization': 'Basic ' + Buffer.from(`${subSid}:${subToken}`).toString('base64'),
+                        },
+                        signal: AbortSignal.timeout(10000),
+                    });
+
+                    if (lookupRes.ok) {
+                        const lookupData = await lookupRes.json();
+                        const found = lookupData.incoming_phone_numbers?.[0];
+                        if (found?.sid) {
+                            resolvedPhoneNumberSid = found.sid;
+                            await configurePhoneWebhooks(subSid, subToken, found.sid, webhookBaseUrl);
+                            webhookConfigured = true;
+                        }
+                    }
+                } catch (err) {
+                    console.error('[PhoneNumbers] Auto-lookup failed:', err instanceof Error ? err.message : err);
+                }
+            }
+        }
+
+        // ─── Register the number in Firestore (all modes) ───
         await registerPhoneNumber(getDb(), normalized, tenantId);
+
+        // Store extra info in the phone number mapping
+        await getDb().collection('tenant_phone_numbers').doc(normalized).set({
+            tenantId,
+            phoneNumber: normalized,
+            phoneNumberSid: resolvedPhoneNumberSid || null,
+            subaccountSid: twilioConfig?.subaccountSid || null,
+            webhookConfigured,
+            registeredAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
 
         // Also save reference in tenant config
         await getDb().collection('tenants').doc(tenantId).update({
@@ -114,15 +192,29 @@ export async function POST(request: NextRequest) {
             .collection('activity_logs').add({
                 type: 'phone_registered',
                 phoneNumber: normalized,
+                webhookConfigured,
+                autoConfigured: webhookConfigured && !phoneNumberSid,
                 createdAt: Date.now(),
             });
 
         return NextResponse.json({
             success: true,
             phoneNumber: normalized,
-            webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/twilio/incoming`,
-            statusCallbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/twilio/status`,
-            message: 'Number registered. Configure this webhook URL in your Twilio console.',
+            phoneNumberSid: resolvedPhoneNumberSid,
+            webhookConfigured,
+            webhookUrl: `${webhookBaseUrl}/api/twilio/incoming`,
+            statusCallbackUrl: `${webhookBaseUrl}/api/twilio/status`,
+            message: webhookConfigured
+                ? 'Numara kaydedildi ve webhook\'lar otomatik yapılandırıldı. Çağrı almaya hazır!'
+                : 'Numara kaydedildi. Twilio konsolunuzdan webhook URL\'lerini manuel olarak yapılandırın.',
+            ...((!webhookConfigured) && {
+                manualSetupRequired: true,
+                instructions: [
+                    'Twilio Console → Phone Numbers → Active Numbers → numara seç',
+                    `Voice Configuration → "A call comes in" → Webhook: ${webhookBaseUrl}/api/twilio/incoming`,
+                    `Status Callback URL: ${webhookBaseUrl}/api/twilio/status`,
+                ],
+            }),
         });
 
     } catch (error) {

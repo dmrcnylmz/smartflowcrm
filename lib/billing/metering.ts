@@ -13,6 +13,7 @@
  */
 
 import { FieldValue } from 'firebase-admin/firestore';
+import { checkCostThresholds } from '@/lib/billing/cost-monitor';
 
 // =============================================
 // Types
@@ -150,6 +151,9 @@ export async function meterTtsUsage(
             lastUpdated: FieldValue.serverTimestamp(),
         }, { merge: true }),
     ]);
+
+    // Fire-and-forget: Check cost thresholds after TTS usage update
+    checkCostThresholds(db, tenantId).catch(() => {});
 }
 
 /**
