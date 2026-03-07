@@ -1,5 +1,5 @@
 /**
- * Runtime App URL Helper
+ * Runtime App URL Helper — v2
  *
  * IMPORTANT: Vercel does NOT inject NEXT_PUBLIC_* env vars into serverless
  * function runtime — they are only available at BUILD TIME via webpack
