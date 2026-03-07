@@ -231,6 +231,10 @@ export function VoiceCallModal({
         }, 10000);
 
         // Try server-side TTS (ElevenLabs or OpenAI based on greeting flag)
+        // Use AbortController with 5s timeout to prevent hanging on slow TTS
+        const ttsController = new AbortController();
+        const ttsTimeout = setTimeout(() => ttsController.abort(), 5000);
+
         try {
             const ttsRes = await fetch('/api/voice/tts', {
                 method: 'POST',
@@ -240,7 +244,10 @@ export function VoiceCallModal({
                     language,
                     greeting: isGreeting, // Premium voice for greeting, budget for body
                 }),
+                signal: ttsController.signal,
             });
+
+            clearTimeout(ttsTimeout);
 
             if (ttsRes.ok && ttsRes.headers.get('content-type')?.includes('audio')) {
                 const audioBlob = await ttsRes.blob();
@@ -263,7 +270,8 @@ export function VoiceCallModal({
                 return;
             }
         } catch {
-            // Server TTS failed — fall through to browser TTS (last resort)
+            clearTimeout(ttsTimeout);
+            // Server TTS failed or timed out — fall through to browser TTS
         }
 
         // Last resort: Browser speechSynthesis (only if API completely fails)
@@ -569,9 +577,16 @@ export function VoiceCallModal({
             setSttMode('browser');
 
             // Explicitly request microphone to ensure permission is granted
-            // Some browsers need getUserMedia before SpeechRecognition works properly
+            // Chrome requires getUserMedia before SpeechRecognition works properly
             try {
-                const browserStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const browserStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,  // Normalize mic volume automatically
+                        channelCount: 1,
+                    },
+                });
                 mediaStreamRef.current = browserStream;
             } catch (micErr) {
                 console.error('[STT:Browser] Microphone access denied:', micErr);
@@ -594,17 +609,47 @@ export function VoiceCallModal({
             recognition.continuous = true;
             recognition.interimResults = true;
 
+            // Track recognition state to prevent race conditions on restart
+            let isRecognitionActive = false;
+            // Track if currently processing a turn (prevents double-processing)
+            let isProcessingTurn = false;
+
+            // Safe start helper — prevents "already started" errors
+            const safeStartRecognition = () => {
+                if (!recognitionRef.current || isSpeakingRef.current || isRecognitionActive || isProcessingTurn) return;
+                try {
+                    recognitionRef.current.start();
+                    isRecognitionActive = true;
+                    setIsListening(true);
+                } catch {
+                    // Already started or other error — ignore
+                }
+            };
+
+            // Safe stop helper
+            const safeStopRecognition = () => {
+                if (!recognitionRef.current) return;
+                try {
+                    recognitionRef.current.stop();
+                } catch {
+                    // Already stopped
+                }
+                isRecognitionActive = false;
+            };
+
             recognitionRef.current = recognition;
 
             recognition.onresult = async (event: SpeechRecognitionEvent) => {
                 // ECHO PREVENTION: Ignore all results while AI is speaking
-                if (isSpeakingRef.current) return;
+                if (isSpeakingRef.current || isProcessingTurn) return;
 
                 const lastResult = event.results[event.results.length - 1];
-                const text = lastResult[0].transcript;
+                const text = lastResult[0].transcript.trim();
+
+                if (!text) return; // Skip empty results
 
                 if (!lastResult.isFinal) {
-                    // Interim result — show as typing (deduplicated)
+                    // Interim result — show as typing indicator (deduplicated)
                     setTranscript(prev => {
                         const last = prev[prev.length - 1];
                         if (last && last.speaker === 'user' && last.text.endsWith('...')) {
@@ -615,7 +660,13 @@ export function VoiceCallModal({
                     return;
                 }
 
-                // Final result — stop listening, send to LLM, speak response
+                // --- FINAL RESULT: Process the user's utterance ---
+                // Skip very short results (likely noise/false positives)
+                if (text.length < 2) return;
+
+                isProcessingTurn = true;
+
+                // Replace interim indicator with final text
                 setTranscript(prev => {
                     const filtered = prev.filter(t => !(t.speaker === 'user' && t.text.endsWith('...')));
                     return [...filtered, { speaker: 'user', text, timestamp: new Date().toISOString() }];
@@ -624,9 +675,8 @@ export function VoiceCallModal({
                 setIsListening(false);
                 setIsThinking(true);
 
-                if (recognitionRef.current) {
-                    try { recognitionRef.current.stop(); } catch { /* ok */ }
-                }
+                // Stop recognition during LLM processing to prevent echo
+                safeStopRecognition();
 
                 try {
                     const response = await fetch('/api/voice/infer', {
@@ -650,6 +700,9 @@ export function VoiceCallModal({
                     }]);
 
                     setIsThinking(false);
+                    isProcessingTurn = false;
+
+                    // Speak response — recognition restarts via speakText's resumeListening
                     await speakText(aiText, undefined, false);
                 } catch {
                     setTranscript(prev => [...prev, {
@@ -658,23 +711,41 @@ export function VoiceCallModal({
                         timestamp: new Date().toISOString(),
                     }]);
                     setIsThinking(false);
+                    isProcessingTurn = false;
 
-                    if (recognitionRef.current && !isSpeakingRef.current) {
-                        try { recognitionRef.current.start(); setIsListening(true); } catch { /* ok */ }
-                    }
+                    // Restart recognition after error
+                    setTimeout(() => safeStartRecognition(), 300);
                 }
             };
 
             recognition.onerror = (event) => {
                 const errEvent = event as SpeechRecognitionErrorEvent;
-                if (errEvent.error !== 'no-speech' && errEvent.error !== 'aborted') {
-                    setError(`Ses tanıma hatası: ${errEvent.error}`);
+                isRecognitionActive = false;
+
+                if (errEvent.error === 'no-speech') {
+                    // Chrome stops after ~3-4s silence — this is normal, onend will restart
+                    return;
                 }
+                if (errEvent.error === 'aborted') {
+                    // We aborted it intentionally — ignore
+                    return;
+                }
+                if (errEvent.error === 'network') {
+                    // Network issue with Google's STT servers — retry silently
+                    console.warn('[STT:Browser] Network error — will retry on next onend');
+                    return;
+                }
+                // Genuine error — show to user
+                setError(`Ses tanıma hatası: ${errEvent.error}`);
             };
 
             recognition.onend = () => {
-                if (recognitionRef.current && !isSpeakingRef.current) {
-                    try { recognitionRef.current.start(); } catch { /* ok */ }
+                isRecognitionActive = false;
+                // Auto-restart: Chrome kills recognition after ~3-4s silence
+                // This is the standard fix used across the ecosystem
+                if (recognitionRef.current && !isSpeakingRef.current && !isProcessingTurn) {
+                    // Small delay to prevent rapid restart loops
+                    setTimeout(() => safeStartRecognition(), 100);
                 }
             };
 
@@ -684,13 +755,8 @@ export function VoiceCallModal({
 
             // Speak greeting with PREMIUM voice, then start browser recognition
             await speakText(greeting, () => {
-                // Explicitly start recognition after greeting (safety net)
-                if (recognitionRef.current && !isSpeakingRef.current) {
-                    try {
-                        recognitionRef.current.start();
-                        setIsListening(true);
-                    } catch { /* already started by resumeListening */ }
-                }
+                // Explicitly start recognition after greeting
+                safeStartRecognition();
             }, true); // greeting=true → ElevenLabs premium voice
         }
     }, [language, persona, speakText]);
