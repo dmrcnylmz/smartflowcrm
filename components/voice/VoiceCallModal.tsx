@@ -197,11 +197,12 @@ export function VoiceCallModal({
     const speakText = useCallback(async (text: string, onEnd?: () => void, isGreeting = false) => {
         isSpeakingRef.current = true;
 
-        // 1. Pause ALL STT to prevent echo (browser Speech API + Deepgram)
-        if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch { /* already stopped */ }
-        }
+        // Pause Deepgram STT recording (raw audio → no built-in echo cancellation)
         stopListeningRef.current?.();
+        // Browser Speech API: DON'T stop — Chrome has built-in echo cancellation
+        // The onresult handler filters all results while isSpeakingRef is true
+        // Keeping recognition running eliminates the "first word missed" gap
+        // when TTS ends (no restart delay needed)
         setIsListening(false);
 
         let resumeCalled = false;
@@ -210,19 +211,25 @@ export function VoiceCallModal({
             resumeCalled = true;
             clearTimeout(safetyTimer);
             isSpeakingRef.current = false;
-            // 500ms settling delay before restarting mic
-            setTimeout(() => {
-                // Restart browser Speech API (if active in browser mode)
-                if (recognitionRef.current && !isSpeakingRef.current) {
-                    try {
-                        recognitionRef.current.start();
-                        setIsListening(true);
-                    } catch { /* already started */ }
+
+            // Browser Speech API: already running (never stopped), just update UI
+            if (recognitionRef.current) {
+                setIsListening(true);
+                // If Chrome killed recognition during TTS (silence timeout),
+                // restart it immediately — no delay needed
+                try {
+                    recognitionRef.current.start();
+                } catch {
+                    // Already running — this is the expected case
                 }
-                // Restart Deepgram recording (if active in deepgram mode)
-                startListeningRef.current?.();
-                onEnd?.();
-            }, 500);
+            }
+
+            // Deepgram recording: restart with minimal delay for audio settling
+            if (startListeningRef.current) {
+                setTimeout(() => startListeningRef.current?.(), 50);
+            }
+
+            onEnd?.();
         };
 
         // Safety timeout: if TTS never finishes (event lost), force resume after 10s
@@ -619,12 +626,16 @@ export function VoiceCallModal({
             let isProcessingTurn = false;
 
             // Safe start helper — prevents "already started" errors
+            // Note: isSpeakingRef is NOT checked here — recognition runs during TTS
+            // to prevent the "first word missed" gap. Echo prevention is in onresult.
             const safeStartRecognition = () => {
-                if (!recognitionRef.current || isSpeakingRef.current || isRecognitionActive || isProcessingTurn) return;
+                if (!recognitionRef.current || isRecognitionActive || isProcessingTurn) return;
                 try {
                     recognitionRef.current.start();
                     isRecognitionActive = true;
-                    setIsListening(true);
+                    if (!isSpeakingRef.current) {
+                        setIsListening(true);
+                    }
                 } catch {
                     // Already started or other error — ignore
                 }
@@ -770,8 +781,9 @@ export function VoiceCallModal({
             recognition.onend = () => {
                 isRecognitionActive = false;
                 // Auto-restart: Chrome kills recognition after ~3-4s silence
-                // This is the standard fix used across the ecosystem
-                if (recognitionRef.current && !isSpeakingRef.current && !isProcessingTurn) {
+                // Restart even during TTS — echo prevention is in onresult
+                // This ensures recognition is "warmed up" when TTS ends
+                if (recognitionRef.current && !isProcessingTurn) {
                     // Small delay to prevent rapid restart loops
                     setTimeout(() => safeStartRecognition(), 100);
                 }
