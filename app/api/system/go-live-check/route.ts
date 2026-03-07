@@ -214,13 +214,37 @@ export async function GET() {
 
     // ─── 6. Production URL Check ────────────────────────────────────────
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+    const explicitAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const vercelUrl = process.env.VERCEL_URL;
+    const appUrl = explicitAppUrl || vercelUrl;
+    const isExplicit = !!explicitAppUrl;
+
     checks.push({
         name: 'config:app_url',
-        status: appUrl && !appUrl.includes('localhost') ? 'ok' : 'warning',
-        detail: appUrl
-            ? (appUrl.includes('localhost') ? `Still localhost: ${appUrl}` : `Production: ${appUrl}`)
-            : 'NEXT_PUBLIC_APP_URL not set',
+        status: isExplicit && !explicitAppUrl.includes('localhost') ? 'ok' : 'warning',
+        detail: isExplicit
+            ? (explicitAppUrl.includes('localhost')
+                ? `Still localhost: ${explicitAppUrl}`
+                : `Production: ${explicitAppUrl}`)
+            : (vercelUrl
+                ? `⚠️ NEXT_PUBLIC_APP_URL not set — falling back to VERCEL_URL: ${vercelUrl}`
+                : 'NEXT_PUBLIC_APP_URL not set'),
+        critical: false,
+    });
+
+    // ─── 7. Firebase Admin Check ─────────────────────────────────────────
+
+    const hasFirebaseServiceAccount = !!(
+        process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||
+        process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH ||
+        process.env.GOOGLE_APPLICATION_CREDENTIALS
+    );
+    checks.push({
+        name: 'config:firebase_admin',
+        status: hasFirebaseServiceAccount ? 'ok' : 'warning',
+        detail: hasFirebaseServiceAccount
+            ? `Credential source: ${process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? 'inline JSON' : process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH ? 'key file' : 'GCP default'}`
+            : 'No explicit credential — relying on GCP default (may fail on Vercel)',
         critical: false,
     });
 
