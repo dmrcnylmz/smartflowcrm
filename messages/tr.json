@@ -1,0 +1,111 @@
+{
+    "common": {
+        "save": "Kaydet",
+        "cancel": "İptal",
+        "delete": "Sil",
+        "edit": "Düzenle",
+        "create": "Oluştur",
+        "search": "Ara",
+        "loading": "Yükleniyor...",
+        "error": "Hata",
+        "success": "Başarılı",
+        "confirm": "Onayla",
+        "back": "Geri",
+        "next": "İleri",
+        "close": "Kapat",
+        "yes": "Evet",
+        "no": "Hayır",
+        "noData": "Veri bulunamadı",
+        "required": "Bu alan zorunludur"
+    },
+    "auth": {
+        "login": "Giriş Yap",
+        "logout": "Çıkış Yap",
+        "email": "E-posta",
+        "password": "Şifre",
+        "loginTitle": "Hesabınıza giriş yapın",
+        "loginSubtitle": "SmartFlow CRM'e hoş geldiniz"
+    },
+    "nav": {
+        "dashboard": "Gösterge Paneli",
+        "customers": "Müşteriler",
+        "tickets": "Destek Talepleri",
+        "agents": "AI Asistanlar",
+        "knowledge": "Bilgi Bankası",
+        "billing": "Faturalandırma",
+        "settings": "Ayarlar",
+        "voicePipeline": "Ses Pipeline"
+    },
+    "dashboard": {
+        "title": "Gösterge Paneli",
+        "totalCustomers": "Toplam Müşteri",
+        "activeTickets": "Aktif Talepler",
+        "avgResponseTime": "Ort. Yanıt Süresi",
+        "ttsUsage": "TTS Kullanımı",
+        "recentActivity": "Son Aktiviteler",
+        "callsToday": "Bugünkü Aramalar"
+    },
+    "customers": {
+        "title": "Müşteriler",
+        "addCustomer": "Müşteri Ekle",
+        "name": "Ad Soyad",
+        "phone": "Telefon",
+        "email": "E-posta",
+        "company": "Şirket",
+        "notes": "Notlar",
+        "status": "Durum",
+        "createdAt": "Oluşturulma",
+        "lastContact": "Son İletişim"
+    },
+    "tickets": {
+        "title": "Destek Talepleri",
+        "createTicket": "Talep Oluştur",
+        "ticketId": "Talep No",
+        "category": "Kategori",
+        "priority": "Öncelik",
+        "status": "Durum",
+        "assignedTo": "Atanan",
+        "description": "Açıklama",
+        "open": "Açık",
+        "inProgress": "İşleniyor",
+        "resolved": "Çözüldü",
+        "closed": "Kapatıldı",
+        "low": "Düşük",
+        "medium": "Orta",
+        "high": "Yüksek",
+        "urgent": "Acil"
+    },
+    "billing": {
+        "title": "Faturalandırma",
+        "currentPlan": "Mevcut Plan",
+        "usage": "Kullanım",
+        "upgrade": "Yükselt",
+        "changePlan": "Plan Değiştir",
+        "invoices": "Faturalar",
+        "emergencyMode": "Acil Durum Modu",
+        "ttsCharacters": "TTS Karakter Kullanımı",
+        "monthlyBudget": "Aylık Bütçe",
+        "voiceAnalytics": "Ses Pipeline Analitikleri"
+    },
+    "agents": {
+        "title": "AI Asistanlar",
+        "createAgent": "Asistan Oluştur",
+        "agentName": "Asistan Adı",
+        "systemPrompt": "Sistem Promptu",
+        "voiceConfig": "Ses Ayarları",
+        "active": "Aktif",
+        "inactive": "Pasif",
+        "testAgent": "Test Et"
+    },
+    "voice": {
+        "connecting": "Bağlanıyor...",
+        "connected": "Bağlandı",
+        "disconnected": "Bağlantı kesildi",
+        "speaking": "Konuşuyor...",
+        "listening": "Dinliyor...",
+        "processing": "İşleniyor...",
+        "callEnded": "Arama sona erdi",
+        "startCall": "Aramayı Başlat",
+        "endCall": "Aramayı Bitir"
+    }
+}

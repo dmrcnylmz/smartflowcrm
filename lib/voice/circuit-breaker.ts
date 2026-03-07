@@ -136,6 +136,7 @@ export class CircuitBreaker {
         } else {
             // Reset failure count on success in closed state
             this.failures = 0;
+            this.failureTimestamps = [];
         }
     }
 
@@ -295,4 +296,12 @@ export const geminiCircuitBreaker = new CircuitBreaker({
     failureThreshold: 5,
     resetTimeout: 15_000,
     failureWindowMs: 120_000,
+});
+
+/** Circuit breaker for Deepgram STT calls */
+export const deepgramCircuitBreaker = new CircuitBreaker({
+    name: 'deepgram-stt',
+    failureThreshold: 3,
+    resetTimeout: 20_000,
+    failureWindowMs: 60_000,
 });

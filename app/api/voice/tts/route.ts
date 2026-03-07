@@ -26,6 +26,7 @@ import { shouldUseEmergencyTts } from '@/lib/billing/cost-monitor';
 import { sessionRegistry } from '@/lib/voice/session-registry';
 import { meterTtsUsage } from '@/lib/billing/metering';
 import { checkCostThresholds } from '@/lib/billing/cost-monitor';
+import { ttsCircuitBreaker, openaiCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -94,43 +95,56 @@ async function synthesizeElevenLabs(
 ): Promise<Response | null> {
     if (!ELEVENLABS_API_KEY) return null;
 
+    // Fast-fail if circuit breaker is open
+    if (ttsCircuitBreaker.isOpen()) {
+        console.warn('[TTS:ElevenLabs] Circuit breaker OPEN — skipping');
+        return null;
+    }
+
     const voiceId = voiceIdOverride || ELEVENLABS_VOICES[lang];
     const modelId = modelIdOverride || (isGreeting ? ELEVENLABS_MODELS.greeting : ELEVENLABS_MODELS.body);
 
     try {
-        const response = await fetch(
-            `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
-            {
-                method: 'POST',
-                headers: {
-                    'xi-api-key': ELEVENLABS_API_KEY,
-                    'Content-Type': 'application/json',
-                    'Accept': 'audio/mpeg',
-                },
-                body: JSON.stringify({
-                    text,
-                    model_id: modelId,
-                    language_code: lang,
-                    voice_settings: {
-                        stability: lang === 'tr' ? 0.6 : 0.5,
-                        similarity_boost: 0.75,
-                        style: 0.0,
-                        use_speaker_boost: true,
+        const response = await ttsCircuitBreaker.execute(async () => {
+            const res = await fetch(
+                `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'xi-api-key': ELEVENLABS_API_KEY,
+                        'Content-Type': 'application/json',
+                        'Accept': 'audio/mpeg',
                     },
-                }),
-                signal: AbortSignal.timeout(10000),
-            },
-        );
+                    body: JSON.stringify({
+                        text,
+                        model_id: modelId,
+                        language_code: lang,
+                        voice_settings: {
+                            stability: lang === 'tr' ? 0.6 : 0.5,
+                            similarity_boost: 0.75,
+                            style: 0.0,
+                            use_speaker_boost: true,
+                        },
+                    }),
+                    signal: AbortSignal.timeout(10000),
+                },
+            );
 
-        if (!response.ok || !response.body) {
-            const err = await response.text().catch(() => '');
-            console.error(`[TTS:ElevenLabs] Error ${response.status}: ${err}`);
-            return null;
-        }
+            if (!res.ok || !res.body) {
+                const err = await res.text().catch(() => '');
+                throw new Error(`ElevenLabs ${res.status}: ${err}`);
+            }
+
+            return res;
+        });
 
         return response;
     } catch (err) {
-        console.error('[TTS:ElevenLabs] Request failed:', err);
+        if (err instanceof CircuitOpenError) {
+            console.warn('[TTS:ElevenLabs] Circuit breaker OPEN — skipping');
+        } else {
+            console.error('[TTS:ElevenLabs] Request failed:', err);
+        }
         return null;
     }
 }
@@ -146,32 +160,45 @@ async function synthesizeOpenAI(
 ): Promise<Response | null> {
     if (!OPENAI_API_KEY) return null;
 
-    try {
-        const response = await fetch('https://api.openai.com/v1/audio/speech', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: 'tts-1',
-                input: text,
-                voice: OPENAI_TTS_VOICE,
-                response_format: 'mp3',
-                speed: 1.0,
-            }),
-            signal: AbortSignal.timeout(15000), // OpenAI is slow, give it more time
-        });
+    // Fast-fail if circuit breaker is open
+    if (openaiCircuitBreaker.isOpen()) {
+        console.warn('[TTS:OpenAI] Circuit breaker OPEN — skipping');
+        return null;
+    }
 
-        if (!response.ok || !response.body) {
-            const err = await response.text().catch(() => '');
-            console.error(`[TTS:OpenAI] Error ${response.status}: ${err}`);
-            return null;
-        }
+    try {
+        const response = await openaiCircuitBreaker.execute(async () => {
+            const res = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'tts-1',
+                    input: text,
+                    voice: OPENAI_TTS_VOICE,
+                    response_format: 'mp3',
+                    speed: 1.0,
+                }),
+                signal: AbortSignal.timeout(15000), // OpenAI is slow, give it more time
+            });
+
+            if (!res.ok || !res.body) {
+                const err = await res.text().catch(() => '');
+                throw new Error(`OpenAI TTS ${res.status}: ${err}`);
+            }
+
+            return res;
+        });
 
         return response;
     } catch (err) {
-        console.error('[TTS:OpenAI] Request failed:', err);
+        if (err instanceof CircuitOpenError) {
+            console.warn('[TTS:OpenAI] Circuit breaker OPEN — skipping');
+        } else {
+            console.error('[TTS:OpenAI] Request failed:', err);
+        }
         return null;
     }
 }
@@ -267,10 +294,16 @@ export async function POST(request: NextRequest) {
 
         // ---- No provider succeeded ----
         if (!audioResponse || !audioResponse.body) {
+            const bothOpen = ttsCircuitBreaker.isOpen() && openaiCircuitBreaker.isOpen();
             return NextResponse.json(
                 {
                     error: 'All TTS providers failed',
                     fallback: 'browser',
+                    circuitBreakers: bothOpen ? 'all_open' : 'partial',
+                    stats: {
+                        elevenlabs: ttsCircuitBreaker.getStats(),
+                        openai: openaiCircuitBreaker.getStats(),
+                    },
                 },
                 { status: 503 },
             );

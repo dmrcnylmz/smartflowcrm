@@ -20,6 +20,7 @@ import { generateGroqResponse, isGroqConfigured } from '@/lib/ai/groq-client';
 import { generateGeminiResponse, isGeminiConfigured } from '@/lib/ai/gemini-client';
 import { metricsLogger } from '@/lib/billing/metrics-logger';
 import { sessionRegistry } from '@/lib/voice/session-registry';
+import { checkRateLimit, rateLimitExceeded, RATE_LIMITS } from '@/lib/voice/rate-limit';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
@@ -265,6 +266,12 @@ function getGracefulFallbackResponse(
 // =============================================
 export async function POST(request: NextRequest) {
     const startMs = performance.now();
+
+    // ---- Rate Limit Check ----
+    const rateLimit = checkRateLimit(request, RATE_LIMITS.inference);
+    if (!rateLimit.allowed) {
+        return rateLimitExceeded(rateLimit.resetTime);
+    }
 
     try {
         const body = await request.json();

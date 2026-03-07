@@ -23,6 +23,32 @@ vi.mock('@/lib/knowledge/pipeline', () => ({
     getKBStats: (...args: unknown[]) => mockGetKBStats(...args),
 }));
 
+// Mock requireStrictAuth — simulate authenticated user
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: vi.fn().mockResolvedValue({
+        uid: 'test-uid',
+        email: 'test@example.com',
+        tenantId: 'tenant-123',
+    }),
+}));
+
+// Mock Firebase Admin & metering (used by GET query path)
+vi.mock('@/lib/auth/firebase-admin', () => ({
+    initAdmin: vi.fn(),
+}));
+
+vi.mock('firebase-admin/firestore', () => ({
+    getFirestore: vi.fn(() => ({})),
+    Timestamp: {
+        now: () => ({ seconds: Date.now() / 1000, nanoseconds: 0 }),
+        fromDate: (d: Date) => ({ seconds: d.getTime() / 1000, nanoseconds: 0 }),
+    },
+}));
+
+vi.mock('@/lib/billing/metering', () => ({
+    meterKbQuery: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe('/api/knowledge', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -84,7 +110,10 @@ describe('/api/knowledge', () => {
             const { POST } = await import('@/app/api/knowledge/route');
             const request = createMockRequest('/api/knowledge', {
                 method: 'POST',
-                headers: { 'x-user-tenant': 'tenant-123' },
+                headers: {
+                    'x-user-tenant': 'tenant-123',
+                    'Authorization': 'Bearer test-token',
+                },
                 body: { type: 'text', content: 'Our return policy allows returns within 30 days.' },
             });
 

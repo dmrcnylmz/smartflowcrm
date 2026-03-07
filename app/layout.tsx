@@ -1,4 +1,6 @@
 import './globals.css';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import { ClientLayout } from '@/components/layout/ClientLayout';
 import type { Metadata, Viewport } from 'next';
 
@@ -25,15 +27,20 @@ export const viewport: Viewport = {
     ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const locale = await getLocale();
+    const messages = await getMessages();
+
     return (
-        <html lang="tr" suppressHydrationWarning>
+        <html lang={locale} suppressHydrationWarning>
             <body className="font-sans antialiased">
-                <ClientLayout>{children}</ClientLayout>
+                <NextIntlClientProvider locale={locale} messages={messages}>
+                    <ClientLayout>{children}</ClientLayout>
+                </NextIntlClientProvider>
             </body>
         </html>
     );

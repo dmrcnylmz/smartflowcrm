@@ -2,32 +2,52 @@
  * API Route Tests — /api/tickets
  *
  * Tests GET (list), POST (create), PATCH (update) handlers.
- * Mocks lib/firebase/db functions used by the route.
+ * Mocks lib/firebase/admin-db functions used by the route.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMockRequest } from './helpers/api-test-utils';
 
-// Mock the firebase/db module used by the tickets route
+// Mock the firebase/admin-db module used by the tickets route
 const mockGetComplaints = vi.fn();
 const mockGetInfoRequests = vi.fn();
 const mockCreateComplaint = vi.fn();
 const mockCreateInfoRequest = vi.fn();
 const mockUpdateComplaint = vi.fn();
 const mockUpdateInfoRequest = vi.fn();
+const mockGetTenantFromRequest = vi.fn();
 
-vi.mock('@/lib/firebase/db', () => ({
+vi.mock('@/lib/firebase/admin-db', () => ({
     getComplaints: (...args: unknown[]) => mockGetComplaints(...args),
     getInfoRequests: (...args: unknown[]) => mockGetInfoRequests(...args),
     createComplaint: (...args: unknown[]) => mockCreateComplaint(...args),
     createInfoRequest: (...args: unknown[]) => mockCreateInfoRequest(...args),
     updateComplaint: (...args: unknown[]) => mockUpdateComplaint(...args),
     updateInfoRequest: (...args: unknown[]) => mockUpdateInfoRequest(...args),
+    getTenantFromRequest: (...args: unknown[]) => mockGetTenantFromRequest(...args),
+}));
+
+// Mock requireStrictAuth — simulate authenticated user
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: vi.fn().mockResolvedValue({
+        uid: 'test-uid',
+        email: 'test@example.com',
+        tenantId: 'tenant-123',
+    }),
+}));
+
+// Mock n8n/client webhook
+vi.mock('@/lib/n8n/client', () => ({
+    sendWebhook: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('/api/tickets', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Default: return tenant from request header
+        mockGetTenantFromRequest.mockImplementation((req: Request) => {
+            return req.headers.get('x-user-tenant') || null;
+        });
     });
 
     describe('GET', () => {
@@ -39,7 +59,9 @@ describe('/api/tickets', () => {
             mockGetComplaints.mockResolvedValue(mockComplaints);
 
             const { GET } = await import('@/app/api/tickets/route');
-            const request = createMockRequest('/api/tickets');
+            const request = createMockRequest('/api/tickets', {
+                headers: { 'x-user-tenant': 'tenant-123' },
+            });
 
             const response = await GET(request);
             const data = await response.json();
@@ -54,7 +76,9 @@ describe('/api/tickets', () => {
             mockGetInfoRequests.mockResolvedValue(mockInfoReqs);
 
             const { GET } = await import('@/app/api/tickets/route');
-            const request = createMockRequest('/api/tickets?type=info');
+            const request = createMockRequest('/api/tickets?type=info', {
+                headers: { 'x-user-tenant': 'tenant-123' },
+            });
 
             const response = await GET(request);
             const data = await response.json();
@@ -62,6 +86,16 @@ describe('/api/tickets', () => {
             expect(response.status).toBe(200);
             expect(data).toHaveLength(1);
             expect(mockGetInfoRequests).toHaveBeenCalledOnce();
+        });
+
+        it('should return 403 when tenant header is missing', async () => {
+            mockGetTenantFromRequest.mockReturnValue(null);
+
+            const { GET } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets');
+
+            const response = await GET(request);
+            expect(response.status).toBe(403);
         });
     });
 
@@ -72,9 +106,11 @@ describe('/api/tickets', () => {
             const { POST } = await import('@/app/api/tickets/route');
             const request = createMockRequest('/api/tickets', {
                 method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
                 body: {
                     type: 'complaint',
                     customerId: 'c1',
+                    title: 'Package issue',
                     category: 'delivery',
                     description: 'Package arrived damaged',
                 },
@@ -89,11 +125,12 @@ describe('/api/tickets', () => {
             expect(mockCreateComplaint).toHaveBeenCalledOnce();
         });
 
-        it('should return 400 when customerId is missing', async () => {
+        it('should return 400 when customerId and customerName are missing', async () => {
             const { POST } = await import('@/app/api/tickets/route');
             const request = createMockRequest('/api/tickets', {
                 method: 'POST',
-                body: { category: 'delivery', description: 'Some issue' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { title: 'Some issue', category: 'delivery', description: 'Some issue' },
             });
 
             const response = await POST(request);
@@ -108,6 +145,7 @@ describe('/api/tickets', () => {
             const { PATCH } = await import('@/app/api/tickets/route');
             const request = createMockRequest('/api/tickets', {
                 method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
                 body: { id: 't1', type: 'complaint', status: 'resolved' },
             });
 
@@ -116,7 +154,7 @@ describe('/api/tickets', () => {
 
             expect(response.status).toBe(200);
             expect(data.success).toBe(true);
-            expect(mockUpdateComplaint).toHaveBeenCalledWith('t1', expect.objectContaining({ status: 'resolved' }));
+            expect(mockUpdateComplaint).toHaveBeenCalledWith('tenant-123', 't1', expect.objectContaining({ status: 'resolved' }));
         });
     });
 });

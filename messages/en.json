@@ -1,0 +1,111 @@
+{
+    "common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "create": "Create",
+        "search": "Search",
+        "loading": "Loading...",
+        "error": "Error",
+        "success": "Success",
+        "confirm": "Confirm",
+        "back": "Back",
+        "next": "Next",
+        "close": "Close",
+        "yes": "Yes",
+        "no": "No",
+        "noData": "No data found",
+        "required": "This field is required"
+    },
+    "auth": {
+        "login": "Log In",
+        "logout": "Log Out",
+        "email": "Email",
+        "password": "Password",
+        "loginTitle": "Sign in to your account",
+        "loginSubtitle": "Welcome to SmartFlow CRM"
+    },
+    "nav": {
+        "dashboard": "Dashboard",
+        "customers": "Customers",
+        "tickets": "Support Tickets",
+        "agents": "AI Assistants",
+        "knowledge": "Knowledge Base",
+        "billing": "Billing",
+        "settings": "Settings",
+        "voicePipeline": "Voice Pipeline"
+    },
+    "dashboard": {
+        "title": "Dashboard",
+        "totalCustomers": "Total Customers",
+        "activeTickets": "Active Tickets",
+        "avgResponseTime": "Avg Response Time",
+        "ttsUsage": "TTS Usage",
+        "recentActivity": "Recent Activity",
+        "callsToday": "Calls Today"
+    },
+    "customers": {
+        "title": "Customers",
+        "addCustomer": "Add Customer",
+        "name": "Full Name",
+        "phone": "Phone",
+        "email": "Email",
+        "company": "Company",
+        "notes": "Notes",
+        "status": "Status",
+        "createdAt": "Created",
+        "lastContact": "Last Contact"
+    },
+    "tickets": {
+        "title": "Support Tickets",
+        "createTicket": "Create Ticket",
+        "ticketId": "Ticket ID",
+        "category": "Category",
+        "priority": "Priority",
+        "status": "Status",
+        "assignedTo": "Assigned To",
+        "description": "Description",
+        "open": "Open",
+        "inProgress": "In Progress",
+        "resolved": "Resolved",
+        "closed": "Closed",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "urgent": "Urgent"
+    },
+    "billing": {
+        "title": "Billing",
+        "currentPlan": "Current Plan",
+        "usage": "Usage",
+        "upgrade": "Upgrade",
+        "changePlan": "Change Plan",
+        "invoices": "Invoices",
+        "emergencyMode": "Emergency Mode",
+        "ttsCharacters": "TTS Character Usage",
+        "monthlyBudget": "Monthly Budget",
+        "voiceAnalytics": "Voice Pipeline Analytics"
+    },
+    "agents": {
+        "title": "AI Assistants",
+        "createAgent": "Create Assistant",
+        "agentName": "Assistant Name",
+        "systemPrompt": "System Prompt",
+        "voiceConfig": "Voice Settings",
+        "active": "Active",
+        "inactive": "Inactive",
+        "testAgent": "Test"
+    },
+    "voice": {
+        "connecting": "Connecting...",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "speaking": "Speaking...",
+        "listening": "Listening...",
+        "processing": "Processing...",
+        "callEnded": "Call ended",
+        "startCall": "Start Call",
+        "endCall": "End Call"
+    }
+}

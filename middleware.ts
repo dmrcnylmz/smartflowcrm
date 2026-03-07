@@ -1,20 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractBearerToken } from '@/lib/auth/token-verify';
-
-// Simple in-memory rate limit store for API routes
-const apiRateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-// Cleanup stale entries every 2 minutes
-if (typeof setInterval !== 'undefined') {
-    setInterval(() => {
-        const now = Date.now();
-        for (const [key, entry] of apiRateLimitStore.entries()) {
-            if (entry.resetTime < now) {
-                apiRateLimitStore.delete(key);
-            }
-        }
-    }, 120_000);
-}
+import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit } from '@/lib/utils/rate-limiter';
 
 // --- Configuration ---
 
@@ -99,12 +85,6 @@ const SECURITY_HEADERS: Record<string, string> = {
 /** Page routes that are public (no login required) */
 const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy'];
 
-/** Rate limit: 100 req/min for general API, 10 req/min for auth-sensitive */
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_GENERAL = 100;
-const RATE_LIMIT_MAX_SENSITIVE = 10;
-const RATE_LIMIT_MAX_TENANT = 500;
-
 // Sensitive endpoints get stricter limits
 const SENSITIVE_PREFIXES = ['/api/voice/connect', '/api/voice/session'];
 
@@ -113,27 +93,6 @@ const SENSITIVE_PREFIXES = ['/api/voice/connect', '/api/voice/session'];
 function getClientIp(req: NextRequest): string {
     const forwarded = req.headers.get('x-forwarded-for');
     return forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-}
-
-function checkApiRateLimit(
-    key: string,
-    maxRequests: number,
-): { allowed: boolean; remaining: number; resetTime: number } {
-    const now = Date.now();
-    let entry = apiRateLimitStore.get(key);
-
-    if (!entry || entry.resetTime < now) {
-        entry = { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
-        apiRateLimitStore.set(key, entry);
-    }
-
-    entry.count++;
-
-    return {
-        allowed: entry.count <= maxRequests,
-        remaining: Math.max(0, maxRequests - entry.count),
-        resetTime: entry.resetTime,
-    };
 }
 
 function isSensitivePath(pathname: string): boolean {
@@ -182,16 +141,14 @@ export async function middleware(req: NextRequest) {
             (p) => pathname === p || pathname.startsWith(p + '/'),
         );
 
-        // Rate limiting for all API routes
+        // Rate limiting for all API routes (Upstash Redis with in-memory fallback)
         const ip = getClientIp(req);
-        const maxReqs = isSensitivePath(pathname)
-            ? RATE_LIMIT_MAX_SENSITIVE
-            : RATE_LIMIT_MAX_GENERAL;
-        const rateLimitKey = `mw:${ip}:${isSensitivePath(pathname) ? 'sensitive' : 'general'}`;
-        const { allowed, remaining, resetTime } = checkApiRateLimit(
-            rateLimitKey,
-            maxReqs,
-        );
+        const isSensitive = isSensitivePath(pathname);
+        const rateResult = await (isSensitive
+            ? checkSensitiveLimit(ip)
+            : checkGeneralLimit(ip));
+        const maxReqs = isSensitive ? 10 : 100;
+        const { success: allowed, remaining, reset: resetTime } = rateResult;
 
         if (!allowed) {
             const retryAfter = Math.ceil((resetTime - Date.now()) / 1000);
@@ -244,10 +201,9 @@ export async function middleware(req: NextRequest) {
 
             // Per-tenant rate limiting (500 req/min per tenant, separate from per-IP)
             if (result.payload?.tenantId) {
-                const tenantRateLimitKey = `mw:tenant:${result.payload.tenantId}:general`;
-                const tenantRateLimit = checkApiRateLimit(tenantRateLimitKey, RATE_LIMIT_MAX_TENANT);
-                if (!tenantRateLimit.allowed) {
-                    const retryAfter = Math.ceil((tenantRateLimit.resetTime - Date.now()) / 1000);
+                const tenantRateResult = await checkTenantLimit(result.payload.tenantId);
+                if (!tenantRateResult.success) {
+                    const retryAfter = Math.ceil((tenantRateResult.reset - Date.now()) / 1000);
                     return NextResponse.json(
                         {
                             error: 'Tenant rate limit exceeded',
@@ -258,9 +214,9 @@ export async function middleware(req: NextRequest) {
                             status: 429,
                             headers: {
                                 'Retry-After': retryAfter.toString(),
-                                'X-RateLimit-Limit': RATE_LIMIT_MAX_TENANT.toString(),
+                                'X-RateLimit-Limit': '500',
                                 'X-RateLimit-Remaining': '0',
-                                'X-RateLimit-Reset': Math.ceil(tenantRateLimit.resetTime / 1000).toString(),
+                                'X-RateLimit-Reset': Math.ceil(tenantRateResult.reset / 1000).toString(),
                             },
                         },
                     );

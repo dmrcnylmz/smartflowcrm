@@ -2,24 +2,47 @@
  * API Route Tests — /api/customers
  *
  * Tests GET (list) and POST (create) handlers.
- * Mocks lib/firebase/db functions used by the route.
+ * Mocks lib/firebase/admin-db functions used by the route.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMockRequest } from './helpers/api-test-utils';
 
-// Mock the firebase/db module used by the customers route
+// Mock the firebase/admin-db module used by the customers route
 const mockGetAllCustomers = vi.fn();
 const mockCreateCustomer = vi.fn();
+const mockUpdateCustomer = vi.fn();
+const mockAddActivityLog = vi.fn();
+const mockGetTenantFromRequest = vi.fn();
 
-vi.mock('@/lib/firebase/db', () => ({
+vi.mock('@/lib/firebase/admin-db', () => ({
     getAllCustomers: (...args: unknown[]) => mockGetAllCustomers(...args),
     createCustomer: (...args: unknown[]) => mockCreateCustomer(...args),
+    updateCustomer: (...args: unknown[]) => mockUpdateCustomer(...args),
+    addActivityLog: (...args: unknown[]) => mockAddActivityLog(...args),
+    getTenantFromRequest: (...args: unknown[]) => mockGetTenantFromRequest(...args),
+    Timestamp: {
+        now: () => ({ seconds: Date.now() / 1000, nanoseconds: 0 }),
+        fromDate: (d: Date) => ({ seconds: d.getTime() / 1000, nanoseconds: 0 }),
+    },
+}));
+
+// Mock requireStrictAuth — simulate authenticated user
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: vi.fn().mockResolvedValue({
+        uid: 'test-uid',
+        email: 'test@example.com',
+        tenantId: 'tenant-123',
+    }),
 }));
 
 describe('/api/customers', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Default: return tenant from request header
+        mockGetTenantFromRequest.mockImplementation((req: Request) => {
+            return req.headers.get('x-user-tenant') || null;
+        });
     });
 
     describe('GET', () => {
@@ -31,13 +54,27 @@ describe('/api/customers', () => {
             mockGetAllCustomers.mockResolvedValue(mockCustomers);
 
             const { GET } = await import('@/app/api/customers/route');
-            const response = await GET();
+            const request = createMockRequest('/api/customers', {
+                headers: { 'x-user-tenant': 'tenant-123' },
+            });
+
+            const response = await GET(request);
             const data = await response.json();
 
             expect(response.status).toBe(200);
             expect(data).toHaveLength(2);
             expect(data[0].name).toBe('Ali Yilmaz');
             expect(mockGetAllCustomers).toHaveBeenCalledOnce();
+        });
+
+        it('should return 403 when tenant header is missing', async () => {
+            mockGetTenantFromRequest.mockReturnValue(null);
+
+            const { GET } = await import('@/app/api/customers/route');
+            const request = createMockRequest('/api/customers');
+
+            const response = await GET(request);
+            expect(response.status).toBe(403);
         });
     });
 
@@ -48,6 +85,7 @@ describe('/api/customers', () => {
             const { POST } = await import('@/app/api/customers/route');
             const request = createMockRequest('/api/customers', {
                 method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
                 body: { name: 'Mehmet Kaya', phone: '555-0003', email: 'mk@test.com' },
             });
 
@@ -57,6 +95,7 @@ describe('/api/customers', () => {
             expect(response.status).toBe(201);
             expect(data.success).toBe(true);
             expect(mockCreateCustomer).toHaveBeenCalledWith(
+                'tenant-123',
                 expect.objectContaining({ name: 'Mehmet Kaya', phone: '555-0003' })
             );
         });
@@ -65,6 +104,7 @@ describe('/api/customers', () => {
             const { POST } = await import('@/app/api/customers/route');
             const request = createMockRequest('/api/customers', {
                 method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
                 body: { email: 'noname@test.com' }, // missing name and phone
             });
 

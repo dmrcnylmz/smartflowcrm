@@ -1,0 +1,2031 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Callception API",
+    "description": "AI-powered call management, appointment tracking, and customer service automation platform. Provides voice AI pipeline, CRM, ticketing, billing, and multi-tenant management capabilities.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Callception",
+      "url": "https://callception.com"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://callception.com",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:3002",
+      "description": "Local development"
+    }
+  ],
+  "security": [
+    {
+      "TenantHeader": []
+    }
+  ],
+  "tags": [
+    { "name": "Customers", "description": "Customer CRUD operations" },
+    { "name": "Tickets", "description": "Complaint and info request management" },
+    { "name": "Appointments", "description": "Appointment scheduling and management" },
+    { "name": "Knowledge Base", "description": "Document ingestion, search, and RAG queries" },
+    { "name": "Voice Pipeline", "description": "Voice AI endpoints — TTS, STT, LLM inference, sessions, pipeline" },
+    { "name": "Agents", "description": "AI agent prompt builder CRUD" },
+    { "name": "Billing", "description": "Subscription checkout, usage, analytics, invoices, emergency mode" },
+    { "name": "Dashboard", "description": "Aggregated tenant dashboard stats" },
+    { "name": "Automation", "description": "n8n webhook automation triggers" },
+    { "name": "System", "description": "Health checks and go-live readiness" },
+    { "name": "Tenant", "description": "Tenant management, settings, Twilio setup, GDPR" },
+    { "name": "Twilio", "description": "Twilio telephony integration — incoming calls, gather, status, recording, phone numbers" },
+    { "name": "AI", "description": "AI services — intent detection, RAG search, provider status" },
+    { "name": "Notifications", "description": "User/tenant notification management" },
+    { "name": "Compliance", "description": "Audit logs, PII redaction, consent recording" },
+    { "name": "Reports", "description": "Daily, weekly, monthly, and custom reports" },
+    { "name": "Monitoring", "description": "Error tracking and application metrics" },
+    { "name": "Webhooks", "description": "External webhook endpoints for call logging" },
+    { "name": "Cron", "description": "Scheduled jobs (appointment reminders)" }
+  ],
+  "paths": {
+    "/api/customers": {
+      "get": {
+        "tags": ["Customers"],
+        "summary": "List all customers",
+        "description": "Returns all customers for the authenticated tenant.",
+        "responses": {
+          "200": {
+            "description": "Array of customer objects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Customer" }
+                }
+              }
+            }
+          },
+          "403": { "$ref": "#/components/responses/TenantRequired" }
+        }
+      },
+      "post": {
+        "tags": ["Customers"],
+        "summary": "Create a new customer",
+        "description": "Creates a new customer record. Requires strict auth.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "phone"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "email": { "type": "string" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Customer created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "customerId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" }
+        }
+      },
+      "patch": {
+        "tags": ["Customers"],
+        "summary": "Update a customer",
+        "description": "Partial update of customer fields. At least one field must be provided.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customerId"],
+                "properties": {
+                  "customerId": { "type": "string" },
+                  "name": { "type": "string" },
+                  "email": { "type": "string" },
+                  "phone": { "type": "string" },
+                  "company": { "type": "string" },
+                  "notes": { "type": "string" },
+                  "tags": { "type": "array", "items": { "type": "string" } },
+                  "status": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Customer updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "customerId": { "type": "string" },
+                    "updatedFields": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets": {
+      "get": {
+        "tags": ["Tickets"],
+        "summary": "List tickets",
+        "description": "List complaints or info requests filtered by type, customerId, and status.",
+        "parameters": [
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["complaint", "info"], "default": "complaint" } },
+          { "name": "customerId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Array of ticket objects" },
+          "403": { "$ref": "#/components/responses/TenantRequired" }
+        }
+      },
+      "post": {
+        "tags": ["Tickets"],
+        "summary": "Create a ticket",
+        "description": "Create a new complaint or info request. Requires customerId or customerName.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["complaint", "info"], "default": "complaint" },
+                  "customerId": { "type": "string" },
+                  "customerName": { "type": "string" },
+                  "customerEmail": { "type": "string" },
+                  "customerPhone": { "type": "string" },
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "category": { "type": "string", "default": "general" },
+                  "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"], "default": "medium" },
+                  "assignedTo": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "ticketId": { "type": "string" },
+                    "type": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Tickets"],
+        "summary": "Update a ticket",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "type": { "type": "string", "enum": ["complaint", "info"], "default": "complaint" },
+                  "status": { "type": "string" },
+                  "priority": { "type": "string" },
+                  "assignedTo": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Ticket updated" }
+        }
+      }
+    },
+    "/api/appointments": {
+      "get": {
+        "tags": ["Appointments"],
+        "summary": "List appointments",
+        "parameters": [
+          { "name": "customerId", "in": "query", "schema": { "type": "string" } },
+          { "name": "status", "in": "query", "schema": { "type": "string" } },
+          { "name": "dateFrom", "in": "query", "schema": { "type": "string", "format": "date-time" } },
+          { "name": "dateTo", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": { "description": "Array of appointments" },
+          "403": { "$ref": "#/components/responses/TenantRequired" }
+        }
+      },
+      "post": {
+        "tags": ["Appointments"],
+        "summary": "Create an appointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customerId", "dateTime"],
+                "properties": {
+                  "customerId": { "type": "string" },
+                  "dateTime": { "type": "string", "format": "date-time" },
+                  "durationMin": { "type": "integer", "default": 30 },
+                  "notes": { "type": "string" },
+                  "googleCalendarEventId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Appointment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "appointmentId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Appointments"],
+        "summary": "Update an appointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "dateTime": { "type": "string", "format": "date-time" },
+                  "status": { "type": "string" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Appointment updated" }
+        }
+      }
+    },
+    "/api/knowledge": {
+      "get": {
+        "tags": ["Knowledge Base"],
+        "summary": "List documents or query KB",
+        "description": "Without query param: lists KB documents. With query param: searches KB via RAG. With action=stats: returns KB statistics.",
+        "parameters": [
+          { "name": "query", "in": "query", "description": "Search query for RAG", "schema": { "type": "string" } },
+          { "name": "topK", "in": "query", "description": "Number of results (1-50, default 5)", "schema": { "type": "integer" } },
+          { "name": "action", "in": "query", "description": "Set to 'stats' for KB statistics", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Documents list or search results" }
+        }
+      },
+      "post": {
+        "tags": ["Knowledge Base"],
+        "summary": "Ingest a document",
+        "description": "Ingest a new document into the knowledge base. Supports JSON body (text/URL) or multipart file upload (PDF, TXT, DOCX).",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["type", "content"],
+                "properties": {
+                  "type": { "type": "string", "enum": ["text", "url", "pdf", "file"] },
+                  "content": { "type": "string" },
+                  "filename": { "type": "string" }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "filename": { "type": "string" },
+                  "type": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Document ingested" },
+          "500": { "description": "Ingestion error" }
+        }
+      },
+      "delete": {
+        "tags": ["Knowledge Base"],
+        "summary": "Delete a document",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["documentId"],
+                "properties": {
+                  "documentId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Document deleted" }
+        }
+      }
+    },
+    "/api/voice/tts": {
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Text-to-Speech synthesis",
+        "description": "Converts text to audio using ElevenLabs (primary) with OpenAI fallback. Returns audio/mpeg stream.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string" },
+                  "voice_id": { "type": "string", "description": "ElevenLabs voice ID override" },
+                  "model_id": { "type": "string", "description": "ElevenLabs model ID override" },
+                  "language": { "type": "string", "enum": ["tr", "en"] },
+                  "greeting": { "type": "boolean", "default": false },
+                  "provider": { "type": "string", "enum": ["elevenlabs", "openai"] },
+                  "session_id": { "type": "string" },
+                  "tenant_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audio stream",
+            "content": { "audio/mpeg": { "schema": { "type": "string", "format": "binary" } } },
+            "headers": {
+              "X-TTS-Provider": { "schema": { "type": "string" } },
+              "X-TTS-Latency-Ms": { "schema": { "type": "string" } },
+              "X-TTS-Language": { "schema": { "type": "string" } }
+            }
+          },
+          "503": { "description": "All TTS providers failed" }
+        }
+      },
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "TTS provider status",
+        "responses": { "200": { "description": "Provider configuration and performance info" } }
+      }
+    },
+    "/api/voice/stt": {
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Speech-to-Text transcription",
+        "description": "Transcribes audio using Deepgram Nova-2. Accepts multipart/form-data with audio file or raw audio stream.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio": { "type": "string", "format": "binary" },
+                  "language": { "type": "string", "default": "tr" }
+                }
+              }
+            },
+            "audio/webm": {
+              "schema": { "type": "string", "format": "binary" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "transcript": { "type": "string" },
+                    "confidence": { "type": "number" },
+                    "words": { "type": "array", "items": { "type": "object" } },
+                    "utterances": { "type": "array", "items": { "type": "object" } },
+                    "language": { "type": "string" },
+                    "latencyMs": { "type": "number" },
+                    "provider": { "type": "string" },
+                    "isEmpty": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "503": { "description": "Deepgram not configured" }
+        }
+      },
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "STT provider status",
+        "responses": { "200": { "description": "STT provider info and supported features" } }
+      }
+    },
+    "/api/voice/infer": {
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "LLM inference for conversation",
+        "description": "Multi-LLM inference with fallback chain: Groq (primary) -> OpenAI (secondary) -> Personaplex (GPU) -> graceful fallback. Supports multi-turn conversation via session_id.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string", "maxLength": 2000 },
+                  "persona": { "type": "string", "enum": ["default", "support", "sales", "receptionist"], "default": "default" },
+                  "language": { "type": "string", "enum": ["tr", "en"], "default": "tr" },
+                  "session_id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Inference result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session_id": { "type": "string" },
+                    "intent": { "type": "string" },
+                    "confidence": { "type": "number" },
+                    "response_text": { "type": "string" },
+                    "latency_ms": { "type": "number" },
+                    "source": { "type": "string" },
+                    "cached": { "type": "boolean" },
+                    "turn": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Inference system status",
+        "description": "Returns cache stats, circuit breaker states, and provider availability.",
+        "responses": { "200": { "description": "System status and provider info" } }
+      }
+    },
+    "/api/voice/session": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Session status, personas, or context",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string", "enum": ["status", "personas", "context"], "default": "status" } },
+          { "name": "session_id", "in": "query", "schema": { "type": "string" }, "description": "Required for action=context" }
+        ],
+        "responses": { "200": { "description": "Session info or persona list" } }
+      },
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Save session or proxy inference",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": { "type": "string", "enum": ["save", "infer"], "default": "save" },
+                  "sessionId": { "type": "string" },
+                  "customerId": { "type": "string" },
+                  "customerPhone": { "type": "string" },
+                  "customerName": { "type": "string" },
+                  "transcript": { "type": "array", "items": { "type": "object" } },
+                  "duration": { "type": "number" },
+                  "persona": { "type": "string" },
+                  "text": { "type": "string", "description": "For action=infer" },
+                  "language": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Session saved or inference result" }
+        }
+      }
+    },
+    "/api/voice/connect": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "WebSocket connection info",
+        "description": "Returns WebSocket URL and audio format requirements for real-time voice.",
+        "responses": { "200": { "description": "WebSocket connection details" } }
+      },
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Create authenticated session token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "persona": { "type": "string", "default": "default" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "expires_in": { "type": "integer" },
+                    "websocket_url": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/voice/health": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Voice pipeline health check",
+        "parameters": [
+          { "name": "mock", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "refresh", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voice pipeline health status including GPU, LLM, and circuit breaker states"
+          }
+        }
+      }
+    },
+    "/api/voice/test-e2e": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "End-to-end voice pipeline test",
+        "description": "Tests all pipeline components: health, intent detection, LLM chain, cache, circuit breakers.",
+        "responses": {
+          "200": {
+            "description": "Test results summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "summary": { "type": "object" },
+                    "providers": { "type": "object" },
+                    "circuitBreakers": { "type": "object" },
+                    "results": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/voice/pipeline": {
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Start or interact with voice pipeline session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tenantId": { "type": "string" },
+                  "sessionId": { "type": "string" },
+                  "action": { "type": "string", "enum": ["start", "text"], "default": "start" },
+                  "language": { "type": "string" },
+                  "text": { "type": "string", "description": "Required for action=text" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Pipeline session info or text response" },
+          "503": { "description": "Pipeline not configured" }
+        }
+      },
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Pipeline health/configuration check",
+        "responses": { "200": { "description": "Pipeline provider status" } }
+      }
+    },
+    "/api/voice/sentiment": {
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Analyze text sentiment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string" },
+                  "conversationContext": { "type": "object", "description": "Optional context for conversation-aware analysis" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Sentiment analysis result" } }
+      }
+    },
+    "/api/voice/mock": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Mock server health/personas",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string", "enum": ["health", "personas", "status"] } }
+        ],
+        "responses": { "200": { "description": "Mock server status" } }
+      },
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Mock inference for testing",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string" },
+                  "persona": { "type": "string" },
+                  "action": { "type": "string", "enum": ["infer", "save"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Mock inference result" } }
+      }
+    },
+    "/api/voice/test": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "List test scenarios and endpoints",
+        "responses": { "200": { "description": "Test scenarios and endpoint map" } }
+      },
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Run voice test scenarios",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["run"],
+                "properties": {
+                  "run": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Test results" } }
+      }
+    },
+    "/api/voice/ws-proxy": {
+      "get": {
+        "tags": ["Voice Pipeline"],
+        "summary": "WebSocket proxy connection info",
+        "responses": { "200": { "description": "WebSocket URL and audio format" } }
+      },
+      "post": {
+        "tags": ["Voice Pipeline"],
+        "summary": "Create WebSocket session token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "persona": { "type": "string", "default": "default" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Session token and WebSocket URL" } }
+      }
+    },
+    "/api/agents": {
+      "get": {
+        "tags": ["Agents"],
+        "summary": "List agents or get specific agent",
+        "parameters": [
+          { "name": "id", "in": "query", "description": "Specific agent ID", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent(s) returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "agents": { "type": "array", "items": { "$ref": "#/components/schemas/Agent" } },
+                    "count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Agents"],
+        "summary": "Create or update an agent",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "systemPrompt"],
+                "properties": {
+                  "id": { "type": "string", "description": "If provided, updates existing agent" },
+                  "name": { "type": "string" },
+                  "role": { "type": "string", "default": "assistant" },
+                  "systemPrompt": { "type": "string" },
+                  "variables": { "type": "array", "items": { "type": "object" } },
+                  "voiceConfig": { "type": "object" },
+                  "fallbackRules": { "type": "array", "items": { "type": "object" } },
+                  "isActive": { "type": "boolean", "default": true },
+                  "templateId": { "type": "string" },
+                  "templateColor": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Agent created" },
+          "200": { "description": "Agent updated" },
+          "403": { "description": "Subscription inactive" }
+        }
+      },
+      "delete": {
+        "tags": ["Agents"],
+        "summary": "Delete an agent",
+        "description": "Only owners and admins can delete agents.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Agent deleted" },
+          "403": { "description": "Insufficient permissions" }
+        }
+      }
+    },
+    "/api/billing/checkout": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "List available plans",
+        "description": "Returns pricing plans for display. Public endpoint.",
+        "security": [],
+        "responses": { "200": { "description": "Plans list" } }
+      },
+      "post": {
+        "tags": ["Billing"],
+        "summary": "Create checkout session",
+        "description": "Creates a Lemon Squeezy checkout URL for subscription payment. Owner/admin only.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["planId"],
+                "properties": {
+                  "planId": { "type": "string", "enum": ["starter", "professional", "enterprise"] },
+                  "billingInterval": { "type": "string", "enum": ["monthly", "yearly"], "default": "monthly" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "checkoutUrl": { "type": "string", "format": "uri" }
+                  }
+                }
+              }
+            }
+          },
+          "403": { "description": "Only owners/admins can manage billing" }
+        }
+      }
+    },
+    "/api/billing/webhook": {
+      "post": {
+        "tags": ["Billing"],
+        "summary": "Lemon Squeezy webhook handler",
+        "description": "Receives and processes subscription lifecycle events from Lemon Squeezy. Verifies HMAC-SHA256 signature.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "description": "Lemon Squeezy webhook payload" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Webhook processed" },
+          "401": { "description": "Invalid signature" }
+        }
+      },
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Get subscription status",
+        "responses": { "200": { "description": "Current subscription details" } }
+      }
+    },
+    "/api/billing/usage": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Get usage statistics",
+        "parameters": [
+          { "name": "period", "in": "query", "schema": { "type": "string" } },
+          { "name": "history", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "tier", "in": "query", "schema": { "type": "string", "default": "starter" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage stats, cost breakdown, and limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "usage": { "type": "object" },
+                    "cost": { "type": "object" },
+                    "limits": { "type": "object" },
+                    "perCallCost": { "type": "object" },
+                    "tierInfo": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/analytics": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Voice pipeline analytics",
+        "description": "Returns analytics data for dashboard charts (recharts compatible).",
+        "parameters": [
+          { "name": "range", "in": "query", "schema": { "type": "string", "enum": ["7d", "30d", "90d"], "default": "7d" } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["latency", "cost", "providers", "daily", "summary"], "default": "summary" } }
+        ],
+        "responses": { "200": { "description": "Analytics data" } }
+      }
+    },
+    "/api/billing/emergency": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Get emergency mode status",
+        "responses": { "200": { "description": "Emergency mode status and cost usage" } }
+      },
+      "post": {
+        "tags": ["Billing"],
+        "summary": "Toggle emergency mode",
+        "description": "Emergency mode switches body TTS to cheaper OpenAI provider.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["activate", "deactivate", "auto", "update_config"] },
+                  "config": { "type": "object", "description": "For action=update_config" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated emergency status" } }
+      }
+    },
+    "/api/billing/swap": {
+      "post": {
+        "tags": ["Billing"],
+        "summary": "Change subscription plan",
+        "description": "Updates subscription variant on Lemon Squeezy. Owner/admin only.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["planId"],
+                "properties": {
+                  "planId": { "type": "string", "enum": ["starter", "professional", "enterprise"] },
+                  "billingInterval": { "type": "string", "enum": ["monthly", "yearly"], "default": "monthly" },
+                  "prorate": { "type": "boolean", "default": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Plan change initiated" },
+          "404": { "description": "No active subscription" }
+        }
+      }
+    },
+    "/api/billing/invoices": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Billing activity history",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 100 } }
+        ],
+        "responses": { "200": { "description": "Billing activity log" } }
+      }
+    },
+    "/api/billing/alert-test": {
+      "get": {
+        "tags": ["Billing"],
+        "summary": "Check alert channel status",
+        "responses": { "200": { "description": "Alert channel configuration status" } }
+      },
+      "post": {
+        "tags": ["Billing"],
+        "summary": "Send test alert",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string", "enum": ["info", "warning", "critical", "emergency"], "default": "info" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Test alert dispatched" } }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get dashboard stats",
+        "description": "Returns aggregated KPIs, call trends, complaint categories, usage, recent activity, and voice pipeline summary.",
+        "responses": {
+          "200": {
+            "description": "Dashboard data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kpis": {
+                      "type": "object",
+                      "properties": {
+                        "todayCalls": { "type": "integer" },
+                        "answeredCalls": { "type": "integer" },
+                        "missedCalls": { "type": "integer" },
+                        "answerRate": { "type": "integer" },
+                        "openComplaints": { "type": "integer" },
+                        "upcomingAppointments": { "type": "integer" }
+                      }
+                    },
+                    "callTrend": { "type": "array", "items": { "type": "object" } },
+                    "complaintCategories": { "type": "array", "items": { "type": "object" } },
+                    "usage": { "type": "object" },
+                    "activity": { "type": "array", "items": { "type": "object" } },
+                    "voicePipeline": { "type": "object", "nullable": true },
+                    "generatedAt": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/automation": {
+      "get": {
+        "tags": ["Automation"],
+        "summary": "List automation hooks",
+        "description": "Returns available automation hooks and configured webhooks for the tenant.",
+        "responses": { "200": { "description": "Hooks and webhook configuration" } }
+      },
+      "post": {
+        "tags": ["Automation"],
+        "summary": "Handle automation event",
+        "description": "Processes inbound automation actions from n8n or API key authenticated clients.",
+        "security": [{ "ApiKeyAuth": [] }, { "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["send_notification", "create_customer", "create_appointment", "update_ticket", "log_activity"] },
+                  "payload": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Action processed" },
+          "400": { "description": "Unknown action" },
+          "401": { "description": "Authentication required" }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Master health check",
+        "description": "Checks Firebase, Personaplex, and service configurations. Returns overall health status.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "System healthy or degraded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "enum": ["healthy", "degraded", "unhealthy"] },
+                    "version": { "type": "string" },
+                    "environment": { "type": "string" },
+                    "services": { "type": "object" },
+                    "config": { "type": "object" },
+                    "timestamp": { "type": "string", "format": "date-time" }
+                  }
+                }
+              }
+            }
+          },
+          "503": { "description": "System unhealthy" }
+        }
+      }
+    },
+    "/api/system/go-live-check": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Go-live readiness check",
+        "description": "Checks all critical subsystems for production readiness. Returns per-subsystem status and overall GO/NO-GO decision.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "System ready (GO)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "verdict": { "type": "string", "enum": ["GO", "NO-GO"] },
+                    "summary": { "type": "object" },
+                    "checks": { "type": "array", "items": { "type": "object" } },
+                    "blockers": { "type": "array", "items": { "type": "string" } },
+                    "advisories": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "503": { "description": "System not ready (NO-GO)" }
+        }
+      }
+    },
+    "/api/tenants": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "Get tenant details",
+        "parameters": [
+          { "name": "tenantId", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Tenant configuration" } }
+      },
+      "post": {
+        "tags": ["Tenant"],
+        "summary": "Create a new tenant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["companyName"],
+                "properties": {
+                  "companyName": { "type": "string" },
+                  "sector": { "type": "string" },
+                  "language": { "type": "string", "default": "tr" },
+                  "agent": { "type": "object" },
+                  "business": { "type": "object" },
+                  "voice": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Tenant created with caller assigned as owner" }
+        }
+      },
+      "put": {
+        "tags": ["Tenant"],
+        "summary": "Update tenant configuration",
+        "description": "Owner/admin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "description": "Partial tenant config update" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Tenant updated" } }
+      }
+    },
+    "/api/tenants/members": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "List tenant members",
+        "responses": {
+          "200": {
+            "description": "Tenant members",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tenantId": { "type": "string" },
+                    "members": { "type": "array", "items": { "type": "object" } },
+                    "count": { "type": "integer" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Tenant"],
+        "summary": "Assign user to tenant",
+        "description": "Owner/admin only. Owners can assign any role; admins cannot assign owner role.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["uid", "tenantId"],
+                "properties": {
+                  "uid": { "type": "string" },
+                  "tenantId": { "type": "string" },
+                  "role": { "type": "string", "enum": ["owner", "admin", "agent", "viewer"], "default": "viewer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "User assigned" } }
+      },
+      "delete": {
+        "tags": ["Tenant"],
+        "summary": "Remove user from tenant",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["uid", "tenantId"],
+                "properties": {
+                  "uid": { "type": "string" },
+                  "tenantId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "User removed" } }
+      }
+    },
+    "/api/tenant/settings": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "Get tenant settings",
+        "description": "Returns company info, AI assistant config, feature toggles, and subscription status.",
+        "responses": { "200": { "description": "Tenant settings" } }
+      },
+      "put": {
+        "tags": ["Tenant"],
+        "summary": "Update tenant settings",
+        "description": "Partial update of tenant settings. Owner/admin only.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyName": { "type": "string" },
+                  "companyEmail": { "type": "string" },
+                  "companyPhone": { "type": "string" },
+                  "language": { "type": "string" },
+                  "timezone": { "type": "string" },
+                  "agentName": { "type": "string" },
+                  "agentGreeting": { "type": "string" },
+                  "agentPersonality": { "type": "string" },
+                  "callRecording": { "type": "boolean" },
+                  "emailNotifications": { "type": "boolean" },
+                  "autoAppointments": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Settings updated" } }
+      }
+    },
+    "/api/tenant/twilio-setup": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "Get Twilio setup status",
+        "parameters": [
+          { "name": "includeUsage", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+        ],
+        "responses": { "200": { "description": "Twilio configuration status" } }
+      },
+      "post": {
+        "tags": ["Tenant"],
+        "summary": "Provision Twilio subaccount",
+        "description": "Creates an isolated Twilio subaccount for the tenant. Owner/admin only.",
+        "security": [{ "BearerAuth": [], "TenantHeader": [] }],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "companyName": { "type": "string" },
+                  "phoneCountry": { "type": "string", "default": "US" },
+                  "phoneType": { "type": "string", "enum": ["Local", "Mobile", "TollFree"], "default": "Local" },
+                  "purchaseNumber": { "type": "boolean", "default": false }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Twilio provisioned" },
+          "409": { "description": "Already configured" }
+        }
+      },
+      "patch": {
+        "tags": ["Tenant"],
+        "summary": "Search available phone numbers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["search-numbers"] },
+                  "country": { "type": "string", "default": "US" },
+                  "type": { "type": "string", "enum": ["Local", "Mobile", "TollFree"] },
+                  "contains": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Available numbers" } }
+      }
+    },
+    "/api/tenant/gdpr": {
+      "get": {
+        "tags": ["Tenant"],
+        "summary": "Export tenant data (GDPR Article 15)",
+        "description": "Exports all tenant data as a downloadable JSON file. Owner/admin only.",
+        "parameters": [
+          { "name": "action", "in": "query", "required": true, "schema": { "type": "string", "enum": ["export"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "JSON data export file",
+            "content": { "application/json": { "schema": { "type": "object" } } }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Tenant"],
+        "summary": "Delete or anonymize customer data (GDPR Article 17)",
+        "description": "Permanently delete or anonymize a customer and all linked records. Owner/admin only.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "customerId"],
+                "properties": {
+                  "action": { "type": "string", "enum": ["delete-customer", "anonymize-customer"] },
+                  "customerId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "GDPR action completed with summary" }
+        }
+      }
+    },
+    "/api/twilio/incoming": {
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Incoming call webhook",
+        "description": "Called by Twilio when a call arrives. Resolves tenant, validates subscription, returns TwiML with greeting and speech gather.",
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "type": "object", "description": "Twilio call event parameters" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "TwiML response", "content": { "text/xml": {} } }
+        }
+      }
+    },
+    "/api/twilio/gather": {
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Speech gather callback",
+        "description": "Called by Twilio after speech recognition. Processes with LLM and returns TwiML with AI response.",
+        "security": [],
+        "parameters": [
+          { "name": "tenantId", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "callSid", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "TwiML with AI response", "content": { "text/xml": {} } }
+        }
+      }
+    },
+    "/api/twilio/status": {
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Call status callback",
+        "description": "Called by Twilio when call status changes. Updates call record and meters usage.",
+        "security": [],
+        "responses": { "200": { "description": "Status acknowledged" } }
+      }
+    },
+    "/api/twilio/recording": {
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Recording status callback",
+        "description": "Called by Twilio when recording completes. Stores recording URL in Firestore.",
+        "security": [],
+        "responses": { "200": { "description": "Recording acknowledged" } }
+      }
+    },
+    "/api/twilio/phone-numbers": {
+      "get": {
+        "tags": ["Twilio"],
+        "summary": "List registered phone numbers",
+        "description": "Lists phone numbers mapped to this tenant. Admin/owner only.",
+        "responses": { "200": { "description": "Phone numbers list" } }
+      },
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Register a phone number",
+        "description": "Maps a phone number to the tenant. Optionally auto-configures Twilio webhooks.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phoneNumber"],
+                "properties": {
+                  "phoneNumber": { "type": "string", "description": "E.164 format, e.g. +905551234567" },
+                  "phoneNumberSid": { "type": "string" },
+                  "autoConfigureWebhook": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Number registered" } }
+      },
+      "delete": {
+        "tags": ["Twilio"],
+        "summary": "Unregister a phone number",
+        "description": "Owner only.",
+        "parameters": [
+          { "name": "phoneNumber", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Number unregistered" } }
+      }
+    },
+    "/api/twilio/verify-number": {
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Verify phone number readiness",
+        "description": "Checks registration, tenant config, subaccount, and webhook configuration.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["phoneNumber"],
+                "properties": {
+                  "phoneNumber": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ready": { "type": "boolean" },
+                    "phoneNumber": { "type": "string" },
+                    "checks": { "type": "array", "items": { "type": "object" } },
+                    "issues": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/twilio/test": {
+      "get": {
+        "tags": ["Twilio"],
+        "summary": "Twilio configuration status",
+        "responses": { "200": { "description": "Twilio and LLM provider status" } }
+      },
+      "post": {
+        "tags": ["Twilio"],
+        "summary": "Simulate call conversation",
+        "description": "Tests the call flow without a real Twilio call.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": { "type": "string", "default": "Merhaba, randevu almak istiyorum" },
+                  "language": { "type": "string", "default": "tr" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Simulated call result" } }
+      }
+    },
+    "/api/ai/intent": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Fast intent detection",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": { "type": "string", "maxLength": 2000 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detected intent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "intent": { "type": "string" },
+                    "confidence": { "type": "number" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ai/rag-search": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "RAG search",
+        "description": "Search FAQ knowledge base and optionally generate an answer with RAG.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                  "query": { "type": "string" },
+                  "category": { "type": "string" },
+                  "generateAnswer": { "type": "boolean", "default": false },
+                  "provider": { "type": "string", "default": "local" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Search results and optional generated answer" } }
+      }
+    },
+    "/api/ai/status": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "AI provider status",
+        "description": "Returns availability of Ollama and OpenAI providers.",
+        "responses": { "200": { "description": "AI provider status" } }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "List notifications",
+        "parameters": [
+          { "name": "unread", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } }
+        ],
+        "responses": { "200": { "description": "Notifications with unread count" } }
+      },
+      "post": {
+        "tags": ["Notifications"],
+        "summary": "Create notification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "message"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "message": { "type": "string" },
+                  "type": { "type": "string", "enum": ["info", "success", "warning", "error", "call", "appointment"], "default": "info" },
+                  "link": { "type": "string" },
+                  "metadata": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Notification created" } }
+      },
+      "put": {
+        "tags": ["Notifications"],
+        "summary": "Mark notifications as read",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "notificationId": { "type": "string" },
+                  "markAll": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Notifications marked as read" } }
+      },
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Delete a notification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["notificationId"],
+                "properties": {
+                  "notificationId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Notification deleted" } }
+      }
+    },
+    "/api/compliance": {
+      "get": {
+        "tags": ["Compliance"],
+        "summary": "Query audit logs",
+        "parameters": [
+          { "name": "action", "in": "query", "schema": { "type": "string" } },
+          { "name": "userId", "in": "query", "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } },
+          { "name": "retention", "in": "query", "schema": { "type": "string", "enum": ["true", "false"] } }
+        ],
+        "responses": { "200": { "description": "Audit logs" } }
+      },
+      "post": {
+        "tags": ["Compliance"],
+        "summary": "PII redaction or consent recording",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["operation"],
+                "properties": {
+                  "operation": { "type": "string", "enum": ["redact", "consent"] },
+                  "text": { "type": "string", "description": "For operation=redact" },
+                  "userId": { "type": "string", "description": "For operation=consent" },
+                  "callerPhone": { "type": "string" },
+                  "callRecording": { "type": "boolean" },
+                  "dataProcessing": { "type": "boolean" },
+                  "analytics": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Redaction result" },
+          "201": { "description": "Consent recorded" }
+        }
+      }
+    },
+    "/api/reports/daily": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Daily report",
+        "parameters": [
+          { "name": "date", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "YYYY-MM-DD, defaults to today" }
+        ],
+        "responses": { "200": { "description": "Daily report data" } }
+      }
+    },
+    "/api/reports/weekly": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Weekly report",
+        "parameters": [
+          { "name": "week", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Any date within the target week" }
+        ],
+        "responses": { "200": { "description": "Weekly report data" } }
+      }
+    },
+    "/api/reports/monthly": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Monthly report",
+        "parameters": [
+          { "name": "month", "in": "query", "schema": { "type": "string", "format": "date" }, "description": "Any date within the target month" }
+        ],
+        "responses": { "200": { "description": "Monthly report data" } }
+      }
+    },
+    "/api/reports/custom": {
+      "get": {
+        "tags": ["Reports"],
+        "summary": "Custom date range report",
+        "parameters": [
+          { "name": "dateFrom", "in": "query", "required": true, "schema": { "type": "string", "format": "date" } },
+          { "name": "dateTo", "in": "query", "required": true, "schema": { "type": "string", "format": "date" } },
+          { "name": "compareFrom", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "compareTo", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "Custom report with optional comparison" } }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Application metrics",
+        "description": "Returns health summary, system info (memory, uptime), and recent performance metrics.",
+        "responses": { "200": { "description": "Application metrics" } }
+      }
+    },
+    "/api/monitoring/errors": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "List recent errors",
+        "description": "Admin/owner only. Returns recent application errors.",
+        "responses": { "200": { "description": "Error list and stats" } }
+      },
+      "post": {
+        "tags": ["Monitoring"],
+        "summary": "Report client-side error",
+        "description": "Rate limited per IP (50/min).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "message": { "type": "string" },
+                  "stack": { "type": "string" },
+                  "url": { "type": "string" },
+                  "metadata": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Error recorded" } }
+      }
+    },
+    "/api/webhook/call": {
+      "post": {
+        "tags": ["Webhooks"],
+        "summary": "Log a call via webhook",
+        "description": "Public webhook endpoint. Requires tenantId in body or headers. Auto-creates customer if not found.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customerPhone"],
+                "properties": {
+                  "tenantId": { "type": "string" },
+                  "customerPhone": { "type": "string" },
+                  "customerName": { "type": "string" },
+                  "duration": { "type": "integer" },
+                  "status": { "type": "string", "default": "answered" },
+                  "intent": { "type": "string" },
+                  "summary": { "type": "string" },
+                  "direction": { "type": "string", "enum": ["inbound", "outbound"], "default": "inbound" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Call logged",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "callLogId": { "type": "string" },
+                    "customerId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cron/appointment-reminders": {
+      "get": {
+        "tags": ["Cron"],
+        "summary": "Send appointment reminders",
+        "description": "Vercel cron job. Finds upcoming appointments (next 24h) and sends reminder emails. Requires CRON_SECRET.",
+        "security": [],
+        "responses": { "200": { "description": "Reminders sent" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Firebase JWT",
+        "description": "Firebase ID token for authenticated requests"
+      },
+      "TenantHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-user-tenant",
+        "description": "Tenant ID header set by authentication middleware"
+      },
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+        "description": "API key for automation/webhook endpoints"
+      }
+    },
+    "schemas": {
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string" },
+          "company": { "type": "string" },
+          "notes": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" },
+          "systemPrompt": { "type": "string" },
+          "variables": { "type": "array", "items": { "type": "object" } },
+          "voiceConfig": { "type": "object" },
+          "fallbackRules": { "type": "array", "items": { "type": "object" } },
+          "isActive": { "type": "boolean" },
+          "templateId": { "type": "string" },
+          "templateColor": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string" },
+          "message": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      }
+    },
+    "responses": {
+      "TenantRequired": {
+        "description": "Tenant context required",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Tenant context required" }
+              }
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" }
+          }
+        }
+      }
+    }
+  }
+}

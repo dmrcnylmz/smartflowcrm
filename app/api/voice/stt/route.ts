@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { metricsLogger } from '@/lib/billing/metrics-logger';
 import { sessionRegistry } from '@/lib/voice/session-registry';
+import { deepgramCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || '';
 const DEEPGRAM_STT_URL = 'https://api.deepgram.com/v1/listen';
@@ -57,6 +58,18 @@ export async function POST(request: NextRequest) {
     if (!DEEPGRAM_API_KEY) {
         return NextResponse.json(
             { error: 'Deepgram API key not configured', fallback: 'browser' },
+            { status: 503 },
+        );
+    }
+
+    // Fast-fail if circuit breaker is open
+    if (deepgramCircuitBreaker.isOpen()) {
+        return NextResponse.json(
+            {
+                error: 'Deepgram STT circuit breaker is open',
+                fallback: 'browser',
+                stats: deepgramCircuitBreaker.getStats(),
+            },
             { status: 503 },
         );
     }
@@ -109,30 +122,45 @@ export async function POST(request: NextRequest) {
 
         const startMs = performance.now();
 
-        // Send to Deepgram
-        const response = await fetch(`${DEEPGRAM_STT_URL}?${params.toString()}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token ${DEEPGRAM_API_KEY}`,
-                'Content-Type': mimeType,
-            },
-            body: audioBuffer,
-            signal: AbortSignal.timeout(15000), // 15s timeout
-        });
+        // Send to Deepgram (wrapped with circuit breaker)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let data: any;
+        try {
+            data = await deepgramCircuitBreaker.execute(async () => {
+                const response = await fetch(`${DEEPGRAM_STT_URL}?${params.toString()}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${DEEPGRAM_API_KEY}`,
+                        'Content-Type': mimeType,
+                    },
+                    body: audioBuffer,
+                    signal: AbortSignal.timeout(15000), // 15s timeout
+                });
 
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            console.error(`[STT:Deepgram] Error ${response.status}: ${errorText}`);
+                if (!response.ok) {
+                    const errorText = await response.text().catch(() => '');
+                    throw new Error(`Deepgram STT error ${response.status}: ${errorText}`);
+                }
+
+                return response.json();
+            });
+        } catch (err) {
+            if (err instanceof CircuitOpenError) {
+                return NextResponse.json(
+                    { error: 'Deepgram STT circuit breaker is open', fallback: 'browser', stats: deepgramCircuitBreaker.getStats() },
+                    { status: 503 },
+                );
+            }
+            console.error(`[STT:Deepgram] Request failed:`, err);
             return NextResponse.json(
                 {
-                    error: `Deepgram STT error: ${response.status}`,
+                    error: `Deepgram STT error: ${err instanceof Error ? err.message : 'unknown'}`,
                     fallback: 'browser',
                 },
-                { status: response.status },
+                { status: 502 },
             );
         }
 
-        const data = await response.json();
         const latencyMs = Math.round(performance.now() - startMs);
 
         // ---- Fire-and-forget: Log STT metric ----

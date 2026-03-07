@@ -49,6 +49,20 @@ vi.mock('firebase-admin/firestore', () => ({
     FieldValue: { serverTimestamp: vi.fn(() => 'MOCK_TIMESTAMP') },
 }));
 
+// Mock requireStrictAuth — simulate authenticated user
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: vi.fn().mockResolvedValue({
+        uid: 'test-uid',
+        email: 'test@example.com',
+        tenantId: 'tenant-123',
+    }),
+}));
+
+// Mock subscription guard — allow by default
+vi.mock('@/lib/billing/subscription-guard', () => ({
+    checkSubscriptionActive: vi.fn().mockResolvedValue({ active: true }),
+}));
+
 describe('/api/agents', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -93,7 +107,10 @@ describe('/api/agents', () => {
             const { POST } = await import('@/app/api/agents/route');
             const request = createMockRequest('/api/agents', {
                 method: 'POST',
-                headers: { 'x-user-tenant': 'tenant-123' },
+                headers: {
+                    'x-user-tenant': 'tenant-123',
+                    'Authorization': 'Bearer test-token',
+                },
                 body: { name: 'New Agent', systemPrompt: 'You are a helpful assistant.' },
             });
 
@@ -115,6 +132,7 @@ describe('/api/agents', () => {
                 headers: {
                     'x-user-tenant': 'tenant-123',
                     'x-user-role': 'admin',
+                    'Authorization': 'Bearer test-token',
                 },
                 body: { id: 'agent-to-delete' },
             });
@@ -130,7 +148,10 @@ describe('/api/agents', () => {
             const { DELETE } = await import('@/app/api/agents/route');
             const request = createMockRequest('/api/agents', {
                 method: 'DELETE',
-                headers: { 'x-user-tenant': 'tenant-123' },
+                headers: {
+                    'x-user-tenant': 'tenant-123',
+                    'Authorization': 'Bearer test-token',
+                },
                 body: { id: 'agent-to-delete' },
             });
 
