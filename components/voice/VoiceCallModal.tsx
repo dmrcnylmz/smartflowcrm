@@ -222,13 +222,13 @@ export function VoiceCallModal({
             }, 500);
         };
 
-        // Safety timeout: if TTS never finishes (event lost), force resume after 30s
+        // Safety timeout: if TTS never finishes (event lost), force resume after 10s
         const safetyTimer = setTimeout(() => {
             if (isSpeakingRef.current) {
-                console.warn('[TTS] Safety timeout — forcing resume after 30s');
+                console.warn('[TTS] Safety timeout — forcing resume after 10s');
                 resumeListening();
             }
-        }, 30000);
+        }, 10000);
 
         // Try server-side TTS (ElevenLabs or OpenAI based on greeting flag)
         try {
@@ -299,16 +299,26 @@ export function VoiceCallModal({
     // Text-only mode: Deepgram STT (primary) or Browser SpeechRecognition (fallback) → LLM → TTS
     const startTextOnlyMode = useCallback(async () => {
 
-        // --- Check Deepgram availability ---
+        // --- Determine STT mode ---
+        // Browser Speech API is more reliable for simulation (native Chrome, no API dependency)
+        // Deepgram is used only as fallback when browser Speech API is unavailable
+        const hasBrowserSTT = !!(
+            (window as unknown as Record<string, unknown>).SpeechRecognition
+            || (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+        );
+
         let useDeepgram = false;
-        try {
-            const sttStatus = await fetch('/api/voice/stt');
-            if (sttStatus.ok) {
-                const status = await sttStatus.json();
-                useDeepgram = status.configured === true;
+        if (!hasBrowserSTT) {
+            // Browser Speech API not available — try Deepgram as fallback
+            try {
+                const sttStatus = await fetch('/api/voice/stt');
+                if (sttStatus.ok) {
+                    const status = await sttStatus.json();
+                    useDeepgram = status.configured === true;
+                }
+            } catch {
+                useDeepgram = false;
             }
-        } catch {
-            useDeepgram = false;
         }
 
         // Common greeting
@@ -674,7 +684,13 @@ export function VoiceCallModal({
 
             // Speak greeting with PREMIUM voice, then start browser recognition
             await speakText(greeting, () => {
-                // Browser recognition starts via recognitionRef in speakText's resumeListening
+                // Explicitly start recognition after greeting (safety net)
+                if (recognitionRef.current && !isSpeakingRef.current) {
+                    try {
+                        recognitionRef.current.start();
+                        setIsListening(true);
+                    } catch { /* already started by resumeListening */ }
+                }
             }, true); // greeting=true → ElevenLabs premium voice
         }
     }, [language, persona, speakText]);
