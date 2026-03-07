@@ -216,17 +216,17 @@ export async function GET() {
     // ─── 6. Production URL Check ────────────────────────────────────────
 
     const { url: appUrl, source: appUrlSource } = getAppUrlDiagnostics();
-    const isProduction = (appUrlSource === 'APP_URL' || appUrlSource === 'NEXT_PUBLIC_APP_URL')
-        && !appUrl.includes('localhost');
+    const goodSources = ['APP_URL', 'VERCEL_PROJECT_PRODUCTION_URL', 'NEXT_PUBLIC_APP_URL'];
+    const isProduction = goodSources.includes(appUrlSource) && !appUrl.includes('localhost');
 
     checks.push({
         name: 'config:app_url',
         status: isProduction ? 'ok' : 'warning',
-        detail: (appUrlSource === 'APP_URL' || appUrlSource === 'NEXT_PUBLIC_APP_URL')
+        detail: goodSources.includes(appUrlSource)
             ? (appUrl.includes('localhost') ? `Still localhost: ${appUrl}` : `Production: ${appUrl} (via ${appUrlSource})`)
             : (appUrlSource === 'VERCEL_URL'
-                ? `⚠️ APP_URL not set — falling back to VERCEL_URL: ${appUrl}. Add APP_URL env var in Vercel.`
-                : 'APP_URL not set — add APP_URL=https://callception.com in Vercel'),
+                ? `Using deployment URL: ${appUrl} — custom domain not detected`
+                : 'No URL configured'),
         critical: false,
     });
 
