@@ -1,43 +1,53 @@
 /**
  * Runtime App URL Helper
  *
- * IMPORTANT: Do NOT use `process.env.NEXT_PUBLIC_APP_URL` directly in server-side
- * API routes. Next.js inlines NEXT_PUBLIC_* values at BUILD TIME via webpack
- * DefinePlugin. If the env var wasn't set during build (or build cache is stale),
- * the value will be `undefined` even if it's set in Vercel Dashboard.
+ * IMPORTANT: Vercel does NOT inject NEXT_PUBLIC_* env vars into serverless
+ * function runtime — they are only available at BUILD TIME via webpack
+ * DefinePlugin inlining. This means `process.env.NEXT_PUBLIC_APP_URL` or
+ * even `process.env['NEXT_PUBLIC_APP_URL']` will be `undefined` in API routes.
  *
- * This helper reads the env var at RUNTIME using dynamic property access,
- * bypassing Next.js build-time inlining.
+ * Solution: Use a server-side env var `APP_URL` for runtime access.
+ * In Vercel Dashboard, add: APP_URL = https://callception.com
  *
- * Priority: NEXT_PUBLIC_APP_URL → VERCEL_URL (with https) → localhost fallback
+ * Priority chain:
+ *   1. APP_URL           (server-side, runtime — recommended for Vercel)
+ *   2. NEXT_PUBLIC_APP_URL (build-time inline — works locally, not on Vercel runtime)
+ *   3. VERCEL_URL         (auto-set by Vercel — deployment-specific URL)
+ *   4. localhost fallback
  */
 
-const _APP_URL_KEY = 'NEXT_PUBLIC_APP_URL';
-const _VERCEL_URL_KEY = 'VERCEL_URL';
-
 export function getAppUrl(): string {
-    // Dynamic key access prevents Next.js build-time replacement
-    const explicit = process.env[_APP_URL_KEY];
-    if (explicit) return explicit;
+    // 1. Server-side env var (works on Vercel runtime)
+    const serverUrl = process.env.APP_URL;
+    if (serverUrl) return serverUrl;
 
-    const vercelUrl = process.env[_VERCEL_URL_KEY];
+    // 2. NEXT_PUBLIC variant (works locally, may be inlined at build time)
+    const publicUrl = process.env['NEXT_PUBLIC_APP_URL'];
+    if (publicUrl) return publicUrl;
+
+    // 3. Vercel auto-set URL (deployment-specific, not custom domain)
+    const vercelUrl = process.env.VERCEL_URL;
     if (vercelUrl) return `https://${vercelUrl}`;
 
+    // 4. Local development fallback
     return 'http://localhost:3000';
 }
 
 /**
- * Returns the raw NEXT_PUBLIC_APP_URL value (or undefined) for diagnostics.
- * Also returns which source was used.
+ * Returns diagnostic info about which URL source is being used.
+ * Used by go-live-check to show clear warnings.
  */
 export function getAppUrlDiagnostics(): {
     url: string;
-    source: 'NEXT_PUBLIC_APP_URL' | 'VERCEL_URL' | 'localhost_fallback';
+    source: 'APP_URL' | 'NEXT_PUBLIC_APP_URL' | 'VERCEL_URL' | 'localhost_fallback';
 } {
-    const explicit = process.env[_APP_URL_KEY];
-    if (explicit) return { url: explicit, source: 'NEXT_PUBLIC_APP_URL' };
+    const serverUrl = process.env.APP_URL;
+    if (serverUrl) return { url: serverUrl, source: 'APP_URL' };
 
-    const vercelUrl = process.env[_VERCEL_URL_KEY];
+    const publicUrl = process.env['NEXT_PUBLIC_APP_URL'];
+    if (publicUrl) return { url: publicUrl, source: 'NEXT_PUBLIC_APP_URL' };
+
+    const vercelUrl = process.env.VERCEL_URL;
     if (vercelUrl) return { url: `https://${vercelUrl}`, source: 'VERCEL_URL' };
 
     return { url: 'http://localhost:3000', source: 'localhost_fallback' };
