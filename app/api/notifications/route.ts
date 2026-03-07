@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireAuth, errorResponse, createApiError } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,12 +73,10 @@ export async function GET(request: NextRequest) {
 // POST: Create notification
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+        const { tenantId: resolvedId } = auth;
 
-        const resolvedId = tenantId || userId!;
         const body = await request.json();
 
         if (!body.title || !body.message) {
@@ -113,12 +112,10 @@ export async function POST(request: NextRequest) {
 // PUT: Mark as read
 export async function PUT(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+        const { tenantId: resolvedId } = auth;
 
-        const resolvedId = tenantId || userId!;
         const body = await request.json();
         const firestore = getDb();
         const notifCollection = firestore.collection('tenants').doc(resolvedId).collection('notifications');

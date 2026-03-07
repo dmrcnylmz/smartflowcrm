@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
             updateData.endedAt = FieldValue.serverTimestamp();
             updateData.durationSeconds = durationSecs;
 
-            // Meter the completed call
-            await meterCallEnd(getDb(), tenantId, durationSecs);
+            // Meter the completed call (pass providerType for SIP trunk cost differentiation)
+            await meterCallEnd(getDb(), tenantId, durationSecs, 0, callData.providerType);
         }
 
         await callDoc.ref.update(updateData);

@@ -26,6 +26,8 @@ export interface UsageRecord {
     inboundCalls: number;
     outboundCalls: number;
     totalMinutes: number;
+    twilioMinutes: number;       // Twilio Native dakika
+    sipTrunkMinutes: number;     // SIP Trunk (Netgsm/Bulutfon) dakika
     ttsChars: number; // ElevenLabs TTS character count
     gpuSeconds: number;
     apiCalls: number;
@@ -50,11 +52,13 @@ export interface SubscriptionTier {
 // Pricing Tiers
 // =============================================
 
-// Per-call cost formula: C_call = C_Twilio + C_TTS + C_LLM
-// Twilio: ~$0.01/min, ElevenLabs: ~$0.15/1000 chars, Groq/LLM: ~$0.02/call
+// Per-call cost formula: C_call = C_Telephony + C_TTS + C_LLM
+// Twilio Native: ~$0.01/min, SIP Trunk: ~$0.003/min
+// ElevenLabs: ~$0.15/1000 chars, Groq/LLM: ~$0.02/call
 // Average 3-min call ≈ $0.35-$0.50
 export const COST_RATES = {
-    twilio: { perMinute: 0.01 },           // Twilio per-minute rate
+    twilio: { perMinute: 0.01 },           // Twilio Native per-minute rate
+    sip_trunk: { perMinute: 0.003 },       // SIP Trunk (Netgsm/Bulutfon) per-minute rate
     elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars
     llm: { perCall: 0.02 },                 // Groq/Gemini average per call
 };
@@ -99,20 +103,30 @@ export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
 /**
  * Meter a completed call — updates usage counters.
  * Includes TTS character count for cost tracking.
+ * Tracks provider-specific minutes for accurate billing (SIP trunk vs Twilio).
+ *
+ * @param providerType 'SIP_TRUNK' uses lower per-minute rate ($0.003 vs $0.01).
+ *                     Defaults to 'TWILIO_NATIVE' (standard Twilio rate).
  */
 export async function meterCallEnd(
     db: FirebaseFirestore.Firestore,
     tenantId: string,
     durationSeconds: number,
     ttsChars: number = 0,
+    providerType?: string,
 ): Promise<void> {
     const minutes = Math.ceil(durationSeconds / 60);
     const currentPeriod = getCurrentPeriod();
+    const isSipTrunk = providerType === 'SIP_TRUNK';
 
     const usageRef = db.collection('tenants').doc(tenantId).collection('usage');
 
+    // Provider-specific minute tracking for accurate cost calculation
+    const providerMinuteField = isSipTrunk ? 'sipTrunkMinutes' : 'twilioMinutes';
+
     const baseUpdate = {
         totalMinutes: FieldValue.increment(minutes),
+        [providerMinuteField]: FieldValue.increment(minutes),
         totalCalls: FieldValue.increment(1),
         lastCallEndAt: FieldValue.serverTimestamp(),
         ...(ttsChars > 0 ? { ttsChars: FieldValue.increment(ttsChars) } : {}),
@@ -126,6 +140,9 @@ export async function meterCallEnd(
             lastUpdated: FieldValue.serverTimestamp(),
         }, { merge: true }),
     ]);
+
+    // Fire-and-forget: Check cost thresholds after call ends
+    checkCostThresholds(db, tenantId).catch(() => {});
 }
 
 /**
@@ -252,13 +269,15 @@ export async function getUsageHistory(
  */
 export interface CostBreakdown {
     baseCost: number;
-    twilioCost: number;
+    twilioCost: number;         // Twilio Native voice cost
+    sipTrunkCost: number;       // SIP Trunk voice cost
+    voiceCost: number;          // twilioCost + sipTrunkCost
     ttsCost: number;
     llmCost: number;
     gpuCost: number;
     apiCost: number;
     overageCost: number;
-    infraCost: number; // twilio + tts + llm (per-call infra)
+    infraCost: number; // voice + tts + llm (per-call infra)
     total: number;
     avgCostPerCall: number;
     margin: number; // baseCost - infraCost
@@ -266,7 +285,8 @@ export interface CostBreakdown {
 
 /**
  * Estimate monthly cost based on usage and tier.
- * Returns detailed breakdown: Twilio + TTS + LLM per call.
+ * Returns detailed breakdown with provider-specific voice costs.
+ * Uses separate Twilio ($0.01/min) and SIP Trunk ($0.003/min) rates.
  */
 export function estimateCost(
     usage: Partial<UsageRecord>,
@@ -274,16 +294,26 @@ export function estimateCost(
 ): CostBreakdown {
     const tier = SUBSCRIPTION_TIERS[tierName] || SUBSCRIPTION_TIERS.starter;
     const minutes = usage.totalMinutes || 0;
+    const twilioMinutes = usage.twilioMinutes || 0;
+    const sipTrunkMinutes = usage.sipTrunkMinutes || 0;
     const ttsChars = usage.ttsChars || 0;
     const totalCalls = usage.totalCalls || 0;
     const gpuSecs = usage.gpuSeconds || 0;
     const apiCalls = usage.apiCalls || 0;
 
     // Infrastructure costs (actual cost to us)
-    const twilioCost = minutes * COST_RATES.twilio.perMinute;
+    // Provider-specific voice costs — SIP trunk is ~70% cheaper than Twilio
+    const twilioCost = twilioMinutes * COST_RATES.twilio.perMinute;
+    const sipTrunkCost = sipTrunkMinutes * COST_RATES.sip_trunk.perMinute;
+
+    // Legacy fallback: if no per-provider breakdown, assume all Twilio
+    const unaccountedMinutes = minutes - twilioMinutes - sipTrunkMinutes;
+    const legacyCost = unaccountedMinutes > 0 ? unaccountedMinutes * COST_RATES.twilio.perMinute : 0;
+
+    const voiceCost = twilioCost + sipTrunkCost + legacyCost;
     const ttsCost = (ttsChars / 1000) * COST_RATES.elevenlabs.per1000Chars;
     const llmCost = totalCalls * COST_RATES.llm.perCall;
-    const infraCost = twilioCost + ttsCost + llmCost;
+    const infraCost = voiceCost + ttsCost + llmCost;
 
     // Overage costs (charged to customer)
     const overageMinutes = Math.max(0, minutes - tier.includedMinutes);
@@ -298,7 +328,9 @@ export function estimateCost(
 
     return {
         baseCost: tier.monthlyBase,
-        twilioCost: round2(twilioCost),
+        twilioCost: round2(twilioCost + legacyCost),
+        sipTrunkCost: round2(sipTrunkCost),
+        voiceCost: round2(voiceCost),
         ttsCost: round2(ttsCost),
         llmCost: round2(llmCost),
         gpuCost: round2(gpuCost),
@@ -313,19 +345,24 @@ export function estimateCost(
 
 /**
  * Estimate per-call cost for a given duration.
+ * Uses provider-specific voice rate (SIP trunk is cheaper).
  */
 export function estimatePerCallCost(
     durationMinutes: number,
     avgTtsCharsPerMin: number = 600,
-): { twilio: number; tts: number; llm: number; total: number } {
-    const twilio = durationMinutes * COST_RATES.twilio.perMinute;
+    providerType?: string,
+): { voice: number; tts: number; llm: number; total: number } {
+    const voiceRate = providerType === 'SIP_TRUNK'
+        ? COST_RATES.sip_trunk.perMinute
+        : COST_RATES.twilio.perMinute;
+    const voice = durationMinutes * voiceRate;
     const tts = (durationMinutes * avgTtsCharsPerMin / 1000) * COST_RATES.elevenlabs.per1000Chars;
     const llm = COST_RATES.llm.perCall;
     return {
-        twilio: round2(twilio),
+        voice: round2(voice),
         tts: round2(tts),
         llm: round2(llm),
-        total: round2(twilio + tts + llm),
+        total: round2(voice + tts + llm),
     };
 }
 

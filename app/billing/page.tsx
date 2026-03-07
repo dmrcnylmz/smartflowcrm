@@ -46,6 +46,8 @@ interface UsageStats {
 interface CostBreakdown {
     baseCost: number;
     twilioCost: number;
+    sipTrunkCost: number;
+    voiceCost: number;
     ttsCost: number;
     llmCost: number;
     gpuCost: number;
@@ -58,7 +60,7 @@ interface CostBreakdown {
 }
 
 interface PerCallCost {
-    twilio: number;
+    voice: number;
     tts: number;
     llm: number;
     total: number;
@@ -870,7 +872,7 @@ function BillingPageContent() {
                                         </h3>
                                         {perCallCost && (
                                             <div className="space-y-3">
-                                                <CostRow label="Twilio (Telekom)" value={perCallCost.twilio} color="bg-blue-500" />
+                                                <CostRow label="Ses (Telekom)" value={perCallCost.voice} color="bg-blue-500" />
                                                 <CostRow label="ElevenLabs (TTS)" value={perCallCost.tts} color="bg-purple-500" />
                                                 <CostRow label="Groq/Gemini (LLM)" value={perCallCost.llm} color="bg-amber-500" />
                                                 <div className="border-t border-white/[0.06] pt-3 flex items-center justify-between">
@@ -887,8 +889,8 @@ function BillingPageContent() {
                                                 <div className="flex h-3 rounded-full overflow-hidden bg-white/[0.04]">
                                                     <div
                                                         className="bg-blue-500 transition-all"
-                                                        style={{ width: `${(perCallCost.twilio / perCallCost.total) * 100}%` }}
-                                                        title="Twilio"
+                                                        style={{ width: `${(perCallCost.voice / perCallCost.total) * 100}%` }}
+                                                        title="Ses"
                                                     />
                                                     <div
                                                         className="bg-purple-500 transition-all"
@@ -903,7 +905,7 @@ function BillingPageContent() {
                                                 </div>
                                                 <div className="flex justify-between mt-1.5 text-[10px] text-white/30">
                                                     <span className="flex items-center gap-1">
-                                                        <span className="h-2 w-2 rounded-full bg-blue-500" /> Twilio
+                                                        <span className="h-2 w-2 rounded-full bg-blue-500" /> Ses
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <span className="h-2 w-2 rounded-full bg-purple-500" /> TTS
@@ -935,6 +937,12 @@ function BillingPageContent() {
                                                 <span className="text-sm text-white/50">├ Twilio</span>
                                                 <span className="text-sm text-white/40">${cost.twilioCost}</span>
                                             </div>
+                                            {cost.sipTrunkCost > 0 && (
+                                                <div className="flex items-center justify-between py-2">
+                                                    <span className="text-sm text-white/50">├ SIP Trunk</span>
+                                                    <span className="text-sm text-white/40">${cost.sipTrunkCost}</span>
+                                                </div>
+                                            )}
                                             <div className="flex items-center justify-between py-2">
                                                 <span className="text-sm text-white/50">├ ElevenLabs TTS</span>
                                                 <span className="text-sm text-white/40">${cost.ttsCost}</span>

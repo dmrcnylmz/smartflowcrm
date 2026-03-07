@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +20,9 @@ import {
     RefreshCw, Copy, Zap, ChevronDown, Clock, AlertTriangle,
     UserCheck, Crown, UserCog, UserX,
 } from 'lucide-react';
+
+// Lazy-loaded components
+const PhoneManagementTab = lazy(() => import('@/components/admin/phone-management'));
 
 // =============================================
 // Types
@@ -88,7 +91,7 @@ export default function AdminPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [settings, setSettings] = useState<TenantSettings>(defaultSettings);
-    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'users' | 'system'>('company');
+    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'phone' | 'users' | 'system'>('company');
     const [healthData, setHealthData] = useState<Record<string, unknown> | null>(null);
     const [members, setMembers] = useState<TenantMember[]>([]);
     const [membersLoading, setMembersLoading] = useState(false);
@@ -266,6 +269,7 @@ export default function AdminPage() {
         { id: 'company' as const, label: 'Şirket Bilgileri', icon: Building2 },
         { id: 'assistant' as const, label: 'AI Asistan', icon: Bot },
         { id: 'features' as const, label: 'Özellikler', icon: Zap },
+        { id: 'phone' as const, label: 'Telefon', icon: Phone },
         { id: 'users' as const, label: 'Kullanıcılar', icon: Users },
         { id: 'system' as const, label: 'Sistem Durumu', icon: Activity },
     ];
@@ -539,6 +543,15 @@ export default function AdminPage() {
                             />
                         </CardContent>
                     </Card>
+                </div>
+            )}
+
+            {/* ─── Phone Tab ─── */}
+            {activeTab === 'phone' && (
+                <div key="phone" className="space-y-6 animate-fade-in-up">
+                    <Suspense fallback={<Skeleton className="h-[400px] rounded-2xl" />}>
+                        <PhoneManagementTab />
+                    </Suspense>
                 </div>
             )}
 

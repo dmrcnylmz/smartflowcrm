@@ -8,7 +8,7 @@ import {
     Building2, Mic, FileText, Rocket, ChevronRight, ChevronLeft,
     Check, Loader2, Briefcase, ShoppingBag, HeartPulse, Headphones,
     GraduationCap, Utensils, Home as HomeIcon, Car, AlertCircle,
-    Shield, Scale
+    Shield, Scale, Phone, Globe, CheckCircle2, SkipForward
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,6 +32,9 @@ interface OnboardingData {
     greeting: string;
     farewell: string;
     voiceId: string;
+    phoneCountry: string;
+    phoneNumber: string;
+    phoneSkipped: boolean;
 }
 
 const INITIAL_DATA: OnboardingData = {
@@ -48,13 +51,24 @@ const INITIAL_DATA: OnboardingData = {
     greeting: '',
     farewell: '',
     voiceId: 'EXAVITQu4vr4xnSDxMaL',
+    phoneCountry: '',
+    phoneNumber: '',
+    phoneSkipped: false,
 };
 
 const STEPS = [
     { id: 'company', label: 'Şirket Bilgileri', icon: Building2, description: 'Temel şirket bilgilerinizi girin' },
     { id: 'template', label: 'Şablon Seçimi', icon: FileText, description: 'Sektörünüze uygun şablonu seçin' },
     { id: 'voice', label: 'Sesli Asistan', icon: Mic, description: 'AI asistanınızı özelleştirin' },
+    { id: 'phone', label: 'Telefon', icon: Phone, description: 'Çağrı alacak telefon numaranızı ayarlayın' },
     { id: 'launch', label: 'Başlat', icon: Rocket, description: 'Son kontrol ve başlatma' },
+];
+
+const PHONE_COUNTRIES = [
+    { code: 'TR', flag: '🇹🇷', name: 'Türkiye', description: 'SIP trunk havuzundan numara', badge: 'Önerilen' },
+    { code: 'US', flag: '🇺🇸', name: 'ABD', description: 'Twilio ile otomatik numara' },
+    { code: 'GB', flag: '🇬🇧', name: 'İngiltere', description: 'Twilio ile otomatik numara' },
+    { code: 'DE', flag: '🇩🇪', name: 'Almanya', description: 'Twilio ile otomatik numara' },
 ];
 
 const TEMPLATES = [
@@ -218,7 +232,8 @@ export default function OnboardingPage() {
             case 0: return !!data.companyName.trim() && !!data.sector;
             case 1: return !!data.template;
             case 2: return !!data.agentName.trim();
-            case 3: return true;
+            case 3: return !!data.phoneNumber || data.phoneSkipped; // Phone step: provisioned or skipped
+            case 4: return true;
             default: return false;
         }
     }, [currentStep, data]);
@@ -402,7 +417,8 @@ export default function OnboardingPage() {
                     {currentStep === 0 && <StepCompanyInfo data={data} updateData={updateData} />}
                     {currentStep === 1 && <StepTemplateSelection data={data} updateData={updateData} />}
                     {currentStep === 2 && <StepVoiceConfig data={data} updateData={updateData} />}
-                    {currentStep === 3 && <StepReview data={data} />}
+                    {currentStep === 3 && <StepPhoneSetup data={data} updateData={updateData} />}
+                    {currentStep === 4 && <StepReview data={data} />}
                 </div>
             </div>
 
@@ -758,7 +774,174 @@ function StepVoiceConfig({
 }
 
 // =============================================
-// Step 4: Review & Launch
+// Step 4: Phone Setup
+// =============================================
+
+function StepPhoneSetup({
+    data,
+    updateData,
+}: {
+    data: OnboardingData;
+    updateData: (updates: Partial<OnboardingData>) => void;
+}) {
+    const [isProvisioning, setIsProvisioning] = useState(false);
+    const [phoneError, setPhoneError] = useState<string | null>(null);
+
+    async function handleProvision(countryCode: string) {
+        setIsProvisioning(true);
+        setPhoneError(null);
+        updateData({ phoneCountry: countryCode });
+
+        try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) throw new Error('Oturum bulunamadı');
+
+            const token = await currentUser.getIdToken();
+            const res = await fetch('/api/onboarding/provision-phone', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ country: countryCode }),
+                signal: AbortSignal.timeout(20_000),
+            });
+
+            const result = await res.json();
+
+            if (!res.ok) {
+                throw new Error(result.error || 'Numara alınamadı');
+            }
+
+            updateData({
+                phoneNumber: result.phoneNumber?.phoneNumber || '',
+                phoneSkipped: false,
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Numara alınamadı';
+            setPhoneError(msg);
+        } finally {
+            setIsProvisioning(false);
+        }
+    }
+
+    function handleSkip() {
+        updateData({ phoneSkipped: true, phoneNumber: '', phoneCountry: '' });
+    }
+
+    // Already provisioned — show success
+    if (data.phoneNumber) {
+        return (
+            <div className="max-w-lg mx-auto space-y-6">
+                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-6 text-center">
+                    <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
+                    <h3 className="text-lg font-bold text-white font-display">Numara Hazır!</h3>
+                    <p className="text-2xl font-mono text-emerald-400 mt-2">{data.phoneNumber}</p>
+                    <p className="text-sm text-white/40 mt-2">
+                        Bu numara şirketinize atandı. Çağrı almaya hazır.
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    // Skipped state
+    if (data.phoneSkipped) {
+        return (
+            <div className="max-w-lg mx-auto space-y-6">
+                <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 text-center">
+                    <SkipForward className="h-10 w-10 text-white/30 mx-auto mb-3" />
+                    <h3 className="text-base font-semibold text-white/60">Telefon kurulumu atlandı</h3>
+                    <p className="text-sm text-white/30 mt-1">
+                        Admin panelinden istediğiniz zaman numara alabilirsiniz.
+                    </p>
+                    <button
+                        onClick={() => updateData({ phoneSkipped: false })}
+                        className="mt-4 text-sm text-inception-red hover:text-inception-red-light transition"
+                    >
+                        Geri dönüp numara al
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-2xl mx-auto space-y-6">
+            {/* Country Selection */}
+            <div>
+                <label className="block text-sm text-white/70 mb-3">
+                    Ülke Seçin <span className="text-white/30">(numaranızın ülke kodu)</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                    {PHONE_COUNTRIES.map((country) => (
+                        <button
+                            key={country.code}
+                            onClick={() => handleProvision(country.code)}
+                            disabled={isProvisioning}
+                            className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all text-left
+                                ${isProvisioning && data.phoneCountry === country.code
+                                    ? 'border-inception-red/40 bg-inception-red/5'
+                                    : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05]'
+                                }
+                                ${isProvisioning ? 'opacity-60 cursor-wait' : ''}
+                            `}
+                        >
+                            {country.badge && (
+                                <span className="absolute -top-2 right-3 bg-inception-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    {country.badge}
+                                </span>
+                            )}
+                            <span className="text-2xl">{country.flag}</span>
+                            <div className="flex-1">
+                                <div className="text-sm font-semibold text-white/80">{country.name}</div>
+                                <div className="text-xs text-white/30">{country.description}</div>
+                            </div>
+                            {isProvisioning && data.phoneCountry === country.code && (
+                                <Loader2 className="h-4 w-4 animate-spin text-inception-red" />
+                            )}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Error */}
+            {phoneError && (
+                <div className="p-4 bg-inception-red/10 border border-inception-red/30 rounded-xl flex items-start gap-3">
+                    <AlertCircle className="h-4 w-4 text-inception-red flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p className="text-inception-red text-sm">{phoneError}</p>
+                        <p className="text-xs text-white/30 mt-1">Tekrar deneyebilir veya bu adımı atlayabilirsiniz.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Skip option */}
+            <div className="text-center pt-2">
+                <button
+                    onClick={handleSkip}
+                    disabled={isProvisioning}
+                    className="text-sm text-white/30 hover:text-white/60 transition flex items-center gap-1.5 mx-auto"
+                >
+                    <SkipForward className="h-3.5 w-3.5" />
+                    Sonra ayarlayacağım
+                </button>
+            </div>
+
+            {/* Info box */}
+            <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-4 flex items-start gap-3">
+                <Globe className="h-4 w-4 text-white/20 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-white/30 space-y-1">
+                    <p>Türkiye numaraları SIP trunk havuzundan, diğer ülkeler Twilio API ile sağlanır.</p>
+                    <p>Admin panelinden istediğiniz zaman ek numara alabilir veya değiştirebilirsiniz.</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// =============================================
+// Step 5: Review & Launch
 // =============================================
 
 function StepReview({ data }: { data: OnboardingData }) {
@@ -838,6 +1021,29 @@ function StepReview({ data }: { data: OnboardingData }) {
                             </p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Phone Summary */}
+            <div className="md:col-span-2 bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <Phone className="h-4 w-4 text-emerald-400" />
+                    </div>
+                    <div>
+                        <h3 className="font-semibold text-white text-sm">Telefon Numarası</h3>
+                        <p className="text-xs text-white/30">Adım 4</p>
+                    </div>
+                </div>
+                <div className="space-y-2 text-sm">
+                    {data.phoneNumber ? (
+                        <>
+                            <ReviewItem label="Numara" value={data.phoneNumber} />
+                            <ReviewItem label="Ülke" value={PHONE_COUNTRIES.find(c => c.code === data.phoneCountry)?.name || data.phoneCountry} />
+                        </>
+                    ) : (
+                        <ReviewItem label="Durum" value="Atlandı — Admin panelinden ayarlanabilir" />
+                    )}
                 </div>
             </div>
 

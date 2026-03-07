@@ -2,14 +2,20 @@
  * Sentiment Analysis API — Analyze text sentiment
  *
  * POST: Analyze a single text or conversation turn
+ *
+ * Requires authentication (Bearer token).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeSentiment, analyzeConversationSentiment, createConversationContext, type ConversationContext } from '@/lib/voice/sentiment';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export async function POST(request: NextRequest) {
     try {
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+
         const body = await request.json();
         const { text, conversationContext } = body;
 

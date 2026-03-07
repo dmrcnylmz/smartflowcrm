@@ -16,6 +16,12 @@ import { toDate } from '@/lib/utils/date-helpers';
 import nextDynamic from 'next/dynamic';
 import type { CallTrendPoint, ComplaintCategoryPoint, AppointmentStatusPoint } from '@/components/dashboard/DashboardCharts';
 
+// Lazy-load VoicemailList — only downloaded when dashboard is visited
+const VoicemailList = nextDynamic(() => import('@/components/dashboard/voicemail-list'), {
+  ssr: false,
+  loading: () => <div className="h-[300px] animate-pulse rounded-3xl bg-muted" />,
+});
+
 // Lazy-load recharts (~100KB) — only downloaded when dashboard is visited
 const DashboardCharts = nextDynamic(() => import('@/components/dashboard/DashboardCharts'), {
   ssr: false,
@@ -645,6 +651,11 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Voicemails — lazy-loaded */}
+        <div className="animate-fade-in-up" style={{ animationDelay: '980ms' }}>
+          <VoicemailList />
+        </div>
       </div>
     </div>
   );

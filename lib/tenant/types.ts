@@ -38,6 +38,9 @@ export interface TenantConfig {
     /** Usage quotas */
     quotas: TenantQuotas;
 
+    /** Phone number configuration (hybrid telephony) */
+    phone?: TenantPhoneConfig;
+
     /** Active status */
     active: boolean;
 
@@ -46,6 +49,22 @@ export interface TenantConfig {
 
     /** Last updated timestamp */
     updatedAt: string;
+}
+
+// --- Phone Config (Hybrid Telephony) ---
+
+export interface TenantPhoneConfig {
+    /** Default country for number provisioning (ISO 3166-1 alpha-2) */
+    defaultCountry?: string;
+
+    /** Auto-provision a number on signup */
+    autoProvision?: boolean;
+
+    /** Whether SIP trunk numbers are enabled for this tenant */
+    sipTrunkEnabled?: boolean;
+
+    /** Preferred SIP carrier for Turkey numbers */
+    preferredCarrier?: 'netgsm' | 'bulutfon' | 'other';
 }
 
 // --- Agent Persona ---

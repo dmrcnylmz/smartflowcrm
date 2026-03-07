@@ -102,6 +102,36 @@ export async function GET() {
         });
     }
 
+    // Email service (Resend)
+    const resendKey = process.env.RESEND_API_KEY;
+    const emailFrom = process.env.EMAIL_FROM;
+    checks.push({
+        name: 'env:RESEND_API_KEY',
+        status: resendKey ? 'ok' : 'warning',
+        detail: resendKey ? 'Resend email — configured' : 'Resend email — not set (appointment reminders, voicemail notifications disabled)',
+        critical: false,
+    });
+    checks.push({
+        name: 'config:EMAIL_FROM',
+        status: emailFrom ? 'ok' : 'warning',
+        detail: emailFrom ? `Sender: ${emailFrom}` : 'Email sender — using default fallback',
+        critical: false,
+    });
+
+    // Cron security (critical in production)
+    const cronSecret = process.env.CRON_SECRET;
+    const isProductionEnv = process.env.NODE_ENV === 'production';
+    checks.push({
+        name: 'security:CRON_SECRET',
+        status: cronSecret ? 'ok' : (isProductionEnv ? 'error' : 'warning'),
+        detail: cronSecret
+            ? 'Cron job authentication — configured'
+            : (isProductionEnv
+                ? 'CRON_SECRET MISSING — cron endpoints unprotected in production!'
+                : 'CRON_SECRET not set — acceptable for development'),
+        critical: isProductionEnv && !cronSecret,
+    });
+
     // ─── 2. Firebase / Firestore ────────────────────────────────────────
 
     try {
@@ -213,7 +243,75 @@ export async function GET() {
         }
     }
 
-    // ─── 6. Production URL Check ────────────────────────────────────────
+    // ─── 6. Twilio Connectivity ────────────────────────────────────────
+
+    const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+    const twilioToken = process.env.TWILIO_AUTH_TOKEN;
+    if (twilioSid && twilioToken) {
+        try {
+            const twilioStart = performance.now();
+            const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}.json`, {
+                headers: { Authorization: 'Basic ' + Buffer.from(`${twilioSid}:${twilioToken}`).toString('base64') },
+                signal: AbortSignal.timeout(5000),
+            });
+            const twilioLatency = Math.round(performance.now() - twilioStart);
+            checks.push({
+                name: 'provider:twilio',
+                status: res.ok ? 'ok' : 'warning',
+                detail: res.ok
+                    ? `Twilio API reachable (${twilioLatency}ms), account active`
+                    : `Twilio API responded with ${res.status} — check credentials`,
+                critical: false,
+            });
+        } catch {
+            checks.push({
+                name: 'provider:twilio',
+                status: 'warning',
+                detail: 'Twilio API unreachable — telephony may be affected',
+                critical: false,
+            });
+        }
+    }
+
+    // ─── 7. Phone Number Pool ────────────────────────────────────────
+
+    try {
+        const { initAdmin } = await import('@/lib/auth/firebase-admin');
+        const { getFirestore } = await import('firebase-admin/firestore');
+        initAdmin();
+        const db = getFirestore();
+
+        // Check phone_number_pool collection
+        const poolSnap = await db.collection('phone_number_pool').count().get();
+        const poolCount = poolSnap.data().count;
+
+        const availableSnap = await db.collection('phone_number_pool')
+            .where('status', '==', 'available')
+            .count().get();
+        const availableCount = availableSnap.data().count;
+
+        // Check active tenant phone numbers
+        const activeSnap = await db.collection('tenant_phone_numbers')
+            .where('isActive', '==', true)
+            .count().get();
+        const activeCount = activeSnap.data().count;
+
+        checks.push({
+            name: 'telephony:phone_pool',
+            status: poolCount > 0 ? (availableCount > 0 ? 'ok' : 'warning') : 'warning',
+            detail: `Pool: ${poolCount} total, ${availableCount} available | Active tenant numbers: ${activeCount}`,
+            critical: false,
+        });
+    } catch {
+        checks.push({
+            name: 'telephony:phone_pool',
+            status: 'warning',
+            detail: 'Could not query phone pool — collection may not exist yet',
+            critical: false,
+        });
+    }
+
+    // ─── 9. Production URL Check ────────────────────────────────────────
 
     const { url: appUrl, source: appUrlSource } = getAppUrlDiagnostics();
     const goodSources = ['APP_URL', 'VERCEL_PROJECT_PRODUCTION_URL', 'NEXT_PUBLIC_APP_URL'];
@@ -230,7 +328,7 @@ export async function GET() {
         critical: false,
     });
 
-    // ─── 7. Firebase Admin Check ─────────────────────────────────────────
+    // ─── 10. Firebase Admin Check ────────────────────────────────────────
 
     const hasFirebaseServiceAccount = !!(
         process.env.FIREBASE_SERVICE_ACCOUNT_KEY ||

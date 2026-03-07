@@ -38,6 +38,8 @@ export interface TwilioConfig {
 
 export type CallStatus = 'queued' | 'ringing' | 'in-progress' | 'completed' | 'failed' | 'busy' | 'no-answer' | 'canceled';
 
+import type { ProviderType, SipCarrier } from '@/lib/phone/types';
+
 export interface CallRecord {
     callSid: string;
     tenantId: string;
@@ -52,6 +54,21 @@ export interface CallRecord {
     callerCountry?: string;
     sentiment?: number;
     metadata?: Record<string, unknown>;
+    /** Telephony provider (SIP_TRUNK for Turkey, TWILIO_NATIVE for global) */
+    providerType?: ProviderType;
+    /** SIP trunk carrier name (only for SIP_TRUNK) */
+    sipCarrier?: SipCarrier;
+}
+
+/**
+ * Resolved tenant info from phone number lookup.
+ * Extended with provider metadata for hybrid routing.
+ */
+export interface ResolvedTenant {
+    tenantId: string;
+    providerType?: ProviderType;
+    sipCarrier?: SipCarrier;
+    country?: string;
 }
 
 // =============================================
@@ -168,18 +185,30 @@ export function validateTwilioSignature(
 
 /**
  * Resolve which tenant owns a given phone number.
- * Looks up Firestore: tenants_phone_numbers/{phoneNumber} → { tenantId }
+ * Looks up Firestore: tenant_phone_numbers/{phoneNumber}
+ *
+ * Returns enriched ResolvedTenant with provider metadata for hybrid routing.
+ * Backward-compatible: callers can use `resolved?.tenantId` as before.
  */
 export async function resolveTenantFromPhone(
     db: FirebaseFirestore.Firestore,
     phoneNumber: string,
-): Promise<string | null> {
+): Promise<ResolvedTenant | null> {
     // Normalize: remove spaces, dashes
     const normalized = phoneNumber.replace(/[\s\-()]/g, '');
 
     const doc = await db.collection('tenant_phone_numbers').doc(normalized).get();
     if (doc.exists) {
-        return (doc.data()?.tenantId as string) || null;
+        const data = doc.data()!;
+        const tenantId = (data.tenantId as string) || null;
+        if (!tenantId) return null;
+
+        return {
+            tenantId,
+            providerType: data.providerType || 'TWILIO_NATIVE',
+            sipCarrier: data.sipCarrier || undefined,
+            country: data.country || undefined,
+        };
     }
     return null;
 }

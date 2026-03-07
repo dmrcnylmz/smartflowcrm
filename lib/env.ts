@@ -24,8 +24,14 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   PERSONAPLEX_API_KEY: z.string().optional(),
 
+  // --- Optional: Email ---
+  EMAIL_FROM: z.string().optional().default('Callception <noreply@callception.com>'),
+
+  // --- Optional: Cron security ---
+  CRON_SECRET: z.string().optional(),
+
   // --- Optional: App config ---
-  NEXT_PUBLIC_APP_URL: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().optional().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 });
 
@@ -61,6 +67,8 @@ export function warnMissingOptionalKeys(): string[] {
     { key: 'TWILIO_ACCOUNT_SID', label: 'Twilio (telefon)' },
     { key: 'TWILIO_AUTH_TOKEN', label: 'Twilio (auth)' },
     { key: 'RESEND_API_KEY', label: 'Resend (e-posta)' },
+    { key: 'EMAIL_FROM', label: 'E-posta gönderici adresi' },
+    { key: 'CRON_SECRET', label: 'Cron job güvenliği' },
     { key: 'OPENAI_API_KEY', label: 'OpenAI (AI)' },
     { key: 'DEEPGRAM_API_KEY', label: 'Deepgram (STT)' },
     { key: 'ELEVENLABS_API_KEY', label: 'ElevenLabs (TTS)' },

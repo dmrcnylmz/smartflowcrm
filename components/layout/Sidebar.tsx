@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -21,6 +21,7 @@ import {
   ChevronsRight,
   Menu,
   X,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/firebase/auth-context';
@@ -32,7 +33,7 @@ interface NavSection {
   items: { href: string; label: string; icon: typeof LayoutDashboard }[];
 }
 
-const navSections: NavSection[] = [
+const baseNavSections: NavSection[] = [
   {
     title: 'Ana Menü',
     items: [
@@ -66,9 +67,25 @@ const navSections: NavSection[] = [
   },
 ];
 
+function getNavSections(email?: string | null): NavSection[] {
+  const isSuperAdmin = email?.endsWith('@callception.com') === true;
+  if (!isSuperAdmin) return baseNavSections;
+
+  return [
+    ...baseNavSections,
+    {
+      title: 'Sistem',
+      items: [
+        { href: '/admin/super', label: 'Sistem Yönetimi', icon: Shield },
+      ],
+    },
+  ];
+}
+
 export const Sidebar = memo(function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const navSections = useMemo(() => getNavSections(user?.email), [user?.email]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileDrawerRef = useRef<HTMLElement>(null);
