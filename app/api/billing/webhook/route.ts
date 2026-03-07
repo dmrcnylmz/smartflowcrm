@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { invalidateSubscriptionCache } from '@/lib/billing/subscription-guard';
+import { billingLogger } from '@/lib/utils/logger';
 import {
     verifyWebhookSignature,
     buildSubscriptionRecord,
@@ -58,14 +59,14 @@ export async function POST(request: NextRequest) {
     try {
         rawBody = await request.text();
     } catch {
-        console.error('[billing/webhook] Failed to read request body');
+        billingLogger.error('Failed to read request body');
         return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
     // 2. Verify webhook signature
     const signature = request.headers.get('x-signature') || '';
     if (!verifyWebhookSignature(rawBody, signature)) {
-        console.error('[billing/webhook] Invalid webhook signature');
+        billingLogger.error('Invalid webhook signature');
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
     try {
         payload = JSON.parse(rawBody);
     } catch {
-        console.error('[billing/webhook] Failed to parse webhook payload');
+        billingLogger.error('Failed to parse webhook payload');
         return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
     const customData = payload.meta?.custom_data;
     const lsSubscriptionId = payload.data?.id;
 
-    console.log(`[billing/webhook] Event: ${eventName}, LS Sub ID: ${lsSubscriptionId}`);
+    billingLogger.info('Webhook event received', { eventName, lsSubscriptionId });
 
     // 4. Resolve tenant_id
     //    - subscription_created: from custom_data (passed through checkout)
@@ -93,15 +94,15 @@ export async function POST(request: NextRequest) {
         try {
             tenantId = await findTenantByLsSubscriptionId(getDb(), lsSubscriptionId);
         } catch (err) {
-            console.error('[billing/webhook] Error looking up tenant:', err);
+            billingLogger.error('Error looking up tenant', { error: err as Error });
         }
     }
 
     if (!tenantId) {
-        console.error(
-            `[billing/webhook] Cannot resolve tenant for event=${eventName}, lsSubId=${lsSubscriptionId}. ` +
-            'Manual investigation required.'
-        );
+        billingLogger.error('Cannot resolve tenant — manual investigation required', {
+            eventName,
+            lsSubscriptionId,
+        });
         // Return 200 to prevent LS from retrying — we log for manual investigation
         return NextResponse.json({ received: true, warning: 'tenant_not_found' });
     }
@@ -147,11 +148,14 @@ export async function POST(request: NextRequest) {
                 break;
 
             default:
-                console.log(`[billing/webhook] Unhandled event: ${eventName}`);
+                billingLogger.info('Unhandled webhook event', { eventName });
         }
     } catch (error) {
         // Log but still return 200 — we don't want LS to retry on our internal errors
-        console.error(`[billing/webhook] Error processing ${eventName}:`, error);
+        billingLogger.error('Error processing webhook event', {
+            eventName,
+            error: error as Error,
+        });
     }
 
     // 6. Invalidate subscription cache so next API call sees fresh status
@@ -181,10 +185,12 @@ async function handleSubscriptionCreated(
         || getPlanIdFromVariantId(attrs.variant_id)
         || 'unknown';
 
-    console.log(
-        `[billing/webhook] subscription_created — tenant=${tenantId}, plan=${planId}, ` +
-        `lsSubId=${payload.data.id}, email=${attrs.user_email}`
-    );
+    billingLogger.info('subscription_created', {
+        tenantId,
+        planId,
+        lsSubscriptionId: payload.data.id,
+        email: attrs.user_email,
+    });
 
     // Build and save subscription record
     const record = buildSubscriptionRecord(tenantId, planId, payload);
@@ -214,10 +220,11 @@ async function handleSubscriptionUpdated(
 ): Promise<void> {
     const attrs = payload.data.attributes;
 
-    console.log(
-        `[billing/webhook] subscription_updated — tenant=${tenantId}, ` +
-        `status=${attrs.status}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('subscription_updated', {
+        tenantId,
+        status: attrs.status,
+        lsSubscriptionId: payload.data.id,
+    });
 
     const update = buildSubscriptionUpdate(payload);
     await upsertSubscription(getDb(), tenantId, update);
@@ -241,10 +248,11 @@ async function handleSubscriptionCancelled(
     const attrs = payload.data.attributes;
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] subscription_cancelled — tenant=${tenantId}, ` +
-        `endsAt=${attrs.ends_at}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('subscription_cancelled', {
+        tenantId,
+        endsAt: attrs.ends_at,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'cancelled',
@@ -271,9 +279,10 @@ async function handlePaymentSuccess(
     const attrs = payload.data.attributes;
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] payment_success — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('payment_success', {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'active',
@@ -299,9 +308,10 @@ async function handlePaymentFailed(
 ): Promise<void> {
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] payment_failed — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('payment_failed', {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'past_due',
@@ -326,9 +336,10 @@ async function handleSubscriptionReactivated(
     const attrs = payload.data.attributes;
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] ${eventName} — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info(eventName, {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'active',
@@ -355,9 +366,10 @@ async function handleSubscriptionExpired(
 ): Promise<void> {
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] subscription_expired — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('subscription_expired', {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'expired',
@@ -381,9 +393,10 @@ async function handleSubscriptionPaused(
     const attrs = payload.data.attributes;
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] subscription_paused — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('subscription_paused', {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await upsertSubscription(getDb(), tenantId, {
         status: 'paused',
@@ -407,9 +420,10 @@ async function handlePaymentRefunded(
 ): Promise<void> {
     const now = Date.now();
 
-    console.log(
-        `[billing/webhook] payment_refunded — tenant=${tenantId}, lsSubId=${payload.data.id}`
-    );
+    billingLogger.info('payment_refunded', {
+        tenantId,
+        lsSubscriptionId: payload.data.id,
+    });
 
     await logBillingActivity(getDb(), tenantId, 'payment_refunded', {
         lsSubscriptionId: payload.data.id,

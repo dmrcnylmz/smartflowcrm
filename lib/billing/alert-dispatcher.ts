@@ -13,6 +13,8 @@
  *   ALERT_TELEGRAM_CHAT_ID    — Telegram chat/group ID
  */
 
+import { billingLogger } from '@/lib/utils/logger';
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface AlertPayload {
@@ -25,10 +27,18 @@ export interface AlertPayload {
 }
 
 // ─── Configuration ───────────────────────────────────────────────────────────
+// Read env vars lazily via getters to avoid Vercel serverless runtime issues
+// (module-level process.env reads may resolve before env vars are injected)
 
-const SLACK_WEBHOOK_URL = process.env.ALERT_SLACK_WEBHOOK_URL || '';
-const TELEGRAM_BOT_TOKEN = process.env.ALERT_TELEGRAM_BOT_TOKEN || '';
-const TELEGRAM_CHAT_ID = process.env.ALERT_TELEGRAM_CHAT_ID || '';
+function getSlackWebhookUrl(): string {
+    return process.env.ALERT_SLACK_WEBHOOK_URL || '';
+}
+function getTelegramBotToken(): string {
+    return process.env.ALERT_TELEGRAM_BOT_TOKEN || '';
+}
+function getTelegramChatId(): string {
+    return process.env.ALERT_TELEGRAM_CHAT_ID || '';
+}
 
 // Rate limiting: max 1 alert per type per 5 minutes
 const recentAlerts = new Map<string, number>();
@@ -63,12 +73,12 @@ export function dispatchAlert(payload: AlertPayload): void {
     logToConsole(alert);
 
     // Slack (if configured)
-    if (SLACK_WEBHOOK_URL) {
+    if (getSlackWebhookUrl()) {
         sendSlackAlert(alert).catch(() => {});
     }
 
     // Telegram (if configured)
-    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    if (getTelegramBotToken() && getTelegramChatId()) {
         sendTelegramAlert(alert).catch(() => {});
     }
 }
@@ -149,28 +159,21 @@ export function alertLatencySpike(
 // ─── Channel Implementations ─────────────────────────────────────────────────
 
 function logToConsole(alert: AlertPayload & { timestamp: Date }): void {
-    const emoji = {
-        info: 'ℹ️',
-        warning: '⚠️',
-        critical: '🔴',
-        emergency: '🚨',
-    }[alert.level];
+    const alertData = {
+        alert: true,
+        alertLevel: alert.level,
+        title: alert.title,
+        tenantId: alert.tenantId,
+        metadata: alert.metadata,
+    };
 
     const logFn = alert.level === 'emergency' || alert.level === 'critical'
-        ? console.error
+        ? billingLogger.error.bind(billingLogger)
         : alert.level === 'warning'
-            ? console.warn
-            : console.info;
+            ? billingLogger.warn.bind(billingLogger)
+            : billingLogger.info.bind(billingLogger);
 
-    logFn(JSON.stringify({
-        alert: true,
-        level: alert.level,
-        title: alert.title,
-        message: alert.message,
-        tenantId: alert.tenantId,
-        timestamp: alert.timestamp.toISOString(),
-        metadata: alert.metadata,
-    }));
+    logFn(alert.message, alertData);
 }
 
 async function sendSlackAlert(alert: AlertPayload & { timestamp: Date }): Promise<void> {
@@ -189,7 +192,7 @@ async function sendSlackAlert(alert: AlertPayload & { timestamp: Date }): Promis
     };
 
     try {
-        await fetch(SLACK_WEBHOOK_URL, {
+        await fetch(getSlackWebhookUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -229,11 +232,11 @@ async function sendTelegramAlert(alert: AlertPayload & { timestamp: Date }): Pro
     ].join('\n');
 
     try {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        await fetch(`https://api.telegram.org/bot${getTelegramBotToken()}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                chat_id: TELEGRAM_CHAT_ID,
+                chat_id: getTelegramChatId(),
                 text,
                 parse_mode: 'MarkdownV2',
                 disable_notification: alert.level === 'info',
