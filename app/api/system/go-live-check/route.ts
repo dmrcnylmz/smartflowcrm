@@ -254,6 +254,11 @@ export async function GET() {
 
     const goLiveReady = criticalErrors.length === 0;
 
+    // Debug: list env vars matching "APP" or "URL" or "SLACK" (names only, no values)
+    const envDebug = Object.keys(process.env)
+        .filter(k => /APP|URL|SLACK/i.test(k))
+        .sort();
+
     return NextResponse.json({
         verdict: goLiveReady ? 'GO' : 'NO-GO',
         summary: {
@@ -270,6 +275,7 @@ export async function GET() {
         ...(warnings.length > 0 && {
             advisories: warnings.map(c => `${c.name}: ${c.detail}`),
         }),
+        _envDebug: envDebug,
         timestamp: new Date().toISOString(),
     }, {
         status: goLiveReady ? 200 : 503,
