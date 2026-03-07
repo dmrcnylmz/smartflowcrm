@@ -92,10 +92,12 @@ function KnowledgePageContent() {
 
     // ─── Data fetching ───────────────────────────────────────
 
-    const fetchDocuments = useCallback(async () => {
+    const fetchDocuments = useCallback(async (bustCache = false) => {
         try {
             setError(null);
-            const res = await authFetch('/api/knowledge');
+            // Cache-busting: append timestamp after successful ingest to skip stale cache
+            const url = bustCache ? `/api/knowledge?_t=${Date.now()}` : '/api/knowledge';
+            const res = await authFetch(url);
             if (!res.ok) throw new Error('Belgeler yüklenemedi');
             const data = await res.json();
             setDocuments(data.documents || []);
@@ -160,7 +162,7 @@ function KnowledgePageContent() {
             } else {
                 toast({ title: 'Başarılı!', description: `"${result.title}" eklendi (${result.chunkCount} parça)`, variant: 'success' });
                 resetAddDialog();
-                await Promise.all([fetchDocuments(), fetchStats()]);
+                await Promise.all([fetchDocuments(true), fetchStats()]);
             }
         } catch {
             toast({ title: 'Hata', description: 'Belge eklenirken bir hata oluştu', variant: 'error' });
@@ -181,7 +183,7 @@ function KnowledgePageContent() {
             } else {
                 toast({ title: 'Başarılı!', description: `"${result.title}" yüklendi (${result.chunkCount} parça)`, variant: 'success' });
                 resetAddDialog();
-                await Promise.all([fetchDocuments(), fetchStats()]);
+                await Promise.all([fetchDocuments(true), fetchStats()]);
             }
         } catch {
             toast({ title: 'Hata', description: 'Dosya yüklenirken bir hata oluştu', variant: 'error' });
@@ -203,7 +205,7 @@ function KnowledgePageContent() {
             });
             if (!res.ok) throw new Error('Silinemedi');
             toast({ title: 'Silindi', description: 'Belge başarıyla silindi', variant: 'success' });
-            await Promise.all([fetchDocuments(), fetchStats()]);
+            await Promise.all([fetchDocuments(true), fetchStats()]);
         } catch {
             toast({ title: 'Hata', description: 'Belge silinirken bir hata oluştu', variant: 'error' });
         } finally { setDeletingId(null); }

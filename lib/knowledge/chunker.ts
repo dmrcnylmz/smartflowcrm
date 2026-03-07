@@ -1,24 +1,33 @@
 /**
- * Text Chunker — Split Documents into Overlapping Chunks
+ * Text Chunker — Content-Type Aware Document Splitting
  *
- * Strategy:
- * - Target chunk size: ~512 tokens (~2048 chars)
- * - Overlap: 50 tokens (~200 chars) for context continuity
- * - Sentence-aware splitting (avoid breaking mid-sentence)
- * - Preserves semantic context with overlap
+ * Strategy varies by content type:
+ * - FAQ/Q&A:  Keep Q&A pairs intact, no splitting within a pair
+ * - Policy:   Smaller chunks (1200 chars) for precise retrieval
+ * - Manual:   Medium chunks (1600 chars) for step-by-step context
+ * - General:  Standard chunks (1400 chars) with sentence-aware overlap
+ *
+ * Optimized for customer service voice AI:
+ * - Shorter chunks = more precise retrieval = fewer tokens to LLM
+ * - Overlap preserves context continuity
+ * - FAQ detection prevents splitting Q&A pairs
  */
 
 // =============================================
 // Types
 // =============================================
 
+export type ContentType = 'faq' | 'policy' | 'manual' | 'general';
+
 export interface ChunkOptions {
-    /** Target chunk size in characters (default: 2000) */
+    /** Target chunk size in characters (auto-detected if not set) */
     maxChunkSize?: number;
-    /** Overlap between chunks in characters (default: 200) */
+    /** Overlap between chunks in characters (default: 150) */
     overlap?: number;
-    /** Minimum chunk size — discard smaller chunks (default: 100) */
+    /** Minimum chunk size — discard smaller chunks (default: 80) */
     minChunkSize?: number;
+    /** Force a specific content type (auto-detected if not set) */
+    contentType?: ContentType;
 }
 
 export interface TextChunk {
@@ -32,40 +41,114 @@ export interface TextChunk {
     endPos: number;
     /** Approximate word count */
     wordCount: number;
+    /** Detected content type */
+    contentType: ContentType;
 }
 
 // =============================================
-// Constants
+// Content-Type Profiles
 // =============================================
 
-const DEFAULT_MAX_CHUNK_SIZE = 2000;  // ~500 tokens
-const DEFAULT_OVERLAP = 200;          // ~50 tokens
-const DEFAULT_MIN_CHUNK_SIZE = 100;  // Discard tiny chunks
+interface ChunkProfile {
+    maxChunkSize: number;
+    overlap: number;
+    minChunkSize: number;
+}
+
+const CHUNK_PROFILES: Record<ContentType, ChunkProfile> = {
+    faq: { maxChunkSize: 800, overlap: 0, minChunkSize: 40 },       // Q&A pairs: keep intact, no overlap
+    policy: { maxChunkSize: 1200, overlap: 120, minChunkSize: 80 },  // Precise: small chunks for exact answers
+    manual: { maxChunkSize: 1600, overlap: 150, minChunkSize: 100 }, // Steps: medium chunks for context
+    general: { maxChunkSize: 1400, overlap: 140, minChunkSize: 80 }, // Default: balanced
+};
 
 // Sentence boundary patterns
 const SENTENCE_ENDINGS = /[.!?。！？]\s+/;
 const PARAGRAPH_BREAK = /\n\n+/;
 
+// FAQ detection patterns (Turkish + English)
+const FAQ_PATTERNS = [
+    /^(?:S|Q|Soru|Question)\s*[:：\d]/im,
+    /^(?:C|A|Cevap|Answer)\s*[:：\d]/im,
+    /\?\s*\n/,                    // Question mark followed by newline
+    /^[-•]\s*.+\?\s*$/m,          // Bullet point ending with ?
+    /^#+\s*.+\?/m,                // Markdown heading with ?
+    /sss|faq|sıkça sorulan/i,     // FAQ keywords
+];
+
+// Policy detection patterns
+const POLICY_PATTERNS = [
+    /politika|policy|şartlar|terms|koşullar|conditions/i,
+    /madde\s*\d|article\s*\d/i,
+    /yönetmelik|regulation|prosedür|procedure/i,
+    /hüküm|clause|kural|rule/i,
+    /iade|refund|iptal|cancel/i,
+];
+
+// Manual/instruction detection patterns
+const MANUAL_PATTERNS = [
+    /adım\s*\d|step\s*\d/i,
+    /nasıl|how\s+to/i,
+    /kurulum|installation|ayarla|setup|configure/i,
+    /talimat|instruction|kılavuz|guide|rehber/i,
+    /önce.*sonra|first.*then/i,
+];
+
 // =============================================
-// Chunker
+// Content Type Detection
 // =============================================
 
 /**
- * Split text into overlapping chunks with sentence-aware boundaries.
+ * Detect content type from text for optimal chunking strategy.
+ */
+export function detectContentType(text: string): ContentType {
+    const sampleText = text.slice(0, 3000); // Analyze first 3000 chars
+
+    // Count pattern matches
+    const faqScore = FAQ_PATTERNS.filter(p => p.test(sampleText)).length;
+    const policyScore = POLICY_PATTERNS.filter(p => p.test(sampleText)).length;
+    const manualScore = MANUAL_PATTERNS.filter(p => p.test(sampleText)).length;
+
+    // Check for Q&A structure: lines ending with ? followed by answer text
+    const questionLines = (sampleText.match(/\?\s*\n/g) || []).length;
+    const adjustedFaqScore = faqScore + (questionLines >= 3 ? 2 : 0);
+
+    if (adjustedFaqScore >= 2) return 'faq';
+    if (policyScore >= 2) return 'policy';
+    if (manualScore >= 2) return 'manual';
+
+    return 'general';
+}
+
+// =============================================
+// Main Chunker
+// =============================================
+
+/**
+ * Split text into overlapping chunks with content-type aware boundaries.
  */
 export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
-    const maxSize = options?.maxChunkSize || DEFAULT_MAX_CHUNK_SIZE;
-    const overlap = options?.overlap || DEFAULT_OVERLAP;
-    const minSize = options?.minChunkSize || DEFAULT_MIN_CHUNK_SIZE;
+    const contentType = options?.contentType || detectContentType(text);
+    const profile = CHUNK_PROFILES[contentType];
 
+    const maxSize = options?.maxChunkSize || profile.maxChunkSize;
+    const overlap = options?.overlap ?? profile.overlap;
+    const minSize = options?.minChunkSize || profile.minChunkSize;
+
+    // FAQ content: use specialized Q&A chunker
+    if (contentType === 'faq') {
+        return chunkFAQ(text, maxSize, minSize, contentType);
+    }
+
+    // Single chunk if content is small enough
     if (text.length <= maxSize) {
-        // Document fits in a single chunk
         return [{
             index: 0,
             content: text.trim(),
             startPos: 0,
             endPos: text.length,
             wordCount: countWords(text),
+            contentType,
         }];
     }
 
@@ -85,7 +168,7 @@ export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
         if (trimmed.length > maxSize) {
             // Flush current chunk first
             if (currentChunk.trim().length >= minSize) {
-                chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos));
+                chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos, contentType));
             }
 
             // Split large paragraph by sentences
@@ -95,6 +178,7 @@ export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
                     chunks.length,
                     sc.content,
                     globalPos + sc.startPos,
+                    contentType,
                 ));
             }
 
@@ -105,11 +189,11 @@ export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
         else if (currentChunk.length + trimmed.length + 2 > maxSize) {
             // Save current chunk
             if (currentChunk.trim().length >= minSize) {
-                chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos));
+                chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos, contentType));
             }
 
             // Start new chunk with overlap from previous
-            const overlapText = getOverlapText(currentChunk, overlap);
+            const overlapText = overlap > 0 ? getOverlapText(currentChunk, overlap) : '';
             currentChunk = overlapText + (overlapText ? '\n\n' : '') + trimmed;
             chunkStartPos = globalPos - overlapText.length;
         }
@@ -124,7 +208,101 @@ export function chunkText(text: string, options?: ChunkOptions): TextChunk[] {
 
     // Flush remaining
     if (currentChunk.trim().length >= minSize) {
-        chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos));
+        chunks.push(createChunk(chunks.length, currentChunk.trim(), chunkStartPos, contentType));
+    }
+
+    return chunks;
+}
+
+// =============================================
+// FAQ-Specific Chunker
+// =============================================
+
+/**
+ * Split FAQ content by Q&A pairs, keeping each pair as a single chunk.
+ * Merges small adjacent pairs if they fit within maxSize.
+ */
+function chunkFAQ(text: string, maxSize: number, minSize: number, contentType: ContentType): TextChunk[] {
+    const chunks: TextChunk[] = [];
+
+    // Split by common Q&A separators
+    const pairs = text.split(/(?=^(?:S|Q|Soru|Question)\s*[:：\d]|^(?:[-•]\s*.+\?\s*$)|^(?:#+\s*.+\?))/im)
+        .filter(p => p.trim().length >= minSize);
+
+    if (pairs.length <= 1) {
+        // Fallback: split by double newlines before question marks
+        const fallbackPairs = text.split(/\n\n+(?=.*\?\s*\n)/);
+        if (fallbackPairs.length > 1) {
+            let currentChunk = '';
+            let pos = 0;
+
+            for (const pair of fallbackPairs) {
+                const trimmed = pair.trim();
+                if (!trimmed) continue;
+
+                if (currentChunk.length + trimmed.length + 2 > maxSize && currentChunk.length >= minSize) {
+                    chunks.push(createChunk(chunks.length, currentChunk.trim(), pos - currentChunk.length, contentType));
+                    currentChunk = '';
+                }
+
+                if (currentChunk) currentChunk += '\n\n';
+                currentChunk += trimmed;
+                pos += trimmed.length + 2;
+            }
+
+            if (currentChunk.trim().length >= minSize) {
+                chunks.push(createChunk(chunks.length, currentChunk.trim(), pos - currentChunk.length, contentType));
+            }
+
+            if (chunks.length > 0) return chunks;
+        }
+
+        // Ultimate fallback: use general chunking
+        if (text.trim().length >= minSize) {
+            return [{
+                index: 0,
+                content: text.trim(),
+                startPos: 0,
+                endPos: text.length,
+                wordCount: countWords(text),
+                contentType,
+            }];
+        }
+        return [];
+    }
+
+    // Merge small pairs into larger chunks
+    let currentChunk = '';
+    let pos = 0;
+
+    for (const pair of pairs) {
+        const trimmed = pair.trim();
+        if (!trimmed) continue;
+
+        // If pair alone exceeds maxSize, add it as-is (truncated if needed)
+        if (trimmed.length > maxSize) {
+            if (currentChunk.trim().length >= minSize) {
+                chunks.push(createChunk(chunks.length, currentChunk.trim(), pos - currentChunk.length, contentType));
+                currentChunk = '';
+            }
+            chunks.push(createChunk(chunks.length, trimmed.slice(0, maxSize), pos, contentType));
+            pos += trimmed.length;
+            continue;
+        }
+
+        // Merge small pairs together
+        if (currentChunk.length + trimmed.length + 2 > maxSize && currentChunk.length >= minSize) {
+            chunks.push(createChunk(chunks.length, currentChunk.trim(), pos - currentChunk.length, contentType));
+            currentChunk = '';
+        }
+
+        if (currentChunk) currentChunk += '\n\n';
+        currentChunk += trimmed;
+        pos += trimmed.length + 2;
+    }
+
+    if (currentChunk.trim().length >= minSize) {
+        chunks.push(createChunk(chunks.length, currentChunk.trim(), pos - currentChunk.length, contentType));
     }
 
     return chunks;
@@ -157,7 +335,7 @@ function splitBySentences(
             result.push({ content: current.trim(), startPos });
 
             // Overlap
-            const overlapText = getOverlapText(current, overlap);
+            const overlapText = overlap > 0 ? getOverlapText(current, overlap) : '';
             current = overlapText + ' ' + withEnding;
             startPos = pos - overlapText.length;
         } else {
@@ -189,13 +367,14 @@ function getOverlapText(text: string, overlapSize: number): string {
     return wordStart > 0 ? tail.slice(wordStart + 1) : tail;
 }
 
-function createChunk(index: number, content: string, startPos: number): TextChunk {
+function createChunk(index: number, content: string, startPos: number, contentType: ContentType): TextChunk {
     return {
         index,
         content,
         startPos: Math.max(0, startPos),
         endPos: startPos + content.length,
         wordCount: countWords(content),
+        contentType,
     };
 }
 

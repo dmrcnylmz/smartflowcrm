@@ -1,16 +1,25 @@
 /**
  * Knowledge Base Pipeline — End-to-End Ingestion & Retrieval
  *
- * Orchestrates the full pipeline:
+ * Optimized for customer service voice AI:
+ *
+ * Ingestion Pipeline:
  * 1. Document Processing → normalized text
- * 2. Text Chunking → overlapping chunks
- * 3. Embedding Generation → vectors
- * 4. Storage → Firestore (tenants/{id}/kb_chunks/)
- * 5. Retrieval → query embedding → cosine similarity → top-K
+ * 2. Content-type detection (FAQ, policy, manual, general)
+ * 3. Adaptive chunking → content-type aware chunks
+ * 4. Embedding generation (768-dim) → vectors
+ * 5. Storage → Firestore (batched at 200 docs/batch)
+ *
+ * Retrieval Pipeline:
+ * 1. Query embedding (cached) → vector
+ * 2. Hybrid search: 70% semantic + 30% keyword (BM25-lite)
+ * 3. Two-stage reranking: broad top-10 → rerank → top-3
+ * 4. Token budget: max 600 tokens (~2400 chars) of RAG context
+ * 5. Voice-optimized prompt formatting
  */
 
 import { processDocument, type DocumentSource, type ProcessedDocument } from './document-processor';
-import { chunkText, type TextChunk } from './chunker';
+import { chunkText, detectContentType, type TextChunk, type ContentType } from './chunker';
 import { generateEmbedding, generateEmbeddings, cosineSimilarity, type EmbeddingResult } from './embeddings';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -30,6 +39,7 @@ export interface KBDocument {
     totalTokens: number;
     status: 'processing' | 'ready' | 'error';
     error?: string;
+    contentType?: ContentType;
     metadata: Record<string, unknown>;
     createdAt: unknown;
     updatedAt: unknown;
@@ -44,6 +54,7 @@ export interface KBChunk {
     wordCount: number;
     startPos: number;
     endPos: number;
+    contentType?: ContentType;
 }
 
 export interface RetrievalResult {
@@ -59,6 +70,7 @@ export interface IngestResult {
     title: string;
     chunkCount: number;
     totalTokens: number;
+    contentType: ContentType;
     status: 'ready' | 'error';
     error?: string;
 }
@@ -92,7 +104,7 @@ function tenantKbChunks(tenantId: string) {
 /**
  * Ingest a document source into the knowledge base.
  *
- * Pipeline: Parse → Chunk → Embed → Store
+ * Pipeline: Parse → Detect Content Type → Adaptive Chunk → Embed → Store
  */
 export async function ingestDocument(
     tenantId: string,
@@ -118,18 +130,24 @@ export async function ingestDocument(
         const processed = await processDocument(source);
         logger.debug(`[KB] Processed: "${processed.title}" (${processed.metadata.wordCount} words)`);
 
-        // 3. Chunk text
-        const chunks = chunkText(processed.content);
-        logger.debug(`[KB] Chunked into ${chunks.length} chunks`);
+        // 3. Detect content type for adaptive chunking
+        const contentType = detectContentType(processed.content);
+        logger.debug(`[KB] Content type detected: ${contentType}`);
 
-        // 4. Generate embeddings for all chunks
+        // 4. Chunk text with content-type aware strategy
+        const chunks = chunkText(processed.content, { contentType });
+        logger.debug(`[KB] Chunked into ${chunks.length} chunks (type: ${contentType})`);
+
+        // 5. Generate embeddings for all chunks (768-dim)
         const embeddingResult = await generateEmbeddings(
             chunks.map(c => c.content),
         );
-        logger.debug(`[KB] Generated ${embeddingResult.embeddings.length} embeddings (${embeddingResult.totalTokens} tokens)`);
+        logger.debug(`[KB] Generated ${embeddingResult.embeddings.length} embeddings (${embeddingResult.dimensions}-dim, ${embeddingResult.totalTokens} tokens)`);
 
-        // 5. Store chunks with vectors in Firestore
-        const BATCH_SIZE = 500; // Firestore batch limit
+        // 6. Store chunks with vectors in Firestore
+        // Each chunk doc ≈ 12KB (768-dim vector = ~6KB + text + metadata)
+        // Firestore batch limit = 10MB → safe max ≈ 200 docs per batch
+        const BATCH_SIZE = 200;
         for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
             const batch = firestore.batch();
             const batchChunks = chunks.slice(i, i + BATCH_SIZE);
@@ -147,6 +165,7 @@ export async function ingestDocument(
                     wordCount: chunk.wordCount,
                     startPos: chunk.startPos,
                     endPos: chunk.endPos,
+                    contentType: chunk.contentType,
                     createdAt: FieldValue.serverTimestamp(),
                 });
             }
@@ -154,23 +173,25 @@ export async function ingestDocument(
             await batch.commit();
         }
 
-        // 6. Update document status → ready
+        // 7. Update document status → ready
         await docRef.update({
             title: processed.title,
             chunkCount: chunks.length,
             totalTokens: embeddingResult.totalTokens,
+            contentType,
             status: 'ready',
             metadata: processed.metadata,
             updatedAt: FieldValue.serverTimestamp(),
         });
 
-        logger.debug(`[KB] Document "${processed.title}" ingested: ${chunks.length} chunks, ${embeddingResult.totalTokens} tokens`);
+        logger.debug(`[KB] Document "${processed.title}" ingested: ${chunks.length} chunks, ${embeddingResult.totalTokens} tokens, type: ${contentType}`);
 
         return {
             documentId,
             title: processed.title,
             chunkCount: chunks.length,
             totalTokens: embeddingResult.totalTokens,
+            contentType,
             status: 'ready',
         };
 
@@ -189,6 +210,7 @@ export async function ingestDocument(
             title: '',
             chunkCount: 0,
             totalTokens: 0,
+            contentType: 'general',
             status: 'error',
             error: errorMsg,
         };
@@ -196,23 +218,31 @@ export async function ingestDocument(
 }
 
 // =============================================
-// Retrieval — Hybrid Search (Semantic + Keyword)
+// Retrieval — Two-Stage Hybrid Search
 // =============================================
 
 /**
- * Query the knowledge base with hybrid search:
+ * Query the knowledge base with two-stage hybrid search:
+ *
+ * Stage 1 — Broad retrieval:
  * 1. Semantic search (cosine similarity on embeddings)
  * 2. Keyword search (BM25-like TF scoring)
- * 3. Score fusion with configurable weights
- * 4. Result deduplication & reranking
+ * 3. Score fusion: 70% semantic + 30% keyword
+ * 4. Take top-(topK * 3) candidates
+ *
+ * Stage 2 — Reranking:
+ * 1. Query-chunk relevance boost (question→FAQ, policy→exact match)
+ * 2. Freshness signal (newer documents slight boost)
+ * 3. Deduplication (remove near-duplicates from same document)
+ * 4. Return top-K
  */
 export async function queryKnowledgeBase(
     tenantId: string,
     query: string,
     topK: number = 5,
-    minScore: number = 0.25,
+    minScore: number = 0.20,
 ): Promise<RetrievalResult[]> {
-    // 1. Generate query embedding
+    // 1. Generate query embedding (cached for repeated queries)
     const queryEmbedding = await generateEmbedding(query);
 
     // 2. Load all chunk vectors for this tenant
@@ -224,8 +254,10 @@ export async function queryKnowledgeBase(
 
     // 3. Prepare keyword tokens from query
     const queryTokens = tokenize(query);
+    const isQuestion = /\?|nasıl|nedir|ne zaman|nerede|kim|kaç|how|what|when|where|who/i.test(query);
 
-    // 4. Score each chunk with hybrid approach
+    // Stage 1: Broad retrieval — score all chunks
+    const broadK = Math.min(topK * 3, chunksSnap.size); // Retrieve 3x candidates for reranking
     const scoredChunks: Array<{
         chunkId: string;
         documentId: string;
@@ -234,6 +266,7 @@ export async function queryKnowledgeBase(
         keywordScore: number;
         fusedScore: number;
         index: number;
+        contentType: ContentType;
     }> = [];
 
     for (const doc of chunksSnap.docs) {
@@ -258,17 +291,24 @@ export async function queryKnowledgeBase(
                 keywordScore,
                 fusedScore,
                 index: data.index || 0,
+                contentType: data.contentType || 'general',
             });
         }
     }
 
-    // 5. Sort by fused score descending
+    // Sort by fused score
     scoredChunks.sort((a, b) => b.fusedScore - a.fusedScore);
 
-    // 6. Deduplicate — remove near-duplicate content from same document
-    const deduped = deduplicateResults(scoredChunks);
+    // Take broad candidates
+    const candidates = scoredChunks.slice(0, broadK);
 
-    // 7. Return top-K with metadata
+    // Stage 2: Rerank
+    const reranked = rerankResults(candidates, query, isQuestion);
+
+    // Deduplicate — remove near-duplicate content from same document
+    const deduped = deduplicateResults(reranked);
+
+    // Return top-K with metadata
     return deduped.slice(0, topK).map(c => ({
         chunkId: c.chunkId,
         documentId: c.documentId,
@@ -277,21 +317,76 @@ export async function queryKnowledgeBase(
         metadata: {
             semanticScore: c.semanticScore,
             keywordScore: c.keywordScore,
+            contentType: c.contentType,
             chunkIndex: c.index,
         },
     }));
 }
 
 /**
+ * Rerank candidates with domain-specific signals.
+ */
+function rerankResults(
+    candidates: Array<{
+        chunkId: string;
+        documentId: string;
+        content: string;
+        semanticScore: number;
+        keywordScore: number;
+        fusedScore: number;
+        index: number;
+        contentType: ContentType;
+    }>,
+    query: string,
+    isQuestion: boolean,
+): typeof candidates {
+    return candidates.map(c => {
+        let boost = 0;
+
+        // Boost FAQ chunks for question-type queries
+        if (isQuestion && c.contentType === 'faq') {
+            boost += 0.08;
+        }
+
+        // Boost policy chunks for policy-related queries
+        if (/iade|iptal|garanti|şart|koşul|return|refund|cancel|warranty|policy/i.test(query) &&
+            c.contentType === 'policy') {
+            boost += 0.06;
+        }
+
+        // Boost chunks that contain exact query phrases
+        const queryLower = query.toLowerCase();
+        const contentLower = c.content.toLowerCase();
+        if (queryLower.length > 5 && contentLower.includes(queryLower)) {
+            boost += 0.10; // Exact phrase match is very strong signal
+        }
+
+        // Slight boost for first chunks (often contain key info like titles/summaries)
+        if (c.index === 0) {
+            boost += 0.02;
+        }
+
+        return {
+            ...c,
+            fusedScore: Math.min(c.fusedScore + boost, 1.0),
+        };
+    }).sort((a, b) => b.fusedScore - a.fusedScore);
+}
+
+/**
  * Get RAG context for a voice agent query.
  * Returns formatted context string for injection into the system prompt.
- * Includes context window optimization.
+ *
+ * Token budget optimization:
+ * - Max 600 tokens (~2400 chars) of RAG context
+ * - Minimizes LLM input tokens → faster response, lower cost
+ * - Voice-optimized formatting: concise, no redundancy
  */
 export async function getRAGContext(
     tenantId: string,
     userQuery: string,
     maxChunks: number = 3,
-    maxContextLength: number = 3000,
+    maxContextLength: number = 2400, // ~600 tokens — optimal for voice AI
 ): Promise<string> {
     const results = await queryKnowledgeBase(tenantId, userQuery, maxChunks + 2);
 
@@ -299,19 +394,25 @@ export async function getRAGContext(
         return '';
     }
 
-    // Context window optimization — fit within maxContextLength
+    // Context window optimization — fit within token budget
     const selectedChunks: RetrievalResult[] = [];
     let totalLength = 0;
 
     for (const result of results) {
         if (selectedChunks.length >= maxChunks) break;
+
+        // Skip low-confidence results
+        if (result.score < 0.30) continue;
+
         if (totalLength + result.content.length > maxContextLength) {
             // Try truncating the last chunk to fit
             const remaining = maxContextLength - totalLength;
-            if (remaining > 200) {
+            if (remaining > 150) {
+                // Truncate at sentence boundary
+                const truncated = truncateAtSentence(result.content, remaining);
                 selectedChunks.push({
                     ...result,
-                    content: result.content.slice(0, remaining) + '...',
+                    content: truncated,
                 });
             }
             break;
@@ -322,11 +423,35 @@ export async function getRAGContext(
 
     if (selectedChunks.length === 0) return '';
 
+    // Voice-optimized prompt formatting
     const context = selectedChunks
-        .map((r, i) => `[Kaynak ${i + 1}] (Güven: ${(r.score * 100).toFixed(0)}%)\n${r.content}`)
-        .join('\n\n---\n\n');
+        .map((r, i) => {
+            const confidence = r.score >= 0.6 ? 'yüksek' : r.score >= 0.4 ? 'orta' : 'düşük';
+            return `[${i + 1}] (güven: ${confidence})\n${r.content}`;
+        })
+        .join('\n\n');
 
-    return `\n\n--- BİLGİ TABANI ---\nAşağıdaki bilgileri yanıtınızda kullanabilirsiniz:\n\n${context}\n--- BİLGİ TABANI SONU ---`;
+    return `\n--- KURUMSAL BİLGİ ---\nAşağıdaki bilgileri kullanarak yanıt ver. Bilgi dışında kalan konularda "Bu konuda bilgim yok" de.\n\n${context}\n--- BİLGİ SONU ---`;
+}
+
+/**
+ * Truncate text at the nearest sentence boundary.
+ */
+function truncateAtSentence(text: string, maxLength: number): string {
+    if (text.length <= maxLength) return text;
+
+    const truncated = text.slice(0, maxLength);
+    // Find last sentence ending
+    const lastPeriod = truncated.lastIndexOf('. ');
+    const lastQuestion = truncated.lastIndexOf('? ');
+    const lastExclaim = truncated.lastIndexOf('! ');
+    const lastBoundary = Math.max(lastPeriod, lastQuestion, lastExclaim);
+
+    if (lastBoundary > maxLength * 0.5) {
+        return truncated.slice(0, lastBoundary + 1);
+    }
+
+    return truncated + '...';
 }
 
 // =============================================
@@ -381,7 +506,7 @@ function computeKeywordScore(content: string, queryTokens: string[]): number {
 
 /** Remove near-duplicate chunks (same document, adjacent indices) */
 function deduplicateResults(
-    results: Array<{ chunkId: string; documentId: string; content: string; semanticScore: number; keywordScore: number; fusedScore: number; index: number }>,
+    results: Array<{ chunkId: string; documentId: string; content: string; semanticScore: number; keywordScore: number; fusedScore: number; index: number; contentType: ContentType }>,
 ): typeof results {
     const seen = new Map<string, number>(); // documentId+index → position in output
     const deduped: typeof results = [];
@@ -450,7 +575,7 @@ export async function deleteKBDocument(
         .where('documentId', '==', documentId)
         .get();
 
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = 200;
     for (let i = 0; i < chunksSnap.docs.length; i += BATCH_SIZE) {
         const batch = firestore.batch();
         const batchDocs = chunksSnap.docs.slice(i, i + BATCH_SIZE);

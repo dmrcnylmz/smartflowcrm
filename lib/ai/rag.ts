@@ -23,8 +23,8 @@ export interface RAGResult {
 
 const DEFAULT_CONFIG: RAGConfig = {
   topK: 3,
-  minSimilarity: 0.7,
-  maxTokens: 1500,
+  minSimilarity: 0.3,
+  maxTokens: 600, // Optimized: ~2400 chars, minimal LLM input for fast voice responses
 };
 
 /**
@@ -89,12 +89,11 @@ export function buildAugmentedPrompt(
   }
 
   const contextSection = `
-İlgili bilgi bankası içeriği:
----
+--- KURUMSAL BİLGİ ---
 ${ragContext}
----
+--- BİLGİ SONU ---
 
-Yukarıdaki bilgileri kullanarak müşterinin sorusunu yanıtla.`;
+Yukarıdaki bilgileri kullanarak müşterinin sorusunu kısa ve öz yanıtla. Bilgi dışında kalan konularda "Bu konuda bilgim yok" de.`;
 
   return `${systemPrompt ? systemPrompt + '\n\n' : ''}${contextSection}\n\nMüşteri: ${userMessage}`;
 }
@@ -180,10 +179,10 @@ export async function generateAnswerWithRAG(
         : 'Bu soru hakkında bilgi bankasında yeterli veri bulunamadı. Lütfen bir müşteri temsilcisiyle iletişime geçin.';
     }
 
-    // 2. Select chunks that fit within context window
+    // 2. Select chunks that fit within token budget (~600 tokens = ~2400 chars)
     const selectedResults: RetrievalResult[] = [];
     let totalLength = 0;
-    const maxContextLength = 3000;
+    const maxContextLength = 2400;
 
     for (const result of results) {
       if (selectedResults.length >= maxChunks) break;
