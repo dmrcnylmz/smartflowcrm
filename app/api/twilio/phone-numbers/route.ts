@@ -16,6 +16,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { registerPhoneNumber } from '@/lib/twilio/telephony';
 import { configurePhoneWebhooks } from '@/lib/twilio/subaccounts';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getAppUrl } from '@/lib/utils/get-app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
         // Determine webhook base URL
         const host = request.headers.get('host') || '';
         const protocol = host.includes('localhost') ? 'http' : 'https';
-        const webhookBaseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+        const webhookBaseUrl = getAppUrl();
 
         // Load tenant's Twilio config (subaccount credentials)
         const tenantDoc = await getDb().collection('tenants').doc(tenantId).get();

@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getAppUrl } from '@/lib/utils/get-app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
 
                     if (res.ok) {
                         const numData = await res.json();
-                        const expectedUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/twilio/incoming`;
+                        const expectedUrl = `${getAppUrl()}/api/twilio/incoming`;
                         const voiceUrl = numData.voice_url || '';
 
                         if (voiceUrl.includes('/api/twilio/incoming')) {

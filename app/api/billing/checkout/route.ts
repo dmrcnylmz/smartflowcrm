@@ -22,6 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCheckout, PLANS, type BillingInterval } from '@/lib/billing/lemonsqueezy';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getAppUrl } from '@/lib/utils/get-app-url';
 import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
@@ -71,8 +72,8 @@ export async function POST(request: NextRequest) {
 
         const { planId, billingInterval } = parsed.data;
 
-        // Build redirect URL
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        // Build redirect URL (runtime read — avoids Next.js build-time inlining)
+        const appUrl = getAppUrl();
         const redirectUrl = `${appUrl}/billing?payment=success&plan=${planId}&interval=${billingInterval}`;
 
         // Create Lemon Squeezy checkout

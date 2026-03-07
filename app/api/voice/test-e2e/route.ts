@@ -10,6 +10,7 @@ import { detectIntentFast } from '@/lib/ai/intent-fast';
 import { openaiCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker, gpuCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { inferCache } from '@/lib/voice/response-cache';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getAppUrl } from '@/lib/utils/get-app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ export async function GET() {
     // Test 1: Health endpoint
     const t1 = performance.now();
     try {
-        const healthRes = await fetch(new URL('/api/voice/health', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3009'));
+        const healthRes = await fetch(new URL('/api/voice/health', getAppUrl()));
         const health = await healthRes.json();
         results.push({
             name: 'Health Endpoint',

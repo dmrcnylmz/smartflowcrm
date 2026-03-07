@@ -15,6 +15,7 @@
 
 import { NextResponse } from 'next/server';
 import { metricsLogger } from '@/lib/billing/metrics-logger';
+import { getAppUrlDiagnostics } from '@/lib/utils/get-app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -214,20 +215,16 @@ export async function GET() {
 
     // ─── 6. Production URL Check ────────────────────────────────────────
 
-    const explicitAppUrl = process.env.NEXT_PUBLIC_APP_URL;
-    const vercelUrl = process.env.VERCEL_URL;
-    const appUrl = explicitAppUrl || vercelUrl;
-    const isExplicit = !!explicitAppUrl;
+    const { url: appUrl, source: appUrlSource } = getAppUrlDiagnostics();
+    const isProduction = appUrlSource === 'NEXT_PUBLIC_APP_URL' && !appUrl.includes('localhost');
 
     checks.push({
         name: 'config:app_url',
-        status: isExplicit && !explicitAppUrl.includes('localhost') ? 'ok' : 'warning',
-        detail: isExplicit
-            ? (explicitAppUrl.includes('localhost')
-                ? `Still localhost: ${explicitAppUrl}`
-                : `Production: ${explicitAppUrl}`)
-            : (vercelUrl
-                ? `⚠️ NEXT_PUBLIC_APP_URL not set — falling back to VERCEL_URL: ${vercelUrl}`
+        status: isProduction ? 'ok' : 'warning',
+        detail: appUrlSource === 'NEXT_PUBLIC_APP_URL'
+            ? (appUrl.includes('localhost') ? `Still localhost: ${appUrl}` : `Production: ${appUrl}`)
+            : (appUrlSource === 'VERCEL_URL'
+                ? `⚠️ NEXT_PUBLIC_APP_URL not set — falling back to VERCEL_URL: ${appUrl}`
                 : 'NEXT_PUBLIC_APP_URL not set'),
         critical: false,
     });

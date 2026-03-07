@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { getAppUrl } from '@/lib/utils/get-app-url';
 
 export const dynamic = 'force-dynamic';
 
@@ -300,7 +301,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             hooks: AUTOMATION_HOOKS,
             configured: configuredWebhooks,
-            n8nWebhookUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://yourdomain.com'}/api/automation`,
+            n8nWebhookUrl: `${getAppUrl()}/api/automation`,
             documentation: {
                 auth: 'Set x-api-key header or x-user-tenant header',
                 format: 'POST JSON with { action: "action_name", payload: { ... } }',
