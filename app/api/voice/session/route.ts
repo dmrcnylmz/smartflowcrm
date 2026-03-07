@@ -184,6 +184,27 @@ export async function POST(request: NextRequest) {
             voiceMetrics: metrics,
         });
 
+        // Fire-and-forget: Create auto-feedback from session metrics
+        // Sentiment data and RAG quality tracked for quality monitoring
+        if (callLog.id && body.tenantId) {
+            try {
+                const { createAutoFeedback } = await import('@/lib/voice/feedback');
+                // Use average sentiment from metrics if available, default to neutral (0.1)
+                const avgSentiment = typeof metrics?.averageSentiment === 'number'
+                    ? metrics.averageSentiment
+                    : 0.1;
+                createAutoFeedback(
+                    body.tenantId,
+                    callLog.id,
+                    avgSentiment,
+                    metrics?.ragChunkIds,
+                    metrics?.ragScores,
+                ).catch(() => {}); // Silent
+            } catch {
+                // Auto-feedback setup failed — non-blocking
+            }
+        }
+
         return NextResponse.json({
             success: true,
             callLogId: callLog.id,

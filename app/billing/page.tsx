@@ -20,6 +20,10 @@ const VoiceAnalyticsCharts = nextDynamic(() => import('@/components/dashboard/Vo
     ssr: false,
     loading: () => <div className="h-[400px] animate-pulse rounded-3xl bg-muted" />,
 });
+const LatencyBreakdownChart = nextDynamic(() => import('@/components/dashboard/LatencyBreakdownChart'), {
+    ssr: false,
+    loading: () => <div className="h-[300px] animate-pulse rounded-3xl bg-muted" />,
+});
 import EmergencyModeCard from '@/components/billing/EmergencyModeCard';
 import VoicePipelineStats from '@/components/billing/VoicePipelineStats';
 
@@ -1023,6 +1027,15 @@ function BillingPageContent() {
                         providerData={pipelineData?.providers || { stt: {}, llm: {}, tts: {} }}
                         isLoading={pipelineLoading}
                     />
+
+                    {/* Pipeline Latency Breakdown (TTFT + Component Timing) */}
+                    <div className="mt-6">
+                        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-pink-400" />
+                            Pipeline Performans Analizi
+                        </h3>
+                        <LatencyBreakdownChart days={7} />
+                    </div>
                 </div>
             )}
 

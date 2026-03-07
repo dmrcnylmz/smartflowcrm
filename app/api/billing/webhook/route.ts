@@ -40,6 +40,7 @@ import {
     getPlanIdFromVariantId,
     type LsWebhookPayload,
 } from '@/lib/billing/lemonsqueezy';
+import { sendWelcomeEmail } from '@/lib/notifications/email-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -208,6 +209,16 @@ async function handleSubscriptionCreated(
         variantName: attrs.variant_name,
         testMode: attrs.test_mode,
     });
+
+    // Fire-and-forget welcome email — never blocks webhook response
+    if (attrs.user_email) {
+        sendWelcomeEmail({
+            userName: attrs.user_name || 'Değerli Müşterimiz',
+            userEmail: attrs.user_email,
+            companyName: customData?.company_name || attrs.user_name || 'İşletmeniz',
+            dashboardUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://callception.com'}`,
+        }).catch(err => billingLogger.error('Welcome email failed', { error: err as Error }));
+    }
 }
 
 /**

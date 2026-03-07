@@ -14,6 +14,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
+import { applyPersonalityPreset, getActivePreset, type PersonalityPresetKey } from '@/lib/agents/personality-presets';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,18 +65,43 @@ export async function POST(request: NextRequest) {
         const validation = requireFields(body, ['name', 'systemPrompt']);
         if (validation) return errorResponse(validation);
 
-        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive, templateId, templateColor } = body;
+        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive, templateId, templateColor, personalityPreset } = body;
+
+        let finalSystemPrompt = systemPrompt;
+        let finalVoiceConfig = voiceConfig || {};
+        let activePreset: PersonalityPresetKey | null = null;
+
+        // Apply personality preset if specified
+        if (personalityPreset && typeof personalityPreset === 'string') {
+            try {
+                const presetResult = applyPersonalityPreset(
+                    { systemPrompt, voiceConfig: voiceConfig || { style: 'professional', temperature: 0.7, maxTokens: 512, language: 'tr' } },
+                    personalityPreset as PersonalityPresetKey,
+                );
+                finalSystemPrompt = presetResult.systemPrompt;
+                finalVoiceConfig = presetResult.voiceConfig;
+                activePreset = presetResult.personalityPreset;
+            } catch {
+                // Invalid preset key — ignore, use raw systemPrompt
+            }
+        } else {
+            // Detect active preset from existing systemPrompt for metadata
+            activePreset = getActivePreset(systemPrompt);
+        }
 
         const agentData: Record<string, unknown> = {
             name,
             role: role || 'assistant',
-            systemPrompt,
+            systemPrompt: finalSystemPrompt,
             variables: variables || [],
-            voiceConfig: voiceConfig || {},
+            voiceConfig: finalVoiceConfig,
             fallbackRules: fallbackRules || [],
             isActive: isActive ?? true,
             updatedAt: FieldValue.serverTimestamp(),
         };
+
+        // Store active personality preset for UI reference
+        if (activePreset) agentData.personalityPreset = activePreset;
 
         // Optional template metadata
         if (templateId !== undefined) agentData.templateId = templateId;

@@ -210,6 +210,14 @@ export interface SessionMetrics {
     cacheHits?: number;
     /** Phase A: cache misses */
     cacheMisses?: number;
+    /** Time to First Token — ms from user input received to first TTS byte sent */
+    ttftMs?: number;
+    /** RAG retrieval latency per turn (ms) */
+    ragRetrievalMs?: number[];
+    /** Pipeline start timestamp (ms) — for TTFT calculation */
+    pipelineStartMs?: number;
+    /** Average conversation sentiment score (-1.0 to +1.0) */
+    averageSentiment?: number;
 }
 
 // --- Default Tenant (Development) ---

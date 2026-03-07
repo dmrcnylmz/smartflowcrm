@@ -10,6 +10,10 @@
 import { openaiCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { generateGroqResponse, isGroqConfigured } from '@/lib/ai/groq-client';
 import { generateGeminiResponse, isGeminiConfigured } from '@/lib/ai/gemini-client';
+import { initLLMCircuitAlerts } from '@/lib/ai/llm-circuit-alerts';
+
+// Wire circuit breaker state changes to Slack/Telegram alerts (idempotent)
+initLLMCircuitAlerts();
 
 interface ChatMessage {
     role: 'system' | 'user' | 'assistant';

@@ -8,9 +8,68 @@ import {
   getTenantFromRequest,
   Timestamp,
 } from '@/lib/firebase/admin-db';
+import { initAdmin } from '@/lib/auth/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
+
+// ─── Firestore for idempotency checks ────────────────────────────────────────
+
+let db: FirebaseFirestore.Firestore | null = null;
+function getDb() {
+    if (!db) { initAdmin(); db = getFirestore(); }
+    return db;
+}
+
+// Idempotency TTL: 24 hours (in ms)
+const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Check if a call with the given idempotency key has already been processed.
+ * Returns the existing callLogId if duplicate, null otherwise.
+ */
+async function checkIdempotency(
+    tenantId: string,
+    idempotencyKey: string,
+): Promise<string | null> {
+    const docRef = getDb()
+        .collection('tenants').doc(tenantId)
+        .collection('call_idempotency').doc(idempotencyKey);
+
+    const doc = await docRef.get();
+    if (!doc.exists) return null;
+
+    const data = doc.data();
+    // Check TTL — expired entries are treated as non-existent
+    if (data?.expiresAt && data.expiresAt < Date.now()) {
+        // Expired, clean up asynchronously
+        docRef.delete().catch(() => {});
+        return null;
+    }
+
+    return data?.callLogId || null;
+}
+
+/**
+ * Record an idempotency key after successful call log creation.
+ */
+async function recordIdempotency(
+    tenantId: string,
+    idempotencyKey: string,
+    callLogId: string,
+): Promise<void> {
+    await getDb()
+        .collection('tenants').doc(tenantId)
+        .collection('call_idempotency').doc(idempotencyKey)
+        .set({
+            callLogId,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + IDEMPOTENCY_TTL_MS,
+        });
+}
+
+// ─── POST Handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +87,26 @@ export async function POST(request: NextRequest) {
         { error: 'tenantId is required in request body for webhook calls' },
         { status: 400 },
       );
+    }
+
+    // ── Idempotency check ──────────────────────────────────────────────────
+    // Use Twilio CallSid as natural idempotency key, or explicit idempotencyKey
+    const idempotencyKey = body.callSid || body.idempotencyKey || null;
+
+    if (idempotencyKey) {
+      const existingCallLogId = await checkIdempotency(tenantId, idempotencyKey);
+      if (existingCallLogId) {
+        // Duplicate request — return success without creating new records
+        return NextResponse.json(
+          {
+            success: true,
+            duplicate: true,
+            callLogId: existingCallLogId,
+            message: 'Call already logged (duplicate webhook)',
+          },
+          { status: 200 },
+        );
+      }
     }
 
     const {
@@ -73,6 +152,11 @@ export async function POST(request: NextRequest) {
       description: `${direction === 'inbound' ? 'Gelen' : 'Giden'} arama: ${customer.name} (${customerPhone})`,
       relatedId: callLog.id,
     });
+
+    // Record idempotency key for future duplicate detection
+    if (idempotencyKey) {
+      recordIdempotency(tenantId, idempotencyKey, callLog.id).catch(() => {});
+    }
 
     return NextResponse.json(
       {

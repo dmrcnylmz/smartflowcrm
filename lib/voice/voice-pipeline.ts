@@ -105,6 +105,7 @@ export class VoicePipeline extends EventEmitter {
                 shortcutCount: 0,
                 cacheHits: 0,
                 cacheMisses: 0,
+                ragRetrievalMs: [],
             },
         };
     }
@@ -230,8 +231,14 @@ export class VoicePipeline extends EventEmitter {
                 return;
             }
 
-            // 1. RAG Retrieval
+            // 1. RAG Retrieval (with latency tracking)
+            const ragStart = Date.now();
             const ragResults = await this.vectorStore.search(this.session.tenantId, userText);
+            const ragLatency = Date.now() - ragStart;
+            if (this.session.metrics.ragRetrievalMs) {
+                this.session.metrics.ragRetrievalMs.push(ragLatency);
+            }
+            this.emit('latency', { stage: 'rag', ms: ragLatency });
 
             const ragContexts: RAGContext[] = ragResults.map(r => ({
                 text: r.text,
@@ -285,14 +292,24 @@ export class VoicePipeline extends EventEmitter {
                 }
             });
 
-            // 5. Stream tokens to TTS (parallel)
+            // 5. Stream tokens to TTS (parallel) — track TTFT on first audio chunk
             const ttsStart = Date.now();
+            let ttftRecorded = false;
 
             for await (const audioChunk of this.tts.streamTokens(ttsTokens, {
                 voiceId: this.tenant.voice.voiceId,
                 language: this.session.language,
             })) {
                 if (this.isBargingIn) break; // Stop TTS on barge-in
+
+                // Record TTFT on first audio chunk (user input → first spoken byte)
+                if (!ttftRecorded) {
+                    const ttft = Date.now() - llmStart;
+                    this.session.metrics.ttftMs = ttft;
+                    this.emit('latency', { stage: 'ttft', ms: ttft });
+                    ttftRecorded = true;
+                }
+
                 this.emit('audioOut', audioChunk);
             }
 
