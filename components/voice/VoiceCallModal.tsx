@@ -45,11 +45,14 @@ interface SpeechRecognitionInstance extends EventTarget {
     lang: string;
     continuous: boolean;
     interimResults: boolean;
+    maxAlternatives: number;
     start(): void;
     stop(): void;
+    abort(): void;
     onresult: ((event: SpeechRecognitionEvent) => void) | null;
     onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
     onend: (() => void) | null;
+    onspeechend: (() => void) | null;
 }
 interface SpeechRecognitionConstructor {
     new(): SpeechRecognitionInstance;
@@ -608,6 +611,7 @@ export function VoiceCallModal({
             recognition.lang = language === 'tr' ? 'tr-TR' : 'en-US';
             recognition.continuous = true;
             recognition.interimResults = true;
+            recognition.maxAlternatives = 1; // Best result only — reduces noise
 
             // Track recognition state to prevent race conditions on restart
             let isRecognitionActive = false;
@@ -735,8 +739,32 @@ export function VoiceCallModal({
                     console.warn('[STT:Browser] Network error — will retry on next onend');
                     return;
                 }
+                if (errEvent.error === 'audio-capture') {
+                    // Microphone was disconnected or became unavailable
+                    console.warn('[STT:Browser] Audio capture failed — mic may be disconnected');
+                    setError(language === 'tr'
+                        ? 'Mikrofon bağlantısı kesildi. Lütfen mikrofonu kontrol edin.'
+                        : 'Microphone disconnected. Please check your microphone.');
+                    return;
+                }
+                if (errEvent.error === 'not-allowed') {
+                    setError(language === 'tr'
+                        ? 'Mikrofon izni reddedildi. Tarayıcı ayarlarından izin verin.'
+                        : 'Microphone permission denied. Please allow access in browser settings.');
+                    return;
+                }
+                if (errEvent.error === 'language-not-supported') {
+                    console.warn('[STT:Browser] Language not supported:', recognition.lang);
+                    // Try with base language code as fallback
+                    if (recognition.lang === 'tr-TR') {
+                        recognition.lang = 'tr';
+                    }
+                    return;
+                }
                 // Genuine error — show to user
-                setError(`Ses tanıma hatası: ${errEvent.error}`);
+                setError(language === 'tr'
+                    ? `Ses tanıma hatası: ${errEvent.error}`
+                    : `Speech recognition error: ${errEvent.error}`);
             };
 
             recognition.onend = () => {

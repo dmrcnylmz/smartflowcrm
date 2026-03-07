@@ -37,6 +37,7 @@ const conversationStore = new Map<string, {
     messages: ConversationEntry[];
     lastActivity: number;
     turnCount: number;
+    language: string; // Track session language to detect switches
 }>();
 
 // Auto-cleanup sessions older than 30 minutes
@@ -70,9 +71,10 @@ if (typeof setInterval !== 'undefined') {
 }
 
 // =============================================
-// CRM System Prompt (Turkish AI Receptionist)
+// CRM System Prompts (Language-Aware)
 // =============================================
-const SYSTEM_PROMPT = `Sen Callception'ın AI resepsiyonistisin. Adın Ayşe.
+const SYSTEM_PROMPTS = {
+    tr: `Sen Callception'ın AI resepsiyonistisin. Adın Ayşe.
 
 DİL KURALI (KESİNLİKLE UYULMALI):
 - SADECE Türkçe yanıt ver. Başka hiçbir dilde (İngilizce, Çince, Arapça vb.) kelime veya karakter KULLANMA.
@@ -100,7 +102,42 @@ Her yanıtının sonuna aşağıdaki intent etiketini ekle (tek satırda):
 
 Örnek:
 "Merhaba! Callception'a hos geldiniz, ben Ayse. Size nasil yardimci olabilirim? [INTENT:greeting CONFIDENCE:0.95]"
-"Randevunuzu aldim. Hangi gun ve saat uygun olur? [INTENT:appointment CONFIDENCE:0.9]"`;
+"Randevunuzu aldim. Hangi gun ve saat uygun olur? [INTENT:appointment CONFIDENCE:0.9]"`,
+
+    en: `You are Callception's AI receptionist. Your name is Ayse.
+
+LANGUAGE RULE (MUST BE FOLLOWED STRICTLY):
+- ONLY respond in English. Do NOT use any other language (Turkish, Chinese, Arabic, etc.).
+- All your responses must be in English using the Latin alphabet only.
+- This rule applies to every single response without exception.
+
+TASKS:
+1. Greet customers warmly and professionally
+2. Take appointment requests (ask for date, time, subject)
+3. Listen to complaints, ask for details, suggest solutions
+4. Answer information requests
+5. Handle cancellation/change requests
+
+RULES:
+- Always give short and concise responses (maximum 2 sentences)
+- Be natural and friendly, do not sound robotic
+- Show that you understand what the customer is saying
+- Do not forget to ask for necessary information (name, date, details, etc.)
+- Follow the conversation, remember previous messages
+- Do NOT use emojis, special characters, or non-Latin characters in your response
+
+RESPONSE FORMAT:
+Add the following intent tag at the end of each response (on a single line):
+[INTENT:appointment|complaint|info_request|cancellation|greeting|unknown CONFIDENCE:0.0-1.0]
+
+Examples:
+"Hello! Welcome to Callception, I'm Ayse. How can I help you today? [INTENT:greeting CONFIDENCE:0.95]"
+"I've noted your appointment request. What day and time works best for you? [INTENT:appointment CONFIDENCE:0.9]"`,
+} as const;
+
+function getSystemPrompt(language: string): string {
+    return SYSTEM_PROMPTS[language === 'en' ? 'en' : 'tr'];
+}
 
 // =============================================
 // Output Language Sanitizer
@@ -144,23 +181,26 @@ function parseIntentFromResponse(text: string): {
         };
     }
 
-    // Fallback: basic keyword intent detection
+    // Fallback: basic keyword intent detection (supports both TR and EN)
     const lower = sanitized.toLowerCase();
     let intent = 'unknown';
     let confidence = 0.5;
 
-    if (/randevu|tarih|saat|görüşme/.test(lower)) {
+    if (/randevu|tarih|saat|görüşme|appointment|schedule|book|meeting/.test(lower)) {
         intent = 'appointment';
         confidence = 0.7;
-    } else if (/şikayet|sorun|problem|memnun/.test(lower)) {
+    } else if (/şikayet|sorun|problem|memnun|complaint|issue|unhappy/.test(lower)) {
         intent = 'complaint';
         confidence = 0.7;
-    } else if (/bilgi|fiyat|nasıl|nedir/.test(lower)) {
+    } else if (/bilgi|fiyat|nasıl|nedir|info|price|how|what|cost/.test(lower)) {
         intent = 'info_request';
         confidence = 0.6;
-    } else if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lower)) {
+    } else if (/merhaba|selam|iyi günler|hoş geldiniz|hello|hi|hey|good morning/.test(lower)) {
         intent = 'greeting';
         confidence = 0.9;
+    } else if (/iptal|değişiklik|vazgeç|cancel|change|modify/.test(lower)) {
+        intent = 'cancellation';
+        confidence = 0.7;
     }
 
     return { cleanText: sanitized.trim(), intent, confidence };
@@ -195,7 +235,7 @@ async function callOpenAI(
         }
 
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || 'Üzgünüm, yanıt oluşturamadım.';
+        return data.choices?.[0]?.message?.content || '';
     });
 }
 
@@ -318,11 +358,12 @@ export async function POST(request: NextRequest) {
         // --- MOCK MODE OVERRIDE ---
         if (process.env.PERSONAPLEX_MOCK_MODE === 'true') {
             const lowerText = text.toLowerCase();
+            const isEnglish = language === 'en';
 
             // Get mock session for multi-turn tracking
             let mockSession = conversationStore.get(sessionId);
             if (!mockSession) {
-                mockSession = { messages: [], lastActivity: Date.now(), turnCount: 0 };
+                mockSession = { messages: [], lastActivity: Date.now(), turnCount: 0, language };
                 conversationStore.set(sessionId, mockSession);
             }
             mockSession.turnCount++;
@@ -332,45 +373,86 @@ export async function POST(request: NextRequest) {
             let response_text = '';
             let confidence = 0.95;
 
-            // Multi-turn mock scenarios with context awareness
-            if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
-                intent = 'greeting';
-                response_text = 'Merhaba! Callception\'a hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim?';
-            } else if (/randevu|tarih|saat|görüşme/.test(lowerText)) {
-                intent = 'appointment';
-                if (mockSession.turnCount <= 2) {
-                    response_text = 'Tabii, randevu oluşturabilirim. Hangi gün ve saat uygun olur?';
+            if (isEnglish) {
+                // English mock responses
+                if (/hello|hi|hey|good morning|good afternoon/.test(lowerText)) {
+                    intent = 'greeting';
+                    response_text = 'Hello! Welcome to Callception, I\'m Ayse. How can I help you today?';
+                } else if (/appointment|schedule|book|meeting|date|time/.test(lowerText)) {
+                    intent = 'appointment';
+                    if (mockSession.turnCount <= 2) {
+                        response_text = 'Sure, I can schedule an appointment. What day and time works best for you?';
+                    } else {
+                        response_text = 'Your appointment has been booked. You\'ll receive a confirmation shortly. Is there anything else I can help with?';
+                    }
+                } else if (/complaint|issue|problem|unhappy|dissatisfied/.test(lowerText)) {
+                    intent = 'complaint';
+                    if (mockSession.turnCount <= 2) {
+                        response_text = 'I\'m sorry to hear about your issue. Could you please share the details? Your name and what the problem is?';
+                    } else {
+                        response_text = 'I\'ve recorded your complaint. We\'ll follow up with you shortly. Is there anything else I can assist with?';
+                    }
+                } else if (/info|price|how|what|cost/.test(lowerText)) {
+                    intent = 'info_request';
+                    response_text = 'I\'d be happy to help. Which of our services would you like to learn more about?';
+                } else if (/cancel|change|modify/.test(lowerText)) {
+                    intent = 'cancellation';
+                    response_text = 'I\'ll process your cancellation request. Could you please provide your appointment number or name?';
+                } else if (/thank|thanks|appreciate/.test(lowerText)) {
+                    intent = 'thanks';
+                    response_text = 'You\'re welcome! Is there anything else I can help you with?';
+                } else if (/bye|goodbye|see you|take care/.test(lowerText)) {
+                    intent = 'farewell';
+                    response_text = 'Have a great day! Don\'t hesitate to call again.';
                 } else {
-                    response_text = 'Randevunuzu aldım. Onay mesajı kısa süre içinde gönderilecektir. Başka bir isteğiniz var mı?';
+                    confidence = 0.6;
+                    const responses = [
+                        'I understand. How can I help you with that?',
+                        'Could you give me more details? I want to assist you in the best way possible.',
+                        'Noted. Is there anything else you\'d like to add?',
+                    ];
+                    response_text = responses[mockSession.turnCount % responses.length];
                 }
-            } else if (/şikayet|sorun|problem|memnun/.test(lowerText)) {
-                intent = 'complaint';
-                if (mockSession.turnCount <= 2) {
-                    response_text = 'Yaşadığınız sorun için üzgünüm. Detayları alabilir miyim? Adınız ve sorunun ne olduğunu söyler misiniz?';
-                } else {
-                    response_text = 'Şikayetinizi kaydettim. En kısa sürede sizi bilgilendireceğiz. Başka yardımcı olabileceğim bir konu var mı?';
-                }
-            } else if (/bilgi|fiyat|nasıl|nedir/.test(lowerText)) {
-                intent = 'info_request';
-                response_text = 'Size yardımcı olabilirim. Hangi hizmetimiz hakkında bilgi almak istiyorsunuz?';
-            } else if (/iptal|değişiklik|vazgeç/.test(lowerText)) {
-                intent = 'cancellation';
-                response_text = 'İptal talebinizi aldım. Randevu numaranızı veya adınızı söyler misiniz?';
-            } else if (/teşekkür|sağ ol|eyvallah/.test(lowerText)) {
-                intent = 'thanks';
-                response_text = 'Rica ederim! Başka bir konuda yardımcı olabilir miyim?';
-            } else if (/hoşça kal|görüşürüz|bay bay|güle güle/.test(lowerText)) {
-                intent = 'farewell';
-                response_text = 'İyi günler dilerim! Tekrar aramaktan çekinmeyin.';
             } else {
-                // Context-aware fallback
-                confidence = 0.6;
-                const responses = [
-                    'Anlıyorum. Bu konuda size nasıl yardımcı olabilirim?',
-                    'Daha detaylı açıklar mısınız? Size en iyi şekilde yardımcı olmak istiyorum.',
-                    'Tabii, bu konuyu not aldım. Başka eklemek istediğiniz bir şey var mı?',
-                ];
-                response_text = responses[mockSession.turnCount % responses.length];
+                // Turkish mock responses (original)
+                if (/merhaba|selam|iyi günler|hoş geldiniz/.test(lowerText)) {
+                    intent = 'greeting';
+                    response_text = 'Merhaba! Callception\'a hoş geldiniz, ben Ayşe. Size nasıl yardımcı olabilirim?';
+                } else if (/randevu|tarih|saat|görüşme/.test(lowerText)) {
+                    intent = 'appointment';
+                    if (mockSession.turnCount <= 2) {
+                        response_text = 'Tabii, randevu oluşturabilirim. Hangi gün ve saat uygun olur?';
+                    } else {
+                        response_text = 'Randevunuzu aldım. Onay mesajı kısa süre içinde gönderilecektir. Başka bir isteğiniz var mı?';
+                    }
+                } else if (/şikayet|sorun|problem|memnun/.test(lowerText)) {
+                    intent = 'complaint';
+                    if (mockSession.turnCount <= 2) {
+                        response_text = 'Yaşadığınız sorun için üzgünüm. Detayları alabilir miyim? Adınız ve sorunun ne olduğunu söyler misiniz?';
+                    } else {
+                        response_text = 'Şikayetinizi kaydettim. En kısa sürede sizi bilgilendireceğiz. Başka yardımcı olabileceğim bir konu var mı?';
+                    }
+                } else if (/bilgi|fiyat|nasıl|nedir/.test(lowerText)) {
+                    intent = 'info_request';
+                    response_text = 'Size yardımcı olabilirim. Hangi hizmetimiz hakkında bilgi almak istiyorsunuz?';
+                } else if (/iptal|değişiklik|vazgeç/.test(lowerText)) {
+                    intent = 'cancellation';
+                    response_text = 'İptal talebinizi aldım. Randevu numaranızı veya adınızı söyler misiniz?';
+                } else if (/teşekkür|sağ ol|eyvallah/.test(lowerText)) {
+                    intent = 'thanks';
+                    response_text = 'Rica ederim! Başka bir konuda yardımcı olabilir miyim?';
+                } else if (/hoşça kal|görüşürüz|bay bay|güle güle/.test(lowerText)) {
+                    intent = 'farewell';
+                    response_text = 'İyi günler dilerim! Tekrar aramaktan çekinmeyin.';
+                } else {
+                    confidence = 0.6;
+                    const responses = [
+                        'Anlıyorum. Bu konuda size nasıl yardımcı olabilirim?',
+                        'Daha detaylı açıklar mısınız? Size en iyi şekilde yardımcı olmak istiyorum.',
+                        'Tabii, bu konuyu not aldım. Başka eklemek istediğiniz bir şey var mı?',
+                    ];
+                    response_text = responses[mockSession.turnCount % responses.length];
+                }
             }
 
             const latencyMs = performance.now() - startMs;
@@ -405,20 +487,28 @@ export async function POST(request: NextRequest) {
         }
 
         // Helper: get or create session for multi-turn conversation
+        // Handles language switching: if user changes language mid-session, reset the session
         const getSession = () => {
             let session = conversationStore.get(sessionId);
             if (!session) {
                 session = {
-                    messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+                    messages: [{ role: 'system', content: getSystemPrompt(language) }],
                     lastActivity: Date.now(),
                     turnCount: 0,
+                    language,
                 };
                 conversationStore.set(sessionId, session);
+            } else if (session.language !== language) {
+                // Language switched — reset session with new system prompt
+                session.messages = [{ role: 'system', content: getSystemPrompt(language) }];
+                session.language = language;
+                session.turnCount = 0;
+                session.lastActivity = Date.now();
             }
             return session;
         };
 
-        const addUserMessage = (session: { messages: ConversationEntry[]; lastActivity: number; turnCount: number }) => {
+        const addUserMessage = (session: { messages: ConversationEntry[]; lastActivity: number; turnCount: number; language: string }) => {
             if (session.messages[session.messages.length - 1]?.content !== text) {
                 session.messages.push({ role: 'user', content: text });
                 session.lastActivity = Date.now();
