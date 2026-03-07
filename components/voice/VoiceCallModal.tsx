@@ -201,7 +201,11 @@ export function VoiceCallModal({
         stopListeningRef.current?.();
         setIsListening(false);
 
+        let resumeCalled = false;
         const resumeListening = () => {
+            if (resumeCalled) return; // Prevent double-resume
+            resumeCalled = true;
+            clearTimeout(safetyTimer);
             isSpeakingRef.current = false;
             // 500ms settling delay before restarting mic
             setTimeout(() => {
@@ -217,6 +221,14 @@ export function VoiceCallModal({
                 onEnd?.();
             }, 500);
         };
+
+        // Safety timeout: if TTS never finishes (event lost), force resume after 30s
+        const safetyTimer = setTimeout(() => {
+            if (isSpeakingRef.current) {
+                console.warn('[TTS] Safety timeout — forcing resume after 30s');
+                resumeListening();
+            }
+        }, 30000);
 
         // Try server-side TTS (ElevenLabs or OpenAI based on greeting flag)
         try {
@@ -312,11 +324,24 @@ export function VoiceCallModal({
             setSttMode('deepgram');
 
             // Get microphone access
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            let stream: MediaStream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (micErr) {
+                console.error('[STT:Deepgram] Microphone access denied:', micErr);
+                throw new Error(language === 'tr'
+                    ? 'Mikrofon erişimi reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini verin.'
+                    : 'Microphone access denied. Please grant microphone permission in browser settings.');
+            }
             mediaStreamRef.current = stream;
 
             // Create AudioContext for Voice Activity Detection (VAD)
             const ctx = new AudioContext();
+            // CRITICAL: Chrome suspends AudioContext even from user gestures in async contexts
+            // Without resume(), analyser returns all zeros → VAD never detects speech
+            if (ctx.state === 'suspended') {
+                await ctx.resume();
+            }
             audioContextRef.current = ctx;
             const source = ctx.createMediaStreamSource(stream);
             const analyser = ctx.createAnalyser();
@@ -325,7 +350,7 @@ export function VoiceCallModal({
             analyserRef.current = analyser;
 
             // --- VAD Configuration ---
-            const SPEECH_THRESHOLD = 15;     // RMS level to detect speech
+            const SPEECH_THRESHOLD = 8;      // RMS level to detect speech (lowered for laptop mics)
             const SILENCE_DURATION = 1500;   // 1.5s silence = end of utterance
             const MIN_SPEECH_MS = 300;       // Minimum speech to process (filter noise)
 
@@ -431,6 +456,13 @@ export function VoiceCallModal({
             const startDeepgramRecording = () => {
                 if (!mediaStreamRef.current || isSpeakingRef.current) return;
 
+                // Check if stream tracks are still alive
+                const tracks = mediaStreamRef.current.getAudioTracks();
+                if (tracks.length === 0 || tracks[0].readyState === 'ended') {
+                    console.error('[STT:Deepgram] Microphone stream ended unexpectedly');
+                    return;
+                }
+
                 setIsListening(true);
                 speechDetectedRef.current = false;
                 silenceStartRef.current = 0;
@@ -525,6 +557,18 @@ export function VoiceCallModal({
             // Flow: Web Speech API → LLM → TTS
             // ================================================================
             setSttMode('browser');
+
+            // Explicitly request microphone to ensure permission is granted
+            // Some browsers need getUserMedia before SpeechRecognition works properly
+            try {
+                const browserStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaStreamRef.current = browserStream;
+            } catch (micErr) {
+                console.error('[STT:Browser] Microphone access denied:', micErr);
+                throw new Error(language === 'tr'
+                    ? 'Mikrofon erişimi reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini verin.'
+                    : 'Microphone access denied. Please grant microphone permission in browser settings.');
+            }
 
             const SpeechRecognitionAPI = (
                 (window as unknown as Record<string, SpeechRecognitionConstructor | undefined>).SpeechRecognition
