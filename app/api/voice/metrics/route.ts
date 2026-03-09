@@ -15,7 +15,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
-import { handleApiError, requireAuth, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,9 +57,8 @@ interface DailyBreakdown {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const days = Math.min(
             parseInt(request.nextUrl.searchParams.get('days') || '7', 10),
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
         // Query call logs with voice metrics
         const snapshot = await getDb()
-            .collection('tenants').doc(tenantId!)
+            .collection('tenants').doc(auth.tenantId)
             .collection('calls')
             .where('timestamp', '>=', cutoffDate)
             .orderBy('timestamp', 'desc')

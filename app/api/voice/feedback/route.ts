@@ -13,7 +13,8 @@ import {
     getCallFeedback,
     getCallFeedbackStats,
 } from '@/lib/voice/feedback';
-import { handleApiError, requireAuth, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,9 +24,8 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const body = await request.json();
         const validation = requireFields(body, ['callId', 'rating']);
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await updateCallFeedback(tenantId!, callId, {
+        await updateCallFeedback(auth.tenantId, callId, {
             rating: numRating,
             comment: comment || undefined,
         });
@@ -62,21 +62,20 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const callId = request.nextUrl.searchParams.get('callId');
         const days = parseInt(request.nextUrl.searchParams.get('days') || '30', 10);
 
         // If callId specified, return specific call feedback
         if (callId) {
-            const feedback = await getCallFeedback(tenantId!, callId);
+            const feedback = await getCallFeedback(auth.tenantId, callId);
             return NextResponse.json({ feedback });
         }
 
         // Otherwise return aggregated stats
-        const stats = await getCallFeedbackStats(tenantId!, days);
+        const stats = await getCallFeedbackStats(auth.tenantId, days);
 
         return NextResponse.json({
             stats,

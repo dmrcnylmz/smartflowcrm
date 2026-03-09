@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { Button } from '@/components/ui/button';
 import {
     BookOpen, Upload, Globe, FileText, Trash2, Search, Database,
     Loader2, CheckCircle, XCircle, Clock, Plus, BarChart3, Sparkles,
@@ -286,6 +287,7 @@ function KnowledgePageContent() {
                         <button
                             onClick={() => { const url = new URL(window.location.href); url.searchParams.delete('setup'); window.history.replaceState({}, '', url.toString()); }}
                             className="text-white/20 hover:text-white/50 transition-colors flex-shrink-0"
+                            aria-label="Kapat"
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -324,21 +326,21 @@ function KnowledgePageContent() {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                        variant="outline"
                         onClick={() => setQueryDialogOpen(true)}
                         disabled={!stats?.documentCount}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-white/60 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all text-sm font-medium"
                     >
                         <Search className="h-4 w-4" />
                         Sorgula
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         onClick={() => setAddDialogOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-inception-red border border-inception-red text-white shadow-lg shadow-inception-red/20 hover:shadow-inception-red/30 hover:brightness-110 transition-all text-sm font-medium font-display tracking-wide"
+                        className="font-display tracking-wide"
                     >
                         <Plus className="h-4 w-4" />
                         Kaynak Ekle
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -395,13 +397,15 @@ function KnowledgePageContent() {
                                 />
                             </div>
                         )}
-                        <button
+                        <Button
+                            variant="outline"
+                            size="icon"
                             onClick={handleRetry}
-                            className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] flex items-center justify-center text-white/40 hover:text-white/70 transition-all"
                             title="Yenile"
+                            aria-label="Yenile"
                         >
                             <RefreshCw className="h-3.5 w-3.5" />
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -411,10 +415,10 @@ function KnowledgePageContent() {
                         <div className="text-center py-14">
                             <AlertTriangle className="h-12 w-12 text-amber-500/30 mx-auto mb-4" />
                             <p className="text-white/50 text-sm mb-4">Bilgi bankası verileri yüklenemedi.</p>
-                            <button onClick={handleRetry} className="flex items-center gap-2 px-4 py-2 rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/60 hover:text-white text-sm transition-all mx-auto">
+                            <Button variant="outline" onClick={handleRetry} className="mx-auto">
                                 <RefreshCw className="h-3.5 w-3.5" />
                                 Tekrar Dene
-                            </button>
+                            </Button>
                         </div>
                     ) : loading ? (
                         <div className="space-y-2">
@@ -438,13 +442,13 @@ function KnowledgePageContent() {
                             <p className="text-sm text-white/30 mb-6 max-w-sm mx-auto">
                                 Metin, URL veya PDF kaynakları ekleyerek AI asistanınızı şirketiniz hakkında eğitin.
                             </p>
-                            <button
+                            <Button
                                 onClick={() => setAddDialogOpen(true)}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-inception-red border border-inception-red text-white text-sm font-medium shadow-lg shadow-inception-red/20 hover:brightness-110 transition-all mx-auto font-display tracking-wide"
+                                className="mx-auto font-display tracking-wide"
                             >
                                 <Plus className="h-4 w-4" />
                                 İlk Kaynağı Ekle
-                            </button>
+                            </Button>
                         </div>
                     ) : filteredDocuments.length === 0 ? (
                         <div className="text-center py-12">
@@ -496,6 +500,7 @@ function KnowledgePageContent() {
                                             onClick={() => handleDelete(doc.id)}
                                             disabled={deletingId === doc.id}
                                             className="h-8 w-8 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-red-500/30 hover:bg-red-500/10 flex items-center justify-center text-white/25 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                                            aria-label="Sil"
                                         >
                                             {deletingId === doc.id ? (
                                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -527,9 +532,9 @@ function KnowledgePageContent() {
                                     <p className="text-xs text-white/30">Metin, URL veya dosya yükleme desteklenir</p>
                                 </div>
                             </div>
-                            <button onClick={resetAddDialog} className="h-8 w-8 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] flex items-center justify-center text-white/40 hover:text-white transition-all">
+                            <Button variant="outline" size="icon" onClick={resetAddDialog} aria-label="Kapat">
                                 <X className="h-4 w-4" />
-                            </button>
+                            </Button>
                         </div>
 
                         <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
@@ -652,20 +657,20 @@ function KnowledgePageContent() {
 
                             {/* Submit */}
                             <div className="flex justify-end gap-3 pt-1">
-                                <button onClick={resetAddDialog} className="px-4 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-white/60 hover:text-white text-sm transition-all">
+                                <Button variant="outline" onClick={resetAddDialog}>
                                     İptal
-                                </button>
-                                <button
+                                </Button>
+                                <Button
                                     onClick={handleIngest}
                                     disabled={ingesting || !canSubmit}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-inception-red border border-inception-red text-white text-sm font-medium shadow-lg shadow-inception-red/20 hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-display tracking-wide"
+                                    className="font-display tracking-wide"
                                 >
                                     {ingesting ? (
                                         <><Loader2 className="h-4 w-4 animate-spin" /> İşleniyor...</>
                                     ) : (
                                         <><Upload className="h-4 w-4" /> {addType === 'file' ? 'Yükle ve İşle' : 'Ekle ve İşle'}</>
                                     )}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -688,9 +693,9 @@ function KnowledgePageContent() {
                                     <p className="text-xs text-white/30">Bilgi tabanından en ilgili sonuçları alın</p>
                                 </div>
                             </div>
-                            <button onClick={() => setQueryDialogOpen(false)} className="h-8 w-8 rounded-lg border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] flex items-center justify-center text-white/40 hover:text-white transition-all">
+                            <Button variant="outline" size="icon" onClick={() => setQueryDialogOpen(false)} aria-label="Kapat">
                                 <X className="h-4 w-4" />
-                            </button>
+                            </Button>
                         </div>
 
                         <div className="p-6 flex flex-col gap-4 overflow-hidden flex-1">
@@ -703,14 +708,14 @@ function KnowledgePageContent() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
                                     className="flex-1 h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-purple-500/40 text-sm transition-colors"
                                 />
-                                <button
+                                <Button
                                     onClick={handleQuery}
                                     disabled={querying || !queryText.trim()}
-                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600/80 border border-purple-500/50 text-white text-sm font-medium hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex-shrink-0"
+                                    className="flex-shrink-0"
                                 >
                                     {querying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                     Ara
-                                </button>
+                                </Button>
                             </div>
 
                             {/* Results */}

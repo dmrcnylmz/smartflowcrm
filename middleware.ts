@@ -104,6 +104,9 @@ function isSensitivePath(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
+    // Generate or forward request ID for correlation (tracing across logs)
+    const requestId = req.headers.get('x-request-id') || crypto.randomUUID();
+
     // 1. Skip non-API and non-page routes (static assets, _next, etc.)
     if (
         pathname.startsWith('/_next') ||
@@ -161,6 +164,7 @@ export async function middleware(req: NextRequest) {
                 {
                     status: 429,
                     headers: {
+                        'x-request-id': requestId,
                         'Retry-After': retryAfter.toString(),
                         'X-RateLimit-Limit': maxReqs.toString(),
                         'X-RateLimit-Remaining': '0',
@@ -225,7 +229,8 @@ export async function middleware(req: NextRequest) {
 
             // Forward verified user info to API routes via headers
             const response = NextResponse.next();
-            // Security headers
+            // Security headers + request ID
+            response.headers.set('x-request-id', requestId);
             for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
                 response.headers.set(key, value);
             }
@@ -253,7 +258,8 @@ export async function middleware(req: NextRequest) {
 
         // Add rate limit headers to successful responses
         const response = NextResponse.next();
-        // Add security headers
+        // Add security headers + request ID
+        response.headers.set('x-request-id', requestId);
         for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
             response.headers.set(key, value);
         }

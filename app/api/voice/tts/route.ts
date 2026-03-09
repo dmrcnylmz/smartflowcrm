@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
 
         let audioResponse: Response | null = null;
         let usedProvider = 'none';
-        let usedModel = isGreeting ? ELEVENLABS_MODELS.greeting : ELEVENLABS_MODELS.body;
+        let usedModel: string = isGreeting ? ELEVENLABS_MODELS.greeting : ELEVENLABS_MODELS.body;
 
         if (forceProvider === 'elevenlabs') {
             audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
@@ -327,7 +327,7 @@ export async function POST(request: NextRequest) {
         }
 
         // ---- Stream audio back to client ----
-        return new NextResponse(audioResponse.body as unknown as BodyInit, {
+        return new NextResponse(audioResponse.body, {
             headers: {
                 'Content-Type': 'audio/mpeg',
                 'Cache-Control': 'no-cache',

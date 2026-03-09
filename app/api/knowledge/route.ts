@@ -10,20 +10,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
-import { handleApiError, requireAuth, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { meterKbQuery } from '@/lib/billing/metering';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // File processing can take longer
 
-/** Resolve tenant: prefer x-user-tenant, fallback to x-user-uid */
-function getTenantId(request: NextRequest): string | null {
-    return request.headers.get('x-user-tenant')
-        || request.headers.get('x-user-uid')
-        || null;
+// ─── Rate Limiting for uploads ───────────────────────────────────────────────
+const uploadRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkUploadRateLimit(tenantId: string): boolean {
+    const now = Date.now();
+    const entry = uploadRateLimitMap.get(tenantId);
+    if (!entry || entry.resetAt < now) {
+        uploadRateLimitMap.set(tenantId, { count: 1, resetAt: now + 60_000 });
+        return true;
+    }
+    if (entry.count >= 10) return false; // 10 uploads per minute per tenant
+    entry.count++;
+    return true;
 }
 
 // =============================================
@@ -34,6 +43,10 @@ export async function POST(request: NextRequest) {
     try {
         const auth = await requireStrictAuth(request);
         if (auth.error) return auth.error;
+
+        if (!checkUploadRateLimit(auth.tenantId)) {
+            return NextResponse.json({ error: 'Upload rate limit exceeded' }, { status: 429 });
+        }
 
         const contentType = request.headers.get('content-type') || '';
         let source: DocumentSource;
@@ -71,36 +84,35 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const query = request.nextUrl.searchParams.get('query');
         const action = request.nextUrl.searchParams.get('action');
 
         if (query) {
             const topK = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get('topK') || '5') || 5, 1), 50);
-            const results = await queryKnowledgeBase(tenantId!, query, topK);
+            const results = await queryKnowledgeBase(auth.tenantId, query, topK);
 
             // Fire-and-forget: meter KB query
             initAdmin();
-            meterKbQuery(getFirestore(), tenantId!).catch(() => {});
+            meterKbQuery(getFirestore(), auth.tenantId).catch(() => {});
 
             return NextResponse.json({ query, results, count: results.length }, {
-                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+                headers: cacheHeaders('MEDIUM'),
             });
         }
 
         if (action === 'stats') {
-            const stats = await getKBStats(tenantId!);
+            const stats = await getKBStats(auth.tenantId);
             return NextResponse.json(stats, {
-                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+                headers: cacheHeaders('MEDIUM'),
             });
         }
 
-        const documents = await listKBDocuments(tenantId!);
+        const documents = await listKBDocuments(auth.tenantId);
         return NextResponse.json({ documents, count: documents.length }, {
-            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            headers: cacheHeaders('MEDIUM'),
         });
 
     } catch (error) {

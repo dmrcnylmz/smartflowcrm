@@ -18,12 +18,37 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { generateResponseAndGatherTwiML, generateUnavailableTwiML } from '@/lib/twilio/telephony';
+import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig } from '@/lib/twilio/telephony';
 import { detectIntentFast, shouldShortcut, getShortcutResponse } from '@/lib/ai/intent-fast';
 import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';
 import { sendWebhook } from '@/lib/n8n/client';
 
 export const dynamic = 'force-dynamic';
+
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function checkGatherRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || entry.resetAt < now) {
+        rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= RATE_LIMIT_MAX) return false;
+    entry.count++;
+    return true;
+}
+
+// Cleanup stale entries every 2 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of rateLimitMap) {
+        if (val.resetAt < now) rateLimitMap.delete(key);
+    }
+}, 120_000);
 
 let db: FirebaseFirestore.Firestore | null = null;
 
@@ -34,6 +59,13 @@ function getDb() {
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+        if (!checkGatherRateLimit(ip)) {
+            const twiml = generateUnavailableTwiML({ message: 'Çok fazla istek. Lütfen bekleyin.' });
+            return new NextResponse(twiml, { status: 429, headers: { 'Content-Type': 'text/xml' } });
+        }
+
         const contentType = request.headers.get('content-type') || '';
         let params: Record<string, string> = {};
 
@@ -43,6 +75,16 @@ export async function POST(request: NextRequest) {
             formData.forEach((value, key) => { params[key] = String(value); });
         } else {
             params = await request.json();
+        }
+
+        // Validate Twilio signature
+        const config = getTwilioConfig();
+        if (config.authToken) {
+            const signature = request.headers.get('x-twilio-signature') || '';
+            if (!validateTwilioSignature(config.authToken, request.url, params, signature)) {
+                const twiml = generateUnavailableTwiML({ message: 'Yetkisiz istek.' });
+                return new NextResponse(twiml, { status: 403, headers: { 'Content-Type': 'text/xml' } });
+            }
         }
 
         // Get query params
@@ -56,8 +98,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Extract speech result from Twilio
-        const speechResult = params.SpeechResult || '';
+        // Extract speech result from Twilio — sanitize input
+        const speechResult = (params.SpeechResult || '').trim().slice(0, 500);
         const confidence = parseFloat(params.Confidence || '0');
 
         // Speech result received; processing below

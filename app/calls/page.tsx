@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
 import { exportCalls, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot } from 'lucide-react';
+import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot, AlertTriangle, Loader2 } from 'lucide-react';
 import { VoiceCallModal } from '@/components/voice/VoiceCallModal';
 import { useCalls } from '@/lib/firebase/hooks';
 import { getCustomersBatch, extractCustomerIds, getCustomer } from '@/lib/firebase/batch-helpers';
@@ -52,7 +52,7 @@ function CallsPageContent() {
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
 
   // Real-time calls with limit
-  const { data: calls, loading, error: callsError } = useCalls();
+  const { data: calls, loading, error: callsError, refetch: refetchCalls } = useCalls();
 
   // Update URL params when filters change
   useEffect(() => {
@@ -350,14 +350,16 @@ function CallsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Phone className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
+              <Phone className="h-5 w-5 text-emerald-500" />
+            </div>
             Çağrı Geçmişi
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1 text-sm">
             AI Asistan görüşmeleri, ses kayıtları ve müşteri etkileşim logları.
           </p>
         </div>
@@ -365,7 +367,7 @@ function CallsPageContent() {
         <div className="flex gap-3">
           {filteredCalls.length > 0 && (
             <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
-              <SelectTrigger className="w-[140px] bg-background shadow-sm rounded-xl">
+              <SelectTrigger className="w-[140px] bg-white/[0.04] border-white/[0.08] rounded-xl">
                 <SelectValue placeholder="Dışa Aktar" />
               </SelectTrigger>
               <SelectContent>
@@ -378,7 +380,7 @@ function CallsPageContent() {
 
           <Button
             onClick={() => setVoiceCallOpen(true)}
-            className="rounded-xl shadow-lg shadow-emerald-600/20 bg-emerald-600 hover:bg-emerald-700 transition-shadow gap-2 text-white"
+            className="bg-emerald-600 hover:bg-emerald-700 gap-2 text-white"
           >
             <Mic className="h-4 w-4" />
             Sesli AI Simülasyonu
@@ -388,50 +390,37 @@ function CallsPageContent() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-2xl border-none shadow-sm bg-slate-50/80 dark:bg-slate-900/40">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-800 dark:text-slate-300">Toplam Gelen-Giden</CardTitle>
-            <div className="p-2 bg-slate-200/50 dark:bg-slate-800 rounded-lg">
-              <Phone className="h-4 w-4 text-slate-700 dark:text-slate-400" />
+        <div className="rounded-2xl border border-slate-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">Toplam Gelen-Giden</span>
+            <div className="h-8 w-8 rounded-lg bg-slate-500/10 flex items-center justify-center">
+              <Phone className="h-4 w-4 text-slate-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">{totalCalls}</div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/80 dark:bg-emerald-950/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Yanıtlanan (Başarılı)</CardTitle>
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
-              <PhoneIncoming className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">{totalCalls}</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">Yanıtlanan (Başarılı)</span>
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <PhoneIncoming className="h-4 w-4 text-emerald-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">{answeredCalls}</div>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-red-50/80 dark:bg-red-950/20">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-red-800 dark:text-red-300">Kaçırılan (Ulaşılamayan)</CardTitle>
-            <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-              <PhoneOutgoing className="h-4 w-4 text-red-600 dark:text-red-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">{answeredCalls}</p>
+        </div>
+        <div className="rounded-2xl border border-red-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">Kaçırılan (Ulaşılamayan)</span>
+            <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <PhoneOutgoing className="h-4 w-4 text-red-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-900 dark:text-red-100">{missedCalls}</div>
-          </CardContent>
-        </Card>
+          </div>
+          <p className="text-2xl font-bold text-white">{missedCalls}</p>
+        </div>
       </div>
 
-      {error && (
-        <div className="bg-red-500/10 text-red-600 border border-red-500/20 p-4 rounded-xl flex items-center gap-3">
-          <AlertCircle className="h-5 w-5" />
-          <p className="text-sm font-medium">{error}</p>
-        </div>
-      )}
-
-      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm">
-        <div className="p-5 border-b bg-muted/20 space-y-4">
+      <Card className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/[0.06] space-y-4">
           {/* Filters */}
           <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             <Filter className="h-4 w-4" /> Gelişmiş Filtreleme
@@ -505,21 +494,35 @@ function CallsPageContent() {
 
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 space-y-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex space-x-4">
-                  <Skeleton className="h-12 flex-[2]" />
-                  <Skeleton className="h-12 flex-1" />
-                  <Skeleton className="h-12 flex-1" />
-                  <Skeleton className="h-12 flex-1 hidden md:block" />
-                </div>
-              ))}
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
+              <p className="text-sm text-white/40">Veriler yükleniyor...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-red-400/60" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
+              <Button variant="outline" onClick={() => refetchCalls()}>Tekrar Dene</Button>
+            </div>
+          ) : filteredCalls.length === 0 && calls.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <Phone className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz çağrı kaydı yok</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">Çağrılar otomatik olarak burada listelenecektir.</p>
             </div>
           ) : filteredCalls.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-center">
-              <Mic className="h-12 w-12 mb-4 opacity-20" />
-              <p className="text-lg font-medium text-foreground">Arama Bulunamadı</p>
-              <p className="text-sm mt-1 max-w-sm">Filtrelerinize uygun çağrı logu yok. Filtreleri temizleyip tekrar deneyin.</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <Search className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Sonuç bulunamadı</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">Filtrelerinize uygun çağrı kaydı yok. Filtreleri temizleyip tekrar deneyin.</p>
+              <Button variant="outline" onClick={handleClearFilters}>Filtreleri Temizle</Button>
             </div>
           ) : (
             <>
@@ -585,7 +588,7 @@ function CallsPageContent() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right pr-6">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Detayları görüntüle">
                               <ChevronRight className="h-4 w-4 text-muted-foreground" />
                             </Button>
                           </TableCell>
@@ -682,7 +685,7 @@ function CallsPageContent() {
                     placeholder="Bu çağrı hakkında alınan notlar..."
                   />
                   <div className="flex justify-end mt-3">
-                    <Button onClick={handleSaveNotes} disabled={savingNotes} size="sm" className="rounded-lg shadow-sm">
+                    <Button onClick={handleSaveNotes} disabled={savingNotes} size="sm" className="rounded-lg">
                       {savingNotes ? 'Kaydediliyor...' : 'Notu Kaydet'}
                     </Button>
                   </div>
@@ -733,7 +736,7 @@ function CallsPageContent() {
 
 export default function CallsPage() {
   return (
-    <Suspense fallback={<div className="p-8 max-w-7xl mx-auto space-y-8"><Skeleton className="h-[400px] w-full rounded-2xl" /></div>}>
+    <Suspense fallback={<div className="p-8 max-w-6xl mx-auto space-y-6"><Skeleton className="h-[400px] w-full rounded-2xl" /></div>}>
       <CallsPageContent />
     </Suspense>
   );

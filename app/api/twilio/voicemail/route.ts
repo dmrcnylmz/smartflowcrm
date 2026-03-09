@@ -10,8 +10,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { validateTwilioSignature, getTwilioConfig } from '@/lib/twilio/telephony';
 
 export const dynamic = 'force-dynamic';
+
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function checkVoicemailRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || entry.resetAt < now) {
+        rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= RATE_LIMIT_MAX) return false;
+    entry.count++;
+    return true;
+}
+
+// Cleanup stale entries every 2 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of rateLimitMap) {
+        if (val.resetAt < now) rateLimitMap.delete(key);
+    }
+}, 120_000);
 
 let db: FirebaseFirestore.Firestore | null = null;
 
@@ -22,6 +48,12 @@ function getDb() {
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+        if (!checkVoicemailRateLimit(ip)) {
+            return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+        }
+
         const contentType = request.headers.get('content-type') || '';
         let params: Record<string, string> = {};
 
@@ -30,6 +62,15 @@ export async function POST(request: NextRequest) {
             formData.forEach((value, key) => { params[key] = String(value); });
         } else {
             params = await request.json();
+        }
+
+        // Validate Twilio signature
+        const config = getTwilioConfig();
+        if (config.authToken) {
+            const signature = request.headers.get('x-twilio-signature') || '';
+            if (!validateTwilioSignature(config.authToken, request.url, params, signature)) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            }
         }
 
         // Extract params from query string

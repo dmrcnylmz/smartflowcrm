@@ -27,6 +27,21 @@ import { z } from 'zod';
 
 export const dynamic = 'force-dynamic';
 
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+function checkCheckoutRateLimit(key: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+    if (!entry || entry.resetAt < now) {
+        rateLimitMap.set(key, { count: 1, resetAt: now + 60_000 });
+        return true;
+    }
+    if (entry.count >= 5) return false; // 5 checkouts per minute
+    entry.count++;
+    return true;
+}
+
 // Zod schema for request validation
 const checkoutSchema = z.object({
     planId: z.enum(['starter', 'professional', 'enterprise']),
@@ -38,6 +53,11 @@ const checkoutSchema = z.object({
  */
 export async function POST(request: NextRequest) {
     try {
+        const rateLimitKey = request.headers.get('x-user-tenant') || request.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
+        if (!checkCheckoutRateLimit(rateLimitKey)) {
+            return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+        }
+
         // Auth check — middleware injects these headers
         const tenantId = request.headers.get('x-user-tenant');
         const userId = request.headers.get('x-user-id') || request.headers.get('x-user-uid');

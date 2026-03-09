@@ -88,14 +88,44 @@ describe('/api/tickets', () => {
             expect(mockGetInfoRequests).toHaveBeenCalledOnce();
         });
 
-        it('should return 403 when tenant header is missing', async () => {
-            mockGetTenantFromRequest.mockReturnValue(null);
+        it('should return 401 when auth is missing', async () => {
+            // Simulate auth failure (no Bearer token)
+            const { requireStrictAuth } = await import('@/lib/utils/require-strict-auth');
+            vi.mocked(requireStrictAuth).mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            } as never);
 
             const { GET } = await import('@/app/api/tickets/route');
             const request = createMockRequest('/api/tickets');
 
             const response = await GET(request);
-            expect(response.status).toBe(403);
+            expect(response.status).toBe(401);
+        });
+
+        it('should pass status filter to getComplaints', async () => {
+            mockGetComplaints.mockResolvedValue([]);
+
+            const { GET } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets?status=resolved', {
+                headers: { 'x-user-tenant': 'tenant-123' },
+            });
+
+            const response = await GET(request);
+            expect(response.status).toBe(200);
+            expect(mockGetComplaints).toHaveBeenCalledWith('tenant-123', expect.objectContaining({ status: 'resolved' }));
+        });
+
+        it('should pass customerId filter to getComplaints', async () => {
+            mockGetComplaints.mockResolvedValue([]);
+
+            const { GET } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets?customerId=c1', {
+                headers: { 'x-user-tenant': 'tenant-123' },
+            });
+
+            const response = await GET(request);
+            expect(response.status).toBe(200);
+            expect(mockGetComplaints).toHaveBeenCalledWith('tenant-123', expect.objectContaining({ customerId: 'c1' }));
         });
     });
 
@@ -136,6 +166,69 @@ describe('/api/tickets', () => {
             const response = await POST(request);
             expect(response.status).toBe(400);
         });
+
+        it('should create info request when type is info', async () => {
+            mockCreateInfoRequest.mockResolvedValue({ id: 'new-i1' });
+
+            const { POST } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: {
+                    type: 'info',
+                    customerId: 'c1',
+                    title: 'Pricing inquiry',
+                    description: 'Need pricing details',
+                },
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(201);
+            expect(data.success).toBe(true);
+            expect(data.type).toBe('info');
+            expect(mockCreateInfoRequest).toHaveBeenCalledOnce();
+        });
+
+        it('should create ticket with customerName (inline customer)', async () => {
+            mockCreateComplaint.mockResolvedValue({ id: 'new-t2' });
+
+            const { POST } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: {
+                    customerName: 'Walk-in Customer',
+                    customerEmail: 'walkin@test.com',
+                    title: 'Walk-in complaint',
+                    category: 'service',
+                },
+            });
+
+            const response = await POST(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(201);
+            expect(data.success).toBe(true);
+            expect(data.type).toBe('complaint');
+        });
+
+        it('should return 400 when title is missing', async () => {
+            const { POST } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: {
+                    customerId: 'c1',
+                    category: 'delivery',
+                    description: 'Some issue without title',
+                },
+            });
+
+            const response = await POST(request);
+            expect(response.status).toBe(400);
+        });
     });
 
     describe('PATCH', () => {
@@ -155,6 +248,36 @@ describe('/api/tickets', () => {
             expect(response.status).toBe(200);
             expect(data.success).toBe(true);
             expect(mockUpdateComplaint).toHaveBeenCalledWith('tenant-123', 't1', expect.objectContaining({ status: 'resolved' }));
+        });
+
+        it('should update info request ticket', async () => {
+            mockUpdateInfoRequest.mockResolvedValue(undefined);
+
+            const { PATCH } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets', {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { id: 'i1', type: 'info', status: 'resolved' },
+            });
+
+            const response = await PATCH(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.success).toBe(true);
+            expect(mockUpdateInfoRequest).toHaveBeenCalledWith('tenant-123', 'i1', expect.objectContaining({ status: 'resolved' }));
+        });
+
+        it('should return 400 when id is missing from PATCH', async () => {
+            const { PATCH } = await import('@/app/api/tickets/route');
+            const request = createMockRequest('/api/tickets', {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { type: 'complaint', status: 'resolved' },
+            });
+
+            const response = await PATCH(request);
+            expect(response.status).toBe(400);
         });
     });
 });

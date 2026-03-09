@@ -405,7 +405,7 @@ export class PersonaplexClient {
                 if (finalText) {
                     // Don't process user input while AI is speaking (echo prevention)
                     if (this.isSpeaking) {
-                        logger.debug('[Personaplex] Ignoring echo during AI speech:', finalText.trim());
+                        logger.debug('[Personaplex] Ignoring echo during AI speech', { text: finalText.trim() });
                         return;
                     }
 

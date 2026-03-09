@@ -467,7 +467,7 @@ export async function GET(request: NextRequest) {
         }
 
         const sub = doc.data() as Record<string, unknown>;
-        const isActive = isSubscriptionActive(sub as Parameters<typeof isSubscriptionActive>[0]);
+        const isActive = isSubscriptionActive(sub as unknown as Parameters<typeof isSubscriptionActive>[0]);
 
         return NextResponse.json({
             subscription: {

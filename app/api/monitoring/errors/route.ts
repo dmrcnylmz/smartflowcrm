@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { captureError, getRecentErrors, getErrorStats } from '@/lib/monitoring/error-tracker';
 import { requireAuth, errorResponse, createApiError, handleApiError, rateLimitResponse } from '@/lib/utils/error-handler';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
             stats,
             timestamp: new Date().toISOString(),
         }, {
-            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+            headers: cacheHeaders('SHORT'),
         });
 
     } catch (error) {

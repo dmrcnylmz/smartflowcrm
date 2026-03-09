@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
 import { exportComplaints, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Search, FileText, User, X, Download, MessageSquareWarning, ArrowRight, Save, LayoutList } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Clock, Search, FileText, User, X, Download, MessageSquareWarning, ArrowRight, Save, LayoutList, Loader2 } from 'lucide-react';
 import { useComplaints } from '@/lib/firebase/hooks';
 import { getCustomersBatch, extractCustomerIds } from '@/lib/firebase/batch-helpers';
 import { updateComplaint } from '@/lib/firebase/db';
@@ -26,7 +26,7 @@ import { toDate } from '@/lib/utils/date-helpers';
 import { Suspense } from 'react';
 
 function ComplaintsPageContent() {
-  const { data: allComplaints, loading, error } = useComplaints();
+  const { data: allComplaints, loading, error, refetch: refetchComplaints } = useComplaints();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
@@ -269,7 +269,7 @@ function ComplaintsPageContent() {
 
       {/* KPI Stats Cards - Glassmorphism */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-indigo-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 rounded-2xl text-indigo-500 bg-indigo-500/10">
               <LayoutList className="h-6 w-6" />
@@ -282,7 +282,7 @@ function ComplaintsPageContent() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-rose-500/10 to-rose-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-rose-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 rounded-2xl text-rose-500 bg-rose-500/10">
               <AlertCircle className="h-6 w-6" />
@@ -295,7 +295,7 @@ function ComplaintsPageContent() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-amber-500/10 to-amber-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-amber-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 rounded-2xl text-amber-500 bg-amber-500/10">
               <Clock className="h-6 w-6" />
@@ -308,7 +308,7 @@ function ComplaintsPageContent() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <div className="p-3 rounded-2xl text-emerald-500 bg-emerald-500/10">
               <CheckCircle2 className="h-6 w-6" />
@@ -323,7 +323,7 @@ function ComplaintsPageContent() {
       </div>
 
       {/* Main Content Area */}
-      <Card className="rounded-3xl border-white/10 shadow-xl bg-card/60 backdrop-blur-2xl overflow-hidden">
+      <Card className="rounded-2xl border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
         <CardHeader className="border-b border-border/50 bg-background/50 px-6 py-5">
           <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
@@ -332,7 +332,7 @@ function ComplaintsPageContent() {
                 placeholder="Müşteri adı, kategori veya kelime ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 rounded-2xl border-white/10 bg-background/50 h-12 w-full text-base transition-colors focus-visible:bg-background"
+                className="pl-10 rounded-xl bg-white/[0.04] border border-white/[0.08] h-10 text-sm w-full transition-colors focus-visible:bg-background"
               />
             </div>
 
@@ -342,7 +342,7 @@ function ComplaintsPageContent() {
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
                 placeholder="Durum Seç"
-                className="w-full sm:w-[150px] rounded-2xl h-12 border-white/10 bg-background/50"
+                className="w-full sm:w-[150px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04]"
               />
               {categoryOptions.length > 0 && (
                 <MultiSelectFilter
@@ -350,10 +350,10 @@ function ComplaintsPageContent() {
                   selectedValues={categoryFilters}
                   onSelectionChange={setCategoryFilters}
                   placeholder="Kategori Seç"
-                  className="w-full sm:w-[180px] rounded-2xl h-12 border-white/10 bg-background/50"
+                  className="w-full sm:w-[180px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04]"
                 />
               )}
-              <div className="h-12 border border-white/10 bg-background/50 rounded-2xl px-2 flex items-center justify-center">
+              <div className="h-10 border border-white/[0.08] bg-white/[0.04] rounded-xl px-2 flex items-center justify-center">
                 <DateRangePicker
                   startDate={dateFrom}
                   endDate={dateTo}
@@ -370,19 +370,19 @@ function ComplaintsPageContent() {
                 <Button
                   variant="ghost"
                   onClick={handleClearFilters}
-                  className="rounded-xl h-12 font-medium text-rose-500 hover:bg-rose-500/10"
+                  className="h-10 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Sıfırla
                 </Button>
               )}
-              <div className="h-12 w-px bg-border/50 hidden sm:block"></div>
+              <div className="h-10 w-px bg-border/50 hidden sm:block"></div>
               {filteredComplaints.length > 0 && (
                 <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
-                  <SelectTrigger className="w-[130px] rounded-xl border-white/10 bg-background/50 h-12 hover:bg-muted text-sm font-medium transition-colors">
+                  <SelectTrigger className="w-[130px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] hover:bg-muted text-sm font-medium transition-colors">
                     <Download className="mr-2 h-4 w-4" /> Dışarı Aktar
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                     <SelectItem value="csv">CSV İndir (.csv)</SelectItem>
                     <SelectItem value="excel">Excel İndir (.xlsx)</SelectItem>
                     <SelectItem value="pdf">PDF İndir (.pdf)</SelectItem>
@@ -395,26 +395,26 @@ function ComplaintsPageContent() {
 
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 space-y-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-[90px] w-full rounded-2xl bg-muted/60" />
-              ))}
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
+              <p className="text-sm text-white/40">Şikayetler yükleniyor...</p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
-                <AlertCircle className="h-8 w-8" />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-red-400/60" />
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Veriler Yüklenemedi</h3>
-              <p className="text-muted-foreground max-w-sm">
-                Şikayet verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
-              </p>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{error instanceof Error ? error.message : 'Şikayet verileri yüklenirken bir sorun oluştu.'}</p>
+              <Button variant="outline" onClick={() => refetchComplaints()}>Tekrar Dene</Button>
             </div>
           ) : paginatedComplaints.length === 0 && !loading ? (
-            <div className="text-center py-16">
-              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">Henüz şikayet yok</h3>
-              <p className="text-sm text-muted-foreground/60 mt-1">Şikayetler burada listelenecektir</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <MessageSquareWarning className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz şikayet kaydı yok</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">Şikayet kayıtları burada listelenecektir.</p>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
@@ -481,7 +481,7 @@ function ComplaintsPageContent() {
                 {paginatedComplaints.length} / {filteredComplaints.length} kayıt gösteriliyor
               </span>
               {hasMore && (
-                <Button variant="outline" size="sm" onClick={handleLoadMore} className="rounded-xl">
+                <Button variant="outline" size="sm" onClick={handleLoadMore}>
                   Daha Fazla Yükle
                 </Button>
               )}
@@ -569,7 +569,7 @@ function ComplaintsPageContent() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 border-amber-500/20 rounded-xl"
+                        className="bg-amber-500/5 hover:bg-amber-500/10 text-amber-500 border-amber-500/20"
                         onClick={() => handleStatusUpdate(selectedComplaint.id, 'investigating')}
                         disabled={updating === selectedComplaint?.id}
                       >
@@ -580,7 +580,7 @@ function ComplaintsPageContent() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 border-emerald-500/20 rounded-xl"
+                        className="bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                         onClick={() => handleStatusUpdate(selectedComplaint.id, 'resolved')}
                         disabled={updating === selectedComplaint?.id}
                       >
@@ -590,7 +590,7 @@ function ComplaintsPageContent() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 border-rose-500/20 rounded-xl"
+                      className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 border-rose-500/20"
                       onClick={() => selectedComplaint && handleStatusUpdate(selectedComplaint.id, 'closed')}
                       disabled={updating === selectedComplaint?.id || selectedComplaint?.status === 'closed'}
                     >
@@ -641,11 +641,11 @@ function ComplaintsPageContent() {
                 />
 
                 <div className="mt-4 flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setDetailDialogOpen(false)} className="rounded-xl">Kapat</Button>
+                  <Button variant="ghost" onClick={() => setDetailDialogOpen(false)}>Kapat</Button>
                   <Button
                     onClick={handleSaveNotes}
                     disabled={savingNotes}
-                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700 gap-2 px-6"
+                    className="gap-2 px-6"
                   >
                     {savingNotes ? <span className="animate-pulse">Kaydediliyor...</span> : <><Save className="h-4 w-4" /> Notları Kaydet</>}
                   </Button>

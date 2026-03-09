@@ -3,21 +3,19 @@ import {
   createAppointment,
   getAppointments,
   updateAppointment,
-  getTenantFromRequest,
   Timestamp,
 } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { sendWebhook } from '@/lib/n8n/client';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = getTenantFromRequest(request);
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-    }
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
 
     const searchParams = request.nextUrl.searchParams;
     const customerId = searchParams.get('customerId');
@@ -25,7 +23,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    const appointments = await getAppointments(tenantId, {
+    const appointments = await getAppointments(auth.tenantId, {
       customerId: customerId || undefined,
       status: status || undefined,
       dateFrom: dateFrom ? new Date(dateFrom) : undefined,
@@ -33,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(appointments, {
-      headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+      headers: cacheHeaders('SHORT'),
     });
   } catch (error: unknown) {
     return handleApiError(error, 'Appointments GET');

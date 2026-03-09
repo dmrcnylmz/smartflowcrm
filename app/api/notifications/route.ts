@@ -10,8 +10,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { handleApiError, requireAuth, errorResponse, createApiError } from '@/lib/utils/error-handler';
+import { handleApiError, errorResponse, createApiError } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,17 +25,14 @@ function getDb() {
 // GET: List notifications
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const resolvedId = tenantId || userId!;
         const unreadOnly = request.nextUrl.searchParams.get('unread') === 'true';
         const limit = parseInt(request.nextUrl.searchParams.get('limit') || '30');
 
         let query = getDb()
-            .collection('tenants').doc(resolvedId)
+            .collection('tenants').doc(auth.tenantId)
             .collection('notifications')
             .orderBy('createdAt', 'desc')
             .limit(limit);
@@ -52,7 +50,7 @@ export async function GET(request: NextRequest) {
 
         // Count unread
         const unreadSnap = await getDb()
-            .collection('tenants').doc(resolvedId)
+            .collection('tenants').doc(auth.tenantId)
             .collection('notifications')
             .where('read', '==', false)
             .count()
@@ -63,7 +61,7 @@ export async function GET(request: NextRequest) {
             unreadCount: unreadSnap.data().count,
             total: notifications.length,
         }, {
-            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+            headers: cacheHeaders('SHORT'),
         });
     } catch (error) {
         return handleApiError(error, 'Notifications GET');
@@ -148,12 +146,9 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete notification
 export async function DELETE(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const resolvedId = tenantId || userId!;
         const body = await request.json();
 
         if (!body.notificationId) {
@@ -161,7 +156,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         await getDb()
-            .collection('tenants').doc(resolvedId)
+            .collection('tenants').doc(auth.tenantId)
             .collection('notifications')
             .doc(body.notificationId)
             .delete();

@@ -22,6 +22,11 @@ interface TestResult {
 }
 
 export async function GET() {
+    // Block in production — test endpoint leaks internal state
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const results: TestResult[] = [];
     const totalStart = performance.now();
 

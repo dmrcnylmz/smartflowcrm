@@ -11,6 +11,7 @@ import { format, differenceInDays, eachDayOfInterval } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
 import { handleApiError } from '@/lib/utils/error-handler';
 import type { CallLog, Complaint, InfoRequest, Appointment } from '@/lib/firebase/types';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -155,7 +156,7 @@ export async function GET(request: NextRequest) {
     };
 
     return NextResponse.json(report, {
-      headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
+      headers: cacheHeaders('LONG'),
     });
   } catch (error: unknown) {
     return handleApiError(error, 'Reports Custom');

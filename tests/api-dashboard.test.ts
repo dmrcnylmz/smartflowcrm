@@ -23,22 +23,46 @@ vi.mock('firebase-admin/firestore', () => ({
     FieldValue: { serverTimestamp: vi.fn(() => 'MOCK_TS') },
 }));
 
+// Mock requireStrictAuth — simulate authenticated user
+const mockRequireStrictAuth = vi.fn().mockResolvedValue({
+    uid: 'test-uid',
+    email: 'test@example.com',
+    tenantId: 'tenant-123',
+});
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: (...args: unknown[]) => mockRequireStrictAuth(...args),
+}));
+
+// Mock analytics (imported by dashboard route)
+vi.mock('@/lib/billing/analytics', () => ({
+    getPipelineSummary: vi.fn().mockResolvedValue({ totalCalls: 0, totalMinutes: 0 }),
+    getLatencyStats: vi.fn().mockResolvedValue({ avg: 0, p50: 0, p95: 0 }),
+}));
+
 describe('/api/dashboard', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mockRequireStrictAuth.mockResolvedValue({
+            uid: 'test-uid',
+            email: 'test@example.com',
+            tenantId: 'tenant-123',
+        });
     });
 
     describe('GET', () => {
         it('should return proper summary shape with required fields', async () => {
             const { GET } = await import('@/app/api/dashboard/route');
             const request = createMockRequest('/api/dashboard', {
-                headers: { 'x-user-tenant': 'tenant-123' },
+                headers: {
+                    'x-user-tenant': 'tenant-123',
+                    'Authorization': 'Bearer test-token',
+                },
             });
 
             const response = await GET(request);
             const data = await response.json();
 
-            // The route returns a fallback structure on error
+            // The route returns a fallback structure on error (Firestore throws)
             expect(data).toHaveProperty('kpis');
             expect(data).toHaveProperty('callTrend');
             expect(data).toHaveProperty('complaintCategories');
@@ -60,13 +84,16 @@ describe('/api/dashboard', () => {
             expect(data.usage).toHaveProperty('kbDocuments');
         });
 
-        it('should return 403 when tenant header is missing', async () => {
+        it('should return 401 when auth is missing', async () => {
+            mockRequireStrictAuth.mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            });
+
             const { GET } = await import('@/app/api/dashboard/route');
             const request = createMockRequest('/api/dashboard');
 
             const response = await GET(request);
-            // Without tenant, the route returns 403 before hitting Firestore
-            expect(response.status).toBe(403);
+            expect(response.status).toBe(401);
         });
     });
 });

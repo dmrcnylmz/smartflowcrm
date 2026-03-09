@@ -67,14 +67,18 @@ describe('/api/customers', () => {
             expect(mockGetAllCustomers).toHaveBeenCalledOnce();
         });
 
-        it('should return 403 when tenant header is missing', async () => {
-            mockGetTenantFromRequest.mockReturnValue(null);
+        it('should return 401 when auth is missing', async () => {
+            // Simulate auth failure (no Bearer token)
+            const { requireStrictAuth } = await import('@/lib/utils/require-strict-auth');
+            vi.mocked(requireStrictAuth).mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            } as never);
 
             const { GET } = await import('@/app/api/customers/route');
             const request = createMockRequest('/api/customers');
 
             const response = await GET(request);
-            expect(response.status).toBe(403);
+            expect(response.status).toBe(401);
         });
     });
 
@@ -110,6 +114,71 @@ describe('/api/customers', () => {
 
             const response = await POST(request);
             expect(response.status).toBe(400);
+        });
+    });
+
+    describe('PATCH', () => {
+        it('should update customer with valid fields', async () => {
+            mockUpdateCustomer.mockResolvedValue(undefined);
+            mockAddActivityLog.mockResolvedValue(undefined);
+
+            const { PATCH } = await import('@/app/api/customers/route');
+            const request = createMockRequest('/api/customers', {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { customerId: 'c1', name: 'Updated Name', email: 'new@test.com' },
+            });
+
+            const response = await PATCH(request);
+            const data = await response.json();
+
+            expect(response.status).toBe(200);
+            expect(data.success).toBe(true);
+            expect(data.customerId).toBe('c1');
+            expect(data.updatedFields).toContain('name');
+            expect(data.updatedFields).toContain('email');
+            expect(mockUpdateCustomer).toHaveBeenCalledOnce();
+            expect(mockAddActivityLog).toHaveBeenCalledOnce();
+        });
+
+        it('should return 400 when customerId is missing', async () => {
+            const { PATCH } = await import('@/app/api/customers/route');
+            const request = createMockRequest('/api/customers', {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { name: 'Updated Name' },
+            });
+
+            const response = await PATCH(request);
+            expect(response.status).toBe(400);
+        });
+
+        it('should return 400 when no update fields are provided', async () => {
+            const { PATCH } = await import('@/app/api/customers/route');
+            const request = createMockRequest('/api/customers', {
+                method: 'PATCH',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { customerId: 'c1' },
+            });
+
+            const response = await PATCH(request);
+            expect(response.status).toBe(400);
+        });
+
+        it('should return 401 when auth is missing', async () => {
+            const { requireStrictAuth } = await import('@/lib/utils/require-strict-auth');
+            vi.mocked(requireStrictAuth).mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            } as never);
+
+            const { PATCH } = await import('@/app/api/customers/route');
+            const request = createMockRequest('/api/customers', {
+                method: 'PATCH',
+                body: { customerId: 'c1', name: 'Test' },
+            });
+
+            const response = await PATCH(request);
+            expect(response.status).toBe(401);
         });
     });
 });

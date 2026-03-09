@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
 import { exportAppointments, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { Plus, AlertCircle, Calendar as CalendarIcon, Clock, CheckCircle2, XCircle, Search, Edit, Trash2, X, Download, UserRoundSearch, UserPlus, Phone, Activity } from 'lucide-react';
+import { Plus, AlertCircle, AlertTriangle, Calendar as CalendarIcon, Clock, CheckCircle2, XCircle, Search, Edit, Trash2, X, Download, UserRoundSearch, UserPlus, Phone, Activity, Loader2 } from 'lucide-react';
 import { getAllCustomers, createAppointment, updateAppointment, deleteAppointment } from '@/lib/firebase/db';
 import { useAppointments } from '@/lib/firebase/hooks';
 import { useToast } from '@/components/ui/toast';
@@ -55,6 +55,8 @@ function AppointmentsPageContent() {
     notes: '',
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   // Load customer details for appointments
   useEffect(() => {
@@ -169,8 +171,20 @@ function AppointmentsPageContent() {
         return;
       }
 
-      const customer = allCustomers.find(c => c.id === formData.customerId);
       const dateTime = new Date(formData.dateTime);
+
+      // Prevent creating appointments in the past
+      if (dateTime < new Date()) {
+        toast({
+          title: 'Geçersiz Tarih',
+          description: 'Geçmiş bir tarih ve saat seçilemez',
+          variant: 'error',
+        });
+        return;
+      }
+
+      setSaving(true);
+      const customer = allCustomers.find(c => c.id === formData.customerId);
       await createAppointment({
         customerId: formData.customerId,
         dateTime: Timestamp.fromDate(dateTime),
@@ -194,6 +208,8 @@ function AppointmentsPageContent() {
         description: errorMessage,
         variant: 'error',
       });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -240,6 +256,18 @@ function AppointmentsPageContent() {
 
     try {
       const dateTime = new Date(editFormData.dateTime);
+
+      // Prevent updating to a past date/time
+      if (dateTime < new Date()) {
+        toast({
+          title: 'Geçersiz Tarih',
+          description: 'Geçmiş bir tarih ve saat seçilemez',
+          variant: 'error',
+        });
+        return;
+      }
+
+      setEditSaving(true);
       await updateAppointment(selectedAppointment.id, {
         dateTime: Timestamp.fromDate(dateTime),
         durationMin: parseInt(editFormData.durationMin),
@@ -259,6 +287,8 @@ function AppointmentsPageContent() {
         description: errorMessage,
         variant: 'error',
       });
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -342,12 +372,12 @@ function AppointmentsPageContent() {
         <div className="flex items-center gap-3 bg-card p-2 rounded-2xl border shadow-sm backdrop-blur-md">
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-xl px-4 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all">
+              <Button className="px-4 flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Yeni Randevu
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[450px] rounded-3xl border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl">
+            <DialogContent className="sm:max-w-[450px] rounded-2xl border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                   <CalendarIcon className="h-6 w-6 text-primary" />
@@ -359,10 +389,10 @@ function AppointmentsPageContent() {
                 <div className="space-y-2">
                   <Label htmlFor="customerId" className="text-sm font-medium">Müşteri Seçimi <span className="text-destructive">*</span></Label>
                   <Select value={formData.customerId} onValueChange={(value) => setFormData({ ...formData, customerId: value })}>
-                    <SelectTrigger className="rounded-xl bg-background/50 outline-none border-white/10">
+                    <SelectTrigger className="rounded-xl bg-white/[0.04] outline-none border-white/[0.08] h-10">
                       <SelectValue placeholder="Sistemde kayıtlı müşteri arayın..." />
                     </SelectTrigger>
-                    <SelectContent className="rounded-xl border-white/10 shadow-xl backdrop-blur-xl bg-background/95">
+                    <SelectContent className="rounded-xl border-white/[0.08] shadow-lg backdrop-blur-sm bg-card/95">
                       {allCustomers.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id} className="cursor-pointer">
                           <div className="flex flex-col gap-0.5">
@@ -383,7 +413,7 @@ function AppointmentsPageContent() {
                       value={formData.dateTime}
                       onChange={(e) => setFormData({ ...formData, dateTime: e.target.value })}
                       required
-                      className="rounded-xl bg-background/50 border-white/10"
+                      className="rounded-xl bg-white/[0.04] border-white/[0.08] h-10"
                     />
                   </div>
                   <div className="space-y-2">
@@ -396,7 +426,7 @@ function AppointmentsPageContent() {
                       value={formData.durationMin}
                       onChange={(e) => setFormData({ ...formData, durationMin: e.target.value })}
                       required
-                      className="rounded-xl bg-background/50 border-white/10"
+                      className="rounded-xl bg-white/[0.04] border-white/[0.08] h-10"
                     />
                   </div>
                 </div>
@@ -407,10 +437,11 @@ function AppointmentsPageContent() {
                     placeholder="Gösterim hakkında kısa bilgiler ekleyin..."
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="rounded-xl bg-background/50 border-white/10 resize-none h-24"
+                    className="rounded-xl bg-white/[0.04] border-white/[0.08] resize-none h-24"
                   />
                 </div>
-                <Button type="submit" className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white font-medium py-6 mt-2">
+                <Button type="submit" className="w-full font-medium py-6 mt-2" disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Randevuyu Kaydet
                 </Button>
               </form>
@@ -422,7 +453,7 @@ function AppointmentsPageContent() {
               <SelectTrigger className="w-[130px] rounded-xl border-none bg-transparent shadow-none hover:bg-muted text-sm font-medium transition-colors">
                 <Download className="mr-2 h-4 w-4" /> Dışarı Aktar
               </SelectTrigger>
-              <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+              <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                 <SelectItem value="csv">CSV İndir (.csv)</SelectItem>
                 <SelectItem value="excel">Excel İndir (.xlsx)</SelectItem>
                 <SelectItem value="pdf">PDF İndir (.pdf)</SelectItem>
@@ -434,7 +465,7 @@ function AppointmentsPageContent() {
 
       {/* KPI Stats Cards - Glassmorphism */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-indigo-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-muted-foreground font-medium flex items-center gap-2">
               <CalendarIcon className="h-4 w-4" /> Toplam Kayıt
@@ -444,7 +475,7 @@ function AppointmentsPageContent() {
           <div className="text-4xl font-bold tracking-tight text-foreground">{totalAppointments}</div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-blue-500/10 to-blue-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-blue-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-muted-foreground font-medium flex items-center gap-2">
               <Clock className="h-4 w-4" /> Planlandı
@@ -454,7 +485,7 @@ function AppointmentsPageContent() {
           <div className="text-4xl font-bold tracking-tight text-blue-500">{scheduledCount}</div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-muted-foreground font-medium flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" /> Tamamlandı
@@ -464,7 +495,7 @@ function AppointmentsPageContent() {
           <div className="text-4xl font-bold tracking-tight text-emerald-500">{completedCount}</div>
         </div>
 
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-rose-500/10 to-rose-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:-translate-y-1">
+        <div className="relative overflow-hidden rounded-2xl border border-rose-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-muted-foreground font-medium flex items-center gap-2">
               <XCircle className="h-4 w-4" /> İptal Edildi
@@ -476,7 +507,7 @@ function AppointmentsPageContent() {
       </div>
 
       {/* Main Content Area */}
-      <Card className="rounded-3xl border-white/10 shadow-xl bg-card/60 backdrop-blur-2xl overflow-hidden">
+      <Card className="rounded-2xl border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
         <CardHeader className="border-b border-border/50 bg-background/50 px-6 py-5">
           <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
@@ -485,7 +516,7 @@ function AppointmentsPageContent() {
                 placeholder="Müşteri adı veya konu vb ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 rounded-2xl border-white/10 bg-background/50 h-12 w-full text-base transition-colors focus-visible:bg-background"
+                className="pl-10 rounded-xl bg-white/[0.04] border border-white/[0.08] h-10 text-sm w-full transition-colors focus-visible:bg-background"
               />
             </div>
 
@@ -495,9 +526,9 @@ function AppointmentsPageContent() {
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
                 placeholder="Randevu Durumu Seç"
-                className="w-full sm:w-[220px] rounded-2xl h-12 border-white/10 bg-background/50"
+                className="w-full sm:w-[220px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04]"
               />
-              <div className="h-12 border border-white/10 bg-background/50 rounded-2xl px-2 flex items-center">
+              <div className="h-10 border border-white/[0.08] bg-white/[0.04] rounded-xl px-2 flex items-center">
                 <DateRangePicker
                   startDate={dateFrom}
                   endDate={dateTo}
@@ -514,7 +545,7 @@ function AppointmentsPageContent() {
                 <Button
                   variant="ghost"
                   onClick={handleClearFilters}
-                  className="rounded-xl h-12 font-medium text-rose-500 hover:bg-rose-500/10"
+                  className="rounded-xl h-10 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Sıfırla
@@ -526,26 +557,30 @@ function AppointmentsPageContent() {
 
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 space-y-4">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-[90px] w-full rounded-2xl bg-muted/60" />
-              ))}
+            <div className="flex flex-col items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
+              <p className="text-sm text-white/40">Randevular yükleniyor...</p>
             </div>
           ) : appointmentsError ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-4">
-                <AlertCircle className="h-8 w-8" />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-red-400/60" />
               </div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Veriler Yüklenemedi</h3>
-              <p className="text-muted-foreground max-w-sm">
-                Randevu verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
-              </p>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{appointmentsError instanceof Error ? appointmentsError.message : 'Randevu verileri yüklenirken bir sorun oluştu.'}</p>
+              <Button variant="outline" onClick={() => refetchAppointments()}>Tekrar Dene</Button>
             </div>
           ) : filteredAppointments.length === 0 && !loading ? (
-            <div className="text-center py-16">
-              <CalendarIcon className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">Henüz randevu yok</h3>
-              <p className="text-sm text-muted-foreground/60 mt-1">Yeni bir randevu oluşturun</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <CalendarIcon className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz randevu oluşturulmadı</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">Yeni randevu oluşturarak takvimizi başlatın.</p>
+              <Button onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Yeni Randevu
+              </Button>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
@@ -606,6 +641,7 @@ function AppointmentsPageContent() {
                           className="h-8 w-8 p-0 rounded-lg hover:bg-muted"
                           onClick={() => handleEditClick(apt)}
                           title="Düzenle"
+                          aria-label="Düzenle"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -619,6 +655,7 @@ function AppointmentsPageContent() {
                               disabled={updating === apt.id}
                               onClick={() => handleStatusUpdate(apt.id, 'completed')}
                               title="Tamamlandı Olarak İşaretle"
+                              aria-label="Tamamlandı olarak işaretle"
                             >
                               <CheckCircle2 className="h-4 w-4" />
                             </Button>
@@ -629,6 +666,7 @@ function AppointmentsPageContent() {
                               disabled={updating === apt.id}
                               onClick={() => handleStatusUpdate(apt.id, 'cancelled')}
                               title="İptal Et"
+                              aria-label="İptal et"
                             >
                               <XCircle className="h-4 w-4" />
                             </Button>
@@ -641,6 +679,7 @@ function AppointmentsPageContent() {
                           className="h-8 w-8 p-0 rounded-lg hover:bg-rose-500/10 hover:text-rose-500"
                           onClick={() => setDeleteConfirmId(apt.id)}
                           title="Sil"
+                          aria-label="Sil"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -680,10 +719,10 @@ function AppointmentsPageContent() {
             Bu randevuyu kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
           </p>
           <div className="flex justify-end gap-3 mt-4">
-            <Button variant="outline" className="rounded-xl" onClick={() => setDeleteConfirmId(null)}>
+            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
               Vazgeç
             </Button>
-            <Button variant="destructive" className="rounded-xl" onClick={handleDeleteConfirmed}>
+            <Button variant="destructive" onClick={handleDeleteConfirmed}>
               <Trash2 className="h-4 w-4 mr-1" />
               Evet, Sil
             </Button>
@@ -693,7 +732,7 @@ function AppointmentsPageContent() {
 
       {/* Edit Appointment Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] rounded-3xl border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl">
+        <DialogContent className="sm:max-w-[450px] rounded-2xl border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               <Edit className="h-5 w-5 text-primary" />
@@ -710,7 +749,7 @@ function AppointmentsPageContent() {
                   value={editFormData.dateTime}
                   onChange={(e) => setEditFormData({ ...editFormData, dateTime: e.target.value })}
                   required
-                  className="rounded-xl border-white/10 bg-background/50 h-11"
+                  className="rounded-xl border-white/[0.08] bg-white/[0.04] h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -725,7 +764,7 @@ function AppointmentsPageContent() {
                     value={editFormData.durationMin}
                     onChange={(e) => setEditFormData({ ...editFormData, durationMin: e.target.value })}
                     required
-                    className="rounded-xl border-white/10 bg-background/50 h-11 pl-10"
+                    className="rounded-xl border-white/[0.08] bg-white/[0.04] h-10 pl-10"
                   />
                 </div>
               </div>
@@ -735,15 +774,16 @@ function AppointmentsPageContent() {
                   id="edit-notes"
                   value={editFormData.notes}
                   onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-                  className="rounded-xl border-white/10 bg-background/50 resize-none h-28"
+                  className="rounded-xl border-white/[0.08] bg-white/[0.04] resize-none h-28"
                   placeholder="Buraya müşteri görüşmesi için spesifik detayları girebilirsiniz..."
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-                <Button type="button" variant="outline" className="rounded-xl" onClick={() => setEditDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} disabled={editSaving}>
                   Vazgeç
                 </Button>
-                <Button type="submit" className="rounded-xl bg-primary hover:bg-primary/90">
+                <Button type="submit" disabled={editSaving}>
+                  {editSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Değişiklikleri Kaydet
                 </Button>
               </div>

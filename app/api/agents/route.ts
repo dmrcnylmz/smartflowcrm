@@ -11,19 +11,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
 import { applyPersonalityPreset, getActivePreset, type PersonalityPresetKey } from '@/lib/agents/personality-presets';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
-
-/** Resolve tenant: prefer x-user-tenant, fallback to x-user-uid */
-function getTenantId(request: NextRequest): string | null {
-    return request.headers.get('x-user-tenant')
-        || request.headers.get('x-user-uid')
-        || null;
-}
 
 // =============================================
 // Firestore helpers
@@ -65,7 +59,28 @@ export async function POST(request: NextRequest) {
         const validation = requireFields(body, ['name', 'systemPrompt']);
         if (validation) return errorResponse(validation);
 
-        const { id, name, role, systemPrompt, variables, voiceConfig, fallbackRules, isActive, templateId, templateColor, personalityPreset } = body;
+        const { id, role, variables, voiceConfig, fallbackRules, isActive, templateId, templateColor, personalityPreset } = body;
+
+        // Sanitize and validate name
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        if (!name) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Asistan adı boş olamaz'));
+        }
+        if (name.length < 2) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Asistan adı en az 2 karakter olmalıdır'));
+        }
+        if (name.length > 100) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Asistan adı en fazla 100 karakter olabilir'));
+        }
+
+        // Sanitize systemPrompt
+        const systemPrompt = typeof body.systemPrompt === 'string' ? body.systemPrompt.trim() : '';
+        if (!systemPrompt) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Sistem prompt\'u boş olamaz'));
+        }
+        if (systemPrompt.length < 10) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Sistem prompt\'u en az 10 karakter olmalıdır'));
+        }
 
         let finalSystemPrompt = systemPrompt;
         let finalVoiceConfig = voiceConfig || {};
@@ -137,27 +152,26 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const agentId = request.nextUrl.searchParams.get('id');
 
         if (agentId) {
-            const doc = await tenantAgents(tenantId!).doc(agentId).get();
+            const doc = await tenantAgents(auth.tenantId).doc(agentId).get();
             if (!doc.exists) {
                 return errorResponse(createApiError('NOT_FOUND', 'Agent bulunamadı'));
             }
             return NextResponse.json({ id: doc.id, ...doc.data() }, {
-                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+                headers: cacheHeaders('MEDIUM'),
             });
         }
 
-        const snap = await tenantAgents(tenantId!).orderBy('createdAt', 'desc').get();
+        const snap = await tenantAgents(auth.tenantId).orderBy('createdAt', 'desc').get();
         const agents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
         return NextResponse.json({ agents, count: agents.length }, {
-            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            headers: cacheHeaders('MEDIUM'),
         });
 
     } catch (error) {

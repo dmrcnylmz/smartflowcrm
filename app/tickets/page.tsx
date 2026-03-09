@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -450,15 +449,15 @@ function TicketsPageContent() {
             <Skeleton className="h-10 w-72 rounded-xl mb-3" />
             <Skeleton className="h-5 w-96 rounded-lg" />
           </div>
-          <Skeleton className="h-12 w-40 rounded-2xl" />
+          <Skeleton className="h-10 w-40 rounded-xl" />
         </div>
 
         {/* KPI skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-3xl border border-white/10 p-6 space-y-4">
+            <div key={i} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-sm space-y-4">
               <div className="flex items-center justify-between">
-                <Skeleton className="h-12 w-12 rounded-2xl" />
+                <Skeleton className="h-9 w-9 rounded-xl" />
                 <Skeleton className="h-6 w-16 rounded-full" />
               </div>
               <div>
@@ -470,19 +469,19 @@ function TicketsPageContent() {
         </div>
 
         {/* Table skeleton */}
-        <Card className="rounded-3xl border-white/10 shadow-xl overflow-hidden">
-          <CardHeader className="border-b border-border/50 bg-background/50 px-6 py-5">
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden">
+          <div className="border-b border-white/[0.06] px-6 py-5">
             <div className="flex gap-4">
-              <Skeleton className="h-12 flex-1 rounded-2xl" />
-              <Skeleton className="h-12 w-40 rounded-2xl" />
-              <Skeleton className="h-12 w-40 rounded-2xl" />
+              <Skeleton className="h-10 flex-1 rounded-xl" />
+              <Skeleton className="h-10 w-40 rounded-xl" />
+              <Skeleton className="h-10 w-40 rounded-xl" />
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="divide-y divide-border/50">
+          </div>
+          <div className="p-0">
+            <div className="divide-y divide-white/[0.06]">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="p-6 flex items-center gap-5">
-                  <Skeleton className="h-12 w-12 rounded-2xl flex-shrink-0" />
+                  <Skeleton className="h-10 w-10 rounded-xl flex-shrink-0" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-5 w-64 rounded" />
                     <Skeleton className="h-4 w-96 rounded" />
@@ -492,8 +491,8 @@ function TicketsPageContent() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -519,7 +518,9 @@ function TicketsPageContent() {
       >
         <div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Ticket className="h-8 w-8 text-indigo-500" />
+            <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
+              <Ticket className="h-5 w-5 text-inception-red" />
+            </div>
             Destek Talepleri
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
@@ -530,14 +531,15 @@ function TicketsPageContent() {
           <Button
             variant="outline"
             size="icon"
-            className="rounded-2xl h-12 w-12 border-white/10"
+            className="h-10 w-10 border-white/[0.08]"
             onClick={() => fetchTickets(true)}
             disabled={refreshing}
+            aria-label="Yenile"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Button
-            className="rounded-2xl h-12 px-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 font-semibold"
+            className="h-10 px-6 font-semibold"
             onClick={() => {
               resetCreateForm();
               setCreateDialogOpen(true);
@@ -553,12 +555,12 @@ function TicketsPageContent() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total */}
         <div
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1 animate-fade-in-up"
+          className="relative overflow-hidden rounded-2xl border border-indigo-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up"
           style={{ animationDelay: '0ms' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-2xl text-indigo-500 bg-indigo-500/10">
-              <LayoutList className="h-6 w-6" />
+            <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
+              <LayoutList className="h-5 w-5" />
             </div>
             <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Toplam</span>
           </div>
@@ -570,12 +572,12 @@ function TicketsPageContent() {
 
         {/* Open */}
         <div
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-rose-500/10 to-rose-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1 animate-fade-in-up"
+          className="relative overflow-hidden rounded-2xl border border-rose-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up"
           style={{ animationDelay: '80ms' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-2xl text-rose-500 bg-rose-500/10">
-              <AlertCircle className="h-6 w-6" />
+            <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-500">
+              <AlertCircle className="h-5 w-5" />
             </div>
             <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Acil</span>
           </div>
@@ -587,12 +589,12 @@ function TicketsPageContent() {
 
         {/* In Progress */}
         <div
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-amber-500/10 to-amber-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1 animate-fade-in-up"
+          className="relative overflow-hidden rounded-2xl border border-amber-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up"
           style={{ animationDelay: '160ms' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-2xl text-amber-500 bg-amber-500/10">
-              <Clock className="h-6 w-6" />
+            <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500">
+              <Clock className="h-5 w-5" />
             </div>
             <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Devam</span>
           </div>
@@ -604,12 +606,12 @@ function TicketsPageContent() {
 
         {/* Resolved */}
         <div
-          className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 p-6 shadow-sm backdrop-blur-xl transition-all hover:shadow-md hover:-translate-y-1 animate-fade-in-up"
+          className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up"
           style={{ animationDelay: '240ms' }}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-3 rounded-2xl text-emerald-500 bg-emerald-500/10">
-              <CheckCircle2 className="h-6 w-6" />
+            <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-500">
+              <CheckCircle2 className="h-5 w-5" />
             </div>
             <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Başarılı</span>
           </div>
@@ -621,8 +623,8 @@ function TicketsPageContent() {
       </div>
 
       {/* ---- Main Content Card ---- */}
-      <Card className="rounded-3xl border-white/10 shadow-xl bg-card/60 backdrop-blur-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: '300ms' }}>
-        <CardHeader className="border-b border-border/50 bg-background/50 px-6 py-5">
+      <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+        <div className="border-b border-white/[0.06] px-6 py-5">
           <div className="flex flex-col lg:flex-row gap-4 justify-between lg:items-center">
             {/* Search */}
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
@@ -631,17 +633,17 @@ function TicketsPageContent() {
                 placeholder="Talep ara (ID, başlık, müşteri)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 rounded-2xl border-white/10 bg-background/50 h-12 w-full text-base transition-colors focus-visible:bg-background"
+                className="pl-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 w-full text-sm transition-colors"
               />
             </div>
 
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:flex-1 lg:justify-end">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[160px] rounded-2xl h-12 border-white/10 bg-background/50 font-medium">
+                <SelectTrigger className="w-full sm:w-[160px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] font-medium">
                   <SelectValue placeholder="Durum Filtrele" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+                <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                   <SelectItem value="all">Tüm Durumlar</SelectItem>
                   <SelectItem value="open">Açık</SelectItem>
                   <SelectItem value="in_progress">İşlemde</SelectItem>
@@ -651,10 +653,10 @@ function TicketsPageContent() {
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-full sm:w-[160px] rounded-2xl h-12 border-white/10 bg-background/50 font-medium">
+                <SelectTrigger className="w-full sm:w-[160px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] font-medium">
                   <SelectValue placeholder="Öncelik Filtrele" />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+                <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                   <SelectItem value="all">Tüm Öncelikler</SelectItem>
                   <SelectItem value="critical">Kritik</SelectItem>
                   <SelectItem value="high">Yüksek</SelectItem>
@@ -667,7 +669,7 @@ function TicketsPageContent() {
                 <Button
                   variant="ghost"
                   onClick={handleClearFilters}
-                  className="rounded-xl h-12 font-medium text-rose-500 hover:bg-rose-500/10"
+                  className="h-10 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
                   Sıfırla
@@ -675,20 +677,37 @@ function TicketsPageContent() {
               )}
             </div>
           </div>
-        </CardHeader>
+        </div>
 
-        <CardContent className="p-0">
+        <div className="p-0">
           {/* Empty state */}
           {filteredTickets.length === 0 && !loading ? (
-            <div className="text-center py-16">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
-              <h3 className="text-lg font-medium text-muted-foreground">Henüz talep yok</h3>
-              <p className="text-sm text-muted-foreground/60 mt-1">Yeni bir destek talebi oluşturun</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <Ticket className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz destek talebi yok</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">
+                {hasActiveFilters
+                  ? 'Arama kriterlerinize uygun talep bulunamadı. Filtreleri değiştirmeyi deneyin.'
+                  : 'Müşteri destek taleplerini oluşturarak takip sürecinizi başlatın.'}
+              </p>
+              {hasActiveFilters ? (
+                <Button variant="outline" onClick={handleClearFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Filtreleri Temizle
+                </Button>
+              ) : (
+                <Button onClick={() => { resetCreateForm(); setCreateDialogOpen(true); }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Yeni Talep Oluştur
+                </Button>
+              )}
             </div>
           ) : (
             <>
               {/* Ticket list */}
-              <div className="divide-y divide-border/50">
+              <div className="divide-y divide-white/[0.06]">
                 {paginatedTickets.map((ticket, index) => {
                   const statusCfg = STATUS_CONFIG[ticket.status];
                   const priorityCfg = PRIORITY_CONFIG[ticket.priority];
@@ -704,7 +723,7 @@ function TicketsPageContent() {
                     >
                       {/* Left: Icon + Title */}
                       <div className="flex items-center gap-4 w-full lg:w-5/12 min-w-0">
-                        <div className={`flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-2xl ${statusCfg.bgColor} border border-white/5`}>
+                        <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-xl ${statusCfg.bgColor} border border-white/5`}>
                           <StatusIcon className={`h-5 w-5 ${statusCfg.color}`} />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -735,7 +754,7 @@ function TicketsPageContent() {
                           {ticket.description || 'Açıklama eklenmemiş.'}
                         </p>
                         {ticket.category && (
-                          <Badge variant="outline" className="mt-1.5 bg-background/50 border-white/10 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="mt-1.5 bg-white/[0.04] border-white/[0.08] text-xs text-muted-foreground">
                             <Tag className="h-2.5 w-2.5 mr-1" />
                             {ticket.category}
                           </Badge>
@@ -754,8 +773,9 @@ function TicketsPageContent() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 rounded-xl text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-8 w-8 text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={(e) => handleDeleteClick(e, ticket)}
+                          aria-label="Sil"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -768,7 +788,7 @@ function TicketsPageContent() {
               </div>
 
               {/* Pagination */}
-              <div className="p-4 border-t border-border/50 bg-background/50">
+              <div className="p-4 border-t border-white/[0.06]">
                 <PaginationControls
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -779,14 +799,14 @@ function TicketsPageContent() {
               </div>
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* ================================================================= */}
       {/*  DETAIL DIALOG                                                    */}
       {/* ================================================================= */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl sm:rounded-[2rem]">
+        <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl sm:rounded-2xl">
           {selectedTicket && (() => {
             const statusCfg = STATUS_CONFIG[selectedTicket.status];
             const priorityCfg = PRIORITY_CONFIG[selectedTicket.priority];
@@ -797,7 +817,7 @@ function TicketsPageContent() {
             return (
               <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
                 {/* Left panel */}
-                <div className="w-full md:w-5/12 border-r border-border/50 bg-background/30 p-8 flex flex-col overflow-y-auto">
+                <div className="w-full md:w-5/12 border-r border-white/[0.06] bg-white/[0.02] p-8 flex flex-col overflow-y-auto">
                   <div className="flex items-center gap-3 mb-8">
                     <div className={`h-10 w-10 flex items-center justify-center rounded-xl ${statusCfg.bgColor}`}>
                       <StatusIcon className={`h-5 w-5 ${statusCfg.color}`} />
@@ -816,7 +836,7 @@ function TicketsPageContent() {
                     {/* Customer profile */}
                     <div>
                       <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Müşteri Profili</h4>
-                      <div className="bg-background/50 border border-white/10 p-4 rounded-2xl flex flex-col gap-1">
+                      <div className="bg-white/[0.04] border border-white/[0.08] p-4 rounded-xl flex flex-col gap-1">
                         <span className="font-semibold text-lg">{selectedTicket.customerName}</span>
                         {selectedTicket.customerPhone && (
                           <span className="text-muted-foreground text-sm opacity-80">{selectedTicket.customerPhone}</span>
@@ -851,7 +871,7 @@ function TicketsPageContent() {
                               key={ns}
                               variant="outline"
                               size="sm"
-                              className={`${nsCfg.bgColor} hover:opacity-80 ${nsCfg.color} border-white/10 rounded-xl`}
+                              className={`${nsCfg.bgColor} hover:opacity-80 ${nsCfg.color} border-white/[0.08]`}
                               onClick={() => handleStatusUpdate(selectedTicket.id, ns)}
                               disabled={updatingStatus === selectedTicket.id}
                             >
@@ -870,7 +890,7 @@ function TicketsPageContent() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 border-rose-500/20 rounded-xl"
+                            className="bg-rose-500/5 hover:bg-rose-500/10 text-rose-500 border-rose-500/20"
                             onClick={() => {
                               setDetailDialogOpen(false);
                               setTicketToDelete(selectedTicket);
@@ -885,7 +905,7 @@ function TicketsPageContent() {
                     </div>
 
                     {/* Metadata */}
-                    <div className="space-y-4 text-sm mt-4 border-t border-border/50 pt-6">
+                    <div className="space-y-4 text-sm mt-4 border-t border-white/[0.06] pt-6">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5" /> Oluşturma
@@ -937,7 +957,7 @@ function TicketsPageContent() {
 
                   <div>
                     <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Detaylı Açıklama</h3>
-                    <div className="bg-muted/30 border border-white/5 p-5 rounded-2xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
+                    <div className="bg-white/[0.02] border border-white/[0.06] p-5 rounded-xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
                       {selectedTicket.description || (
                         <span className="italic text-muted-foreground opacity-50">Herhangi bir açıklama eklenmemiş...</span>
                       )}
@@ -947,7 +967,7 @@ function TicketsPageContent() {
                   {selectedTicket.notes && (
                     <div>
                       <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Dahili Notlar</h3>
-                      <div className="bg-muted/30 border border-white/5 p-5 rounded-2xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
+                      <div className="bg-white/[0.02] border border-white/[0.06] p-5 rounded-xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
                         {selectedTicket.notes}
                       </div>
                     </div>
@@ -955,8 +975,8 @@ function TicketsPageContent() {
 
                   <div className="flex-1" />
 
-                  <div className="flex justify-end gap-3 pt-4 border-t border-border/50">
-                    <Button variant="ghost" onClick={() => setDetailDialogOpen(false)} className="rounded-xl">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.06]">
+                    <Button variant="ghost" onClick={() => setDetailDialogOpen(false)}>
                       Kapat
                     </Button>
                   </div>
@@ -971,7 +991,7 @@ function TicketsPageContent() {
       {/*  CREATE DIALOG                                                    */}
       {/* ================================================================= */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-2xl border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl sm:rounded-[2rem]">
+        <DialogContent className="max-w-2xl border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl sm:rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <Plus className="h-5 w-5 text-indigo-500" />
@@ -993,7 +1013,7 @@ function TicketsPageContent() {
                 placeholder="Sorunu kısa ve net olarak tanımlayınız..."
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                className="rounded-xl border-white/10 bg-background/50 h-11"
+                className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
               />
             </div>
 
@@ -1007,7 +1027,7 @@ function TicketsPageContent() {
                 placeholder="Sorunun detaylarını, tekrar etme koşullarını ve beklenen davranışı yazınız..."
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
-                className="rounded-xl border-white/10 bg-background/50 min-h-[100px] resize-none"
+                className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 min-h-[100px] resize-none text-sm"
               />
             </div>
 
@@ -1016,10 +1036,10 @@ function TicketsPageContent() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Öncelik</Label>
                 <Select value={formPriority} onValueChange={(v) => setFormPriority(v as TicketPriority)}>
-                  <SelectTrigger className="rounded-xl border-white/10 bg-background/50 h-11">
+                  <SelectTrigger className="rounded-xl h-10 border-white/[0.08] bg-white/[0.04]">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                     <SelectItem value="low">Düşük</SelectItem>
                     <SelectItem value="medium">Orta</SelectItem>
                     <SelectItem value="high">Yüksek</SelectItem>
@@ -1030,10 +1050,10 @@ function TicketsPageContent() {
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Kategori</Label>
                 <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger className="rounded-xl border-white/10 bg-background/50 h-11">
+                  <SelectTrigger className="rounded-xl h-10 border-white/[0.08] bg-white/[0.04]">
                     <SelectValue placeholder="Kategori seçin..." />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl shadow-xl border-white/10 bg-card/95 backdrop-blur-xl">
+                  <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
                     {CATEGORIES.map((cat) => (
                       <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
@@ -1043,7 +1063,7 @@ function TicketsPageContent() {
             </div>
 
             {/* Customer info */}
-            <div className="border-t border-border/50 pt-4">
+            <div className="border-t border-white/[0.06] pt-4">
               <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 Müşteri Bilgileri
@@ -1058,7 +1078,7 @@ function TicketsPageContent() {
                     placeholder="Müşteri adı"
                     value={formCustomerName}
                     onChange={(e) => setFormCustomerName(e.target.value)}
-                    className="rounded-xl border-white/10 bg-background/50 h-10 text-sm"
+                    className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1069,7 +1089,7 @@ function TicketsPageContent() {
                     placeholder="ornek@mail.com"
                     value={formCustomerEmail}
                     onChange={(e) => setFormCustomerEmail(e.target.value)}
-                    className="rounded-xl border-white/10 bg-background/50 h-10 text-sm"
+                    className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1080,7 +1100,7 @@ function TicketsPageContent() {
                     placeholder="+90 5XX XXX XX XX"
                     value={formCustomerPhone}
                     onChange={(e) => setFormCustomerPhone(e.target.value)}
-                    className="rounded-xl border-white/10 bg-background/50 h-10 text-sm"
+                    className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
                   />
                 </div>
               </div>
@@ -1088,13 +1108,13 @@ function TicketsPageContent() {
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl">
+            <Button variant="ghost" onClick={() => setCreateDialogOpen(false)}>
               İptal
             </Button>
             <Button
               onClick={handleCreateTicket}
               disabled={saving || !formTitle.trim() || !formCustomerName.trim()}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 gap-2 px-6"
+              className="gap-2 px-6"
             >
               {saving ? (
                 <>
@@ -1116,7 +1136,7 @@ function TicketsPageContent() {
       {/*  DELETE CONFIRMATION DIALOG                                       */}
       {/* ================================================================= */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent className="max-w-md border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl sm:rounded-[2rem]">
+        <DialogContent className="max-w-md border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl sm:rounded-2xl">
           <DialogHeader>
             <div className="mx-auto w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center mb-2">
               <Trash2 className="h-7 w-7 text-rose-500" />
@@ -1127,14 +1147,14 @@ function TicketsPageContent() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center gap-3 pt-2">
-            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} className="rounded-xl px-6">
+            <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} className="px-6">
               Vazgeç
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteTicket}
               disabled={deleting}
-              className="rounded-xl px-6 gap-2"
+              className="px-6 gap-2"
             >
               {deleting ? (
                 <>

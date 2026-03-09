@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllCustomers, createCustomer, updateCustomer, addActivityLog, getTenantFromRequest, Timestamp } from '@/lib/firebase/admin-db';
+import { getAllCustomers, createCustomer, updateCustomer, addActivityLog, Timestamp } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse, createApiError } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = getTenantFromRequest(request);
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-    }
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
 
-    const customers = await getAllCustomers(tenantId);
+    const customers = await getAllCustomers(auth.tenantId);
     return NextResponse.json(customers, {
-      headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+      headers: cacheHeaders('SHORT'),
     });
   } catch (error: unknown) {
     return handleApiError(error, 'Customers GET');

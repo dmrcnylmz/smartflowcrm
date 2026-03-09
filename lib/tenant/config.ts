@@ -82,7 +82,7 @@ async function loadFromFirestore(tenantId: string): Promise<TenantConfig | null>
 
         if (!snapshot.exists()) return null;
 
-        const data = snapshot.data();
+        const data = snapshot.data()!;
         return {
             id: tenantId,
             companyName: data.companyName || 'Unknown',

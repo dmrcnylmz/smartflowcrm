@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/lib/hooks/useDebounce';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { exportCustomers, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck } from 'lucide-react';
+import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createCustomer, getCallLogs, getAppointments, getComplaints, getInfoRequests, updateCustomer } from '@/lib/firebase/db';
 import { useCustomers } from '@/lib/firebase/hooks';
@@ -80,9 +80,33 @@ function CustomersPageContent() {
     email: '',
     notes: '',
   });
+  const [saving, setSaving] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate email if provided
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      toast({
+        title: 'Geçersiz E-posta',
+        description: 'Lütfen geçerli bir e-posta adresi girin',
+        variant: 'error',
+      });
+      return;
+    }
+
+    // Validate phone format
+    if (!/^[+]?[\d\s()-]{7,20}$/.test(formData.phone)) {
+      toast({
+        title: 'Geçersiz Telefon',
+        description: 'Lütfen geçerli bir telefon numarası girin (ör: +905554443322)',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setSaving(true);
     try {
       await createCustomer({
         name: formData.name,
@@ -107,6 +131,8 @@ function CustomersPageContent() {
         variant: 'error',
         duration: 5000,
       });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -145,6 +171,27 @@ function CustomersPageContent() {
   async function handleEditSave() {
     if (!selectedCustomer) return;
 
+    // Validate email if provided
+    if (editFormData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editFormData.email)) {
+      toast({
+        title: 'Geçersiz E-posta',
+        description: 'Lütfen geçerli bir e-posta adresi girin',
+        variant: 'error',
+      });
+      return;
+    }
+
+    // Validate phone format
+    if (!/^[+]?[\d\s()-]{7,20}$/.test(editFormData.phone)) {
+      toast({
+        title: 'Geçersiz Telefon',
+        description: 'Lütfen geçerli bir telefon numarası girin (ör: +905554443322)',
+        variant: 'error',
+      });
+      return;
+    }
+
+    setEditSaving(true);
     try {
       await updateCustomer(selectedCustomer.id, {
         name: editFormData.name,
@@ -176,6 +223,8 @@ function CustomersPageContent() {
         description: errorMessage,
         variant: 'error',
       });
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -239,21 +288,23 @@ function CustomersPageContent() {
   }).length;
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+            <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/25 flex items-center justify-center">
+              <Users className="h-5 w-5 text-blue-400" />
+            </div>
             Müşteri Portföyü
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1 text-sm">
             Müşterilerinizi yönetin, etkileşim geçmişlerini inceleyin.
           </p>
         </div>
         <div className="flex gap-3">
           {filteredCustomers.length > 0 && (
             <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
-              <SelectTrigger className="w-[140px] bg-background shadow-sm rounded-xl">
+              <SelectTrigger className="w-[140px] bg-white/[0.04] border-white/[0.08] rounded-xl">
                 <SelectValue placeholder="Dışa Aktar" />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +317,7 @@ function CustomersPageContent() {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-shadow gap-2">
+              <Button className="gap-2">
                 <Plus className="h-4 w-4" />
                 Yeni Müşteri
               </Button>
@@ -328,7 +379,8 @@ function CustomersPageContent() {
                     className="min-h-[100px]"
                   />
                 </div>
-                <Button type="submit" className="w-full mt-4 rounded-xl">
+                <Button type="submit" className="w-full mt-4" disabled={saving}>
+                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Kaydet
                 </Button>
               </form>
@@ -339,63 +391,47 @@ function CustomersPageContent() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-2xl border-none shadow-sm bg-blue-50/50 dark:bg-blue-950/20 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-blue-800 dark:text-blue-300">Toplam Müşteri</CardTitle>
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <div className="rounded-2xl border border-blue-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">Toplam Müşteri</span>
+            <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+              <Users className="h-4 w-4 text-blue-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">{totalCustomers}</div>
-            <p className="text-xs text-blue-600/80 dark:text-blue-400 mt-2 font-medium flex items-center gap-1">
-              <Activity className="h-3 w-3" />
-              Giderek büyüyen portföy
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-indigo-50/50 dark:bg-indigo-950/20 animate-fade-in-up" style={{ animationDelay: '220ms' }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-indigo-800 dark:text-indigo-300">Yeni Müşteriler</CardTitle>
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">{totalCustomers}</p>
+          <p className="text-xs text-white/30 mt-1 flex items-center gap-1"><Activity className="h-3 w-3" /> Giderek büyüyen portföy</p>
+        </div>
+        <div className="rounded-2xl border border-purple-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '220ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">Yeni Müşteriler</span>
+            <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <ShieldCheck className="h-4 w-4 text-purple-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">+{newCustomersThisWeek}</div>
-            <p className="text-xs text-indigo-600/80 dark:text-indigo-400 mt-2 font-medium flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Son 7 gün içerisinde eklendi
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-2xl border-none shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20 animate-fade-in-up" style={{ animationDelay: '340ms' }}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">İletişim Kalitesi</CardTitle>
-            <div className="p-2 bg-emerald-100 dark:bg-emerald-900 rounded-lg">
-              <Mail className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <p className="text-2xl font-bold text-white">+{newCustomersThisWeek}</p>
+          <p className="text-xs text-white/30 mt-1 flex items-center gap-1"><Clock className="h-3 w-3" /> Son 7 gün içerisinde eklendi</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '340ms' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs text-white/40 font-medium">İletişim Kalitesi</span>
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+              <Mail className="h-4 w-4 text-emerald-400" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
-              %{totalCustomers > 0 ? Math.round((customersWithEmail / totalCustomers) * 100) : 0}
-            </div>
-            <p className="text-xs text-emerald-600/80 dark:text-emerald-400 mt-2 font-medium">
-              E-posta bilgisi olan müşterilerin oranı
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <p className="text-2xl font-bold text-white">%{totalCustomers > 0 ? Math.round((customersWithEmail / totalCustomers) * 100) : 0}</p>
+          <p className="text-xs text-white/30 mt-1">E-posta bilgisi olan müşterilerin oranı</p>
+        </div>
       </div>
 
-      <Card className="rounded-2xl overflow-hidden border-border/50 shadow-sm animate-fade-in-up" style={{ animationDelay: '460ms' }}>
-        <div className="p-4 border-b bg-muted/20 flex flex-col md:flex-row items-center gap-4">
+      <Card className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '460ms' }}>
+        <div className="px-6 py-4 border-b border-white/[0.06] flex flex-col md:flex-row items-center gap-4">
           <div className="relative flex-1 w-full max-w-sm">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="İsim, telefon veya e-posta ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 rounded-xl bg-background border-border/60 focus-visible:ring-primary/20"
+              className="pl-10 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40"
             />
           </div>
           {searchTerm && (
@@ -423,28 +459,37 @@ function CustomersPageContent() {
               ))}
             </div>
           ) : customersError ? (
-            <div className="flex flex-col items-center justify-center py-12 text-amber-600 dark:text-amber-400">
-              <AlertCircle className="mb-3 h-10 w-10 opacity-80" />
-              <span className="font-medium text-lg">Müşteri Verileri Yüklenemedi</span>
-              <p className="text-muted-foreground text-sm mt-2 max-w-sm text-center">
-                Müşteri verileri şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
-              </p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                <AlertTriangle className="h-8 w-8 text-red-400/60" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">Müşteri verileri şu anda görüntülenemiyor. Lütfen tekrar deneyin.</p>
+              <Button variant="outline" onClick={() => refetchCustomers()}>Tekrar Dene</Button>
             </div>
           ) : paginatedCustomers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-center">
-              <Users className="h-12 w-12 mb-4 opacity-20" />
-              <p className="text-lg font-medium text-foreground">
-                {searchTerm ? 'Müşteri Bulunamadı' : 'Henüz Müşteri Yok'}
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+                <Users className="h-8 w-8 text-white/20" />
+              </div>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">
+                {searchTerm ? 'Müşteri bulunamadı' : 'Henüz müşteri kaydı yok'}
+              </h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">
+                {searchTerm ? 'Arama kriterlerinize uygun sonuç bulamadık. Lütfen farklı kelimeler deneyin.' : 'İlk müşterinizi ekleyerek başlayın.'}
               </p>
-              <p className="text-sm mt-1 max-w-sm">
-                {searchTerm ? 'Arama kriterlerinize uygun sonuç bulamadık. Lütfen farklı kelimeler deneyin.' : 'Sisteme kayıtlı müşteri yok. Sağ üst köşeden "Yeni Müşteri" butonuna tıklayarak ekleme yapabilirsiniz.'}
-              </p>
+              {!searchTerm && (
+                <Button onClick={() => setDialogOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Yeni Müşteri
+                </Button>
+              )}
             </div>
           ) : (
             <>
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader className="bg-muted/30">
+                  <TableHeader className="bg-white/[0.02]">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="font-semibold text-foreground/80 pl-6 shrink-0 min-w-[200px]">Müşteri Profil</TableHead>
                       <TableHead className="font-semibold text-foreground/80 shrink-0 min-w-[150px]">İletişim Türü</TableHead>
@@ -456,7 +501,7 @@ function CustomersPageContent() {
                     {paginatedCustomers.map((customer) => (
                       <TableRow
                         key={customer.id}
-                        className="cursor-pointer group hover:bg-muted/30 transition-colors focus-visible:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30"
+                        className="cursor-pointer group hover:bg-white/[0.04] transition-colors focus-visible:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/30"
                         tabIndex={0}
                         role="button"
                         aria-label={`${customer.name} müşteri detaylarını görüntüle`}
@@ -492,7 +537,7 @@ function CustomersPageContent() {
                           {format(toDate(customer.createdAt) ?? new Date(), 'dd MMM yyyy', { locale: tr })}
                         </TableCell>
                         <TableCell className="text-right pr-6">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" aria-label="Detayları görüntüle">
                             <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           </Button>
                         </TableCell>
@@ -501,12 +546,12 @@ function CustomersPageContent() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
+              <div className="px-6 py-4 border-t border-white/[0.06] flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
                   {paginatedCustomers.length} / {filteredCustomers.length} kayıt gösteriliyor
                 </span>
                 {hasMore && (
-                  <Button variant="outline" size="sm" onClick={handleLoadMore} className="rounded-xl">
+                  <Button variant="outline" size="sm" onClick={handleLoadMore}>
                     Daha Fazla Yükle
                   </Button>
                 )}
@@ -536,7 +581,7 @@ function CustomersPageContent() {
                 {!editMode && (
                   <Button
                     variant="outline"
-                    className="rounded-xl shadow-sm gap-2"
+                    className="gap-2"
                     onClick={() => setEditMode(true)}
                   >
                     <Edit className="h-4 w-4" />
@@ -547,7 +592,7 @@ function CustomersPageContent() {
                   <>
                     <Button
                       variant="ghost"
-                      className="rounded-xl"
+                      disabled={editSaving}
                       onClick={() => {
                         setEditMode(false);
                         if (selectedCustomer) {
@@ -562,7 +607,8 @@ function CustomersPageContent() {
                     >
                       İptal
                     </Button>
-                    <Button className="rounded-xl shadow-sm shadow-primary/20" onClick={handleEditSave}>
+                    <Button onClick={handleEditSave} disabled={editSaving}>
+                      {editSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Kaydet
                     </Button>
                   </>

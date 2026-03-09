@@ -13,6 +13,7 @@ import {
     getTenantMembers,
 } from '@/lib/tenant/admin';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 // =============================================
 // POST: Assign user to tenant
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
             members,
             count: members.length,
         }, {
-            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            headers: cacheHeaders('MEDIUM'),
         });
 
     } catch (error) {

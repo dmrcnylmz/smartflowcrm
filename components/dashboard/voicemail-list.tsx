@@ -102,7 +102,7 @@ export default function VoicemailList() {
             toast({
                 title: 'Hata',
                 description: err instanceof Error ? err.message : 'Bilinmeyen hata',
-                variant: 'destructive',
+                variant: 'error',
             });
         } finally {
             setLoading(false);
@@ -137,7 +137,7 @@ export default function VoicemailList() {
             toast({
                 title: 'Oynatılamadı',
                 description: 'Ses dosyası yüklenemedi.',
-                variant: 'destructive',
+                variant: 'error',
             });
         });
         audioRef.current = audio;
@@ -183,7 +183,7 @@ export default function VoicemailList() {
             toast({
                 title: 'Hata',
                 description: err instanceof Error ? err.message : 'Arşivleme başarısız',
-                variant: 'destructive',
+                variant: 'error',
             });
         }
     };

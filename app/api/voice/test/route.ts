@@ -18,6 +18,11 @@ const TEST_SCENARIOS: TestScenario[] = [
 ];
 
 export async function GET() {
+    // Block in production — test endpoint leaks internal endpoints
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     return NextResponse.json({
         scenarios: TEST_SCENARIOS,
         endpoints: {
@@ -36,6 +41,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         const body = await request.json();
 

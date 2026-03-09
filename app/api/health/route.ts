@@ -14,6 +14,7 @@
 
 import { NextResponse } from 'next/server';
 import { warnMissingOptionalKeys } from '@/lib/env';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,7 +136,7 @@ export async function GET() {
         environment: process.env.NODE_ENV || 'development',
         region: process.env.VERCEL_REGION || 'local',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime ? `${Math.floor(process.uptime())}s` : 'unknown',
+        uptime_s: process.uptime ? Math.floor(process.uptime()) : null,
         total_latency_ms: Date.now() - startTime,
         services: Object.fromEntries(
             connectivityServices.map(s => [s.name, { status: s.status, latency_ms: s.latency_ms }])
@@ -147,8 +148,6 @@ export async function GET() {
 
     return NextResponse.json(response, {
         status: overallStatus === 'unhealthy' ? 503 : 200,
-        headers: {
-            'Cache-Control': 'no-store, no-cache, must-revalidate',
-        },
+        headers: cacheHeaders('NO_CACHE'),
     });
 }

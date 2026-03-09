@@ -18,7 +18,7 @@ import {
     HeartPulse, ShoppingBag, Briefcase, Headphones, GraduationCap,
     Utensils, Home as HomeIcon, Car, Scale, Shield,
     Bot, Wand2, Globe, Volume2, AlertTriangle, ChevronDown, ChevronUp,
-    Code2, Eye, CheckCircle, Plus,
+    Code2, Eye, CheckCircle, Plus, MessageCircle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -50,10 +50,10 @@ function getIcon(iconName: string) {
 // =============================================
 
 const WIZARD_STEPS = [
-    { id: 'template', label: 'Sablon Secimi', icon: Sparkles, description: 'Sektorunuze uygun sablonu secin' },
-    { id: 'identity', label: 'Kimlik', icon: Bot, description: 'Asistanin adi, rolu ve dili' },
-    { id: 'customize', label: 'Ozellestir', icon: Wand2, description: 'Degiskenleri doldurun ve prompt\'u onizleyin' },
-    { id: 'review', label: 'Inceleme', icon: Eye, description: 'Son kontrol ve olusturma' },
+    { id: 'template', label: 'Şablon Seçimi', icon: Sparkles, description: 'Sektörünüze uygun şablonu seçin' },
+    { id: 'identity', label: 'Kimlik', icon: Bot, description: 'Asistanın adı, rolü ve dili' },
+    { id: 'customize', label: 'Özelleştir', icon: Wand2, description: 'Değişkenleri doldurun ve prompt\'u önizleyin' },
+    { id: 'review', label: 'İnceleme', icon: Eye, description: 'Son kontrol ve oluşturma' },
 ];
 
 // =============================================
@@ -197,19 +197,19 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Asistan olusturulamadi.');
+                throw new Error(data.error || 'Asistan oluşturulamadı.');
             }
 
             const data = await response.json();
             toast({
-                title: 'Asistan Olusturuldu',
-                description: `${agentName} basariyla olusturuldu.`,
+                title: 'Asistan Oluşturuldu',
+                description: `${agentName} başarıyla oluşturuldu.`,
             });
             setCreatedAgentId(data.id);
         } catch (err) {
             const msg = err instanceof Error ? err.message : 'Bilinmeyen hata';
             setError(msg);
-            toast({ title: 'Hata', description: msg, variant: 'destructive' });
+            toast({ title: 'Hata', description: msg, variant: 'error' });
         } finally {
             setIsSubmitting(false);
         }
@@ -244,8 +244,8 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                             <Wand2 className="h-5 w-5 text-inception-red" />
                         </div>
                         <div>
-                            <h1 className="text-base font-bold text-white font-display tracking-wider">ASISTAN SIHIRBAZI</h1>
-                            <p className="text-xs text-white/40">Yeni asistan olustur</p>
+                            <h1 className="text-base font-bold text-white font-display tracking-wider">ASİSTAN SİHİRBAZI</h1>
+                            <p className="text-xs text-white/40">Yeni asistan oluştur</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -379,8 +379,8 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 </div>
                                 <h2 className="text-2xl font-bold text-white font-display tracking-wide mb-2">Tebrikler!</h2>
                                 <p className="text-white/50 max-w-md mx-auto mb-8">
-                                    <span className="text-white font-medium">{agentName}</span> basariyla olusturuldu.
-                                    Simdi test ederek dogru calistigini dogrulayabilirsiniz.
+                                    <span className="text-white font-medium">{agentName}</span> başarıyla oluşturuldu.
+                                    Şimdi test ederek doğru çalıştığını doğrulayabilirsiniz.
                                 </p>
                                 <div className="flex items-center justify-center gap-4">
                                     <button
@@ -388,13 +388,13 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
                                     >
                                         <MessageCircle className="h-4 w-4" />
-                                        Simdi Test Et
+                                        Şimdi Test Et
                                     </button>
                                     <button
                                         onClick={() => onComplete(createdAgentId)}
                                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
                                     >
-                                        Asistanlar Sayfasina Don
+                                        Asistanlar Sayfasına Dön
                                         <ChevronRight className="h-4 w-4" />
                                     </button>
                                 </div>
@@ -412,7 +412,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                         onClick={() => onComplete(createdAgentId)}
                                         className="text-xs text-white/40 hover:text-white/70 flex items-center gap-1 transition-colors"
                                     >
-                                        Asistanlar Sayfasina Don
+                                        Asistanlar Sayfasına Dön
                                         <ChevronRight className="h-3 w-3" />
                                     </button>
                                 </div>
@@ -468,12 +468,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Olusturuluyor...
+                                        Oluşturuluyor...
                                     </>
                                 ) : (
                                     <>
                                         <Sparkles className="h-4 w-4" />
-                                        Asistani Olustur
+                                        Asistanı Oluştur
                                     </>
                                 )}
                             </button>
@@ -516,8 +516,8 @@ function StepTemplateSelection({
                     <Code2 className="h-6 w-6 text-white/50" />
                 </div>
                 <div className="flex-1">
-                    <h3 className="font-semibold text-sm text-white/80">Sifirdan Olustur</h3>
-                    <p className="text-xs text-white/30 mt-0.5">Bos bir sayfa ile baslayip kendi prompt'unuzu yazin</p>
+                    <h3 className="font-semibold text-sm text-white/80">Sıfırdan Oluştur</h3>
+                    <p className="text-xs text-white/30 mt-0.5">Boş bir sayfa ile başlayıp kendi prompt'unuzu yazın</p>
                 </div>
                 {selectedId === 'scratch' && <CheckCircle className="h-5 w-5 text-inception-red flex-shrink-0" />}
             </button>
@@ -525,7 +525,7 @@ function StepTemplateSelection({
             {/* Divider */}
             <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-white/[0.06]" />
-                <span className="text-xs text-white/30 font-display tracking-widest">VEYA SABLON SECIN</span>
+                <span className="text-xs text-white/30 font-display tracking-widest">VEYA ŞABLON SEÇİN</span>
                 <div className="h-px flex-1 bg-white/[0.06]" />
             </div>
 
@@ -591,9 +591,9 @@ function StepIdentity({
 
     const ROLES = [
         { value: 'receptionist', label: 'Resepsiyonist' },
-        { value: 'support', label: 'Musteri Destek' },
-        { value: 'consultant', label: 'Danisman' },
-        { value: 'sales', label: 'Satis Temsilcisi' },
+        { value: 'support', label: 'Müşteri Destek' },
+        { value: 'consultant', label: 'Danışman' },
+        { value: 'sales', label: 'Satış Temsilcisi' },
         { value: 'assistant', label: 'Genel Asistan' },
     ];
 
@@ -605,22 +605,22 @@ function StepIdentity({
                 {template && (
                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border ${template.borderColor} bg-white/[0.03]`}>
                         {(() => { const Icon = getIcon(template.icon); return <Icon className="h-3.5 w-3.5 text-white/60" />; })()}
-                        <span className="text-xs text-white/60">{template.name} sablonu</span>
+                        <span className="text-xs text-white/60">{template.name} şablonu</span>
                     </div>
                 )}
 
                 {/* Agent Name */}
                 <div>
                     <Label className="text-white/70 mb-2 text-sm">
-                        Asistan Adi <span className="text-inception-red">*</span>
+                        Asistan Adı <span className="text-inception-red">*</span>
                     </Label>
                     <Input
                         value={agentName}
                         onChange={(e) => setAgentName(e.target.value)}
-                        placeholder="orn: Ayse, Destek Asistani"
+                        placeholder="örn: Ayşe, Destek Asistanı"
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50 focus:ring-inception-red/20"
                     />
-                    <p className="text-xs text-white/20 mt-1.5">Musterilerinizin asistani taniyacagi isim</p>
+                    <p className="text-xs text-white/20 mt-1.5">Müşterilerinizin asistanı tanıyacağı isim</p>
                 </div>
 
                 {/* Agent Role */}
@@ -675,7 +675,7 @@ function StepIdentity({
                     )}
                 </div>
                 <h3 className="text-lg font-bold text-white font-display tracking-wide">
-                    {agentName || 'Asistan Adi'}
+                    {agentName || 'Asistan Adı'}
                 </h3>
                 <p className="text-sm text-white/40 mt-1">
                     {ROLES.find(r => r.value === agentRole)?.label || agentRole}
@@ -752,7 +752,7 @@ function StepCustomize({
                 <div>
                     <h3 className="text-xs font-semibold text-white/50 uppercase tracking-widest mb-3 flex items-center gap-2">
                         <div className="h-px flex-1 bg-white/[0.06]" />
-                        Degiskenler
+                        Değişkenler
                         <div className="h-px flex-1 bg-white/[0.06]" />
                     </h3>
                     <div className="grid sm:grid-cols-2 gap-3">
@@ -798,7 +798,7 @@ function StepCustomize({
                         className="text-xs text-white/40 hover:text-white/70 flex items-center gap-1 transition-colors"
                     >
                         {showPrompt ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {showPrompt ? 'Gizle' : 'Duzenle'}
+                        {showPrompt ? 'Gizle' : 'Düzenle'}
                     </button>
                 </div>
 
@@ -808,12 +808,12 @@ function StepCustomize({
                         onChange={(e) => setSystemPrompt(e.target.value)}
                         rows={12}
                         className="rounded-xl resize-none bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50 text-sm font-mono"
-                        placeholder="Asistan icin sistem prompt'unu yazin..."
+                        placeholder="Asistan için sistem prompt'unu yazın..."
                     />
                 ) : (
                     <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4 max-h-48 overflow-y-auto">
                         <pre className="text-xs text-white/50 whitespace-pre-wrap font-mono leading-relaxed">
-                            {resolvedPrompt || 'Henuz prompt yazilmadi...'}
+                            {resolvedPrompt || 'Henüz prompt yazılmadı...'}
                         </pre>
                     </div>
                 )}
@@ -826,7 +826,7 @@ function StepCustomize({
                     className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors"
                 >
                     {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    Gelismis Ayarlar (Ses, Kurallar)
+                    Gelişmiş Ayarlar (Ses, Kurallar)
                 </button>
 
                 {showAdvanced && (
@@ -835,11 +835,11 @@ function StepCustomize({
                         <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4 space-y-4">
                             <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
                                 <Volume2 className="h-3.5 w-3.5" />
-                                Ses Ayarlari
+                                Ses Ayarları
                             </h4>
                             <div className="grid sm:grid-cols-3 gap-3">
                                 <div>
-                                    <Label className="text-white/50 text-xs mb-1">Konusma Stili</Label>
+                                    <Label className="text-white/50 text-xs mb-1">Konuşma Stili</Label>
                                     <select
                                         value={voiceConfig.style}
                                         onChange={(e) => setVoiceConfig({ ...voiceConfig, style: e.target.value })}
@@ -851,7 +851,7 @@ function StepCustomize({
                                     </select>
                                 </div>
                                 <div>
-                                    <Label className="text-white/50 text-xs mb-1">Sicaklik ({voiceConfig.temperature})</Label>
+                                    <Label className="text-white/50 text-xs mb-1">Sıcaklık ({voiceConfig.temperature})</Label>
                                     <input
                                         type="range"
                                         min="0"
@@ -891,7 +891,7 @@ function StepCustomize({
                             {fallbackRules.map((rule, i) => (
                                 <div key={i} className="grid grid-cols-[1fr_auto_1fr_auto] gap-2 items-end">
                                     <div>
-                                        <Label className="text-white/40 text-[10px]">Kosul</Label>
+                                        <Label className="text-white/40 text-[10px]">Koşul</Label>
                                         <Input
                                             value={rule.condition}
                                             onChange={(e) => {
@@ -900,7 +900,7 @@ function StepCustomize({
                                                 setFallbackRules(updated);
                                             }}
                                             className="h-8 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs"
-                                            placeholder="orn: Acil durum"
+                                            placeholder="örn: Acil durum"
                                         />
                                     </div>
                                     <select
@@ -914,10 +914,10 @@ function StepCustomize({
                                     >
                                         <option value="inform">Bilgilendir</option>
                                         <option value="transfer">Transfer</option>
-                                        <option value="escalate">Yukselt</option>
+                                        <option value="escalate">Yükselt</option>
                                     </select>
                                     <div>
-                                        <Label className="text-white/40 text-[10px]">Yanit</Label>
+                                        <Label className="text-white/40 text-[10px]">Yanıt</Label>
                                         <Input
                                             value={rule.value}
                                             onChange={(e) => {
@@ -926,7 +926,7 @@ function StepCustomize({
                                                 setFallbackRules(updated);
                                             }}
                                             className="h-8 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs"
-                                            placeholder="Yanit mesaji"
+                                            placeholder="Yanıt mesajı"
                                         />
                                     </div>
                                     <button
@@ -938,19 +938,19 @@ function StepCustomize({
                                 </div>
                             ))}
                             {fallbackRules.length === 0 && (
-                                <p className="text-xs text-white/20 text-center py-2">Henuz kural eklenmedi</p>
+                                <p className="text-xs text-white/20 text-center py-2">Henüz kural eklenmedi</p>
                             )}
                         </div>
 
                         {/* Custom Variables (add new) */}
                         <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4 space-y-3">
                             <div className="flex items-center justify-between">
-                                <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Ozel Degiskenler</h4>
+                                <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest">Özel Değişkenler</h4>
                                 <button
                                     onClick={addVariable}
                                     className="text-xs text-inception-red hover:text-inception-red-light flex items-center gap-1"
                                 >
-                                    <Plus className="h-3 w-3" /> Degisken Ekle
+                                    <Plus className="h-3 w-3" /> Değişken Ekle
                                 </button>
                             </div>
                             {variables.filter(v => !isSmartVariable(v.key)).map((v, idx) => {
@@ -963,7 +963,7 @@ function StepCustomize({
                                                 value={v.key}
                                                 onChange={(e) => updateVariableField(realIndex, 'key', e.target.value)}
                                                 className="h-8 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs font-mono"
-                                                placeholder="degisken_adi"
+                                                placeholder="değişken_adı"
                                             />
                                         </div>
                                         <div>
@@ -972,7 +972,7 @@ function StepCustomize({
                                                 value={v.label}
                                                 onChange={(e) => updateVariableField(realIndex, 'label', e.target.value)}
                                                 className="h-8 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs"
-                                                placeholder="Degisken Etiketi"
+                                                placeholder="Değişken Etiketi"
                                             />
                                         </div>
                                         <div>
@@ -981,7 +981,7 @@ function StepCustomize({
                                                 value={v.defaultValue}
                                                 onChange={(e) => updateVariable(realIndex, e.target.value)}
                                                 className="h-8 rounded-lg bg-white/[0.04] border-white/[0.08] text-white text-xs"
-                                                placeholder="Varsayilan deger"
+                                                placeholder="Varsayılan değer"
                                             />
                                         </div>
                                         <button
@@ -1022,9 +1022,9 @@ function StepReview({
 
     const ROLES: Record<string, string> = {
         receptionist: 'Resepsiyonist',
-        support: 'Musteri Destek',
-        consultant: 'Danisman',
-        sales: 'Satis Temsilcisi',
+        support: 'Müşteri Destek',
+        consultant: 'Danışman',
+        sales: 'Satış Temsilcisi',
         assistant: 'Genel Asistan',
     };
 
@@ -1041,15 +1041,15 @@ function StepReview({
                         )}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Asistan Kimli\u011fi</h3>
-                        <p className="text-xs text-white/30">Adim 1-2</p>
+                        <h3 className="font-semibold text-white text-sm">Asistan Kimliği</h3>
+                        <p className="text-xs text-white/30">Adım 1-2</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
                     <ReviewItem label="Ad" value={agentName} />
                     <ReviewItem label="Rol" value={ROLES[agentRole] || agentRole} />
                     <ReviewItem label="Dil" value={AGENT_LANGUAGES.find(l => l.value === language)?.label || language} />
-                    {template && <ReviewItem label="Sablon" value={template.name} />}
+                    {template && <ReviewItem label="Şablon" value={template.name} />}
                     <ReviewItem label="Ses Stili" value={VOICE_STYLES.find(s => s.value === voiceConfig.style)?.label || voiceConfig.style} />
                 </div>
             </div>
@@ -1061,16 +1061,16 @@ function StepReview({
                         <Code2 className="h-4 w-4 text-violet-400" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Degiskenler & Kurallar</h3>
-                        <p className="text-xs text-white/30">{variables.length} degisken, {fallbackRules.length} kural</p>
+                        <h3 className="font-semibold text-white text-sm">Değişkenler & Kurallar</h3>
+                        <p className="text-xs text-white/30">{variables.length} değişken, {fallbackRules.length} kural</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
                     {variables.map((v, i) => (
-                        <ReviewItem key={i} label={v.label || v.key} value={v.defaultValue || '(bos)'} />
+                        <ReviewItem key={i} label={v.label || v.key} value={v.defaultValue || '(boş)'} />
                     ))}
                     {variables.length === 0 && (
-                        <p className="text-xs text-white/20">Degisken tanimlanmadi</p>
+                        <p className="text-xs text-white/20">Değişken tanımlanmadı</p>
                     )}
                 </div>
             </div>
@@ -1088,7 +1088,7 @@ function StepReview({
                 </div>
                 <div className="bg-white/[0.02] rounded-lg border border-white/[0.04] p-4 max-h-40 overflow-y-auto">
                     <pre className="text-xs text-white/50 whitespace-pre-wrap font-mono leading-relaxed">
-                        {resolvedPrompt || 'Prompt henuz yazilmadi'}
+                        {resolvedPrompt || 'Prompt henüz yazılmadı'}
                     </pre>
                 </div>
             </div>
@@ -1098,10 +1098,10 @@ function StepReview({
                 <div className="flex items-start gap-3">
                     <Sparkles className="h-5 w-5 text-inception-red flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">OLUSTURMAYA HAZIR</h4>
+                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">OLUŞTURMAYA HAZIR</h4>
                         <p className="text-xs text-white/40 mt-1">
-                            &quot;Asistani Olustur&quot; butonuna tikladiginizda asistaniz kaydedilecek ve kullanima hazir hale gelecek.
-                            Olusturduktan sonra test edebilir ve ayarlarini duzenleyebilirsiniz.
+                            &quot;Asistanı Oluştur&quot; butonuna tıkladığınızda asistanız kaydedilecek ve kullanıma hazır hale gelecek.
+                            Oluşturduktan sonra test edebilir ve ayarlarını düzenleyebilirsiniz.
                         </p>
                     </div>
                 </div>

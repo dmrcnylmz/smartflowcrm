@@ -55,6 +55,12 @@ const DEFAULT_CONFIG: DeepgramConfig = {
 // =============================================
 
 export async function POST(request: NextRequest) {
+    // Require tenant authentication
+    const tenantId = request.headers.get('x-user-tenant');
+    if (!tenantId) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
     if (!DEEPGRAM_API_KEY) {
         return NextResponse.json(
             { error: 'Deepgram API key not configured', fallback: 'browser' },

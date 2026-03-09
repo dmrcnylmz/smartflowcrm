@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff, Zap, Activity } from 'lucide-react';
 import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
@@ -406,8 +407,8 @@ export default function DashboardPage() {
       title: 'Bugünkü Çağrılar',
       value: stats.todayCalls,
       icon: PhoneIncoming,
-      gradient: 'from-blue-500/20 to-blue-600/5',
-      iconColor: 'text-blue-500 bg-blue-500/10',
+      borderColor: 'border-blue-500/15',
+      iconColor: 'text-blue-400 bg-blue-500/10',
       trend: isDemoMode ? null : callsTrend,
       trendUp: (callsTrend ?? 0) >= 0,
     },
@@ -415,8 +416,8 @@ export default function DashboardPage() {
       title: 'Kaçırılan Çağrılar',
       value: stats.missedCalls,
       icon: Phone,
-      gradient: 'from-rose-500/20 to-rose-600/5',
-      iconColor: 'text-rose-500 bg-rose-500/10',
+      borderColor: 'border-rose-500/15',
+      iconColor: 'text-rose-400 bg-rose-500/10',
       trend: isDemoMode ? null : missedTrend,
       trendUp: (missedTrend ?? 0) <= 0, // fewer missed = good
     },
@@ -424,8 +425,8 @@ export default function DashboardPage() {
       title: 'Açık Şikayetler',
       value: stats.openComplaints,
       icon: MessageSquareWarning,
-      gradient: 'from-amber-500/20 to-amber-600/5',
-      iconColor: 'text-amber-500 bg-amber-500/10',
+      borderColor: 'border-amber-500/15',
+      iconColor: 'text-amber-400 bg-amber-500/10',
       trend: null, // complaints don't have daily trend comparison
       trendUp: false,
     },
@@ -433,8 +434,8 @@ export default function DashboardPage() {
       title: 'Yaklaşan Randevular',
       value: stats.upcomingAppointments,
       icon: Calendar,
-      gradient: 'from-emerald-500/20 to-emerald-600/5',
-      iconColor: 'text-emerald-500 bg-emerald-500/10',
+      borderColor: 'border-emerald-500/15',
+      iconColor: 'text-emerald-400 bg-emerald-500/10',
       trend: null, // appointments are forward-looking, no yesterday comparison
       trendUp: true,
     },
@@ -444,8 +445,8 @@ export default function DashboardPage() {
         title: 'Ort. Yanit Suresi',
         value: voicePipeline.avgPipelineMs ? parseFloat((voicePipeline.avgPipelineMs / 1000).toFixed(1)) : 0,
         icon: Zap,
-        gradient: 'from-purple-500/20 to-purple-600/5',
-        iconColor: 'text-purple-500 bg-purple-500/10',
+        borderColor: 'border-purple-500/15',
+        iconColor: 'text-purple-400 bg-purple-500/10',
         trend: null,
         trendUp: true,
         suffix: 's',
@@ -454,12 +455,12 @@ export default function DashboardPage() {
         title: 'Bu Ay Cagri',
         value: voicePipeline.totalCalls || 0,
         icon: Activity,
-        gradient: voicePipeline.emergencyModeActive
-          ? 'from-red-500/20 to-red-600/5'
-          : 'from-teal-500/20 to-teal-600/5',
+        borderColor: voicePipeline.emergencyModeActive
+          ? 'border-red-500/15'
+          : 'border-teal-500/15',
         iconColor: voicePipeline.emergencyModeActive
-          ? 'text-red-500 bg-red-500/10'
-          : 'text-teal-500 bg-teal-500/10',
+          ? 'text-red-400 bg-red-500/10'
+          : 'text-teal-400 bg-teal-500/10',
         trend: voicePipeline.callsTrend || null,
         trendUp: (voicePipeline.callsTrend ?? 0) >= 0,
       },
@@ -467,7 +468,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       {/* Demo mode banner */}
       {isDemoMode && (
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-950/20 px-4 py-3 text-sm text-amber-300 animate-fade-in-down">
@@ -481,11 +482,13 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-inception-red" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+            <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-inception-red" />
+            </div>
             Genel Bakış
           </h1>
-          <p className="text-muted-foreground mt-2 text-base md:text-lg">
+          <p className="text-muted-foreground mt-1 text-sm">
             Sistemin anlık durumu ve özet istatistikler.
           </p>
         </div>
@@ -509,7 +512,7 @@ export default function DashboardPage() {
             value={String(refreshInterval)}
             onValueChange={(value) => setRefreshInterval(Number(value))}
           >
-            <SelectTrigger className="text-xs h-8 w-[120px] rounded-lg">
+            <SelectTrigger className="text-xs h-8 w-[120px] rounded-xl bg-white/[0.04] border-white/[0.08]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -522,14 +525,15 @@ export default function DashboardPage() {
           </Select>
 
           {/* Manual refresh button */}
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border bg-background hover:bg-accent transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             Yenile
-          </button>
+          </Button>
 
           <VoiceAIStatus />
         </div>
@@ -537,15 +541,17 @@ export default function DashboardPage() {
 
       {/* Error notification (demo mode has its own banner above) */}
       {error && !isDemoMode && (
-        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-sm backdrop-blur-md">
+        <div className="bg-orange-500/10 text-orange-400 border border-orange-500/20 p-4 rounded-xl flex items-center justify-center gap-3 backdrop-blur-sm">
           <AlertCircle className="h-5 w-5" />
           <p className="font-medium">{error}</p>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleRefresh}
-            className="ml-2 px-3 py-1 text-xs font-medium rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
+            className="ml-2"
           >
             Tekrar Dene
-          </button>
+          </Button>
         </div>
       )}
 
@@ -553,7 +559,7 @@ export default function DashboardPage() {
       <div className={`grid grid-cols-1 md:grid-cols-2 ${kpiCards.length > 4 ? 'xl:grid-cols-6' : 'xl:grid-cols-4'} gap-6`}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[160px] rounded-3xl" />
+            <Skeleton key={i} className="h-[120px] rounded-2xl" />
           ))
         ) : (
           kpiCards.map((card: any, idx: number) => {
@@ -561,28 +567,24 @@ export default function DashboardPage() {
             return (
               <div
                 key={card.title}
-                className={`relative overflow-hidden rounded-3xl border bg-gradient-to-br ${card.gradient} p-6 shadow-sm backdrop-blur-xl hover-lift animate-fade-in-up`}
-                style={{ animationDelay: `${idx * 120}ms` }}
+                className={`rounded-2xl border ${card.borderColor} bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up`}
+                style={{ animationDelay: `${idx * 80}ms` }}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`p-3 rounded-2xl ${card.iconColor}`}>
-                    <Icon className="h-6 w-6" />
-                  </div>
-                  {card.trend ? (
-                    <div className={`flex items-center gap-1 text-sm font-medium px-2.5 py-1 rounded-full ${card.trendUp ? 'text-emerald-600 bg-emerald-500/10' : 'text-rose-600 bg-rose-500/10'}`}>
-                      {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
-                      {card.trend}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/50 px-2.5 py-1">&mdash;</span>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-muted-foreground font-medium mb-1">{card.title}</h3>
-                  <div className="text-4xl font-bold tracking-tight text-foreground">
-                    {card.value}{card.suffix && <span className="text-lg font-normal text-muted-foreground ml-0.5">{card.suffix}</span>}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-white/40 font-medium">{card.title}</span>
+                  <div className={`h-8 w-8 rounded-lg ${card.iconColor} flex items-center justify-center`}>
+                    <Icon className="h-4 w-4" />
                   </div>
                 </div>
+                <p className="text-2xl font-bold text-white">
+                  {card.value}{card.suffix && <span className="text-sm font-normal text-white/40 ml-0.5">{card.suffix}</span>}
+                </p>
+                {card.trend !== null && card.trend !== undefined && (
+                  <p className={`text-xs mt-1 flex items-center gap-1 ${card.trendUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {card.trendUp ? <TrendingUp className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
+                    %{card.trend}
+                  </p>
+                )}
               </div>
             );
           })
@@ -599,10 +601,10 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Activity Logs */}
-        <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden flex flex-col hover-lift animate-fade-in-up" style={{ animationDelay: '860ms' }}>
-          <CardHeader className="bg-primary/5 border-b border-border/50">
-            <CardTitle className="text-xl">Son Aktiviteler</CardTitle>
-            <CardDescription>Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>
+        <Card className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden flex flex-col animate-fade-in-up" style={{ animationDelay: '860ms' }}>
+          <CardHeader className="border-b border-white/[0.06]">
+            <CardTitle className="text-base font-semibold text-white">Son Aktiviteler</CardTitle>
+            <CardDescription className="text-white/40">Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-auto max-h-[400px]">
             {(loading || activityLoading) ? (

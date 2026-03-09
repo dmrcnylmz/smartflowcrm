@@ -47,6 +47,7 @@ import {
     Shield,
 } from 'lucide-react';
 import type { Agent, AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
+import { VOICE_STYLES as SHARED_VOICE_STYLES, AGENT_LANGUAGES } from '@/lib/agents/types';
 import { AGENT_TEMPLATES, getTemplateById } from '@/lib/agents/templates';
 
 // =============================================
@@ -66,23 +67,11 @@ function getTemplateIcon(iconName: string) {
 type VoiceConfig = AgentVoiceConfig;
 
 // =============================================
-// Constants
+// Constants — use shared definitions from lib/agents/types
 // =============================================
 
-const VOICE_STYLES = [
-    { value: 'professional', label: 'Profesyonel' },
-    { value: 'friendly', label: 'Samimi' },
-    { value: 'formal', label: 'Resmi' },
-    { value: 'casual', label: 'Doğal' },
-    { value: 'empathetic', label: 'Empatik' },
-];
-
-const LANGUAGES = [
-    { value: 'tr', label: '🇹🇷 Türkçe' },
-    { value: 'en', label: '🇬🇧 English' },
-    { value: 'de', label: '🇩🇪 Deutsch' },
-    { value: 'ar', label: '🇸🇦 العربية' },
-];
+const VOICE_STYLES = SHARED_VOICE_STYLES;
+const LANGUAGES = AGENT_LANGUAGES;
 
 const PROMPT_TEMPLATES = [
     {
@@ -267,7 +256,7 @@ export default function AgentsPage() {
             toast({ title: 'Kopyalandi', description: `"${agent.name}" basariyla kopyalandi.` });
             fetchAgents();
         } catch {
-            toast({ title: 'Hata', description: 'Asistan kopyalanirken hata olustu.', variant: 'destructive' });
+            toast({ title: 'Hata', description: 'Asistan kopyalanirken hata olustu.', variant: 'error' });
         }
     }
 
@@ -294,7 +283,7 @@ export default function AgentsPage() {
                 description: `"${agent.name}" ${agent.isActive ? 'pasif' : 'aktif'} duruma getirildi.`,
             });
         } catch {
-            toast({ title: 'Hata', description: 'Durum degistirilemedi.', variant: 'destructive' });
+            toast({ title: 'Hata', description: 'Durum degistirilemedi.', variant: 'error' });
         }
     }
 
@@ -310,10 +299,22 @@ export default function AgentsPage() {
     }
 
     async function handleSave() {
-        if (!editingAgent.name || !editingAgent.systemPrompt) {
+        const trimmedName = editingAgent.name?.trim() || '';
+        const trimmedPrompt = editingAgent.systemPrompt?.trim() || '';
+
+        if (!trimmedName || !trimmedPrompt) {
             toast({
                 title: 'Eksik Bilgi',
-                description: 'Agent adı ve sistem promptu zorunludur',
+                description: 'Asistan adı ve sistem prompt\'u zorunludur',
+                variant: 'error',
+            });
+            return;
+        }
+
+        if (trimmedName.length < 2) {
+            toast({
+                title: 'Geçersiz İsim',
+                description: 'Asistan adı en az 2 karakter olmalıdır',
                 variant: 'error',
             });
             return;
@@ -326,9 +327,9 @@ export default function AgentsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: isNewAgent ? undefined : editingAgent.id,
-                    name: editingAgent.name,
+                    name: trimmedName,
                     role: editingAgent.role,
-                    systemPrompt: editingAgent.systemPrompt,
+                    systemPrompt: trimmedPrompt,
                     variables: editingAgent.variables,
                     voiceConfig: editingAgent.voiceConfig,
                     fallbackRules: editingAgent.fallbackRules,
@@ -465,19 +466,21 @@ export default function AgentsPage() {
     // ─────────────────────────────────────────────
 
     return (
-        <div className="p-4 md:p-8">
+        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
             {/* Header */}
-            <div className="animate-fade-in-down mb-8">
+            <div className="animate-fade-in-down">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-3">
-                            <Bot className="h-8 w-8 text-violet-500" />
+                        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+                            <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center">
+                                <Bot className="h-5 w-5 text-violet-400" />
+                            </div>
                             Sesli Asistanlar
                             {agents.length > 0 && (
-                                <Badge variant="secondary" className="text-xs ml-1">{agents.length}</Badge>
+                                <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-white/[0.06] text-white/40">{agents.length}</span>
                             )}
                         </h1>
-                        <p className="text-muted-foreground mt-1">
+                        <p className="text-muted-foreground mt-1 text-sm">
                             Sesli asistan promptlarini ve davranislarini yapilandirin
                         </p>
                     </div>
@@ -489,13 +492,13 @@ export default function AgentsPage() {
                                     placeholder="Asistan ara..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 w-48 h-9"
+                                    className="pl-9 w-48 h-9 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40"
                                 />
                             </div>
                         )}
                         <Button
                             onClick={handleNew}
-                            className="gap-2 bg-violet-600 hover:bg-violet-700"
+                            className="gap-2"
                         >
                             <Wand2 className="h-4 w-4" />
                             Yeni Asistan
@@ -536,27 +539,24 @@ export default function AgentsPage() {
                     ))}
                 </div>
             ) : error ? (
-                <Card className="animate-fade-in-up border-amber-500/20">
-                    <CardContent className="text-center py-16">
-                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-amber-500/10 mb-4">
-                            <AlertTriangle className="h-8 w-8 text-amber-500" />
-                        </div>
-                        <h3 className="text-lg font-semibold mb-2">Veriler Yüklenemedi</h3>
-                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                            Asistan verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.
-                        </p>
-                        <Button
-                            onClick={() => {
-                                setLoading(true);
-                                fetchAgents().finally(() => setLoading(false));
-                            }}
-                            className="gap-2 bg-violet-600 hover:bg-violet-700"
-                        >
-                            <Zap className="h-4 w-4" />
-                            Tekrar Dene
-                        </Button>
-                    </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-20 text-center animate-fade-in-up">
+                    <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+                        <AlertTriangle className="h-8 w-8 text-red-400/60" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+                    <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
+                    <Button
+                        variant="outline"
+                        onClick={() => {
+                            setError(null);
+                            setLoading(true);
+                            fetchAgents().finally(() => setLoading(false));
+                        }}
+                        className="gap-2"
+                    >
+                        Tekrar Dene
+                    </Button>
+                </div>
             ) : agents.length === 0 && !loading ? (
                 /* ─── Template-based Empty State ─── */
                 <div className="animate-fade-in-up">
@@ -564,9 +564,9 @@ export default function AgentsPage() {
                         <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
                             <Wand2 className="h-8 w-8 text-violet-500" />
                         </div>
-                        <h3 className="text-xl font-bold">Ilk Asistanizi Olusturun</h3>
-                        <p className="text-muted-foreground mt-1 max-w-md mx-auto">
-                            Sektorunuze uygun bir sablon secin ve adim adim asistanizi olusturun
+                        <h3 className="text-xl font-bold text-white/90">İlk Asistanınızı Oluşturun</h3>
+                        <p className="text-white/40 mt-1 max-w-md mx-auto">
+                            Sektörünüze uygun bir şablon seçin ve adım adım asistanınızı oluşturun
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-4xl mx-auto">
@@ -577,7 +577,7 @@ export default function AgentsPage() {
                                     key={template.id}
                                     onClick={() => setWizardOpen(true)}
                                     style={{ animationDelay: `${idx * 60}ms` }}
-                                    className="group p-4 rounded-xl border border-border/50 bg-card hover:border-violet-500/40 hover:shadow-lg hover:shadow-violet-500/5 text-left transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up"
+                                    className="group p-4 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-violet-500/30 hover:bg-white/[0.04] text-left transition-all duration-200 animate-fade-in-up"
                                 >
                                     <div className={`h-10 w-10 rounded-lg bg-gradient-to-r ${template.color} flex items-center justify-center mb-3 shadow-sm`}>
                                         <Icon className="h-5 w-5 text-white" />
@@ -601,7 +601,7 @@ export default function AgentsPage() {
                         return (
                             <Card
                                 key={agent.id}
-                                className="animate-fade-in-up cursor-pointer hover:border-violet-500/50 transition-all hover:shadow-lg hover:shadow-violet-500/5 overflow-hidden"
+                                className="animate-fade-in-up cursor-pointer border-white/[0.06] bg-white/[0.02] hover:border-violet-500/30 hover:bg-white/[0.04] transition-all overflow-hidden"
                                 style={{ animationDelay: `${index * 80}ms` }}
                                 onClick={() => handleEdit(agent)}
                             >
@@ -633,6 +633,7 @@ export default function AgentsPage() {
                                                 onClick={(e) => { e.stopPropagation(); handleToggleActive(agent); }}
                                                 className="transition-colors"
                                                 title={agent.isActive ? 'Pasif yap' : 'Aktif yap'}
+                                                aria-label={agent.isActive ? 'Pasif yap' : 'Aktif yap'}
                                             >
                                                 {agent.isActive ? (
                                                     <ToggleRight className="h-6 w-6 text-emerald-500" />
@@ -670,7 +671,7 @@ export default function AgentsPage() {
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="gap-1 text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 h-7 px-2"
+                                            className="gap-1 h-7 px-2"
                                             onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); }}
                                         >
                                             <MessageCircle className="h-3 w-3" />
@@ -700,6 +701,7 @@ export default function AgentsPage() {
                                             className="text-red-400 hover:text-red-500 hover:bg-red-500/10 gap-1 h-7 px-2"
                                             onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(agent.id); }}
                                             disabled={deletingId === agent.id}
+                                            aria-label="Sil"
                                         >
                                             {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                                         </Button>
@@ -827,6 +829,7 @@ export default function AgentsPage() {
                                                 <button
                                                     className="text-xs text-muted-foreground hover:text-foreground"
                                                     onClick={() => setEditingAgent(prev => ({ ...prev, isActive: !prev.isActive }))}
+                                                    aria-label={editingAgent.isActive ? 'Pasif yap' : 'Aktif yap'}
                                                 >
                                                     {editingAgent.isActive ? 'Aktif' : 'Pasif'}
                                                 </button>
@@ -904,6 +907,7 @@ export default function AgentsPage() {
                                                             size="icon"
                                                             className="text-red-400 hover:text-red-500 h-8 w-8"
                                                             onClick={() => removeVariable(i)}
+                                                            aria-label="Değişkeni sil"
                                                         >
                                                             <XCircle className="h-4 w-4" />
                                                         </Button>
@@ -1078,6 +1082,7 @@ export default function AgentsPage() {
                                                             size="icon"
                                                             className="text-red-400 hover:text-red-500 h-8 w-8"
                                                             onClick={() => removeFallbackRule(i)}
+                                                            aria-label="Kuralı sil"
                                                         >
                                                             <XCircle className="h-4 w-4" />
                                                         </Button>
@@ -1098,7 +1103,7 @@ export default function AgentsPage() {
                             <Button
                                 onClick={handleSave}
                                 disabled={saving}
-                                className="gap-2 bg-violet-600 hover:bg-violet-700"
+                                className="gap-2"
                             >
                                 {saving ? (
                                     <>

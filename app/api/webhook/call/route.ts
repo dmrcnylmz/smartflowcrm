@@ -14,6 +14,31 @@ import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-
 
 export const dynamic = 'force-dynamic';
 
+// ─── Rate Limiting ───────────────────────────────────────────────────────────
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_MAX = 100;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+function checkWebhookRateLimit(ip: string): boolean {
+    const now = Date.now();
+    const entry = rateLimitMap.get(ip);
+    if (!entry || entry.resetAt < now) {
+        rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+        return true;
+    }
+    if (entry.count >= RATE_LIMIT_MAX) return false;
+    entry.count++;
+    return true;
+}
+
+// Cleanup stale entries every 2 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of rateLimitMap) {
+        if (val.resetAt < now) rateLimitMap.delete(key);
+    }
+}, 120_000);
+
 // ─── Firestore for idempotency checks ────────────────────────────────────────
 
 let db: FirebaseFirestore.Firestore | null = null;
@@ -73,12 +98,27 @@ async function recordIdempotency(
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+    if (!checkWebhookRateLimit(ip)) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
+
+    // Webhook authentication — validate API key if configured
+    const webhookKey = process.env.WEBHOOK_API_KEY;
+    if (webhookKey) {
+      const providedKey = request.headers.get('x-webhook-key');
+      if (providedKey !== webhookKey) {
+        return NextResponse.json({ error: 'Invalid webhook key' }, { status: 401 });
+      }
+    }
+
     const body = await request.json();
 
     const validation = requireFields(body, ['customerPhone']);
     if (validation) return errorResponse(validation);
 
-    // Webhook is a public API — get tenantId from body or headers
+    // Webhook API — get tenantId from body or headers
     const tenantId =
       body.tenantId || getTenantFromRequest(request) || null;
 
@@ -86,6 +126,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'tenantId is required in request body for webhook calls' },
         { status: 400 },
+      );
+    }
+
+    // Validate tenant exists in Firestore
+    const tenantDoc = await getDb().collection('tenants').doc(tenantId).get();
+    if (!tenantDoc.exists) {
+      return NextResponse.json(
+        { error: 'Invalid tenantId' },
+        { status: 404 },
       );
     }
 

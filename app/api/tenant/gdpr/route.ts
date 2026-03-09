@@ -15,8 +15,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { handleApiError, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { z } from 'zod';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,9 +160,8 @@ async function logGdprAction(
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const adminErr = requireAdmin(request);
         if (adminErr) return adminErr;
@@ -177,13 +178,13 @@ export async function GET(request: NextRequest) {
         // Collect all tenant data across collections
         const exportData: Record<string, unknown> = {
             exportedAt: new Date().toISOString(),
-            tenantId: tenantId!,
+            tenantId: auth.tenantId,
             gdprArticle: 'Article 15 — Right of Access',
         };
 
         for (const col of EXPORTABLE_COLLECTIONS) {
             try {
-                exportData[col] = await readCollection(tenantId!, col);
+                exportData[col] = await readCollection(auth.tenantId, col);
             } catch {
                 // Collection may not exist — that's fine
                 exportData[col] = [];
@@ -194,7 +195,7 @@ export async function GET(request: NextRequest) {
         try {
             const tenantDoc = await getDb()
                 .collection('tenants')
-                .doc(tenantId!)
+                .doc(auth.tenantId)
                 .get();
 
             if (tenantDoc.exists) {
@@ -208,14 +209,13 @@ export async function GET(request: NextRequest) {
         }
 
         // Log the export for audit trail
-        const userId = request.headers.get('x-user-uid') || 'unknown';
-        await logGdprAction(tenantId!, 'data-export', {
+        await logGdprAction(auth.tenantId, 'data-export', {
             collections: EXPORTABLE_COLLECTIONS,
             documentCount: EXPORTABLE_COLLECTIONS.reduce((sum, col) => {
                 const arr = exportData[col];
                 return sum + (Array.isArray(arr) ? arr.length : 0);
             }, 0),
-        }, userId);
+        }, auth.uid);
 
         // Return as downloadable JSON
         const jsonPayload = JSON.stringify(exportData, null, 2);
@@ -224,8 +224,8 @@ export async function GET(request: NextRequest) {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Disposition': `attachment; filename="gdpr-export-${tenantId}-${Date.now()}.json"`,
-                'Cache-Control': 'no-store, no-cache, must-revalidate',
+                'Content-Disposition': `attachment; filename="gdpr-export-${auth.tenantId}-${Date.now()}.json"`,
+                ...cacheHeaders('NO_CACHE'),
             },
         });
 
@@ -238,9 +238,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const adminErr = requireAdmin(request);
         if (adminErr) return adminErr;
@@ -258,13 +257,12 @@ export async function POST(request: NextRequest) {
         }
 
         const { action, customerId } = parsed.data;
-        const userId = request.headers.get('x-user-uid') || 'unknown';
         const firestore = getDb();
 
         // Verify customer exists
         const customerRef = firestore
             .collection('tenants')
-            .doc(tenantId!)
+            .doc(auth.tenantId)
             .collection('customers')
             .doc(customerId);
 
@@ -280,11 +278,11 @@ export async function POST(request: NextRequest) {
         const customerData = customerSnap.data()!;
 
         if (action === 'delete-customer') {
-            return await handleDeleteCustomer(tenantId!, customerId, customerData, userId);
+            return await handleDeleteCustomer(auth.tenantId, customerId, customerData, auth.uid);
         }
 
         if (action === 'anonymize-customer') {
-            return await handleAnonymizeCustomer(tenantId!, customerId, customerData, userId);
+            return await handleAnonymizeCustomer(auth.tenantId, customerId, customerData, auth.uid);
         }
 
         // Unreachable due to discriminated union, but TypeScript needs it

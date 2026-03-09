@@ -30,7 +30,7 @@ export async function requireSuperAdmin(
     request: NextRequest,
 ): Promise<SuperAdminAuth & { error?: NextResponse }> {
     const auth = await requireStrictAuth(request);
-    if (auth.error) return auth as SuperAdminAuth;
+    if (auth.error) return auth as unknown as SuperAdminAuth;
 
     const email = auth.email || '';
     const isSuperAdmin =

@@ -17,6 +17,11 @@ import { dispatchAlert } from '@/lib/billing/alert-dispatcher';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+    // Block in production — test endpoint can trigger real alerts
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         const tenantId = request.headers.get('x-user-tenant')
             || request.headers.get('x-user-uid')
@@ -71,6 +76,10 @@ export async function POST(request: NextRequest) {
  * GET — Check alert channel status without sending.
  */
 export async function GET() {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const channels = {
         slack: {
             configured: !!process.env.ALERT_SLACK_WEBHOOK_URL,

@@ -9,6 +9,8 @@ import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getUsage, getUsageHistory, estimateCost, checkUsageLimits, estimatePerCallCost, SUBSCRIPTION_TIERS } from '@/lib/billing/metering';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,17 +23,15 @@ function getDb() {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-        }
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const period = request.nextUrl.searchParams.get('period') || undefined;
         const includeHistory = request.nextUrl.searchParams.get('history') === 'true';
         const tier = request.nextUrl.searchParams.get('tier') || 'starter';
 
         // Get current usage
-        const usage = await getUsage(getDb(), tenantId, period);
+        const usage = await getUsage(getDb(), auth.tenantId, period);
 
         // Detailed cost breakdown
         const cost = estimateCost(usage, tier);
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
         // Get history if requested
         let history = undefined;
         if (includeHistory) {
-            history = await getUsageHistory(getDb(), tenantId, 6);
+            history = await getUsageHistory(getDb(), auth.tenantId, 6);
         }
 
         return NextResponse.json({
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
             tierInfo: { name: tierInfo.name, includedMinutes: tierInfo.includedMinutes, includedCalls: tierInfo.includedCalls },
             ...(history ? { history } : {}),
         }, {
-            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+            headers: cacheHeaders('SHORT'),
         });
 
     } catch (error) {

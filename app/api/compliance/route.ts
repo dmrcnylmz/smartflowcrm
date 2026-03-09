@@ -9,7 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { queryAuditLogs, redactPII, recordConsent, getRetentionPolicy, type AuditAction } from '@/lib/compliance/audit';
-import { handleApiError, requireAuth, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +27,8 @@ function getDb() {
  */
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const action = request.nextUrl.searchParams.get('action') as AuditAction | null;
         const userId = request.nextUrl.searchParams.get('userId');
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
         const limit = Math.min(Math.max(rawLimit || 50, 1), 200);
         const includeRetention = request.nextUrl.searchParams.get('retention') === 'true';
 
-        const logs = await queryAuditLogs(getDb(), tenantId!, {
+        const logs = await queryAuditLogs(getDb(), auth.tenantId, {
             action: action || undefined,
             userId: userId || undefined,
             limit,
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
 
         let retention = undefined;
         if (includeRetention) {
-            retention = await getRetentionPolicy(getDb(), tenantId!);
+            retention = await getRetentionPolicy(getDb(), auth.tenantId);
         }
 
         return NextResponse.json({
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
             count: logs.length,
             ...(retention ? { retention } : {}),
         }, {
-            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+            headers: cacheHeaders('SHORT'),
         });
 
     } catch (error) {
@@ -64,9 +65,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const authErr = requireAuth(tenantId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const body = await request.json();
         const { operation } = body;
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (operation === 'consent') {
-            const consentId = await recordConsent(getDb(), tenantId!, {
+            const consentId = await recordConsent(getDb(), auth.tenantId, {
                 userId: body.userId,
                 callerPhone: body.callerPhone,
                 callRecording: body.callRecording ?? false,

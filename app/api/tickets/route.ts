@@ -6,21 +6,19 @@ import {
   createInfoRequest,
   getInfoRequests,
   updateInfoRequest,
-  getTenantFromRequest,
 } from '@/lib/firebase/admin-db';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { sendWebhook } from '@/lib/n8n/client';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/tickets?type=complaint|info&customerId=&status=
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = getTenantFromRequest(request);
-    if (!tenantId) {
-      return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-    }
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
 
     const searchParams = request.nextUrl.searchParams;
     const type = searchParams.get('type') || 'complaint';
@@ -28,20 +26,20 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
 
     if (type === 'complaint') {
-      const complaints = await getComplaints(tenantId, {
+      const complaints = await getComplaints(auth.tenantId, {
         customerId: customerId || undefined,
         status: status || undefined,
       });
       return NextResponse.json(complaints, {
-        headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+        headers: cacheHeaders('SHORT'),
       });
     } else {
-      const infoRequests = await getInfoRequests(tenantId, {
+      const infoRequests = await getInfoRequests(auth.tenantId, {
         customerId: customerId || undefined,
         status: status || undefined,
       });
       return NextResponse.json(infoRequests, {
-        headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+        headers: cacheHeaders('SHORT'),
       });
     }
   } catch (error: unknown) {

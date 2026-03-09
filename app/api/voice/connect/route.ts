@@ -78,11 +78,11 @@ export async function POST(request: NextRequest) {
 
         metrics.increment(METRICS.API_REQUESTS, 1, { endpoint: 'ws-token' });
 
-        // In production, this would create a short-lived token
-        // that the frontend uses to authenticate the WebSocket connection
+        // Create a short-lived session token — API key is kept server-side only
+        const sessionId = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
         const sessionToken = {
             persona,
-            api_key: PERSONAPLEX_API_KEY, // In production: use signed JWT instead
+            sessionId,
             expires_at: Date.now() + 5 * 60 * 1000, // 5 minutes
             websocket_url: `${getWebSocketUrl(PERSONAPLEX_URL)}/ws`,
         };

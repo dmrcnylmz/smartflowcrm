@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useAuth } from '@/lib/firebase/auth-context';
-import { Button } from '@/components/ui/button';
 import {
     AlertCircle, CreditCard, Activity, Zap, Check,
     BarChart3, ShieldCheck, Wallet, Sparkles,
@@ -1083,7 +1082,7 @@ function BillingPageContent() {
                                 {invoices.map((activity) => {
                                     const ts = typeof activity.createdAt === 'string'
                                         ? new Date(activity.createdAt)
-                                        : new Date(((activity.createdAt as any)?._seconds || (activity.createdAt as any)?.seconds || 0) * 1000);
+                                        : new Date(((activity.createdAt as { _seconds?: number; seconds?: number })?._seconds || (activity.createdAt as { seconds?: number })?.seconds || 0) * 1000);
                                     const typeMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
                                         subscription_created: { label: 'Abonelik Başlatıldı', color: 'text-green-400', icon: CheckCircle2 },
                                         subscription_updated: { label: 'Abonelik Güncellendi', color: 'text-blue-400', icon: RefreshCw },
@@ -1110,10 +1109,10 @@ function BillingPageContent() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-sm font-medium ${info.color}`}>{info.label}</p>
-                                                {activity.details?.planId && (
+                                                {!!activity.details?.planId && (
                                                     <p className="text-xs text-white/40 mt-0.5">
                                                         Plan: {String(activity.details.planId)}
-                                                        {activity.details?.status && ` — ${String(activity.details.status)}`}
+                                                        {!!activity.details?.status && ` — ${String(activity.details.status)}`}
                                                     </p>
                                                 )}
                                             </div>

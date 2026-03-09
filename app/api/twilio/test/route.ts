@@ -13,6 +13,11 @@ import { handleApiError } from '@/lib/utils/error-handler';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+    // Block in production — test endpoint leaks config details
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const twilioSid = process.env.TWILIO_ACCOUNT_SID;
     const twilioToken = process.env.TWILIO_AUTH_TOKEN;
     const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
@@ -38,6 +43,10 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+    if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         const body = await request.json();
         const { message = 'Merhaba, randevu almak istiyorum', language = 'tr' } = body;

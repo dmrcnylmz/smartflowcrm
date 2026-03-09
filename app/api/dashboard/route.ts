@@ -13,9 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { handleApiError } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { getPipelineSummary, getLatencyStats } from '@/lib/billing/analytics';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,18 +28,10 @@ function getDb() {
     return db;
 }
 
-function getTenantId(request: NextRequest): string | null {
-    return request.headers.get('x-user-tenant')
-        || request.headers.get('x-user-uid')
-        || null;
-}
-
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = getTenantId(request);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Tenant context required' }, { status: 403 });
-        }
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const firestore = getDb();
         const now = new Date();
@@ -47,7 +41,7 @@ export async function GET(request: NextRequest) {
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-        const tenantRef = firestore.collection('tenants').doc(tenantId);
+        const tenantRef = firestore.collection('tenants').doc(auth.tenantId);
 
         // Helper: run a query safely — returns empty result on failure (e.g. missing index)
         const emptySnap = { docs: [], size: 0, empty: true } as unknown as FirebaseFirestore.QuerySnapshot;
@@ -209,8 +203,8 @@ export async function GET(request: NextRequest) {
         let voicePipeline = null;
         try {
             const [summary, latency] = await Promise.all([
-                getPipelineSummary(firestore, tenantId, 30),
-                getLatencyStats(firestore, tenantId, 7),
+                getPipelineSummary(firestore, auth.tenantId, 30),
+                getLatencyStats(firestore, auth.tenantId, 7),
             ]);
             voicePipeline = {
                 totalCalls: summary.totalCalls,
@@ -237,7 +231,7 @@ export async function GET(request: NextRequest) {
             voicePipeline,
             generatedAt: now.toISOString(),
         }, {
-            headers: { 'Cache-Control': 'private, max-age=0, s-maxage=10, stale-while-revalidate=30' },
+            headers: cacheHeaders('SHORT'),
         });
 
     } catch {

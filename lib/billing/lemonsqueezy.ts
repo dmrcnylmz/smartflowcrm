@@ -134,6 +134,7 @@ export interface LsWebhookPayload {
             tenant_id?: string;
             plan_id?: string;
             user_id?: string;
+            company_name?: string;
         };
     };
     data: {

@@ -161,6 +161,11 @@ export async function POST(request: NextRequest) {
 
         switch (action) {
             case 'send_notification': {
+                // Validate email format for email notifications
+                if (payload.to && payload.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.to)) {
+                    return NextResponse.json({ error: 'Geçersiz email formatı' }, { status: 400 });
+                }
+
                 // Queue a notification
                 const notifRef = await tenantRef.collection('notifications').add({
                     type: payload.type || 'email',
@@ -190,6 +195,19 @@ export async function POST(request: NextRequest) {
             }
 
             case 'create_appointment': {
+                // Validate date format
+                if (payload.dateTime) {
+                    const dt = new Date(payload.dateTime);
+                    if (isNaN(dt.getTime())) {
+                        return NextResponse.json({ error: 'Geçersiz tarih formatı' }, { status: 400 });
+                    }
+                }
+
+                // Validate email format if provided
+                if (payload.customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.customerEmail)) {
+                    return NextResponse.json({ error: 'Geçersiz email formatı' }, { status: 400 });
+                }
+
                 // Create an appointment
                 const aptRef = await tenantRef.collection('appointments').add({
                     customerName: payload.customerName,

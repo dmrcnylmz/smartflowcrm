@@ -13,11 +13,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getTenantFromRequest } from '@/lib/firebase/admin-db';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import {
     getEmergencyModeStatus,
     activateEmergencyMode,
     deactivateEmergencyMode,
     updateCostMonitoringConfig,
+    type CostMonitoringConfig,
 } from '@/lib/billing/cost-monitor';
 
 let _db: FirebaseFirestore.Firestore | null = null;
@@ -53,10 +55,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
-        const tenantId = getTenantFromRequest(request);
-        if (!tenantId) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
         const body = await request.json();
         const { action, config } = body;
@@ -64,16 +64,16 @@ export async function POST(request: NextRequest) {
 
         switch (action) {
             case 'activate':
-                await activateEmergencyMode(db, tenantId, 'manual');
+                await activateEmergencyMode(db, auth.tenantId, 'manual');
                 break;
 
             case 'deactivate':
-                await deactivateEmergencyMode(db, tenantId);
+                await deactivateEmergencyMode(db, auth.tenantId);
                 break;
 
             case 'auto':
                 // Re-enable automatic threshold-based activation
-                await updateCostMonitoringConfig(db, tenantId, {
+                await updateCostMonitoringConfig(db, auth.tenantId, {
                     emergencyModeManualOverride: false,
                     emergencyModeEnabled: true,
                 });
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
                             filtered[key] = config[key];
                         }
                     }
-                    await updateCostMonitoringConfig(db, tenantId, filtered as any);
+                    await updateCostMonitoringConfig(db, auth.tenantId, filtered as Partial<CostMonitoringConfig>);
                 }
                 break;
 
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Return updated status
-        const status = await getEmergencyModeStatus(db, tenantId);
+        const status = await getEmergencyModeStatus(db, auth.tenantId);
         return NextResponse.json({
             success: true,
             action,

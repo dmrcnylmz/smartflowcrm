@@ -10,9 +10,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { handleApiError, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,25 +30,22 @@ function getDb() {
 
 export async function GET(request: NextRequest) {
     try {
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(tenantId || userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const resolvedTenantId = tenantId || userId!;
         const firestore = getDb();
 
         // Fetch tenant document
-        const tenantDoc = await firestore.collection('tenants').doc(resolvedTenantId).get();
+        const tenantDoc = await firestore.collection('tenants').doc(auth.tenantId).get();
 
         if (!tenantDoc.exists) {
             // Return default settings if tenant doc doesn't exist yet
             return NextResponse.json({
                 settings: getDefaultSettings(),
-                tenantId: resolvedTenantId,
+                tenantId: auth.tenantId,
                 exists: false,
             }, {
-                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+                headers: cacheHeaders('MEDIUM'),
             });
         }
 
@@ -84,15 +82,15 @@ export async function GET(request: NextRequest) {
             // System (read-only) — fetch real subscription from billing/subscription
             twilioConfigured: !!data.twilio?.accountSid || !!process.env.TWILIO_ACCOUNT_SID,
             openaiConfigured: !!process.env.OPENAI_API_KEY,
-            ...(await getSubscriptionInfo(firestore, resolvedTenantId)),
+            ...(await getSubscriptionInfo(firestore, auth.tenantId)),
         };
 
         return NextResponse.json({
             settings,
-            tenantId: resolvedTenantId,
+            tenantId: auth.tenantId,
             exists: true,
         }, {
-            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            headers: cacheHeaders('MEDIUM'),
         });
 
     } catch (error) {

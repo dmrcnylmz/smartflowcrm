@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity } from 'lucide-react';
+import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity, AlertTriangle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale/tr';
@@ -113,20 +113,22 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
-      {/* Header section with glassmorphism */}
+    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+      {/* Header */}
       <div className="animate-fade-in-down flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+            <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center">
+              <BarChart3 className="h-5 w-5 text-indigo-400" />
+            </div>
             Performans Raporları
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1 text-sm">
             Günlük operasyon metrikleri ve müşteri hizmetleri anlık analizleri.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-card p-2 rounded-2xl border shadow-sm">
+        <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2">
           <div className="relative">
             <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
@@ -138,29 +140,25 @@ export default function ReportsPage() {
             />
           </div>
           <div className="h-8 w-px bg-border/50"></div>
-          <Button onClick={loadReport} disabled={loading} variant="ghost" className="rounded-xl font-medium text-primary">
+          <Button onClick={loadReport} disabled={loading} variant="ghost" className="font-medium text-primary">
             Analiz Et
           </Button>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[0, 1, 2].map((idx) => (
-            <Skeleton key={idx} className="h-[200px] rounded-2xl animate-fade-in-up" style={{ animationDelay: `${idx * 100}ms` }} />
-          ))}
-          <Skeleton className="h-[200px] rounded-2xl md:col-span-2 lg:col-span-3 animate-fade-in-up" style={{ animationDelay: '300ms' }} />
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
+          <p className="text-sm text-white/40">Veriler yükleniyor...</p>
         </div>
       ) : error ? (
-        <div className="bg-orange-500/10 text-orange-600 border border-orange-500/20 p-6 rounded-2xl flex flex-col items-center justify-center gap-4">
-          <AlertCircle className="h-8 w-8" />
-          <p className="font-medium text-lg">{error}</p>
-          <button
-            onClick={loadReport}
-            className="px-4 py-2 text-sm font-medium rounded-xl bg-orange-500/20 hover:bg-orange-500/30 transition-colors"
-          >
-            Tekrar Dene
-          </button>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+            <AlertTriangle className="h-8 w-8 text-red-400/60" />
+          </div>
+          <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+          <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
+          <Button variant="outline" onClick={() => { setError(null); loadReport(); }}>Tekrar Dene</Button>
         </div>
       ) : report ? (
         <div className="space-y-6">
@@ -169,7 +167,7 @@ export default function ReportsPage() {
               <Activity className="h-5 w-5 text-indigo-500" />
               {format(new Date(report.date), 'dd MMMM yyyy, EEEE', { locale: tr })} Özeti
             </h2>
-            <Button onClick={downloadCSV} variant="outline" className="rounded-xl shadow-sm gap-2">
+            <Button onClick={downloadCSV} variant="outline" className="gap-2">
               <Download className="h-4 w-4 text-emerald-600" />
               Excel / CSV Aktar
             </Button>
@@ -178,14 +176,14 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* Çağrı Karnesi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '0ms' }}>
-              <CardHeader className="bg-indigo-50/50 dark:bg-indigo-950/20 pb-4">
-                <CardDescription className="flex items-center gap-2 font-medium text-indigo-800 dark:text-indigo-300">
+            <Card className="rounded-2xl border border-indigo-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '0ms' }}>
+              <CardHeader className="border-b border-white/[0.06] pb-4">
+                <CardDescription className="flex items-center gap-2 font-medium text-indigo-400">
                   <PhoneIncoming className="h-4 w-4" />
                   Çağrı Performansı
                 </CardDescription>
-                <CardTitle className="text-4xl font-bold text-foreground mt-2">
-                  {report.summary.totalCalls} <span className="text-base text-muted-foreground font-medium">çağrı</span>
+                <CardTitle className="text-4xl font-bold text-white mt-2">
+                  {report.summary.totalCalls} <span className="text-base text-white/40 font-medium">çağrı</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
@@ -197,22 +195,22 @@ export default function ReportsPage() {
                         %{calculatePercent(report.summary.answeredCalls, report.summary.totalCalls)}
                       </span>
                     </div>
-                    <Progress value={calculatePercent(report.summary.answeredCalls, report.summary.totalCalls)} className="h-2 bg-emerald-100 dark:bg-emerald-950" indicatorClassName="bg-emerald-500" />
+                    <Progress value={calculatePercent(report.summary.answeredCalls, report.summary.totalCalls)} className="h-2 bg-emerald-500/10" indicatorClassName="bg-emerald-500" />
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t">
+                  <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
                     <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">Kaçırılan Çağrılar</span>
-                      <span className="font-medium text-red-500 flex items-center gap-1">
+                      <span className="text-xs text-white/40">Kaçırılan Çağrılar</span>
+                      <span className="font-medium text-red-400 flex items-center gap-1">
                         <PhoneOutgoing className="h-3 w-3" />
                         {report.summary.missedCalls}
                       </span>
                     </div>
-                    <div className="h-8 w-px bg-border"></div>
+                    <div className="h-8 w-px bg-white/[0.06]"></div>
                     <div className="flex flex-col items-end">
-                      <span className="text-xs text-muted-foreground">Ort. Görüşme Süresi</span>
-                      <span className="font-medium flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-indigo-500" />
+                      <span className="text-xs text-white/40">Ort. Görüşme Süresi</span>
+                      <span className="font-medium text-white flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-indigo-400" />
                         {report.summary.avgCallDuration} sn
                       </span>
                     </div>
@@ -222,22 +220,22 @@ export default function ReportsPage() {
             </Card>
 
             {/* Randevu Dönüşümü */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden animate-fade-in-up" style={{ animationDelay: '80ms' }}>
-              <CardHeader className="bg-blue-50/50 dark:bg-blue-950/20 pb-4">
-                <CardDescription className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-300">
+            <Card className="rounded-2xl border border-blue-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+              <CardHeader className="border-b border-white/[0.06] pb-4">
+                <CardDescription className="flex items-center gap-2 font-medium text-blue-400">
                   <Target className="h-4 w-4" />
                   Randevu & Planlama
                 </CardDescription>
-                <CardTitle className="text-4xl font-bold text-foreground mt-2">
-                  {report.summary.scheduledAppointments} <span className="text-base text-muted-foreground font-medium">randevu</span>
+                <CardTitle className="text-4xl font-bold text-white mt-2">
+                  {report.summary.scheduledAppointments} <span className="text-base text-white/40 font-medium">randevu</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
-                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-4 flex items-center justify-between border border-blue-100 dark:border-blue-900/40">
+                  <div className="bg-blue-500/5 rounded-xl p-4 flex items-center justify-between border border-blue-500/15">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-background rounded-lg shadow-sm">
-                        <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <CheckCircle2 className="h-5 w-5 text-blue-400" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold">Talepler</p>
@@ -249,43 +247,43 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Info className="h-4 w-4 text-blue-500" />
+                  <div className="flex items-center gap-2 text-xs text-white/40">
+                    <Info className="h-4 w-4 text-blue-400" />
                     <span>Tamamlanan Randevular:</span>
-                    <span className="font-semibold text-foreground">{report.summary.completedAppointments} adet</span>
+                    <span className="font-semibold text-white">{report.summary.completedAppointments} adet</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Şikayet ve Talep Yönetimi */}
-            <Card className="rounded-2xl border-none shadow-md overflow-hidden relative animate-fade-in-up" style={{ animationDelay: '160ms' }}>
-              <div className="absolute top-0 right-0 p-6 opacity-5">
-                <ShieldAlert className="h-32 w-32" />
+            <Card className="rounded-2xl border border-amber-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden relative animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+              <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
+                <ShieldAlert className="h-32 w-32 text-white" />
               </div>
-              <CardHeader className="bg-orange-50/50 dark:bg-orange-950/20 pb-4 relative z-10">
-                <CardDescription className="flex items-center gap-2 font-medium text-orange-800 dark:text-orange-300">
+              <CardHeader className="border-b border-white/[0.06] pb-4 relative z-10">
+                <CardDescription className="flex items-center gap-2 font-medium text-amber-400">
                   <ShieldAlert className="h-4 w-4" />
                   Şikayetler & Bilgi Talebi
                 </CardDescription>
-                <CardTitle className="text-4xl font-bold text-foreground mt-2">
-                  {report.summary.totalComplaints} <span className="text-base text-muted-foreground font-medium">yeni şikayet</span>
+                <CardTitle className="text-4xl font-bold text-white mt-2">
+                  {report.summary.totalComplaints} <span className="text-base text-white/40 font-medium">yeni şikayet</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 relative z-10">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-orange-50/50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/40 p-4 rounded-xl">
-                    <p className="text-xs text-orange-800/70 dark:text-orange-300/80 mb-1 font-medium">Açık/Bekleyen</p>
-                    <p className="text-2xl font-bold text-orange-700 dark:text-orange-400">{report.summary.openComplaints}</p>
+                  <div className="bg-amber-500/5 border border-amber-500/15 p-4 rounded-xl">
+                    <p className="text-xs text-amber-400/80 mb-1 font-medium">Açık/Bekleyen</p>
+                    <p className="text-2xl font-bold text-amber-400">{report.summary.openComplaints}</p>
                   </div>
-                  <div className="bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 p-4 rounded-xl">
-                    <p className="text-xs text-emerald-800/70 dark:text-emerald-300/80 mb-1 font-medium">Çözüme Ulaşan</p>
-                    <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{report.summary.resolvedComplaints}</p>
+                  <div className="bg-emerald-500/5 border border-emerald-500/15 p-4 rounded-xl">
+                    <p className="text-xs text-emerald-400/80 mb-1 font-medium">Çözüme Ulaşan</p>
+                    <p className="text-2xl font-bold text-emerald-400">{report.summary.resolvedComplaints}</p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex justify-between items-center text-sm border-t pt-4">
-                  <span className="text-muted-foreground font-medium">Genel Bilgi İçin Arayan:</span>
+                <div className="mt-4 flex justify-between items-center text-sm border-t border-white/[0.06] pt-4">
+                  <span className="text-white/40 font-medium">Genel Bilgi İçin Arayan:</span>
                   <Badge variant="outline" className="font-bold">{report.summary.openInfoRequests}</Badge>
                 </div>
               </CardContent>
@@ -298,13 +296,16 @@ export default function ReportsPage() {
 
         </div>
       ) : (
-        <Card className="rounded-2xl border-dashed">
-          <CardContent className="py-20 flex flex-col items-center justify-center text-muted-foreground">
-            <BarChart3 className="h-12 w-12 mb-4 opacity-20" />
-            <p className="font-medium">Seçili tarihe ait veri bulunmamaktadır.</p>
-            <p className="text-sm mt-1">İşlem verisi oluştukça bu sayfa otomatik dolacaktır.</p>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
+            <BarChart3 className="h-8 w-8 text-white/20" />
+          </div>
+          <h3 className="text-lg font-semibold text-white/80 mb-2">Seçili tarihte veri yok</h3>
+          <p className="text-sm text-white/40 mb-6 max-w-sm">
+            {format(new Date(selectedDate), 'dd MMMM yyyy', { locale: tr })} tarihine ait işlem verisi bulunmamaktadır. Farklı bir tarih seçerek tekrar deneyebilirsiniz.
+          </p>
+          <Button variant="outline" onClick={loadReport}>Tekrar Dene</Button>
+        </div>
       )}
     </div>
   );

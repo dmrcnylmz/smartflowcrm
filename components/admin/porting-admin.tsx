@@ -132,7 +132,7 @@ export default function PortingAdmin() {
             toast({
                 title: 'Hata',
                 description: err instanceof Error ? err.message : 'Bilinmeyen hata',
-                variant: 'destructive',
+                variant: 'error',
             });
         } finally {
             setLoading(false);
@@ -183,7 +183,7 @@ export default function PortingAdmin() {
             toast({
                 title: 'Hata',
                 description: err instanceof Error ? err.message : 'Güncelleme başarısız',
-                variant: 'destructive',
+                variant: 'error',
             });
         } finally {
             setUpdating(false);

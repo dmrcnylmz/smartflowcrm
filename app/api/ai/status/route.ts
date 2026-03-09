@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isOllamaAvailable, getAvailableModels } from '@/lib/ai/ollama';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export async function GET() {
     try {
@@ -21,7 +22,7 @@ export async function GET() {
             },
             defaultProvider: ollamaAvailable ? 'ollama' : 'keyword',
         }, {
-            headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+            headers: cacheHeaders('MEDIUM'),
         });
     } catch {
         return NextResponse.json(

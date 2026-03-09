@@ -90,7 +90,13 @@ describe('/api/knowledge', () => {
             expect(mockQueryKnowledgeBase).toHaveBeenCalledWith('tenant-123', 'test', 50);
         });
 
-        it('should return 401 when tenant header is missing', async () => {
+        it('should return 401 when auth is missing', async () => {
+            // Simulate auth failure (no Bearer token)
+            const { requireStrictAuth } = await import('@/lib/utils/require-strict-auth');
+            vi.mocked(requireStrictAuth).mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            } as never);
+
             const { GET } = await import('@/app/api/knowledge/route');
             const request = createMockRequest('/api/knowledge');
 

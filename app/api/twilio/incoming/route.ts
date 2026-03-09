@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
 // =============================================
 
 const DAY_MAP: Record<string, number> = {
-    'pazar': 0, 'pazartesi': 1, 'salı': 2, 'salı': 2,
+    'pazar': 0, 'pazartesi': 1, 'salı': 2,
     'çarşamba': 3, 'perşembe': 4, 'cuma': 5, 'cumartesi': 6,
     'sunday': 0, 'monday': 1, 'tuesday': 2,
     'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6,

@@ -49,7 +49,7 @@ export function CallFeedbackBadge({
     const [saving, setSaving] = useState(false);
     const [type, setType] = useState(feedbackType);
     const authFetch = useAuthFetch();
-    const { addToast } = useToast();
+    const { toast } = useToast();
 
     const handleStarClick = useCallback(async (starValue: number) => {
         if (compact && !isEditing) {
@@ -74,16 +74,16 @@ export function CallFeedbackBadge({
                 setType('manual');
                 setIsEditing(false);
                 setComment('');
-                addToast({ type: 'success', message: 'Değerlendirme kaydedildi' });
+                toast({ variant: 'success', description: 'Değerlendirme kaydedildi' });
             } else {
-                addToast({ type: 'error', message: 'Değerlendirme kaydedilemedi' });
+                toast({ variant: 'error', description: 'Değerlendirme kaydedilemedi' });
             }
         } catch {
-            addToast({ type: 'error', message: 'Bağlantı hatası' });
+            toast({ variant: 'error', description: 'Bağlantı hatası' });
         } finally {
             setSaving(false);
         }
-    }, [callId, comment, compact, isEditing, authFetch, addToast]);
+    }, [callId, comment, compact, isEditing, authFetch, toast]);
 
     const handleSubmitWithComment = useCallback(async () => {
         if (rating === 0) return;

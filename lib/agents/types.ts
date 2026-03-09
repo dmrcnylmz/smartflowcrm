@@ -95,15 +95,15 @@ export const VOICE_STYLES = [
     { value: 'professional', label: 'Profesyonel' },
     { value: 'friendly', label: 'Samimi' },
     { value: 'formal', label: 'Resmi' },
-    { value: 'casual', label: 'Do\u011fal' },
+    { value: 'casual', label: 'Doğal' },
     { value: 'empathetic', label: 'Empatik' },
 ] as const;
 
 export const AGENT_LANGUAGES = [
-    { value: 'tr', label: '\ud83c\uddf9\ud83c\uddf7 T\u00fcrk\u00e7e', flag: '\ud83c\uddf9\ud83c\uddf7' },
-    { value: 'en', label: '\ud83c\uddec\ud83c\udde7 English', flag: '\ud83c\uddec\ud83c\udde7' },
-    { value: 'de', label: '\ud83c\udde9\ud83c\uddea Deutsch', flag: '\ud83c\udde9\ud83c\uddea' },
-    { value: 'ar', label: '\ud83c\uddf8\ud83c\udde6 \u0627\u0644\u0639\u0631\u0628\u064a\u0629', flag: '\ud83c\uddf8\ud83c\udde6' },
+    { value: 'tr', label: '🇹🇷 Türkçe', flag: '🇹🇷' },
+    { value: 'en', label: '🇬🇧 English', flag: '🇬🇧' },
+    { value: 'de', label: '🇩🇪 Deutsch', flag: '🇩🇪' },
+    { value: 'ar', label: '🇸🇦 العربية', flag: '🇸🇦' },
 ] as const;
 
 export const DEFAULT_VOICE_CONFIG: AgentVoiceConfig = {

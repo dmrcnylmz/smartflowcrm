@@ -1,7 +1,7 @@
 // Voice Session API - Manages Personaplex sessions
 // With Context Injection support for n8n webhooks
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit, RATE_LIMITS, rateLimitExceeded, getRateLimitHeaders } from '@/lib/voice/rate-limit';
+import { checkRateLimit, RATE_LIMITS, rateLimitExceeded } from '@/lib/voice/rate-limit';
 import { voiceLogger, metrics, METRICS, withTiming } from '@/lib/voice/logging';
 
 // Environment configuration
@@ -38,6 +38,18 @@ async function fetchContext(sessionId: string): Promise<Record<string, unknown> 
 
 // GET: Get Personaplex status, list personas, or query context
 export async function GET(request: NextRequest) {
+    // Require tenant authentication
+    const tenantId = request.headers.get('x-user-tenant');
+    if (!tenantId) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // Rate limiting
+    const rateLimitResult = checkRateLimit(request, RATE_LIMITS.general);
+    if (!rateLimitResult.allowed) {
+        return rateLimitExceeded(rateLimitResult.resetTime);
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action') || 'status';
 
@@ -108,6 +120,18 @@ export async function GET(request: NextRequest) {
 
 // POST: Save session to Firestore OR proxy inference request
 export async function POST(request: NextRequest) {
+    // Require tenant authentication
+    const tenantId = request.headers.get('x-user-tenant');
+    if (!tenantId) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // Rate limiting
+    const rateLimitResult = checkRateLimit(request, RATE_LIMITS.session);
+    if (!rateLimitResult.allowed) {
+        return rateLimitExceeded(rateLimitResult.resetTime);
+    }
+
     try {
         const body = await request.json();
         const action = body.action || 'save';
@@ -125,7 +149,7 @@ export async function POST(request: NextRequest) {
                 method: 'POST',
                 headers: getHeaders(),
                 body: JSON.stringify({
-                    text: body.text,
+                    text: typeof body.text === 'string' ? body.text.slice(0, 2000) : '',
                     persona: body.persona || 'default',
                     language: body.language || 'tr',
                 }),

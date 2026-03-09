@@ -16,6 +16,8 @@ import {
 } from '@/lib/tenant/admin';
 import type { TenantConfig } from '@/lib/tenant/types';
 import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 // =============================================
 // POST: Create new tenant + assign creator
@@ -92,31 +94,24 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const userTenantId = request.headers.get('x-user-tenant');
         const tenantId = request.nextUrl.searchParams.get('tenantId');
 
         // Tenant isolation: users can only access their own tenant
-        if (tenantId && userTenantId && tenantId !== userTenantId) {
+        if (tenantId && tenantId !== auth.tenantId) {
             return errorResponse(createApiError('AUTH_ERROR', 'Başka tenant verilerine erişim engellendi'));
         }
 
-        const targetTenant = tenantId || userTenantId;
-        if (targetTenant) {
-            const tenant = await getTenant(targetTenant);
-            if (!tenant) {
-                return errorResponse(createApiError('NOT_FOUND', 'Tenant bulunamadı'));
-            }
-            return NextResponse.json(tenant, {
-                headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
-            });
+        const targetTenant = tenantId || auth.tenantId;
+        const tenant = await getTenant(targetTenant);
+        if (!tenant) {
+            return errorResponse(createApiError('NOT_FOUND', 'Tenant bulunamadı'));
         }
-
-        // No tenant context — should not list all tenants for regular users
-        return errorResponse(createApiError('VALIDATION_ERROR', 'tenantId gerekli'));
+        return NextResponse.json(tenant, {
+            headers: cacheHeaders('MEDIUM'),
+        });
 
     } catch (error) {
         return handleApiError(error, 'Tenants GET');
@@ -129,19 +124,19 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-uid');
-        const userTenant = request.headers.get('x-user-tenant');
-        const userRole = request.headers.get('x-user-role');
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        const authErr = requireAuth(userId);
-        if (authErr) return errorResponse(authErr);
+        const userRole = request.headers.get('x-user-role');
 
         const body = await request.json();
         const { tenantId, ...updates } = body;
 
-        const targetTenant = tenantId || userTenant;
-        if (!targetTenant) {
-            return errorResponse(createApiError('VALIDATION_ERROR', 'tenantId gerekli'));
+        const targetTenant = tenantId || auth.tenantId;
+
+        // Tenant isolation: users can only update their own tenant
+        if (tenantId && tenantId !== auth.tenantId) {
+            return errorResponse(createApiError('AUTH_ERROR', 'Başka tenant verilerine erişim engellendi'));
         }
 
         // Only owner/admin can update tenant config
@@ -149,7 +144,21 @@ export async function PUT(request: NextRequest) {
             return errorResponse(createApiError('AUTH_ERROR', 'Yalnızca owner ve admin tenant ayarlarını güncelleyebilir'));
         }
 
-        await updateTenant(targetTenant, updates);
+        // Allowlist: only permit known fields to be updated
+        const ALLOWED_UPDATE_FIELDS = [
+            'companyName', 'sector', 'phone', 'email', 'website',
+            'agent', 'business', 'voice', 'language',
+        ];
+
+        const filtered: Record<string, unknown> = {};
+        for (const key of Object.keys(updates)) {
+            if (ALLOWED_UPDATE_FIELDS.includes(key)) filtered[key] = updates[key];
+        }
+        if (Object.keys(filtered).length === 0) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Güncellenecek geçerli alan bulunamadı'));
+        }
+
+        await updateTenant(targetTenant, filtered);
 
         return NextResponse.json({
             message: `Tenant "${targetTenant}" updated successfully`,
