@@ -29,8 +29,10 @@ export default function SuperAdminLayout({
             return;
         }
 
-        // Super-admin check: @callception.com domain
-        const isSuperAdmin = user.email.endsWith('@callception.com');
+        // Super-admin check: @callception.com domain or explicitly allowed emails
+        const SUPER_ADMIN_EMAILS = ['dmrcnylmz@gmail.com'];
+        const isSuperAdmin = user.email.endsWith('@callception.com')
+            || SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
         setAuthorized(isSuperAdmin);
         setChecked(true);
     }, [user, loading]);

@@ -15,6 +15,11 @@ import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 
 const SUPER_ADMIN_DOMAIN = 'callception.com';
 
+// Explicitly allowed super-admin email addresses (non-domain-based)
+const SUPER_ADMIN_EMAILS = [
+    'dmrcnylmz@gmail.com',
+];
+
 export interface SuperAdminAuth {
     uid: string;
     email: string;
@@ -32,9 +37,10 @@ export async function requireSuperAdmin(
     const auth = await requireStrictAuth(request);
     if (auth.error) return auth as unknown as SuperAdminAuth;
 
-    const email = auth.email || '';
+    const email = (auth.email || '').toLowerCase();
     const isSuperAdmin =
         email.endsWith(`@${SUPER_ADMIN_DOMAIN}`) ||
+        SUPER_ADMIN_EMAILS.includes(email) ||
         request.headers.get('x-user-role') === 'superadmin';
 
     if (!isSuperAdmin) {

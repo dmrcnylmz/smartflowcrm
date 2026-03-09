@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // Save session to Firestore
+        // Save session to Firestore (using admin SDK — server-side)
         const {
             sessionId,
             customerId,
@@ -181,14 +181,31 @@ export async function POST(request: NextRequest) {
             transcript,
             duration,
             persona,
-            metrics,
+            metrics: sessionMetrics,
         } = body;
 
-        // Import Firestore functions
-        const { addCallLog } = await import('@/lib/firebase/db');
+        // Use admin SDK (server-side) instead of client SDK
+        const { addCallLog } = await import('@/lib/firebase/admin-db');
 
-        // Create call log entry
-        const callLog = await addCallLog({
+        // Detect primary intent from transcript for call log classification
+        const transcriptText = transcript?.map((t: { speaker: string; text: string }) =>
+            `${t.speaker}: ${t.text}`
+        ).join('\n') || '';
+        const lowerTranscript = transcriptText.toLowerCase();
+
+        let detectedIntent = 'unknown';
+        if (/randevu|appointment|tarih.*saat|schedule|book/.test(lowerTranscript)) {
+            detectedIntent = 'appointment';
+        } else if (/şikayet|sorun|problem|complaint|issue/.test(lowerTranscript)) {
+            detectedIntent = 'complaint';
+        } else if (/bilgi|fiyat|nasıl|nedir|info|price|how|what/.test(lowerTranscript)) {
+            detectedIntent = 'info_request';
+        } else if (/iptal|değişiklik|vazgeç|cancel|change/.test(lowerTranscript)) {
+            detectedIntent = 'cancellation';
+        }
+
+        // Create call log entry under the tenant's calls collection
+        const callLog = await addCallLog(tenantId, {
             customerId: customerId || '',
             customerPhone: customerPhone || '',
             customerName: customerName || 'Bilinmeyen',
@@ -197,41 +214,89 @@ export async function POST(request: NextRequest) {
             duration: Math.round(duration || 0),
             durationSec: Math.round(duration || 0),
             timestamp: new Date(),
-            intent: 'unknown',
-            transcript: transcript?.map((t: { speaker: string; text: string }) =>
-                `${t.speaker}: ${t.text}`
-            ).join('\n') || '',
-            summary: `Personaplex sesli görüşme (${persona || 'default'} persona)`,
+            intent: detectedIntent,
+            transcript: transcriptText,
+            summary: `Sesli AI görüşme (${persona || 'default'} persona)`,
             notes: '',
             voiceSessionId: sessionId,
             aiPersona: persona,
-            voiceMetrics: metrics,
+            voiceMetrics: sessionMetrics,
         });
 
         // Fire-and-forget: Create auto-feedback from session metrics
         // Sentiment data and RAG quality tracked for quality monitoring
-        if (callLog.id && body.tenantId) {
+        if (callLog.id) {
             try {
                 const { createAutoFeedback } = await import('@/lib/voice/feedback');
                 // Use average sentiment from metrics if available, default to neutral (0.1)
-                const avgSentiment = typeof metrics?.averageSentiment === 'number'
-                    ? metrics.averageSentiment
+                const avgSentiment = typeof sessionMetrics?.averageSentiment === 'number'
+                    ? sessionMetrics.averageSentiment
                     : 0.1;
                 createAutoFeedback(
-                    body.tenantId,
+                    tenantId,
                     callLog.id,
                     avgSentiment,
-                    metrics?.ragChunkIds,
-                    metrics?.ragScores,
+                    sessionMetrics?.ragChunkIds,
+                    sessionMetrics?.ragScores,
                 ).catch(() => {}); // Silent
             } catch {
                 // Auto-feedback setup failed — non-blocking
             }
         }
 
+        // Fire-and-forget: Auto-create draft appointment if conversation includes appointment intent
+        let appointmentId: string | null = null;
+        if (transcript && Array.isArray(transcript)) {
+            const fullTranscript = transcript.map((t: { speaker: string; text: string }) =>
+                `${t.speaker}: ${t.text}`
+            ).join('\n').toLowerCase();
+
+            const hasAppointmentIntent = /randevu|appointment|tarih.*saat|schedule|book.*meeting|görüşme.*ayarla/.test(fullTranscript);
+            if (hasAppointmentIntent) {
+                try {
+                    const { createAppointment } = await import('@/lib/firebase/admin-db');
+                    const { Timestamp } = await import('firebase-admin/firestore');
+
+                    // Extract date/time hints from conversation (best-effort)
+                    const dateMatch = fullTranscript.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+                    const timeMatch = fullTranscript.match(/(\d{1,2})[:.:](\d{2})/);
+
+                    let appointmentDate = new Date();
+                    appointmentDate.setDate(appointmentDate.getDate() + 1); // Default: tomorrow
+                    appointmentDate.setHours(10, 0, 0, 0);
+
+                    if (dateMatch) {
+                        const day = parseInt(dateMatch[1], 10);
+                        const month = parseInt(dateMatch[2], 10) - 1;
+                        const year = dateMatch[3].length === 2 ? 2000 + parseInt(dateMatch[3], 10) : parseInt(dateMatch[3], 10);
+                        appointmentDate = new Date(year, month, day, 10, 0, 0);
+                    }
+                    if (timeMatch) {
+                        appointmentDate.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
+                    }
+
+                    const appointmentRef = await createAppointment(tenantId, {
+                        customerId: customerId || '',
+                        customerName: customerName || 'Bilinmeyen',
+                        customerPhone: customerPhone || '',
+                        dateTime: Timestamp.fromDate(appointmentDate),
+                        durationMin: 30,
+                        status: dateMatch ? 'scheduled' : 'pending_confirmation',
+                        notes: `Sesli görüşmeden otomatik oluşturuldu (Oturum: ${sessionId})`,
+                        source: 'voice_call',
+                        callLogId: callLog.id,
+                    });
+                    appointmentId = appointmentRef.id;
+                } catch {
+                    // Appointment creation failed — non-blocking
+                }
+            }
+        }
+
         return NextResponse.json({
             success: true,
             callLogId: callLog.id,
+            ...(appointmentId ? { appointmentId } : {}),
         });
 
     } catch {

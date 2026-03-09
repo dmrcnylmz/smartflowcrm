@@ -925,9 +925,56 @@ export function VoiceCallModal({
         }
     }, [customerId, customerName, customerPhone, persona, language, labels, onCallEnd, onOpenChange, startTextOnlyMode]);
 
-    const endCall = useCallback(() => {
+    const endCall = useCallback(async () => {
         setCallState('ending');
         isSpeakingRef.current = false;
+
+        // ── Save session data BEFORE cleanup (text-only mode) ──
+        // GPU mode saves via onSessionEnded callback; text-only mode needs explicit save
+        if (callMode !== 'gpu' && transcript.length > 0) {
+            try {
+                await authFetch('/api/voice/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sessionId: sessionIdRef.current,
+                        customerId,
+                        customerPhone,
+                        customerName,
+                        transcript: transcript.map(t => ({
+                            speaker: t.speaker,
+                            text: t.text,
+                        })),
+                        duration: callDuration,
+                        persona,
+                        metrics: {
+                            mode: callMode,
+                            sttMode,
+                            language,
+                            totalTurns: transcript.filter(t => t.speaker === 'user').length,
+                        },
+                    }),
+                });
+            } catch (err) {
+                console.error('[VoiceCallModal] Failed to save text-only session:', err);
+            }
+
+            // Trigger onCallEnd callback with summary
+            const userTurns = transcript.filter(t => t.speaker === 'user').length;
+            onCallEnd?.({
+                session_id: sessionIdRef.current,
+                duration_seconds: callDuration,
+                transcript,
+                persona,
+                metrics: {
+                    turn_count: userTurns,
+                    avg_latency_ms: 0,
+                    mode: callMode,
+                    sttMode,
+                    language,
+                },
+            } as unknown as SessionSummary);
+        }
 
         // Stop browser Speech Recognition (browser STT mode)
         if (recognitionRef.current) {
@@ -984,7 +1031,7 @@ export function VoiceCallModal({
         setIsListening(false);
         setIsThinking(false);
         setCallState('idle');
-    }, []);
+    }, [callMode, transcript, callDuration, customerId, customerPhone, customerName, persona, sttMode, language, authFetch, onCallEnd]);
 
     const toggleMute = useCallback(() => {
         setIsMuted(prev => !prev);

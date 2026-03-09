@@ -407,13 +407,21 @@ function BillingPageContent() {
     }
 
     // Fiyatı göster — aylık veya yıllık
-    function getDisplayPrice(plan: SubscriptionPlan): { price: number; period: string; note?: string } {
+    function getDisplayPrice(plan: SubscriptionPlan): {
+        price: number; period: string; note?: string;
+        yearlyTotal?: number; monthlySaving?: number; savingPercent?: number;
+    } {
         if (billingInterval === 'yearly') {
             const monthlyEquivalent = Math.round(plan.priceYearlyTry / 12);
+            const monthlySaving = plan.priceTry - monthlyEquivalent;
+            const savingPercent = Math.round((monthlySaving / plan.priceTry) * 100);
             return {
                 price: monthlyEquivalent,
                 period: '/ay',
-                note: `Yıllık faturalanır — ${plan.priceYearlyTry.toLocaleString('tr-TR')} ₺/yıl`,
+                note: `Yıllık faturalanır`,
+                yearlyTotal: plan.priceYearlyTry,
+                monthlySaving,
+                savingPercent,
             };
         }
         return { price: plan.priceTry, period: '/ay' };
@@ -497,8 +505,10 @@ function BillingPageContent() {
                         { id: 'plans' as const, label: 'Planlar', icon: CreditCard },
                         { id: 'usage' as const, label: 'Kullanim', icon: BarChart3 },
                         { id: 'invoices' as const, label: 'Faturalar', icon: Wallet },
-                        { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
-                        ...(role === 'owner' || role === 'admin' ? [{ id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator }] : []),
+                        ...(role === 'owner' || role === 'admin' ? [
+                            { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
+                            { id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator },
+                        ] : []),
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -677,7 +687,8 @@ function BillingPageContent() {
                         </div>
                     </div>
 
-                    {/* Per-call cost info banner */}
+                    {/* Per-call cost info banner — admin/owner only */}
+                    {(role === 'owner' || role === 'admin') && (
                     <div className="bg-gradient-to-r from-red-600/10 via-purple-600/10 to-blue-600/10 border border-white/[0.08] rounded-2xl p-5">
                         <div className="flex items-start gap-3">
                             <Info className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
@@ -700,6 +711,7 @@ function BillingPageContent() {
                             </div>
                         </div>
                     </div>
+                    )}
 
                     {/* Plan cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -742,15 +754,38 @@ function BillingPageContent() {
                                         <p className="text-white/40 text-sm mt-1">{plan.description}</p>
 
                                         <div className="mt-4 mb-1">
-                                            <span className="text-3xl font-bold text-white">
-                                                {displayPrice.price.toLocaleString('tr-TR')}
-                                            </span>
-                                            <span className="text-white/40 ml-1">₺{displayPrice.period}</span>
+                                            {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
+                                                <>
+                                                    <span className="text-3xl font-bold text-white">
+                                                        {displayPrice.yearlyTotal.toLocaleString('tr-TR')}
+                                                    </span>
+                                                    <span className="text-white/40 ml-1">₺/yıl</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="text-3xl font-bold text-white">
+                                                        {displayPrice.price.toLocaleString('tr-TR')}
+                                                    </span>
+                                                    <span className="text-white/40 ml-1">₺{displayPrice.period}</span>
+                                                </>
+                                            )}
                                         </div>
-                                        {displayPrice.note && (
-                                            <p className="text-[11px] text-emerald-400/70 mb-4">{displayPrice.note}</p>
+                                        {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
+                                            <div className="mb-4 space-y-1">
+                                                <p className="text-xs text-white/50">
+                                                    Aylık {displayPrice.price.toLocaleString('tr-TR')} ₺
+                                                    <span className="text-white/30 mx-1">·</span>
+                                                    <span className="line-through text-white/30">{plan.priceTry.toLocaleString('tr-TR')} ₺</span>
+                                                </p>
+                                                {displayPrice.savingPercent && displayPrice.savingPercent > 0 && (
+                                                    <p className="text-[11px] text-emerald-400 font-semibold">
+                                                        %{displayPrice.savingPercent} tasarruf · Ayda {displayPrice.monthlySaving?.toLocaleString('tr-TR')} ₺ kazanç
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="mb-4" />
                                         )}
-                                        {!displayPrice.note && <div className="mb-4" />}
 
                                         {/* Quota summary */}
                                         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -860,8 +895,8 @@ function BillingPageContent() {
                                 />
                             </div>
 
-                            {/* Cost breakdown */}
-                            {cost && (
+                            {/* Cost breakdown — admin/owner only */}
+                            {cost && (role === 'owner' || role === 'admin') && (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     {/* Per-call breakdown */}
                                     <div className="rounded-2xl bg-white/[0.02] border border-white/[0.08] p-6">

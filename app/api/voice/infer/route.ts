@@ -314,6 +314,9 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        // Resolve tenant for metering (from auth header, then session registry)
+        const authTenantId = request.headers.get('x-user-tenant') || '';
+
         const body = await request.json();
         const {
             text,
@@ -550,7 +553,7 @@ export async function POST(request: NextRequest) {
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
 
                 // Fire-and-forget: Log LLM metric
-                const inferTenantId = sessionRegistry.getTenant(sessionId) || 'default';
+                const inferTenantId = authTenantId || sessionRegistry.getTenant(sessionId) || 'default';
                 if (inferTenantId !== 'default') {
                     metricsLogger.logLlmMetric(inferTenantId, result.latency_ms, 'groq-llama', sessionId, intent, false);
                 }
@@ -582,7 +585,7 @@ export async function POST(request: NextRequest) {
                 inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
 
                 // Fire-and-forget: Log LLM metric
-                const inferTenantId2 = sessionRegistry.getTenant(sessionId) || 'default';
+                const inferTenantId2 = authTenantId || sessionRegistry.getTenant(sessionId) || 'default';
                 if (inferTenantId2 !== 'default') {
                     metricsLogger.logLlmMetric(inferTenantId2, result.latency_ms, 'openai-gpt', sessionId, intent, false);
                 }

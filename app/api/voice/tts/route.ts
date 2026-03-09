@@ -232,7 +232,10 @@ export async function POST(request: NextRequest) {
         const charCount = text.length;
 
         // ---- Resolve tenant for metrics (non-blocking) ----
+        // Priority: explicit body param → auth header → session registry → default
+        const authTenantId = request.headers.get('x-user-tenant') || '';
         const tenantId = tenant_id
+            || authTenantId
             || (session_id ? sessionRegistry.getTenant(session_id) : null)
             || 'default';
 

@@ -116,8 +116,14 @@ vi.mock('@/lib/billing/metering', () => ({
     meterTtsUsage: vi.fn().mockResolvedValue(undefined),
 }));
 
-// ── Firebase DB mock (for session save) ──────────────────────────────────────
+// ── Firebase DB mock (for session save — admin SDK) ──────────────────────────
 const mockAddCallLog = vi.fn().mockResolvedValue({ id: 'call-log-123' });
+const mockCreateAppointment = vi.fn().mockResolvedValue({ id: 'appt-123' });
+vi.mock('@/lib/firebase/admin-db', () => ({
+    addCallLog: (...args: unknown[]) => mockAddCallLog(...args),
+    createAppointment: (...args: unknown[]) => mockCreateAppointment(...args),
+}));
+// Keep legacy mock for backward compat with other tests that import from db
 vi.mock('@/lib/firebase/db', () => ({
     addCallLog: (...args: unknown[]) => mockAddCallLog(...args),
 }));
@@ -328,8 +334,10 @@ describe('/api/voice/session POST', () => {
         expect(body.callLogId).toBe('call-log-123');
         expect(mockAddCallLog).toHaveBeenCalledTimes(1);
 
-        // Verify the call log payload
-        const callLogArg = mockAddCallLog.mock.calls[0][0];
+        // Verify the call log payload: addCallLog(tenantId, data)
+        const tenantArg = mockAddCallLog.mock.calls[0][0];
+        const callLogArg = mockAddCallLog.mock.calls[0][1];
+        expect(tenantArg).toBe('tenant-123');
         expect(callLogArg.customerId).toBe('cust-1');
         expect(callLogArg.customerPhone).toBe('+905551234567');
         expect(callLogArg.customerName).toBe('Test Customer');
