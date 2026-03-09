@@ -4,7 +4,15 @@ import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit } from '@/lib/
 
 // --- Configuration ---
 
-/** API routes that do NOT require authentication */
+/** API routes that do NOT require authentication.
+ *
+ * SECURITY NOTE: Every path listed here is accessible WITHOUT a Bearer token.
+ * Only add routes that genuinely need unauthenticated access (webhooks,
+ * health checks, Twilio callbacks with their own signature verification).
+ *
+ * Voice/TTS/STT endpoints are intentionally NOT public — they call paid
+ * third-party APIs (ElevenLabs, OpenAI, Deepgram) and must be gated.
+ */
 const PUBLIC_API_PATHS = [
     '/api/webhook',
     '/api/health',
@@ -17,9 +25,6 @@ const PUBLIC_API_PATHS = [
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
     '/api/voice/test-e2e',
-    '/api/voice/infer',
-    '/api/voice/tts',
-    '/api/voice/stt',
     '/api/twilio/test',
     '/api/billing/alert-test',
     '/api/system/go-live-check',

@@ -1,7 +1,12 @@
 // Mock Personaplex Server for Local Testing
 // Simulates GPU server responses without actual API keys
+// ⚠️ BLOCKED in production — development/test only
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Block access in production
+const PRODUCTION_GUARD = process.env.NODE_ENV === 'production';
+
 
 // Demo personas
 const MOCK_PERSONAS = [
@@ -67,6 +72,10 @@ function matchIntent(text: string): typeof DEFAULT_RESPONSE {
 
 // GET: Mock health/status/personas
 export async function GET(request: NextRequest) {
+    if (PRODUCTION_GUARD) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     const action = request.nextUrl.searchParams.get('action') || 'health';
 
     await simulateLatency();
@@ -103,6 +112,10 @@ export async function GET(request: NextRequest) {
 
 // POST: Mock inference
 export async function POST(request: NextRequest) {
+    if (PRODUCTION_GUARD) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     try {
         const body = await request.json();
         const { text, persona = 'default', action = 'infer' } = body;
