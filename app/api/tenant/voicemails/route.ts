@@ -32,26 +32,52 @@ export async function GET(request: NextRequest) {
         const url = new URL(request.url);
         const includeArchived = url.searchParams.get('archived') === 'true';
 
-        let query = getDb()
+        const vmCollection = getDb()
             .collection('tenants').doc(tenantId)
-            .collection('voicemails')
-            .orderBy('createdAt', 'desc')
-            .limit(50);
+            .collection('voicemails');
 
-        if (!includeArchived) {
-            query = getDb()
-                .collection('tenants').doc(tenantId)
-                .collection('voicemails')
-                .where('status', 'in', ['new', 'listened'])
-                .orderBy('createdAt', 'desc')
-                .limit(50);
+        let voicemails: Record<string, unknown>[] = [];
+
+        try {
+            // Primary query: compound filter + sort (requires Firestore composite index)
+            let query;
+            if (includeArchived) {
+                query = vmCollection.orderBy('createdAt', 'desc').limit(50);
+            } else {
+                query = vmCollection
+                    .where('status', 'in', ['new', 'listened'])
+                    .orderBy('createdAt', 'desc')
+                    .limit(50);
+            }
+
+            const snap = await query.get();
+            voicemails = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (queryError) {
+            // Fallback: if composite index is missing, fetch without compound filter
+            // This is common in fresh deployments where the index hasn't been created yet
+            console.warn(
+                '[Voicemails] Compound query failed (missing index?), using fallback:',
+                queryError instanceof Error ? queryError.message : queryError,
+            );
+            try {
+                const fallbackSnap = await vmCollection.limit(50).get();
+                const allDocs = fallbackSnap.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                })) as Record<string, unknown>[];
+
+                voicemails = allDocs
+                    .filter(vm => includeArchived || ['new', 'listened'].includes(vm.status as string))
+                    .sort((a, b) => {
+                        const aTime = (a.createdAt as { _seconds?: number })?._seconds || 0;
+                        const bTime = (b.createdAt as { _seconds?: number })?._seconds || 0;
+                        return bTime - aTime;
+                    });
+            } catch {
+                // Collection doesn't exist yet — return empty
+                voicemails = [];
+            }
         }
-
-        const snap = await query.get();
-        const voicemails = snap.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-        }));
 
         return NextResponse.json({ voicemails });
 

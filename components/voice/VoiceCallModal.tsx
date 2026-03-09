@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AudioWaveform, VolumeMeter } from './AudioWaveform';
 import { PersonaplexClient, type VoiceSession, type TranscriptTurn, type SessionSummary } from '@/lib/voice/personaplex-client';
 import { AudioVisualizer } from '@/lib/voice/audio-stream';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import {
     Mic,
     MicOff,
@@ -120,6 +121,7 @@ export function VoiceCallModal({
     customerPhone,
     onCallEnd,
 }: VoiceCallModalProps) {
+    const authFetch = useAuthFetch();
     const [callState, setCallState] = useState<CallState>('idle');
     const [callMode, setCallMode] = useState<CallMode>('gpu');
     const [session, setSession] = useState<VoiceSession | null>(null);
@@ -246,7 +248,7 @@ export function VoiceCallModal({
         const ttsTimeout = setTimeout(() => ttsController.abort(), 5000);
 
         try {
-            const ttsRes = await fetch('/api/voice/tts', {
+            const ttsRes = await authFetch('/api/voice/tts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -312,7 +314,7 @@ export function VoiceCallModal({
         } else {
             resumeListening();
         }
-    }, [language]);
+    }, [language, authFetch]);
 
     // Text-only mode: Deepgram STT (primary) or Browser SpeechRecognition (fallback) → LLM → TTS
     const startTextOnlyMode = useCallback(async () => {
@@ -329,7 +331,7 @@ export function VoiceCallModal({
         if (!hasBrowserSTT) {
             // Browser Speech API not available — try Deepgram as fallback
             try {
-                const sttStatus = await fetch('/api/voice/stt');
+                const sttStatus = await authFetch('/api/voice/stt');
                 if (sttStatus.ok) {
                     const status = await sttStatus.json();
                     useDeepgram = status.configured === true;
@@ -418,7 +420,7 @@ export function VoiceCallModal({
                     formData.append('audio', audioBlob, 'recording.webm');
                     formData.append('language', language);
 
-                    const sttResponse = await fetch('/api/voice/stt', {
+                    const sttResponse = await authFetch('/api/voice/stt', {
                         method: 'POST',
                         body: formData,
                     });
@@ -442,7 +444,7 @@ export function VoiceCallModal({
                     }]);
 
                     // Send to LLM
-                    const response = await fetch('/api/voice/infer', {
+                    const response = await authFetch('/api/voice/infer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -694,7 +696,7 @@ export function VoiceCallModal({
                 safeStopRecognition();
 
                 try {
-                    const response = await fetch('/api/voice/infer', {
+                    const response = await authFetch('/api/voice/infer', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -799,7 +801,7 @@ export function VoiceCallModal({
                 safeStartRecognition();
             }, true); // greeting=true → ElevenLabs premium voice
         }
-    }, [language, persona, speakText]);
+    }, [language, persona, speakText, authFetch]);
 
     const startCall = useCallback(async () => {
         setCallState('connecting');
@@ -810,7 +812,7 @@ export function VoiceCallModal({
 
         try {
             // Check server availability first
-            const statusRes = await fetch('/api/voice/health');
+            const statusRes = await authFetch('/api/voice/health');
             const status = await statusRes.json();
 
             const isAvailable = status.status === 'healthy' || status.status === 'ok';
@@ -850,7 +852,7 @@ export function VoiceCallModal({
                 setCallState('idle');
 
                 try {
-                    await fetch('/api/voice/session', {
+                    await authFetch('/api/voice/session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({

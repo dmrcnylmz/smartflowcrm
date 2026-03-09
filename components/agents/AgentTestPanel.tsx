@@ -14,6 +14,7 @@ import {
     Sparkles, ChevronRight,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import type { AgentDraft, AgentTestScenario } from '@/lib/agents/types';
 import { getTemplateById } from '@/lib/agents/templates';
 
@@ -61,6 +62,7 @@ export function AgentTestPanel({
     onClose,
     inline = false,
 }: AgentTestPanelProps) {
+    const authFetch = useAuthFetch();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
@@ -110,7 +112,7 @@ export function AgentTestPanel({
         const startTime = Date.now();
 
         try {
-            const response = await fetch('/api/voice/pipeline', {
+            const response = await authFetch('/api/voice/pipeline', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -159,7 +161,7 @@ export function AgentTestPanel({
         } finally {
             setLoading(false);
         }
-    }, [input, loading, sessionId, systemPrompt]);
+    }, [input, loading, sessionId, systemPrompt, authFetch]);
 
     // ─── Render ───
 
