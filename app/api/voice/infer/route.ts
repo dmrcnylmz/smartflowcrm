@@ -1,13 +1,8 @@
 // Voice Infer API — Multi-LLM Intelligent Conversation
 //
-// Fallback Chain (data-driven, 2024-03-06 test results):
-//   1. Groq llama-3.3-70b (free, 601ms)  → PRIMARY
-//   2. OpenAI GPT-4o-mini (paid, 1157ms)  → SECONDARY
-//   3. Personaplex GPU                     → TERTIARY
-//   4. Graceful fallback                   → LAST RESORT
-//
-// ❌ Gemini DEVRE DIŞI — HTTP 429 kota aşıldı, güvenilmez
-//    Pipeline'dan çıkarıldı (2024-03-06)
+// Fallback Chain:
+//   Enterprise: GPU Pod → Groq → OpenAI → fallback
+//   Standard:   Groq → OpenAI → Personaplex keyword → fallback
 //
 // With Circuit Breaker, Response Cache, and GPU Manager integration
 
@@ -21,9 +16,30 @@ import { generateGeminiResponse, isGeminiConfigured } from '@/lib/ai/gemini-clie
 import { metricsLogger } from '@/lib/billing/metrics-logger';
 import { sessionRegistry } from '@/lib/voice/session-registry';
 import { checkRateLimit, rateLimitExceeded, RATE_LIMITS } from '@/lib/voice/rate-limit';
+import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
+import { updateLastGpuActivity } from '@/lib/voice/gpu-pod-state';
+import { initAdmin } from '@/lib/auth/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const PERSONAPLEX_URL = process.env.PERSONAPLEX_URL || 'http://localhost:8998';
+
+// ── Enterprise GPU Pod helpers ─────────────────────────────────
+let _inferDb: FirebaseFirestore.Firestore | null = null;
+function getInferDb() {
+    if (!_inferDb) { initAdmin(); _inferDb = getFirestore(); }
+    return _inferDb;
+}
+
+async function isEnterpriseTenant(tenantId: string): Promise<boolean> {
+    if (!tenantId || tenantId === 'default') return false;
+    try {
+        const guard = await checkSubscriptionActive(getInferDb(), tenantId);
+        return guard.active && guard.planId === 'enterprise';
+    } catch {
+        return false;
+    }
+}
 
 // =============================================
 // Conversation Memory (in-memory, per session)
@@ -553,6 +569,52 @@ export async function POST(request: NextRequest) {
             };
         };
 
+        // ---- 0. Enterprise GPU Pod (RunPod, on-demand) ----
+        const inferTenantId = authTenantId || sessionRegistry.getTenant(sessionId) || 'default';
+        const isEnterprise = gpuManager.isPodConfigured() && await isEnterpriseTenant(inferTenantId);
+
+        if (isEnterprise && !gpuCircuitBreaker.isOpen()) {
+            try {
+                const podResult = await gpuCircuitBreaker.execute(async () => {
+                    // Ensure pod is running
+                    const ready = await gpuManager.ensureReady();
+                    if (!ready) throw new Error('GPU Pod not ready');
+
+                    const result = await gpuManager.runPodInference({
+                        text,
+                        persona,
+                        language,
+                        session_id: sessionId,
+                    });
+                    if (!result) throw new Error('GPU Pod inference returned null');
+                    return result;
+                });
+
+                const latencyMs = performance.now() - startMs;
+                const result = {
+                    session_id: sessionId,
+                    intent: podResult.intent || 'unknown',
+                    confidence: podResult.confidence || 0.8,
+                    response_text: podResult.response_text,
+                    latency_ms: latencyMs,
+                    source: 'personaplex-gpu-pod',
+                };
+
+                inferCache.set(cacheKey, { ...result, cached: true } as CachedInferResponse);
+
+                // Track GPU activity for auto-shutdown cron
+                updateLastGpuActivity(inferTenantId).catch(() => {});
+
+                if (inferTenantId !== 'default') {
+                    metricsLogger.logLlmMetric(inferTenantId, result.latency_ms, 'gpu-pod', sessionId, result.intent, false);
+                }
+
+                return NextResponse.json(result);
+            } catch {
+                // GPU Pod failed — fall through to Groq
+            }
+        }
+
         // ---- 1. Groq — free, ultra-fast (llama-3.3-70b) ----
         if (isGroqConfigured() && !groqCircuitBreaker.isOpen()) {
             try {
@@ -679,9 +741,9 @@ export async function GET() {
             openai: { configured: !!OPENAI_API_KEY, role: 'secondary (paid, 1157ms)' },
             gemini: { configured: isGeminiConfigured(), role: 'DISABLED — quota exceeded (HTTP 429)' },
             personaplex: {
-                configured: gpuManager.isServerlessConfigured() || !!PERSONAPLEX_URL,
-                mode: gpuManager.isServerlessConfigured() ? 'runpod-serverless' : 'direct-http',
-                role: 'tertiary (GPU, enterprise)',
+                configured: gpuManager.isPodConfigured() || gpuManager.isServerlessConfigured() || !!PERSONAPLEX_URL,
+                mode: gpuManager.isPodConfigured() ? 'runpod-pod' : gpuManager.isServerlessConfigured() ? 'runpod-serverless' : 'direct-http',
+                role: gpuManager.isPodConfigured() ? 'enterprise-priority (GPU pod)' : 'tertiary (GPU)',
             },
         },
         gpu: gpuManager.getStatus(),

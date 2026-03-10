@@ -24,6 +24,7 @@ const PUBLIC_API_PATHS = [
     '/api/twilio/recording',
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
+    '/api/cron/gpu-shutdown',
     '/api/voice/test-e2e',
     '/api/twilio/test',
     '/api/billing/alert-test',

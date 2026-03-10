@@ -1,0 +1,65 @@
+# ============================================
+# Callception — Personaplex GPU Pod (RunPod)
+# ============================================
+# GPU Pod with persistent volume for model weights.
+# RTX A5000 (24GB VRAM) — stop/start lifecycle.
+#
+# Build:
+#   docker build -f infrastructure/runpod/Dockerfile.gpu-pod \
+#     -t callception-personaplex-pod:latest \
+#     --build-arg HF_TOKEN=your_token .
+#
+# Push:
+#   docker tag callception-personaplex-pod:latest ghcr.io/dmrcnylmz/callception-personaplex-pod:latest
+#   docker push ghcr.io/dmrcnylmz/callception-personaplex-pod:latest
+# ============================================
+
+# ---- Stage 1: Builder ----
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev python3-pip \
+    build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY personaplex_server/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ---- Stage 2: Runtime ----
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 libopus0 libsndfile1 ffmpeg curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+COPY personaplex_server/server.py .
+COPY infrastructure/runpod/start.sh .
+RUN chmod +x start.sh
+
+# Environment defaults (overridden by RunPod pod config)
+ENV HOST=0.0.0.0
+ENV PORT=8998
+ENV DEVICE=cuda
+ENV HF_HOME=/workspace/models/huggingface
+ENV MAX_SESSIONS=4
+ENV SESSION_TIMEOUT=300
+
+EXPOSE 8998
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=120s \
+    CMD curl -sf http://localhost:8998/health || exit 1
+
+CMD ["/app/start.sh"]

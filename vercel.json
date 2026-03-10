@@ -84,6 +84,10 @@
         {
             "path": "/api/cron/appointment-reminders",
             "schedule": "0 0 * * *"
+        },
+        {
+            "path": "/api/cron/gpu-shutdown",
+            "schedule": "*/5 * * * *"
         }
     ]
 }

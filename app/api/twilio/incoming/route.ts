@@ -29,6 +29,7 @@ import {
 } from '@/lib/twilio/telephony';
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
+import { gpuManager } from '@/lib/voice/gpu-manager';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,6 +105,12 @@ export async function POST(request: NextRequest) {
             return new NextResponse(twiml, {
                 headers: { 'Content-Type': 'text/xml' },
             });
+        }
+
+        // ── Pre-warm GPU Pod for enterprise tenants (fire-and-forget) ─
+        const isEnterprisePlan = tierName === 'enterprise';
+        if (isEnterprisePlan && gpuManager.isPodConfigured()) {
+            gpuManager.ensureReady().catch(() => {});
         }
 
         // ── Load tenant config for greeting ─────────────────────────
