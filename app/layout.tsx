@@ -2,6 +2,7 @@ import './globals.css';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { ClientLayout } from '@/components/layout/ClientLayout';
+import { Analytics } from '@vercel/analytics/next';
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default async function RootLayout({
                 <NextIntlClientProvider locale={locale} messages={messages}>
                     <ClientLayout>{children}</ClientLayout>
                 </NextIntlClientProvider>
+                <Analytics />
             </body>
         </html>
     );
