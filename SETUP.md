@@ -1,4 +1,4 @@
-# 🚀 Callception - Hızlı Kurulum Kılavuzu
+# 🚀 SmartFlow CRM - Hızlı Kurulum Kılavuzu
 
 ## ⚡ Hızlı Başlangıç
 
