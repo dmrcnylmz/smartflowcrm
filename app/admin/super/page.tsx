@@ -4,9 +4,10 @@
  * Super-Admin Dashboard Page
  *
  * Tabs:
- *   1. Numara Havuzu — NumberPoolAdmin (existing component)
- *   2. Porting İstekleri — PortingAdmin (new)
- *   3. Sistem Metrikleri — System-wide stats from /api/admin/stats
+ *   1. Sistem Metrikleri — System-wide stats from /api/admin/stats
+ *   2. Tenant Analitik — Platform-wide tenant analytics & detail view
+ *   3. Numara Havuzu — NumberPoolAdmin
+ *   4. Porting İstekleri — PortingAdmin
  */
 
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
@@ -19,6 +20,7 @@ import {
     Database,
     ArrowRightLeft,
     BarChart3,
+    Building2,
     Users,
     Phone,
     Server,
@@ -30,6 +32,7 @@ import {
 // Lazy load heavy components
 const NumberPoolAdmin = lazy(() => import('@/components/admin/number-pool-admin'));
 const PortingAdmin = lazy(() => import('@/components/admin/porting-admin'));
+const TenantAnalytics = lazy(() => import('@/components/admin/tenant-analytics'));
 
 // ─── Types ───
 
@@ -294,10 +297,14 @@ function SystemMetrics() {
 export default function SuperAdminPage() {
     return (
         <Tabs defaultValue="metrics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 max-w-lg">
+            <TabsList className="grid w-full grid-cols-4 max-w-2xl">
                 <TabsTrigger value="metrics" className="gap-2">
                     <BarChart3 className="h-4 w-4" />
                     <span className="hidden sm:inline">Metrikler</span>
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="gap-2">
+                    <Building2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tenant Analitik</span>
                 </TabsTrigger>
                 <TabsTrigger value="pool" className="gap-2">
                     <Database className="h-4 w-4" />
@@ -311,6 +318,12 @@ export default function SuperAdminPage() {
 
             <TabsContent value="metrics">
                 <SystemMetrics />
+            </TabsContent>
+
+            <TabsContent value="analytics">
+                <Suspense fallback={<TabLoader />}>
+                    <TenantAnalytics />
+                </Suspense>
             </TabsContent>
 
             <TabsContent value="pool">
