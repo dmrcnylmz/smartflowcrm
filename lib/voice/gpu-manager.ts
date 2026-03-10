@@ -104,6 +104,7 @@ class GPUManager {
             const response = await fetch(`${this.config.serverUrl}/health`, {
                 headers,
                 signal: AbortSignal.timeout(this.config.healthCheckTimeout),
+                cache: 'no-store',
             });
 
             if (!response.ok) {
