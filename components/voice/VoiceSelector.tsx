@@ -150,7 +150,6 @@ export function VoiceSelector({
         { value: 'elevenlabs', label: 'ElevenLabs', icon: '⚡' },
         { value: 'google', label: 'Google', icon: '🔵' },
         { value: 'kokoro', label: 'Kokoro', icon: '🔊' },
-        { value: 'openai', label: 'OpenAI', icon: '🟢' },
     ];
 
     return (
@@ -210,7 +209,7 @@ export function VoiceSelector({
 
             {/* ---- Voice List by Provider ---- */}
             <div className="space-y-4">
-                {(['elevenlabs', 'google', 'kokoro', 'openai'] as TTSProvider[]).map(provider => {
+                {(['elevenlabs', 'google', 'kokoro'] as TTSProvider[]).map(provider => {
                     const providerVoices = grouped[provider];
                     if (providerVoices.length === 0) return null;
 

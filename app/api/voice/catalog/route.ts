@@ -15,7 +15,6 @@ import {
     filterVoices,
     getProviderDisplayName,
     PREVIEW_SAMPLES,
-    type TTSProvider,
     type VoiceGender,
 } from '@/lib/voice/voice-catalog';
 import { getServiceAccountKey } from '@/lib/voice/tts-google';
@@ -24,7 +23,7 @@ import { isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
-    const provider = searchParams.get('provider') as TTSProvider | null;
+    const provider = searchParams.get('provider') as 'elevenlabs' | 'google' | 'kokoro' | null;
     const lang = searchParams.get('lang') as 'tr' | 'en' | null;
     const gender = searchParams.get('gender') as VoiceGender | null;
 
@@ -49,10 +48,6 @@ export async function GET(request: NextRequest) {
             name: getProviderDisplayName('kokoro'),
             available: isKokoroConfigured(),
             note: 'English only',
-        },
-        openai: {
-            name: getProviderDisplayName('openai'),
-            available: !!process.env.OPENAI_API_KEY,
         },
     };
 

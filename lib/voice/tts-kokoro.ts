@@ -21,6 +21,7 @@ import { kokoroCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-brea
 
 const TOGETHER_AI_API_KEY = process.env.TOGETHER_AI_API_KEY || '';
 const KOKORO_API_URL = process.env.KOKORO_API_URL || '';
+const KOKORO_API_AUTH = process.env.KOKORO_API_AUTH || ''; // format: user:password (Basic Auth for self-hosted)
 
 // Default voice if none specified
 const DEFAULT_KOKORO_VOICE = 'af_heart';
@@ -30,13 +31,14 @@ const DEFAULT_KOKORO_VOICE = 'af_heart';
  * Priority: Self-hosted → Together AI → null (not configured)
  */
 function resolveKokoroConfig(): { url: string; headers: Record<string, string> } | null {
-    // Option 1: Self-hosted Kokoro-FastAPI
+    // Option 1: Self-hosted Kokoro-FastAPI (with optional Basic Auth)
     if (KOKORO_API_URL) {
         const baseUrl = KOKORO_API_URL.replace(/\/+$/, '');
-        return {
-            url: `${baseUrl}/v1/audio/speech`,
-            headers: { 'Content-Type': 'application/json' },
-        };
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (KOKORO_API_AUTH) {
+            headers['Authorization'] = 'Basic ' + Buffer.from(KOKORO_API_AUTH).toString('base64');
+        }
+        return { url: `${baseUrl}/v1/audio/speech`, headers };
     }
 
     // Option 2: Together AI API

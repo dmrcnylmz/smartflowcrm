@@ -1,7 +1,7 @@
 /**
  * Voice Catalog — Tüm TTS Provider Sesleri Merkezi Kayıt
  *
- * ElevenLabs, Google Cloud TTS ve OpenAI seslerini tek bir katalogda toplar.
+ * ElevenLabs, Google Cloud TTS (Chirp3-HD) ve Kokoro seslerini tek bir katalogda toplar.
  * Provider/dil/cinsiyet bazında filtreleme ve ses önizleme desteği sağlar.
  */
 
@@ -120,70 +120,6 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     },
 
     // ─────────────────────────────────────────
-    // Google Cloud TTS — Turkish (~200ms, free tier)
-    // ─────────────────────────────────────────
-    {
-        id: 'g-tr-wavenet-a',
-        provider: 'google',
-        voiceId: 'tr-TR-Wavenet-A',
-        name: 'Google TR Kadın A',
-        gender: 'female',
-        language: 'tr',
-        tone: 'Doğal',
-        model: 'Wavenet',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-tr-wavenet-b',
-        provider: 'google',
-        voiceId: 'tr-TR-Wavenet-B',
-        name: 'Google TR Erkek B',
-        gender: 'male',
-        language: 'tr',
-        tone: 'Doğal',
-        model: 'Wavenet',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-tr-wavenet-c',
-        provider: 'google',
-        voiceId: 'tr-TR-Wavenet-C',
-        name: 'Google TR Kadın C',
-        gender: 'female',
-        language: 'tr',
-        tone: 'Yumuşak',
-        model: 'Wavenet',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-tr-wavenet-d',
-        provider: 'google',
-        voiceId: 'tr-TR-Wavenet-D',
-        name: 'Google TR Kadın D',
-        gender: 'female',
-        language: 'tr',
-        tone: 'Profesyonel',
-        model: 'Wavenet',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-tr-wavenet-e',
-        provider: 'google',
-        voiceId: 'tr-TR-Wavenet-E',
-        name: 'Google TR Erkek E',
-        gender: 'male',
-        language: 'tr',
-        tone: 'Güçlü',
-        model: 'Wavenet',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-
-    // ─────────────────────────────────────────
     // Google Cloud TTS — Turkish Chirp 3: HD ($30/1M chars, premium quality)
     // ─────────────────────────────────────────
     {
@@ -258,123 +194,6 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         model: 'Chirp3-HD',
         tier: 'standard',
         avgLatencyMs: 300,
-    },
-
-    // ─────────────────────────────────────────
-    // Google Cloud TTS — English (~200ms, free tier)
-    // ─────────────────────────────────────────
-    {
-        id: 'g-en-neural2-c',
-        provider: 'google',
-        voiceId: 'en-US-Neural2-C',
-        name: 'Google EN Kadın C',
-        gender: 'female',
-        language: 'en',
-        tone: 'Sıcak',
-        model: 'Neural2',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-en-neural2-d',
-        provider: 'google',
-        voiceId: 'en-US-Neural2-D',
-        name: 'Google EN Erkek D',
-        gender: 'male',
-        language: 'en',
-        tone: 'Doğal',
-        model: 'Neural2',
-        tier: 'free',
-        avgLatencyMs: 200,
-    },
-    {
-        id: 'g-en-neural2-f',
-        provider: 'google',
-        voiceId: 'en-US-Neural2-F',
-        name: 'Google EN Kadın F',
-        gender: 'female',
-        language: 'en',
-        tone: 'Profesyonel',
-        model: 'Neural2',
-        tier: 'free',
-        avgLatencyMs: 200,
-        recommended: true,
-    },
-
-    // ─────────────────────────────────────────
-    // OpenAI TTS (~4232ms, standard tier)
-    // ─────────────────────────────────────────
-    {
-        id: 'oai-nova',
-        provider: 'openai',
-        voiceId: 'nova',
-        name: 'Nova',
-        gender: 'female',
-        language: 'multi',
-        tone: 'Enerjik',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
-    },
-    {
-        id: 'oai-alloy',
-        provider: 'openai',
-        voiceId: 'alloy',
-        name: 'Alloy',
-        gender: 'female',
-        language: 'multi',
-        tone: 'Nötr',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
-    },
-    {
-        id: 'oai-echo',
-        provider: 'openai',
-        voiceId: 'echo',
-        name: 'Echo',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Derin',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
-    },
-    {
-        id: 'oai-shimmer',
-        provider: 'openai',
-        voiceId: 'shimmer',
-        name: 'Shimmer',
-        gender: 'female',
-        language: 'multi',
-        tone: 'Yumuşak',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
-    },
-    {
-        id: 'oai-onyx',
-        provider: 'openai',
-        voiceId: 'onyx',
-        name: 'Onyx',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Otoriter',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
-    },
-    {
-        id: 'oai-fable',
-        provider: 'openai',
-        voiceId: 'fable',
-        name: 'Fable',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Anlatıcı',
-        model: 'tts-1',
-        tier: 'standard',
-        avgLatencyMs: 4232,
     },
 
     // ─────────────────────────────────────────
