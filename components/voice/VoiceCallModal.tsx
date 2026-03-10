@@ -9,6 +9,8 @@ import { AudioWaveform, VolumeMeter } from './AudioWaveform';
 import { PersonaplexClient, type VoiceSession, type TranscriptTurn, type SessionSummary } from '@/lib/voice/personaplex-client';
 import { AudioVisualizer } from '@/lib/voice/audio-stream';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { VoiceSelector } from './VoiceSelector';
+import { getVoiceById, type VoiceCatalogEntry } from '@/lib/voice/voice-catalog';
 import {
     Mic,
     MicOff,
@@ -135,6 +137,8 @@ export function VoiceCallModal({
     const [persona, setPersona] = useState('default');
     const [isListening, setIsListening] = useState(false);
     const [isThinking, setIsThinking] = useState(false);
+    const [selectedVoice, setSelectedVoice] = useState<VoiceCatalogEntry | null>(null);
+    const [showVoiceSelector, setShowVoiceSelector] = useState(false);
 
     const labels = LABELS[language];
 
@@ -248,14 +252,21 @@ export function VoiceCallModal({
         const ttsTimeout = setTimeout(() => ttsController.abort(), 5000);
 
         try {
+            const ttsBody: Record<string, unknown> = {
+                text,
+                language,
+                greeting: isGreeting,
+            };
+            // If a specific voice is selected from VoiceSelector, use it
+            if (selectedVoice) {
+                ttsBody.provider = selectedVoice.provider;
+                ttsBody.voice_id = selectedVoice.voiceId;
+            }
+
             const ttsRes = await authFetch('/api/voice/tts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text,
-                    language,
-                    greeting: isGreeting, // Premium voice for greeting, budget for body
-                }),
+                body: JSON.stringify(ttsBody),
                 signal: ttsController.signal,
             });
 
@@ -1268,13 +1279,51 @@ export function VoiceCallModal({
                         )}
                     </div>
 
-                    {/* Instructions */}
+                    {/* Instructions + Voice Selection */}
                     {callState === 'idle' && (
-                        <p className="text-center text-sm text-muted-foreground">
-                            {labels.instructions}
-                            <br />
-                            {labels.micRequired}
-                        </p>
+                        <div className="space-y-3">
+                            <p className="text-center text-sm text-muted-foreground">
+                                {labels.instructions}
+                                <br />
+                                {labels.micRequired}
+                            </p>
+
+                            {/* Selected Voice Indicator + Toggle */}
+                            <div className="flex items-center justify-center gap-2">
+                                {selectedVoice ? (
+                                    <Badge variant="secondary" className="text-xs">
+                                        🎤 {selectedVoice.name} ({selectedVoice.provider})
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="text-xs text-muted-foreground">
+                                        🎤 Varsayılan ses
+                                    </Badge>
+                                )}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs h-6"
+                                    onClick={() => setShowVoiceSelector(!showVoiceSelector)}
+                                >
+                                    {showVoiceSelector ? 'Gizle' : 'Ses Seç'}
+                                </Button>
+                            </div>
+
+                            {/* Voice Selector Panel */}
+                            {showVoiceSelector && (
+                                <div className="border rounded-lg p-3 bg-muted/30 max-h-[350px] overflow-y-auto">
+                                    <VoiceSelector
+                                        selectedVoiceId={selectedVoice?.id}
+                                        onSelect={(voice) => {
+                                            setSelectedVoice(voice);
+                                            setShowVoiceSelector(false);
+                                        }}
+                                        language={language}
+                                        compact
+                                    />
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </DialogContent>

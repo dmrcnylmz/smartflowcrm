@@ -128,6 +128,15 @@ export interface VoiceConfig {
 
     /** Voice similarity boost (0-1) */
     similarityBoost?: number;
+
+    /** Preferred fallback provider (google or openai) */
+    fallbackProvider?: 'google' | 'openai';
+
+    /** Fallback voice ID (Google/OpenAI voice identifier) */
+    fallbackVoiceId?: string;
+
+    /** Voice catalog entry ID (from voice-catalog.ts) */
+    preferredCatalogId?: string;
 }
 
 // --- Guardrails ---

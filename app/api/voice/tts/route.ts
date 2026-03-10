@@ -159,6 +159,7 @@ async function synthesizeElevenLabs(
 async function synthesizeOpenAI(
     text: string,
     lang: 'tr' | 'en',
+    voiceName?: string,
 ): Promise<Response | null> {
     if (!OPENAI_API_KEY) return null;
 
@@ -179,7 +180,7 @@ async function synthesizeOpenAI(
                 body: JSON.stringify({
                     model: 'tts-1',
                     input: text,
-                    voice: OPENAI_TTS_VOICE,
+                    voice: voiceName || OPENAI_TTS_VOICE,
                     response_format: 'mp3',
                     speed: 1.0,
                 }),
@@ -265,8 +266,12 @@ export async function POST(request: NextRequest) {
         if (forceProvider === 'elevenlabs') {
             audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
+        } else if (forceProvider === 'google') {
+            audioResponse = await synthesizeGoogleTTS(text, lang, voice_id);
+            usedProvider = 'google';
+            usedModel = voice_id || 'google-default';
         } else if (forceProvider === 'openai') {
-            audioResponse = await synthesizeOpenAI(text, lang);
+            audioResponse = await synthesizeOpenAI(text, lang, voice_id);
             usedProvider = 'openai';
             usedModel = 'tts-1';
         } else if (emergencyActive) {

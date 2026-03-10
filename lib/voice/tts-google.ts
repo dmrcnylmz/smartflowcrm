@@ -180,6 +180,7 @@ async function getAccessToken(): Promise<string | null> {
 export async function synthesizeGoogleTTS(
     text: string,
     lang: 'tr' | 'en',
+    voiceName?: string,
 ): Promise<Response | null> {
     // Fast-fail: no credentials
     const key = getServiceAccountKey();
@@ -195,7 +196,9 @@ export async function synthesizeGoogleTTS(
     const accessToken = await getAccessToken();
     if (!accessToken) return null;
 
-    const voice = GOOGLE_VOICES[lang];
+    const voice = voiceName
+        ? { languageCode: voiceName.substring(0, 5), name: voiceName, ssmlGender: 'NEUTRAL' as const }
+        : GOOGLE_VOICES[lang];
 
     try {
         const response = await googleTtsCircuitBreaker.execute(async () => {
