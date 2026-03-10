@@ -39,6 +39,8 @@ interface VoiceSelectorProps {
     language?: 'tr' | 'en';
     /** Compact mode (dropdown-like) */
     compact?: boolean;
+    /** Auth-aware fetch function (from useAuthFetch) */
+    authFetch?: (url: string, init?: RequestInit) => Promise<Response>;
     /** Class name */
     className?: string;
 }
@@ -52,6 +54,7 @@ export function VoiceSelector({
     onSelect,
     language,
     compact = false,
+    authFetch,
     className = '',
 }: VoiceSelectorProps) {
     // ---- State ----
@@ -105,7 +108,8 @@ export function VoiceSelector({
         setPlayingVoiceId(null);
 
         try {
-            const res = await fetch('/api/voice/tts/preview', {
+            const fetchFn = authFetch || fetch;
+            const res = await fetchFn('/api/voice/tts/preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ voiceCatalogId: voice.id }),
@@ -204,7 +208,7 @@ export function VoiceSelector({
             </p>
 
             {/* ---- Voice List by Provider ---- */}
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
+            <div className="space-y-4">
                 {(['elevenlabs', 'google', 'openai'] as TTSProvider[]).map(provider => {
                     const providerVoices = grouped[provider];
                     if (providerVoices.length === 0) return null;

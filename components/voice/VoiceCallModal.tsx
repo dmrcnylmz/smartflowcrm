@@ -1051,7 +1051,7 @@ export function VoiceCallModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-3">
                         <Phone className="h-5 w-5 text-green-500" />
@@ -1311,7 +1311,7 @@ export function VoiceCallModal({
 
                             {/* Voice Selector Panel */}
                             {showVoiceSelector && (
-                                <div className="border rounded-lg p-3 bg-muted/30 max-h-[350px] overflow-y-auto">
+                                <div className="border rounded-lg p-3 bg-muted/30">
                                     <VoiceSelector
                                         selectedVoiceId={selectedVoice?.id}
                                         onSelect={(voice) => {
@@ -1319,6 +1319,7 @@ export function VoiceCallModal({
                                             setShowVoiceSelector(false);
                                         }}
                                         language={language}
+                                        authFetch={authFetch}
                                         compact
                                     />
                                 </div>
