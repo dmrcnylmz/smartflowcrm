@@ -306,6 +306,14 @@ export const googleTtsCircuitBreaker = new CircuitBreaker({
     failureWindowMs: 60_000,
 });
 
+/** Circuit breaker for Kokoro TTS calls (EN-only cost optimization) */
+export const kokoroCircuitBreaker = new CircuitBreaker({
+    name: 'kokoro-tts',
+    failureThreshold: 3,
+    resetTimeout: 20_000,
+    failureWindowMs: 60_000,
+});
+
 /** Circuit breaker for Deepgram STT calls */
 export const deepgramCircuitBreaker = new CircuitBreaker({
     name: 'deepgram-stt',

@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { synthesizeGoogleTTS } from '@/lib/voice/tts-google';
+import { synthesizeKokoroTTS } from '@/lib/voice/tts-kokoro';
 import { getVoiceById, PREVIEW_SAMPLES, type TTSProvider } from '@/lib/voice/voice-catalog';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
@@ -94,6 +95,8 @@ export async function POST(request: NextRequest) {
             }
         } else if (resolvedProvider === 'google') {
             audioResponse = await synthesizeGoogleTTS(sampleText, resolvedLang, resolvedVoiceId);
+        } else if (resolvedProvider === 'kokoro') {
+            audioResponse = await synthesizeKokoroTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'openai') {
             if (!OPENAI_API_KEY) {
                 return NextResponse.json({ error: 'OpenAI not configured' }, { status: 503 });

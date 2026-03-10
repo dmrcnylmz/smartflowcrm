@@ -35,7 +35,13 @@ interface ServiceAccountKey {
 // Configuration
 // =============================================
 
-const GOOGLE_TTS_API_URL = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+const GOOGLE_TTS_API_V1 = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+const GOOGLE_TTS_API_V1BETA1 = 'https://texttospeech.googleapis.com/v1beta1/text:synthesize';
+
+/** Chirp 3: HD voices use v1beta1 endpoint */
+function isChirp3HDVoice(voiceName?: string): boolean {
+    return !!voiceName && voiceName.includes('Chirp3-HD');
+}
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const TTS_SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
 
@@ -196,13 +202,16 @@ export async function synthesizeGoogleTTS(
     const accessToken = await getAccessToken();
     if (!accessToken) return null;
 
+    const isChirp3HD = isChirp3HDVoice(voiceName);
+    const apiUrl = isChirp3HD ? GOOGLE_TTS_API_V1BETA1 : GOOGLE_TTS_API_V1;
+
     const voice = voiceName
         ? { languageCode: voiceName.substring(0, 5), name: voiceName, ssmlGender: 'NEUTRAL' as const }
         : GOOGLE_VOICES[lang];
 
     try {
         const response = await googleTtsCircuitBreaker.execute(async () => {
-            const res = await fetch(GOOGLE_TTS_API_URL, {
+            const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`,

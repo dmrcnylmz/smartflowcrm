@@ -4,7 +4,7 @@
  * Tüm TTS seslerini listeler. Provider, dil ve cinsiyet bazında filtreleme destekler.
  *
  * Query params:
- *   ?provider=google|elevenlabs|openai
+ *   ?provider=google|elevenlabs|openai|kokoro
  *   ?lang=tr|en
  *   ?gender=female|male
  */
@@ -19,6 +19,7 @@ import {
     type VoiceGender,
 } from '@/lib/voice/voice-catalog';
 import { getServiceAccountKey } from '@/lib/voice/tts-google';
+import { isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -43,6 +44,11 @@ export async function GET(request: NextRequest) {
         google: {
             name: getProviderDisplayName('google'),
             available: !!getServiceAccountKey(),
+        },
+        kokoro: {
+            name: getProviderDisplayName('kokoro'),
+            available: isKokoroConfigured(),
+            note: 'English only',
         },
         openai: {
             name: getProviderDisplayName('openai'),

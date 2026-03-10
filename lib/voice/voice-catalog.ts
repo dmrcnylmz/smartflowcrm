@@ -9,7 +9,7 @@
 // Types
 // =============================================
 
-export type TTSProvider = 'elevenlabs' | 'google' | 'openai';
+export type TTSProvider = 'elevenlabs' | 'google' | 'openai' | 'kokoro';
 export type VoiceGender = 'female' | 'male';
 export type VoiceLanguage = 'tr' | 'en' | 'multi';
 export type VoiceTier = 'premium' | 'standard' | 'free';
@@ -169,7 +169,6 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         model: 'Wavenet',
         tier: 'free',
         avgLatencyMs: 200,
-        recommended: true,
     },
     {
         id: 'g-tr-wavenet-e',
@@ -182,6 +181,83 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         model: 'Wavenet',
         tier: 'free',
         avgLatencyMs: 200,
+    },
+
+    // ─────────────────────────────────────────
+    // Google Cloud TTS — Turkish Chirp 3: HD ($30/1M chars, premium quality)
+    // ─────────────────────────────────────────
+    {
+        id: 'g-tr-chirp3hd-kore',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Kore',
+        name: 'Kore (HD)',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Sıcak & Doğal',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
+        recommended: true,
+    },
+    {
+        id: 'g-tr-chirp3hd-aoede',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Aoede',
+        name: 'Aoede (HD)',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Doğal & Akıcı',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
+    },
+    {
+        id: 'g-tr-chirp3hd-leda',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Leda',
+        name: 'Leda (HD)',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Profesyonel',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
+    },
+    {
+        id: 'g-tr-chirp3hd-charon',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Charon',
+        name: 'Charon (HD)',
+        gender: 'male',
+        language: 'tr',
+        tone: 'Güçlü & Derin',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
+    },
+    {
+        id: 'g-tr-chirp3hd-fenrir',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Fenrir',
+        name: 'Fenrir (HD)',
+        gender: 'male',
+        language: 'tr',
+        tone: 'Kararlı',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
+    },
+    {
+        id: 'g-tr-chirp3hd-orus',
+        provider: 'google',
+        voiceId: 'tr-TR-Chirp3-HD-Orus',
+        name: 'Orus (HD)',
+        gender: 'male',
+        language: 'tr',
+        tone: 'Doğal',
+        model: 'Chirp3-HD',
+        tier: 'standard',
+        avgLatencyMs: 300,
     },
 
     // ─────────────────────────────────────────
@@ -300,6 +376,60 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         tier: 'standard',
         avgLatencyMs: 4232,
     },
+
+    // ─────────────────────────────────────────
+    // Kokoro TTS — English Only (~150ms, ultra-low cost)
+    // CPU+GPU, <$1/1M chars via Together AI
+    // ─────────────────────────────────────────
+    {
+        id: 'kk-af-heart',
+        provider: 'kokoro',
+        voiceId: 'af_heart',
+        name: 'Heart',
+        gender: 'female',
+        language: 'en',
+        tone: 'Sıcak & Doğal',
+        model: 'kokoro-v1',
+        tier: 'free',
+        avgLatencyMs: 150,
+        recommended: true,
+    },
+    {
+        id: 'kk-af-star',
+        provider: 'kokoro',
+        voiceId: 'af_star',
+        name: 'Star',
+        gender: 'female',
+        language: 'en',
+        tone: 'Parlak & Enerjik',
+        model: 'kokoro-v1',
+        tier: 'free',
+        avgLatencyMs: 150,
+    },
+    {
+        id: 'kk-am-adam',
+        provider: 'kokoro',
+        voiceId: 'am_adam',
+        name: 'Adam',
+        gender: 'male',
+        language: 'en',
+        tone: 'Nötr & Net',
+        model: 'kokoro-v1',
+        tier: 'free',
+        avgLatencyMs: 150,
+    },
+    {
+        id: 'kk-am-michael',
+        provider: 'kokoro',
+        voiceId: 'am_michael',
+        name: 'Michael',
+        gender: 'male',
+        language: 'en',
+        tone: 'Profesyonel',
+        model: 'kokoro-v1',
+        tier: 'free',
+        avgLatencyMs: 150,
+    },
 ];
 
 // =============================================
@@ -346,6 +476,7 @@ export function getProviderDisplayName(provider: TTSProvider): string {
         case 'elevenlabs': return 'ElevenLabs';
         case 'google': return 'Google Cloud';
         case 'openai': return 'OpenAI';
+        case 'kokoro': return 'Kokoro';
     }
 }
 

@@ -16,8 +16,8 @@
  * Strategy:
  *   greeting=true  → ElevenLabs multilingual_v2 (1876ms, premium kalite)
  *   greeting=false → ElevenLabs turbo_v2_5 (474ms, hızlı + iyi kalite)
- *   Fallback 1     → Google Cloud TTS Neural2 (~200ms, ücretsiz tier)
- *   Fallback 2     → OpenAI TTS (yavaş ama çalışıyor)
+ *   Fallback TR    → Google Cloud TTS (Chirp3-HD/Wavenet) → OpenAI
+ *   Fallback EN    → Kokoro (~150ms, <$1/1M) → Google → OpenAI
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,8 +27,9 @@ import { shouldUseEmergencyTts } from '@/lib/billing/cost-monitor';
 import { sessionRegistry } from '@/lib/voice/session-registry';
 import { meterTtsUsage } from '@/lib/billing/metering';
 import { checkCostThresholds } from '@/lib/billing/cost-monitor';
-import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, kokoroCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 import { synthesizeGoogleTTS, getServiceAccountKey } from '@/lib/voice/tts-google';
+import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -274,12 +275,31 @@ export async function POST(request: NextRequest) {
             audioResponse = await synthesizeOpenAI(text, lang, voice_id);
             usedProvider = 'openai';
             usedModel = 'tts-1';
+        } else if (forceProvider === 'kokoro') {
+            if (lang !== 'en') {
+                return NextResponse.json({ error: 'Kokoro only supports English' }, { status: 400 });
+            }
+            audioResponse = await synthesizeKokoroTTS(text, lang, voice_id);
+            usedProvider = 'kokoro';
+            usedModel = 'kokoro-v1';
         } else if (emergencyActive) {
-            // Emergency mode: body TTS → Google (cheaper + fast) → OpenAI → ElevenLabs
-            console.info('[TTS] ⚠️ Emergency mode active — using Google/OpenAI for body TTS');
-            audioResponse = await synthesizeGoogleTTS(text, lang);
-            usedProvider = 'google-emergency';
-            usedModel = 'google-neural2';
+            // Emergency mode: cost-optimized fallback chain
+            // EN: Kokoro (cheapest) → Google → OpenAI → ElevenLabs
+            // TR: Google → OpenAI → ElevenLabs
+            console.info(`[TTS] ⚠️ Emergency mode active — using cost-optimized chain (${lang})`);
+
+            // Kokoro first for English (ultra-low cost)
+            if (lang === 'en') {
+                audioResponse = await synthesizeKokoroTTS(text, 'en');
+                usedProvider = 'kokoro-emergency';
+                usedModel = 'kokoro-v1';
+            }
+
+            if (!audioResponse) {
+                audioResponse = await synthesizeGoogleTTS(text, lang);
+                usedProvider = 'google-emergency';
+                usedModel = 'google-tts';
+            }
 
             if (!audioResponse) {
                 audioResponse = await synthesizeOpenAI(text, lang);
@@ -287,22 +307,32 @@ export async function POST(request: NextRequest) {
                 usedModel = 'tts-1';
             }
 
-            // Fallback to ElevenLabs if both cheaper alternatives fail
+            // Fallback to ElevenLabs if all cheaper alternatives fail
             if (!audioResponse) {
                 audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
                 usedProvider = 'elevenlabs';
                 usedModel = ELEVENLABS_MODELS.body;
             }
         } else {
-            // Default: ElevenLabs → Google Cloud TTS → OpenAI (last resort)
+            // Default fallback chain:
+            // EN: ElevenLabs → Kokoro → Google → OpenAI
+            // TR: ElevenLabs → Google → OpenAI
             audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
 
+            // Kokoro fallback for English only (fast + ultra-low cost)
+            if (!audioResponse && lang === 'en') {
+                console.warn('[TTS] ElevenLabs failed, trying Kokoro (EN)...');
+                audioResponse = await synthesizeKokoroTTS(text, 'en');
+                usedProvider = 'kokoro-fallback';
+                usedModel = 'kokoro-v1';
+            }
+
             if (!audioResponse) {
-                console.warn('[TTS] ElevenLabs failed, trying Google Cloud TTS...');
+                console.warn('[TTS] Trying Google Cloud TTS...');
                 audioResponse = await synthesizeGoogleTTS(text, lang);
                 usedProvider = 'google-fallback';
-                usedModel = 'google-neural2';
+                usedModel = 'google-tts';
             }
 
             if (!audioResponse) {
@@ -317,7 +347,8 @@ export async function POST(request: NextRequest) {
 
         // ---- No provider succeeded ----
         if (!audioResponse || !audioResponse.body) {
-            const allOpen = ttsCircuitBreaker.isOpen() && googleTtsCircuitBreaker.isOpen() && openaiCircuitBreaker.isOpen();
+            const allOpen = ttsCircuitBreaker.isOpen() && googleTtsCircuitBreaker.isOpen()
+                && openaiCircuitBreaker.isOpen() && kokoroCircuitBreaker.isOpen();
             return NextResponse.json(
                 {
                     error: 'All TTS providers failed',
@@ -326,6 +357,7 @@ export async function POST(request: NextRequest) {
                         elevenlabs: ttsCircuitBreaker.getStats(),
                         google: googleTtsCircuitBreaker.getStats(),
                         openai: openaiCircuitBreaker.getStats(),
+                        kokoro: kokoroCircuitBreaker.getStats(),
                     },
                 },
                 { status: 503 },
@@ -386,14 +418,24 @@ export async function GET() {
             },
             google: {
                 configured: !!getServiceAccountKey(),
-                role: 'first fallback (fast + free tier)',
+                role: 'fallback (TR+EN, Wavenet free / Chirp3-HD standard)',
                 voices: {
-                    tr: 'tr-TR-Wavenet-D',
-                    en: 'en-US-Neural2-F',
+                    tr: 'tr-TR-Wavenet-D (free) / tr-TR-Chirp3-HD-Kore (standard)',
+                    en: 'en-US-Neural2-F (free)',
                 },
                 performance: {
-                    latency: '~200ms (20x faster than OpenAI TTS)',
-                    note: 'Google Cloud TTS Neural2 — 1M chars/month free tier',
+                    latency: '~200-300ms',
+                    note: 'Wavenet: 1M chars/month free. Chirp3-HD: $30/1M chars (premium quality)',
+                },
+            },
+            kokoro: {
+                configured: isKokoroConfigured(),
+                role: 'EN-only cost-optimized fallback',
+                voice: 'af_heart (default)',
+                model: 'kokoro-v1',
+                performance: {
+                    latency: '~150ms',
+                    note: 'English only. <$1/1M chars via Together AI. CPU+GPU support.',
                 },
             },
             openai: {
@@ -403,15 +445,16 @@ export async function GET() {
                 model: 'tts-1',
                 performance: {
                     latency: '~4232ms (9x slower than ElevenLabs Turbo)',
-                    note: 'Only activates when both ElevenLabs and Google TTS fail',
+                    note: 'Only activates when other providers fail',
                 },
             },
         },
         strategy: {
             greeting: 'ElevenLabs multilingual_v2 (premium quality)',
-            body: 'ElevenLabs turbo_v2_5 (fast, 474ms)',
-            fallback_1: 'Google Cloud TTS Neural2 (~200ms, free tier)',
-            fallback_2: 'OpenAI TTS (slow, last resort)',
+            body_tr: 'ElevenLabs → Google (Chirp3-HD/Wavenet) → OpenAI',
+            body_en: 'ElevenLabs → Kokoro → Google → OpenAI',
+            emergency_tr: 'Google → OpenAI → ElevenLabs',
+            emergency_en: 'Kokoro → Google → OpenAI → ElevenLabs',
         },
     });
 }
