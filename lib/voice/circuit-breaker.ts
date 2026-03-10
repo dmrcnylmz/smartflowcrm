@@ -298,6 +298,14 @@ export const geminiCircuitBreaker = new CircuitBreaker({
     failureWindowMs: 120_000,
 });
 
+/** Circuit breaker for Google Cloud TTS calls (fallback) */
+export const googleTtsCircuitBreaker = new CircuitBreaker({
+    name: 'google-tts',
+    failureThreshold: 3,
+    resetTimeout: 20_000,
+    failureWindowMs: 60_000,
+});
+
 /** Circuit breaker for Deepgram STT calls */
 export const deepgramCircuitBreaker = new CircuitBreaker({
     name: 'deepgram-stt',

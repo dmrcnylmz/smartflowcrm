@@ -43,6 +43,7 @@ firebase-debug.log
 firebase-debug.*.log
 service-account-key.json
 *-service-account*.json
+*-tts-key.json
 
 # IDE
 .vscode/

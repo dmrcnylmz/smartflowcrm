@@ -198,44 +198,17 @@ async function speak(text: string, onEnd?: () => void, language: string = 'tr'):
 
         audio.onerror = () => {
             URL.revokeObjectURL(audioUrl);
-            console.error('[TTS] Audio playback error, falling back to browser TTS');
-            speakBrowserFallback(text, onEnd);
+            console.error('[TTS] Audio playback error');
+            onEnd?.();
         };
 
         await audio.play();
         logger.debug('[TTS] ElevenLabs playing audio');
 
     } catch (error) {
-        console.warn('[TTS] ElevenLabs failed, using browser fallback:', error);
-        speakBrowserFallback(text, onEnd);
-    }
-}
-
-function speakBrowserFallback(text: string, onEnd?: () => void): void {
-    if (!window.speechSynthesis) {
-        console.warn('[TTS] Speech Synthesis not available');
+        console.warn('[TTS] Server TTS failed:', error);
         onEnd?.();
-        return;
     }
-
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'tr-TR';
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-
-    const voices = window.speechSynthesis.getVoices();
-    const turkishVoice = voices.find(v => v.lang.startsWith('tr'));
-    if (turkishVoice) {
-        utterance.voice = turkishVoice;
-    }
-
-    utterance.onend = () => onEnd?.();
-    utterance.onerror = () => onEnd?.();
-
-    window.speechSynthesis.speak(utterance);
 }
 
 /**
@@ -569,11 +542,6 @@ export class PersonaplexClient {
         if (this.recognition) {
             try { this.recognition.stop(); } catch { }
             this.recognition = null;
-        }
-
-        // Cancel any ongoing TTS
-        if (window.speechSynthesis) {
-            window.speechSynthesis.cancel();
         }
 
         if (this.audioProcessor) {

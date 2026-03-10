@@ -70,6 +70,12 @@ const mockOpenaiCircuitBreaker = {
     getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
 };
 
+const mockGoogleTtsCircuitBreaker = {
+    isOpen: vi.fn().mockReturnValue(false),
+    execute: vi.fn().mockImplementation((fn: Function) => fn()),
+    getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
+};
+
 class MockCircuitOpenError extends Error {
     constructor() {
         super('Circuit breaker is open');
@@ -81,7 +87,14 @@ vi.mock('@/lib/voice/circuit-breaker', () => ({
     deepgramCircuitBreaker: mockDeepgramCircuitBreaker,
     ttsCircuitBreaker: mockTtsCircuitBreaker,
     openaiCircuitBreaker: mockOpenaiCircuitBreaker,
+    googleTtsCircuitBreaker: mockGoogleTtsCircuitBreaker,
     CircuitOpenError: MockCircuitOpenError,
+}));
+
+// ── Google Cloud TTS mock ───────────────────────────────────────────────────
+vi.mock('@/lib/voice/tts-google', () => ({
+    synthesizeGoogleTTS: vi.fn().mockResolvedValue(null), // Returns null by default (no credentials)
+    getServiceAccountKey: vi.fn().mockReturnValue(null),   // No service account configured
 }));
 
 // ── Metrics logger mock ──────────────────────────────────────────────────────
@@ -578,13 +591,15 @@ describe('/api/voice/tts GET', () => {
         expect(body.providers).toBeDefined();
         expect(body.providers.elevenlabs).toBeDefined();
         expect(body.providers.elevenlabs.role).toContain('primary');
+        expect(body.providers.google).toBeDefined();
+        expect(body.providers.google.role).toContain('fallback');
         expect(body.providers.openai).toBeDefined();
         expect(body.providers.openai.role).toContain('fallback');
         expect(body.strategy).toBeDefined();
         expect(body.strategy.greeting).toContain('multilingual_v2');
         expect(body.strategy.body).toContain('turbo_v2_5');
-        expect(body.strategy.fallback).toContain('OpenAI');
-        expect(body.strategy.last_resort).toContain('Browser');
+        expect(body.strategy.fallback_1).toContain('Google');
+        expect(body.strategy.fallback_2).toContain('OpenAI');
     });
 });
 
@@ -697,8 +712,9 @@ describe('/api/voice/tts POST', () => {
     it('should return 503 when all providers fail', async () => {
         const POST = await getHandler();
 
-        // Make both circuit breakers open so no provider can serve
+        // Make all circuit breakers open so no provider can serve
         mockTtsCircuitBreaker.isOpen.mockReturnValue(true);
+        mockGoogleTtsCircuitBreaker.isOpen.mockReturnValue(true);
         mockOpenaiCircuitBreaker.isOpen.mockReturnValue(true);
 
         const req = createMockRequest('http://localhost:3000/api/voice/tts', {
@@ -714,10 +730,10 @@ describe('/api/voice/tts POST', () => {
 
         const body = await res.json();
         expect(body.error).toContain('All TTS providers failed');
-        expect(body.fallback).toBe('browser');
 
         // Reset
         mockTtsCircuitBreaker.isOpen.mockReturnValue(false);
+        mockGoogleTtsCircuitBreaker.isOpen.mockReturnValue(false);
         mockOpenaiCircuitBreaker.isOpen.mockReturnValue(false);
     });
 

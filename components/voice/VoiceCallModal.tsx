@@ -192,10 +192,10 @@ export function VoiceCallModal({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // --- TTS: Server API (ElevenLabs/OpenAI) → Browser speechSynthesis (last resort) ---
+    // --- TTS: Server API (ElevenLabs → Google Cloud TTS → OpenAI) ---
     // Greeting/Body Strategy:
     //   greeting=true  → ElevenLabs premium (marka algısı)
-    //   greeting=false → OpenAI TTS (ucuz + güvenilir)
+    //   greeting=false → ElevenLabs turbo (hızlı + kaliteli)
     const speakText = useCallback(async (text: string, onEnd?: () => void, isGreeting = false) => {
         isSpeakingRef.current = true;
 
@@ -283,37 +283,11 @@ export function VoiceCallModal({
             }
         } catch {
             clearTimeout(ttsTimeout);
-            // Server TTS failed or timed out — fall through to browser TTS
+            // Server TTS failed or timed out — silent fallback (no robotik ses)
         }
 
-        // Last resort: Browser speechSynthesis (only if API completely fails)
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = language === 'tr' ? 'tr-TR' : 'en-US';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-
-            // Explicitly find correct language voice
-            const voices = window.speechSynthesis.getVoices();
-            if (language === 'tr') {
-                const turkishVoice = voices.find(v => v.lang === 'tr-TR')
-                    || voices.find(v => v.lang.startsWith('tr'));
-                if (turkishVoice) utterance.voice = turkishVoice;
-            } else {
-                const englishVoice = voices.find(v => v.lang === 'en-US')
-                    || voices.find(v => v.lang.startsWith('en'));
-                if (englishVoice) utterance.voice = englishVoice;
-            }
-
-            utterance.onend = resumeListening;
-            utterance.onerror = resumeListening;
-            window.speechSynthesis.speak(utterance);
-        } else {
-            resumeListening();
-        }
+        // All server-side TTS providers failed — resume listening silently
+        resumeListening();
     }, [language, authFetch]);
 
     // Text-only mode: Deepgram STT (primary) or Browser SpeechRecognition (fallback) → LLM → TTS
@@ -1011,11 +985,6 @@ export function VoiceCallModal({
             audioRef.current = null;
         }
 
-        // Stop browser speech synthesis (last resort TTS)
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-        }
-
         if (visualizerRef.current) {
             visualizerRef.current.stop();
             visualizerRef.current = null;
@@ -1052,9 +1021,6 @@ export function VoiceCallModal({
             }
             if (audioRef.current) {
                 audioRef.current.pause();
-            }
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
             }
             // Cleanup Deepgram STT resources
             if (vadIntervalRef.current) {

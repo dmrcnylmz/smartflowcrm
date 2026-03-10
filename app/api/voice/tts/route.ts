@@ -1,22 +1,23 @@
 /**
- * Voice TTS API — ElevenLabs-Only Strategy
+ * Voice TTS API — Multi-Provider Fallback Strategy
  *
  * ┌──────────────────────────────────────────────────────────────────────┐
- * │ PERFORMANS TESTİ SONUÇLARI (2024-03-06):                           │
+ * │ PERFORMANS TESTİ SONUÇLARI:                                         │
  * │                                                                      │
  * │  ElevenLabs multilingual_v2 (greeting): 1876ms ✅ Premium kalite    │
  * │  ElevenLabs turbo_v2_5 (body):           474ms ✅ HIZLI + kaliteli  │
+ * │  Google Cloud TTS Neural2:              ~200ms ✅ Hızlı fallback   │
  * │  OpenAI TTS tts-1 (body):               4232ms ❌ 9x YAVAŞ!        │
  * │                                                                      │
- * │ KARAR: OpenAI TTS devre dışı. ElevenLabs hem greeting hem body.    │
- * │ OpenAI TTS sadece ElevenLabs tamamen çökerse son çare fallback.    │
+ * │ KARAR: ElevenLabs primary. Google Cloud TTS ilk fallback.           │
+ * │ OpenAI TTS sadece ikisi de çökerse son çare.                        │
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * Strategy:
  *   greeting=true  → ElevenLabs multilingual_v2 (1876ms, premium kalite)
  *   greeting=false → ElevenLabs turbo_v2_5 (474ms, hızlı + iyi kalite)
- *   Fallback       → OpenAI TTS (yavaş ama çalışıyor)
- *   Son çare       → browser speechSynthesis (client tarafında)
+ *   Fallback 1     → Google Cloud TTS Neural2 (~200ms, ücretsiz tier)
+ *   Fallback 2     → OpenAI TTS (yavaş ama çalışıyor)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,7 +27,8 @@ import { shouldUseEmergencyTts } from '@/lib/billing/cost-monitor';
 import { sessionRegistry } from '@/lib/voice/session-registry';
 import { meterTtsUsage } from '@/lib/billing/metering';
 import { checkCostThresholds } from '@/lib/billing/cost-monitor';
-import { ttsCircuitBreaker, openaiCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { synthesizeGoogleTTS, getServiceAccountKey } from '@/lib/voice/tts-google';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -268,25 +270,38 @@ export async function POST(request: NextRequest) {
             usedProvider = 'openai';
             usedModel = 'tts-1';
         } else if (emergencyActive) {
-            // Emergency mode: body TTS → OpenAI (cheaper)
-            console.info('[TTS] ⚠️ Emergency mode active — using OpenAI for body TTS');
-            audioResponse = await synthesizeOpenAI(text, lang);
-            usedProvider = 'openai-emergency';
-            usedModel = 'tts-1';
+            // Emergency mode: body TTS → Google (cheaper + fast) → OpenAI → ElevenLabs
+            console.info('[TTS] ⚠️ Emergency mode active — using Google/OpenAI for body TTS');
+            audioResponse = await synthesizeGoogleTTS(text, lang);
+            usedProvider = 'google-emergency';
+            usedModel = 'google-neural2';
 
-            // Fallback to ElevenLabs if OpenAI also fails
+            if (!audioResponse) {
+                audioResponse = await synthesizeOpenAI(text, lang);
+                usedProvider = 'openai-emergency';
+                usedModel = 'tts-1';
+            }
+
+            // Fallback to ElevenLabs if both cheaper alternatives fail
             if (!audioResponse) {
                 audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
                 usedProvider = 'elevenlabs';
                 usedModel = ELEVENLABS_MODELS.body;
             }
         } else {
-            // Default: ElevenLabs for everything → OpenAI as last resort
+            // Default: ElevenLabs → Google Cloud TTS → OpenAI (last resort)
             audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
 
             if (!audioResponse) {
-                console.warn('[TTS] ElevenLabs failed, falling back to OpenAI TTS (slow!)');
+                console.warn('[TTS] ElevenLabs failed, trying Google Cloud TTS...');
+                audioResponse = await synthesizeGoogleTTS(text, lang);
+                usedProvider = 'google-fallback';
+                usedModel = 'google-neural2';
+            }
+
+            if (!audioResponse) {
+                console.warn('[TTS] Google TTS also failed, falling back to OpenAI TTS (slow!)');
                 audioResponse = await synthesizeOpenAI(text, lang);
                 usedProvider = 'openai-fallback';
                 usedModel = 'tts-1';
@@ -297,14 +312,14 @@ export async function POST(request: NextRequest) {
 
         // ---- No provider succeeded ----
         if (!audioResponse || !audioResponse.body) {
-            const bothOpen = ttsCircuitBreaker.isOpen() && openaiCircuitBreaker.isOpen();
+            const allOpen = ttsCircuitBreaker.isOpen() && googleTtsCircuitBreaker.isOpen() && openaiCircuitBreaker.isOpen();
             return NextResponse.json(
                 {
                     error: 'All TTS providers failed',
-                    fallback: 'browser',
-                    circuitBreakers: bothOpen ? 'all_open' : 'partial',
+                    circuitBreakers: allOpen ? 'all_open' : 'partial',
                     stats: {
                         elevenlabs: ttsCircuitBreaker.getStats(),
+                        google: googleTtsCircuitBreaker.getStats(),
                         openai: openaiCircuitBreaker.getStats(),
                     },
                 },
@@ -364,6 +379,18 @@ export async function GET() {
                     body_latency: '~474ms (turbo_v2_5)',
                 },
             },
+            google: {
+                configured: !!getServiceAccountKey(),
+                role: 'first fallback (fast + free tier)',
+                voices: {
+                    tr: 'tr-TR-Wavenet-D',
+                    en: 'en-US-Neural2-F',
+                },
+                performance: {
+                    latency: '~200ms (20x faster than OpenAI TTS)',
+                    note: 'Google Cloud TTS Neural2 — 1M chars/month free tier',
+                },
+            },
             openai: {
                 configured: !!OPENAI_API_KEY,
                 role: 'last-resort fallback only',
@@ -371,15 +398,15 @@ export async function GET() {
                 model: 'tts-1',
                 performance: {
                     latency: '~4232ms (9x slower than ElevenLabs Turbo)',
-                    note: 'Disabled as primary — only activates when ElevenLabs is completely down',
+                    note: 'Only activates when both ElevenLabs and Google TTS fail',
                 },
             },
         },
         strategy: {
             greeting: 'ElevenLabs multilingual_v2 (premium quality)',
             body: 'ElevenLabs turbo_v2_5 (fast, 474ms)',
-            fallback: 'OpenAI TTS (slow, only if ElevenLabs down)',
-            last_resort: 'Browser speechSynthesis (client-side)',
+            fallback_1: 'Google Cloud TTS Neural2 (~200ms, free tier)',
+            fallback_2: 'OpenAI TTS (slow, last resort)',
         },
     });
 }
