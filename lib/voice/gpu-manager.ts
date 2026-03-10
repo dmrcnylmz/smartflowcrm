@@ -113,7 +113,6 @@ class GPUManager {
 
             const data = await response.json();
             const latency = performance.now() - startTime;
-            console.log('[GPUManager] Health data:', JSON.stringify({ url: this.config.serverUrl, status: data.status, model_loaded: data.model_loaded }));
 
             const result: GPUHealthResult = {
                 status: data.status === 'healthy' ? 'healthy' : 'unhealthy',
@@ -137,7 +136,6 @@ class GPUManager {
         } catch (error) {
             const latency = performance.now() - startTime;
             const isTimeout = error instanceof DOMException && error.name === 'AbortError';
-            console.error('[GPUManager] Health check error:', error instanceof Error ? error.message : String(error), 'url:', this.config.serverUrl);
 
             const result: GPUHealthResult = {
                 status: isTimeout ? 'sleeping' : 'unhealthy',
