@@ -5,6 +5,10 @@
 # Server: Hetzner CPX31 (4 vCPU, 8GB RAM, 160GB SSD)
 # Region: Nuremberg (nbg1) — closest to Vercel fra1
 #
+# Storage: Hetzner Cloud Volume mounted at /mnt/callception-data
+#   All persistent data lives on the volume — survives server
+#   deletion/recreation. Volume can be detached and reattached.
+#
 # Usage:
 #   cp .env.example .env  (fill in values)
 #   docker compose up -d
@@ -58,7 +62,7 @@ services:
     container_name: callception-kokoro
     restart: unless-stopped
     volumes:
-      - kokoro_models:/app/models
+      - ${VOLUME_PATH:-/mnt/callception-data}/kokoro-models:/app/models
     networks:
       - callception-net
     healthcheck:
@@ -103,7 +107,7 @@ services:
       - CONTEXT_API_URL=http://context-api:8999
       - PERSONAPLEX_API_KEY=${PERSONAPLEX_API_KEY:-}
     volumes:
-      - n8n_data:/home/node/.n8n
+      - ${VOLUME_PATH:-/mnt/callception-data}/n8n-data:/home/node/.n8n
     networks:
       - callception-net
     healthcheck:
@@ -160,8 +164,10 @@ networks:
   callception-net:
     driver: bridge
 
-volumes:
-  kokoro_models:
-    name: callception-kokoro-models
-  n8n_data:
-    name: callception-n8n-data
+# No Docker named volumes — all persistent data on Hetzner Cloud Volume
+# Mount path: /mnt/callception-data (set VOLUME_PATH in .env to override)
+# Structure:
+#   /mnt/callception-data/
+#   ├── kokoro-models/   (~500MB, TTS model weights)
+#   ├── n8n-data/        (~50MB, workflows + SQLite DB)
+#   └── backups/         (optional, automated backups)

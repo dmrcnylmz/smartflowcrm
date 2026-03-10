@@ -41,7 +41,19 @@ done
 # ---- Disk Usage Warning (>85%) ----
 DISK_USAGE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_USAGE" -gt 85 ]; then
-    echo "[$TIMESTAMP] WARNING: Disk usage at ${DISK_USAGE}%" >> "$LOG_FILE"
+    echo "[$TIMESTAMP] WARNING: Root disk usage at ${DISK_USAGE}%" >> "$LOG_FILE"
+fi
+
+# ---- Hetzner Volume Usage Warning (>80%) ----
+VOLUME_PATH="/mnt/callception-data"
+if mountpoint -q "$VOLUME_PATH" 2>/dev/null; then
+    VOL_USAGE=$(df "$VOLUME_PATH" | awk 'NR==2 {print $5}' | tr -d '%')
+    if [ "$VOL_USAGE" -gt 80 ]; then
+        echo "[$TIMESTAMP] WARNING: Volume disk usage at ${VOL_USAGE}% ($VOLUME_PATH)" >> "$LOG_FILE"
+    fi
+else
+    echo "[$TIMESTAMP] ALERT: Hetzner Volume NOT mounted at $VOLUME_PATH" >> "$LOG_FILE"
+    ERRORS=$((ERRORS + 1))
 fi
 
 # ---- Memory Usage Warning (>90%) ----
