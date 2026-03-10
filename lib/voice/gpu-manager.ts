@@ -136,6 +136,7 @@ class GPUManager {
         } catch (error) {
             const latency = performance.now() - startTime;
             const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+            console.error('[GPUManager] Health check error:', error instanceof Error ? error.message : String(error), 'url:', this.config.serverUrl);
 
             const result: GPUHealthResult = {
                 status: isTimeout ? 'sleeping' : 'unhealthy',
