@@ -175,6 +175,8 @@ services:
       dockerfile: Dockerfile.personaplex-server
     container_name: callception-personaplex
     restart: unless-stopped
+    ports:
+      - "8998:8998"
     environment:
       - HOST=0.0.0.0
       - PORT=8998
