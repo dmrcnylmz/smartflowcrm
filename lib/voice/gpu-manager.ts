@@ -113,6 +113,7 @@ class GPUManager {
 
             const data = await response.json();
             const latency = performance.now() - startTime;
+            console.log('[GPUManager] Health data:', JSON.stringify({ url: this.config.serverUrl, status: data.status, model_loaded: data.model_loaded }));
 
             const result: GPUHealthResult = {
                 status: data.status === 'healthy' ? 'healthy' : 'unhealthy',
