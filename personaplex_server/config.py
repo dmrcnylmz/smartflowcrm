@@ -29,7 +29,7 @@ class PersonaplexConfig:
     max_concurrent_sessions: int = 1  # Currently 1 per GPU
     
     # Persona settings (Turkish CRM assistant)
-    default_role_prompt: str = """Sen SmartFlow CRM için bir Türkçe müşteri hizmetleri asistanısın.
+    default_role_prompt: str = """Sen Callception için bir Türkçe müşteri hizmetleri asistanısın.
 Görevlerin:
 - Müşterilere nazik ve profesyonel şekilde yardım etmek
 - Randevu taleplerini almak ve kaydetmek
@@ -83,7 +83,7 @@ class WebhookConfig:
         return cls()
 
 
-# SmartFlow CRM specific personas
+# Callception specific personas
 PERSONAS = {
     "default": {
         "name": "Asistan",
@@ -92,14 +92,14 @@ PERSONAS = {
     },
     "support": {
         "name": "Destek",
-        "role_prompt": """Sen SmartFlow CRM teknik destek asistanısın.
+        "role_prompt": """Sen Callception teknik destek asistanısın.
 Müşterilerin teknik sorunlarını çözmeye yardımcı ol.
 Sabırlı ve anlayışlı ol. Adım adım rehberlik yap.""",
         "voice_style": "calm",
     },
     "sales": {
         "name": "Satış",
-        "role_prompt": """Sen SmartFlow CRM satış asistanısın.
+        "role_prompt": """Sen Callception satış asistanısın.
 Müşterilere ürün ve hizmetler hakkında bilgi ver.
 İkna edici ol ancak baskıcı olma. Müşterinin ihtiyaçlarını dinle.""",
         "voice_style": "energetic",

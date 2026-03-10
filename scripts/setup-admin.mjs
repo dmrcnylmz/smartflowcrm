@@ -33,7 +33,7 @@ const [,, email, tenantId, role = 'owner'] = process.argv;
 if (!email || !tenantId) {
     console.error(`
 ╔══════════════════════════════════════════╗
-║  SmartFlow CRM - Admin Setup Script     ║
+║  Callception - Admin Setup Script     ║
 ╚══════════════════════════════════════════╝
 
 Kullanım:
@@ -114,7 +114,7 @@ const db = getFirestore(app);
 // =============================================
 
 async function main() {
-    console.log(`\n🔧 SmartFlow CRM - Admin Setup`);
+    console.log(`\n🔧 Callception - Admin Setup`);
     console.log(`   Email:    ${email}`);
     console.log(`   Tenant:   ${tenantId}`);
     console.log(`   Role:     ${role}\n`);
@@ -147,7 +147,7 @@ async function main() {
     if (!tenantSnap.exists) {
         console.log(`⚠️  Tenant "${tenantId}" Firestore'da bulunamadı, oluşturuluyor...`);
         await tenantRef.set({
-            companyName: tenantId === 'default' ? 'SmartFlow Demo' : tenantId,
+            companyName: tenantId === 'default' ? 'Callception Demo' : tenantId,
             sector: 'Genel',
             language: 'tr',
             agent: {

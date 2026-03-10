@@ -92,7 +92,7 @@ Verdiğiniz onayı istediğiniz zaman geri çekebilirsiniz.`,
         title: '9. İletişim',
         content: `KVKK kapsamındaki haklarınızı kullanmak için aşağıdaki kanallardan bize ulaşabilirsiniz:
 
-📧 E-posta: kvkk@smartflow.com.tr
+📧 E-posta: kvkk@callception.com
 📝 Başvuru formu: Uygulama içi "Ayarlar > Gizlilik" bölümü
 
 Başvurularınız en geç 30 gün içinde yanıtlanacaktır.

@@ -126,7 +126,7 @@ vi.mock('@/lib/billing/metrics-logger', () => ({
 // ── get-app-url mock ─────────────────────────────────────────────────────────
 vi.mock('@/lib/utils/get-app-url', () => ({
     getAppUrlDiagnostics: vi.fn().mockReturnValue({
-        url: 'https://app.smartflow.com',
+        url: 'https://app.callception.com',
         source: 'APP_URL',
     }),
 }));

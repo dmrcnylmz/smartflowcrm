@@ -1,9 +1,9 @@
 #!/bin/bash
-# SmartFlow CRM — Pod Restart All-in-One Script
-# Tek komut: bash /workspace/smartflow/start-services.sh
+# Callception — Pod Restart All-in-One Script
+# Tek komut: bash /workspace/callception/start-services.sh
 set -e
-WORK="/workspace/smartflow"
-echo "🚀 SmartFlow servisleri başlatılıyor..."
+WORK="/workspace/callception"
+echo "🚀 Callception servisleri başlatılıyor..."
 
 # Eski processler varsa temizle
 pkill -f "n8n start" 2>/dev/null || true

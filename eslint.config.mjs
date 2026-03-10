@@ -1,4 +1,4 @@
-// ESLint flat config (v9) for SmartFlow CRM
+// ESLint flat config (v9) for Callception
 // Uses only built-in ESLint rules — no external plugins required.
 export default [
   {

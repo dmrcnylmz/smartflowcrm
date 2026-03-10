@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * SmartFlow CRM - Twilio Setup Script
+ * Callception - Twilio Setup Script
  *
- * This script helps configure Twilio for SmartFlow:
+ * This script helps configure Twilio for Callception:
  * 1. Lists available phone numbers
  * 2. Purchases a phone number (or uses existing)
  * 3. Configures webhook URLs on the number
@@ -48,7 +48,7 @@ const args = process.argv.slice(2);
 // =============================================
 
 async function main() {
-    console.log('🔧 SmartFlow CRM - Twilio Setup\n');
+    console.log('🔧 Callception - Twilio Setup\n');
     console.log(`   Account SID: ${ACCOUNT_SID.substring(0, 6)}...${ACCOUNT_SID.substring(ACCOUNT_SID.length - 4)}`);
     console.log(`   App URL: ${APP_URL}\n`);
 
@@ -172,7 +172,7 @@ async function listOwnedNumbers() {
 // =============================================
 
 async function configureNumber(phoneNumber, baseUrl) {
-    console.log(`⚙️  Configuring ${phoneNumber} with SmartFlow webhooks...\n`);
+    console.log(`⚙️  Configuring ${phoneNumber} with Callception webhooks...\n`);
 
     const voiceUrl = `${baseUrl}/api/twilio/incoming`;
     const statusCallback = `${baseUrl}/api/twilio/status`;
@@ -228,13 +228,13 @@ async function configureNumber(phoneNumber, baseUrl) {
 
         console.log('\n✅ Twilio webhooks configured successfully!\n');
         console.log('📋 Next steps:');
-        console.log('   1. Register this number in SmartFlow for your tenant:');
+        console.log('   1. Register this number in Callception for your tenant:');
         console.log(`      curl -X POST ${baseUrl}/api/twilio/phone-numbers \\`);
         console.log(`        -H "Authorization: Bearer YOUR_TOKEN" \\`);
         console.log(`        -H "Content-Type: application/json" \\`);
         console.log(`        -d '{"phoneNumber": "${normalized}"}'`);
         console.log('');
-        console.log('   2. Or register via the Admin Panel in SmartFlow UI');
+        console.log('   2. Or register via the Admin Panel in Callception UI');
         console.log('');
         console.log('   3. Test by calling the number!');
 
@@ -256,7 +256,7 @@ function printUsage() {
     console.log('\nEnvironment variables needed:');
     console.log('  TWILIO_ACCOUNT_SID    Your Twilio Account SID');
     console.log('  TWILIO_AUTH_TOKEN     Your Twilio Auth Token');
-    console.log('  NEXT_PUBLIC_APP_URL   Your SmartFlow deployment URL');
+    console.log('  NEXT_PUBLIC_APP_URL   Your Callception deployment URL');
     console.log('\nTwilio Console: https://www.twilio.com/console');
 }
 

@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # ============================================
 FROM nvidia/cuda:12.1-runtime-ubuntu22.04
 
-LABEL maintainer="SmartFlow CRM"
+LABEL maintainer="Callception"
 LABEL version="1.0.0"
 LABEL description="Personaplex Voice AI Server"
 

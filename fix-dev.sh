@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SmartFlow CRM - Dev Server Fix Script
+# Callception - Dev Server Fix Script
 # Bu script dev server sorunlarını çözer ve temiz başlatma yapar
 
 set -e
 
-echo "🔧 SmartFlow CRM - Dev Server Fix"
+echo "🔧 Callception - Dev Server Fix"
 echo "=================================="
 echo ""
 
@@ -48,14 +48,14 @@ echo ""
 
 # Background'da başlat - port'a göre script seç
 if [ "$PORT" = "3002" ]; then
-    npm run dev:3002 > /tmp/smartflow-dev.log 2>&1 &
+    npm run dev:3002 > /tmp/callception-dev.log 2>&1 &
 else
-    PORT=$PORT npm run dev:3000 > /tmp/smartflow-dev.log 2>&1 &
+    PORT=$PORT npm run dev:3000 > /tmp/callception-dev.log 2>&1 &
 fi
 SERVER_PID=$!
 
 echo "   ⏳ Server başlatılıyor (PID: $SERVER_PID)..."
-echo "   📝 Log: /tmp/smartflow-dev.log"
+echo "   📝 Log: /tmp/callception-dev.log"
 echo ""
 
 # 5. Server'ın hazır olmasını bekle
@@ -69,7 +69,7 @@ for i in {1..30}; do
     if [ $i -eq 30 ]; then
         echo ""
         echo "   ⚠️  Server başlatılamadı, log kontrol edin:"
-        echo "   tail -50 /tmp/smartflow-dev.log"
+        echo "   tail -50 /tmp/callception-dev.log"
         exit 1
     fi
     printf "."
@@ -108,7 +108,7 @@ echo "   - Raporlar: http://localhost:$PORT/reports"
 echo "   - Ayarlar: http://localhost:$PORT/admin"
 echo ""
 echo "📝 Log takibi:"
-echo "   tail -f /tmp/smartflow-dev.log"
+echo "   tail -f /tmp/callception-dev.log"
 echo ""
 echo "🛑 Server'ı durdurmak için:"
 echo "   kill $SERVER_PID"

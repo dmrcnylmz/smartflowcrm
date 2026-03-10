@@ -1,4 +1,4 @@
-# ✅ Tamamlanan Özellikler - SmartFlow CRM
+# ✅ Tamamlanan Özellikler - Callception
 
 ## 🎯 Proje Durumu: %95 Tamamlandı
 

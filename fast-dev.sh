@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SmartFlow CRM - Ultra Hızlı Dev Server
+# Callception - Ultra Hızlı Dev Server
 # Turbopack + Optimizasyonlar + Otomatik Port Yönetimi
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
-echo "⚡ SmartFlow CRM - ULTRA HIZLI Başlatılıyor..."
+echo "⚡ Callception - ULTRA HIZLI Başlatılıyor..."
 echo ""
 
 # Port belirleme (3002 öncelikli, yoksa boş port bul)

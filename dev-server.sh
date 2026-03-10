@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SmartFlow CRM - Dev Server (Cursor İçinde Çalıştırma)
+# Callception - Dev Server (Cursor İçinde Çalıştırma)
 # Bu script output'u terminal'de gösterir
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
-echo "🚀 SmartFlow CRM Server Başlatılıyor..."
+echo "🚀 Callception Server Başlatılıyor..."
 echo "======================================="
 echo ""
 echo "📍 Port: 3002"

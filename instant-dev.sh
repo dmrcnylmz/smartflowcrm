@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# SmartFlow CRM - Instant Dev Server
+# Callception - Instant Dev Server
 # Maksimum hız optimizasyonu + Otomatik UI açma
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
-echo "⚡ SmartFlow CRM - INSTANT Başlatılıyor..."
+echo "⚡ Callception - INSTANT Başlatılıyor..."
 echo ""
 
 # Port belirleme (3002 öncelikli)

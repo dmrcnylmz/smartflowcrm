@@ -1,16 +1,16 @@
 #!/bin/bash
 # ============================================
-# SmartFlow CRM — RunPod Full Setup Script v2
+# Callception — RunPod Full Setup Script v2
 # /workspace altına kurulum yapar (kalıcı)
 # Web Terminal'e yapıştırıp çalıştırın
 # ============================================
 set -e
 
-WORK="/workspace/smartflow"
+WORK="/workspace/callception"
 
 echo "╔══════════════════════════════════════════╗"
-echo "║  SmartFlow CRM — RunPod Setup v2         ║"
-echo "║  Kalıcı kurulum: /workspace/smartflow     ║"
+echo "║  Callception — RunPod Setup v2         ║"
+echo "║  Kalıcı kurulum: /workspace/callception     ║"
 echo "╚══════════════════════════════════════════╝"
 
 # ============================================
@@ -336,11 +336,11 @@ echo "▶ [6/6] Başlatma scripti oluşturuluyor..."
 
 cat > $WORK/start-services.sh << 'START_EOF'
 #!/bin/bash
-# SmartFlow servislerini başlat
-# Pod restart sonrası: bash /workspace/smartflow/start-services.sh
+# Callception servislerini başlat
+# Pod restart sonrası: bash /workspace/callception/start-services.sh
 
-WORK="/workspace/smartflow"
-echo "🚀 SmartFlow servisleri başlatılıyor..."
+WORK="/workspace/callception"
+echo "🚀 Callception servisleri başlatılıyor..."
 
 # n8n
 export N8N_HOST=0.0.0.0
@@ -397,7 +397,7 @@ echo "║  KURULUM TAMAMLANDI ✅                           ║"
 echo "╠══════════════════════════════════════════════════╣"
 echo "║                                                  ║"
 echo "║  Pod restart sonrası tek komut:                  ║"
-echo "║  bash /workspace/smartflow/start-services.sh     ║"
+echo "║  bash /workspace/callception/start-services.sh     ║"
 echo "║                                                  ║"
 echo "║  Tüm veriler /workspace altında kalıcı!          ║"
 echo "╚══════════════════════════════════════════════════╝"

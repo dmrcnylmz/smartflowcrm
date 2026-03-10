@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# SmartFlow CRM - UI Açma Script'i
+# Callception - UI Açma Script'i
 # Tek komutla server başlat ve UI'ı aç
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
 PORT=3002
 

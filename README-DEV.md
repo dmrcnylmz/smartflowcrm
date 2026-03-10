@@ -1,18 +1,18 @@
-# 🚀 Development Guide - SmartFlow CRM
+# 🚀 Development Guide - Callception
 
 ## ⚡ Hızlı Başlangıç
 
 ### Terminal.app'de (Önerilen - En Güvenilir)
 
 ```bash
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 ./start-dev.sh
 ```
 
 VEYA manuel:
 
 ```bash
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 npm run dev
 ```
 

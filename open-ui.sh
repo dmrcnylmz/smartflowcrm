@@ -1,8 +1,8 @@
 #!/bin/bash
-# SmartFlow CRM - UI Otomatik Açma Script
+# Callception - UI Otomatik Açma Script
 # Bu script dev server'ı kontrol eder, çalışmıyorsa başlatır ve tarayıcıyı açar
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
 # Port kontrolü fonksiyonu
 check_port() {
@@ -30,7 +30,7 @@ PORT=$(check_port)
 if [ -z "$PORT" ]; then
     echo "🚀 Dev server başlatılıyor..."
     # Background'da başlat
-    ./start-dev-background.sh > /tmp/smartflow-dev-start.log 2>&1
+    ./start-dev-background.sh > /tmp/callception-dev-start.log 2>&1
     
     # Port'un aktif olmasını bekle (max 30 saniye)
     echo "⏳ Server başlatılıyor (30 saniye max)..."
@@ -49,7 +49,7 @@ if [ -z "$PORT" ]; then
     if [ -z "$PORT" ]; then
         echo "❌ Server başlatılamadı. Manuel kontrol:"
         echo "   ./start-dev.sh"
-        echo "   Log: tail -f /tmp/smartflow-dev.log"
+        echo "   Log: tail -f /tmp/callception-dev.log"
         exit 1
     fi
 else
@@ -86,7 +86,7 @@ open "$URL"
 echo "✅ Tarayıcı açıldı!"
 echo ""
 echo "📊 Kontrol komutları:"
-echo "   • Log izle: tail -f /tmp/smartflow-dev.log"
+echo "   • Log izle: tail -f /tmp/callception-dev.log"
 echo "   • Durum kontrol: lsof -ti:$PORT"
 echo "   • Durdur: pkill -f 'next dev'"
 echo ""

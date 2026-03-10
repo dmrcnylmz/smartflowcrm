@@ -1,4 +1,4 @@
-# 🚀 MVP HAZIR - SmartFlow CRM
+# 🚀 MVP HAZIR - Callception
 
 ## ✅ Tamamlanan Özellikler
 
@@ -206,7 +206,7 @@ curl -X POST http://localhost:3000/api/webhook/call \
 
 ## 🎉 MVP TAMAMLANDI!
 
-SmartFlow CRM'in temel özellikleri çalışıyor durumda. Şimdi:
+Callception'in temel özellikleri çalışıyor durumda. Şimdi:
 1. ✅ UI çalışıyor ve görüntülenebilir
 2. ✅ CRUD operasyonları tamamlandı
 3. ✅ Real-time güncellemeler aktif

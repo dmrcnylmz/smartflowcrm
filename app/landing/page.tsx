@@ -456,7 +456,7 @@ export default function LandingPage() {
                                 <a href="#features" className="block hover:text-white transition-colors">Hakkımızda</a>
                                 <a href="#how-it-works" className="block hover:text-white transition-colors">Nasıl Çalışır</a>
                                 <a href="#faq" className="block hover:text-white transition-colors">Yardım Merkezi</a>
-                                <a href="mailto:info@smartflow.com.tr" className="block hover:text-white transition-colors">İletişim</a>
+                                <a href="mailto:info@callception.com" className="block hover:text-white transition-colors">İletişim</a>
                             </div>
                         </div>
 

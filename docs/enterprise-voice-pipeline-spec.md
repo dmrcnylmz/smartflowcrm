@@ -1,4 +1,4 @@
-# SmartFlow CRM — Voice AI Pipeline Technical Specification
+# Callception — Voice AI Pipeline Technical Specification
 
 **Version:** 1.0 | **Date:** March 2026 | **Classification:** Enterprise Sales
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-SmartFlow CRM's Voice AI Pipeline is a production-grade, real-time voice processing system that handles inbound customer calls autonomously. The pipeline combines Speech-to-Text (STT), Large Language Model (LLM) reasoning, and Text-to-Speech (TTS) synthesis to deliver sub-2.5 second end-to-end response times — comparable to human conversation latency.
+Callception's Voice AI Pipeline is a production-grade, real-time voice processing system that handles inbound customer calls autonomously. The pipeline combines Speech-to-Text (STT), Large Language Model (LLM) reasoning, and Text-to-Speech (TTS) synthesis to deliver sub-2.5 second end-to-end response times — comparable to human conversation latency.
 
 ---
 
@@ -178,4 +178,4 @@ Every voice call logs granular telemetry:
 
 ---
 
-*SmartFlow CRM — Enterprise Voice AI for Call Centers*
+*Callception — Enterprise Voice AI for Call Centers*

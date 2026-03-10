@@ -1,21 +1,21 @@
 #!/bin/bash
 # =========================================================
-# SmartFlow CRM — RunPod Auto-Start Script
+# Callception — RunPod Auto-Start Script
 # =========================================================
 # This script ensures all services start reliably after pod
 # restart. It handles dependency installation, health checks
 # with retries, and background process management.
 #
 # Usage:
-#   bash /workspace/smartflow/auto-start.sh
+#   bash /workspace/callception/auto-start.sh
 #
 # Add to RunPod start command:
-#   bash /workspace/smartflow/auto-start.sh &
+#   bash /workspace/callception/auto-start.sh &
 # =========================================================
 
 set -euo pipefail
 
-WORKSPACE="/workspace/smartflow"
+WORKSPACE="/workspace/callception"
 LOG_DIR="${WORKSPACE}/logs"
 CONTEXT_API_PORT=8999
 PERSONAPLEX_PORT=8998
@@ -113,7 +113,7 @@ PERSONA_OK=$?
 # ─── Step 7: Summary ───
 echo ""
 echo "========================================="
-echo " SmartFlow CRM Servis Durumu"
+echo " Callception Servis Durumu"
 echo "========================================="
 
 if [ "${CONTEXT_OK:-1}" -eq 0 ]; then

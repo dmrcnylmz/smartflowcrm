@@ -1,8 +1,8 @@
 #!/bin/bash
-# SmartFlow CRM - Module Error Fix Script
+# Callception - Module Error Fix Script
 # Next.js module bulunamama hatasını düzeltir
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
 echo "🔧 Next.js Module Hatası Düzeltiliyor..."
 echo "========================================"

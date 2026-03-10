@@ -1,5 +1,5 @@
 # ============================================
-# SmartFlow CRM - Production Docker Image
+# Callception - Production Docker Image
 # Multi-stage build for Next.js 16
 # ============================================
 

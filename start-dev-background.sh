@@ -1,10 +1,10 @@
 #!/bin/bash
-# SmartFlow CRM - Background Dev Server Başlatma
+# Callception - Background Dev Server Başlatma
 # Bu script dev server'ı background'da başlatır
 
-cd /Users/pc/Desktop/smartflow-crm
+cd /Users/pc/Desktop/callception
 
-echo "🚀 SmartFlow CRM - Background Dev Server Başlatılıyor"
+echo "🚀 Callception - Background Dev Server Başlatılıyor"
 echo "=================================================="
 
 # 1. Eski process'leri durdur
@@ -41,24 +41,24 @@ echo ""
 # 4. Server'ı background'da başlat
 echo "📝 Server başlatılıyor (background)..."
 echo "   🌐 URL: http://localhost:$PORT"
-echo "   📋 Log: /tmp/smartflow-dev.log"
+echo "   📋 Log: /tmp/callception-dev.log"
 echo ""
 
 # Log dosyasına yönlendir ve background'da çalıştır
 if [ "$PORT" = "3002" ]; then
-    npm run dev:3002 > /tmp/smartflow-dev.log 2>&1 &
+    npm run dev:3002 > /tmp/callception-dev.log 2>&1 &
 else
-    npm run dev:3000 > /tmp/smartflow-dev.log 2>&1 &
+    npm run dev:3000 > /tmp/callception-dev.log 2>&1 &
 fi
 
 # PID'yi kaydet
 DEV_PID=$!
-echo $DEV_PID > /tmp/smartflow-dev.pid
+echo $DEV_PID > /tmp/callception-dev.pid
 
 echo "✅ Server başlatıldı! (PID: $DEV_PID)"
 echo ""
 echo "📊 Kontrol komutları:"
-echo "   • Log izle: tail -f /tmp/smartflow-dev.log"
+echo "   • Log izle: tail -f /tmp/callception-dev.log"
 echo "   • Durum kontrol: lsof -ti:$PORT"
 echo "   • Durdur: pkill -f 'next dev'"
 echo ""
