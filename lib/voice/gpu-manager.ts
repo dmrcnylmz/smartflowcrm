@@ -343,6 +343,128 @@ class GPUManager {
         };
     }
 
+    /**
+     * Run inference via RunPod Serverless API.
+     * POST /run → poll /status → return result.
+     *
+     * Returns the inference result or null on failure.
+     * Used by infer/route.ts when RUNPOD_ENDPOINT_ID is set.
+     */
+    async runServerlessInference(params: {
+        text: string;
+        persona?: string;
+        language?: string;
+        session_id?: string;
+    }): Promise<{
+        session_id?: string;
+        intent?: string;
+        confidence?: number;
+        response_text: string;
+        latency_ms: number;
+        source: string;
+    } | null> {
+        if (!this.config.runpodEndpointId || !this.config.runpodApiKey) {
+            return null;
+        }
+
+        const startTime = performance.now();
+
+        try {
+            // Step 1: Submit job
+            const runResponse = await fetch(
+                `https://api.runpod.ai/v2/${this.config.runpodEndpointId}/run`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.config.runpodApiKey}`,
+                    },
+                    body: JSON.stringify({
+                        input: {
+                            action: 'infer',
+                            text: params.text,
+                            persona: params.persona || 'default',
+                            language: params.language || 'tr',
+                            session_id: params.session_id,
+                        },
+                    }),
+                    signal: AbortSignal.timeout(10_000),
+                },
+            );
+
+            if (!runResponse.ok) {
+                logger.debug(`[GPUManager] RunPod /run failed: ${runResponse.status}`);
+                return null;
+            }
+
+            const runData = await runResponse.json();
+            const jobId = runData.id;
+
+            if (!jobId) {
+                logger.debug('[GPUManager] RunPod /run returned no job ID');
+                return null;
+            }
+
+            // Step 2: Poll for completion (max ~60s total with delays)
+            const maxPolls = 15;
+            const pollDelay = 2_000; // 2s between polls
+
+            for (let i = 0; i < maxPolls; i++) {
+                await this.sleep(i === 0 ? 500 : pollDelay); // First poll faster
+
+                const statusRes = await fetch(
+                    `https://api.runpod.ai/v2/${this.config.runpodEndpointId}/status/${jobId}`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${this.config.runpodApiKey}`,
+                        },
+                        signal: AbortSignal.timeout(5_000),
+                    },
+                );
+
+                if (!statusRes.ok) continue;
+
+                const statusData = await statusRes.json();
+
+                if (statusData.status === 'COMPLETED') {
+                    const latency = Math.round(performance.now() - startTime);
+                    const output = statusData.output || {};
+
+                    return {
+                        session_id: output.session_id,
+                        intent: output.intent,
+                        confidence: output.confidence,
+                        response_text: output.response_text || output.error || 'No response',
+                        latency_ms: latency,
+                        source: 'personaplex-gpu-serverless',
+                    };
+                }
+
+                if (statusData.status === 'FAILED') {
+                    logger.debug(`[GPUManager] RunPod job ${jobId} FAILED: ${statusData.error}`);
+                    return null;
+                }
+
+                // IN_QUEUE or IN_PROGRESS — keep polling
+            }
+
+            logger.debug(`[GPUManager] RunPod job ${jobId} timed out after polling`);
+            return null;
+
+        } catch (error) {
+            logger.debug(`[GPUManager] RunPod inference error: ${error}`);
+            return null;
+        }
+    }
+
+    /**
+     * Check if RunPod Serverless is configured.
+     * Used by infer/route.ts to decide between direct HTTP and serverless.
+     */
+    isServerlessConfigured(): boolean {
+        return !!(this.config.runpodEndpointId && this.config.runpodApiKey);
+    }
+
     /** Invalidate health cache */
     invalidateCache(): void {
         this.cachedHealth = null;

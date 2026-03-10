@@ -1,0 +1,69 @@
+# ============================================
+# Callception — Personaplex GPU (RunPod Serverless)
+# ============================================
+# Multi-stage build: CUDA runtime + Python + model
+# GPU: 24GB VRAM minimum (A5000 / RTX 4090 / A100)
+#
+# Build:
+#   docker build -f infrastructure/runpod/Dockerfile.serverless \
+#     -t callception-personaplex:latest .
+#
+# Push to registry:
+#   docker tag callception-personaplex:latest YOUR_REGISTRY/callception-personaplex:latest
+#   docker push YOUR_REGISTRY/callception-personaplex:latest
+# ============================================
+
+# ---- Stage 1: Builder ----
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev python3-pip \
+    build-essential curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
+COPY personaplex_server/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && \
+    pip install --no-cache-dir runpod>=1.6.0
+
+# ---- Stage 2: Runtime ----
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 libopus0 libsndfile1 ffmpeg curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy application code
+WORKDIR /app
+COPY personaplex_server/ .
+COPY infrastructure/runpod/handler.py .
+
+# Non-root user
+RUN useradd -m -u 1000 personaplex
+USER personaplex
+
+# Environment
+ENV HOST=0.0.0.0
+ENV PORT=8998
+ENV DEVICE=cuda
+ENV HF_HOME=/app/.cache/huggingface
+
+# HuggingFace cache volume (model weights persist across cold starts)
+VOLUME ["/app/.cache/huggingface"]
+
+# RunPod Serverless entrypoint
+CMD ["python", "handler.py"]

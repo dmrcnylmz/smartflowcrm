@@ -240,16 +240,33 @@ async function callOpenAI(
 }
 
 // =============================================
-// Fallback: Call RunPod Personaplex server
-// (wrapped with Circuit Breaker + GPU Manager)
+// Fallback: Call Personaplex GPU server
+// Supports two modes:
+//   1. RunPod Serverless (RUNPOD_ENDPOINT_ID set) → run/poll pattern
+//   2. Direct HTTP (PERSONAPLEX_URL) → standard REST call
+// Both wrapped with Circuit Breaker + GPU Manager
 // =============================================
 async function callPersonaplex(
     text: string,
     persona: string,
     language: string,
+    sessionId?: string,
 ): Promise<{ intent?: string; confidence?: number; response_text?: string; [key: string]: unknown }> {
     return gpuCircuitBreaker.execute(async () => {
-        // Ensure GPU is awake before calling
+        // Strategy 1: RunPod Serverless (preferred for production)
+        if (gpuManager.isServerlessConfigured()) {
+            const result = await gpuManager.runServerlessInference({
+                text,
+                persona,
+                language,
+                session_id: sessionId,
+            });
+
+            if (result) return result;
+            throw new Error('RunPod Serverless inference returned null');
+        }
+
+        // Strategy 2: Direct HTTP to Personaplex server
         const isReady = await gpuManager.ensureReady();
         if (!isReady) {
             throw new Error('GPU not ready after wake attempt');
@@ -266,7 +283,7 @@ async function callPersonaplex(
             method: 'POST',
             headers,
             body: JSON.stringify({ text, persona, language }),
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(15000),
         });
 
         if (!res.ok) throw new Error(`Personaplex ${res.status}`);
@@ -599,7 +616,7 @@ export async function POST(request: NextRequest) {
         // ---- 3b. Personaplex keyword-based (GPU) ----
         if (!gpuCircuitBreaker.isOpen()) {
             try {
-                const data = await callPersonaplex(text, persona, language);
+                const data = await callPersonaplex(text, persona, language, sessionId);
                 const latencyMs = performance.now() - startMs;
 
                 const result = {
@@ -661,6 +678,11 @@ export async function GET() {
             groq: { configured: isGroqConfigured(), role: 'primary (free, 601ms)' },
             openai: { configured: !!OPENAI_API_KEY, role: 'secondary (paid, 1157ms)' },
             gemini: { configured: isGeminiConfigured(), role: 'DISABLED — quota exceeded (HTTP 429)' },
+            personaplex: {
+                configured: gpuManager.isServerlessConfigured() || !!PERSONAPLEX_URL,
+                mode: gpuManager.isServerlessConfigured() ? 'runpod-serverless' : 'direct-http',
+                role: 'tertiary (GPU, enterprise)',
+            },
         },
         gpu: gpuManager.getStatus(),
     });
