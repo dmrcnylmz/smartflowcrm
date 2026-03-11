@@ -43,12 +43,12 @@ async function fetchCloudflareAnalytics(days: number) {
     const sinceStr = since.toISOString().split('T')[0];
     const untilStr = new Date().toISOString().split('T')[0];
 
-    // GraphQL query for zone analytics
+    // GraphQL query for zone analytics (daily + country breakdown)
     const query = `
         query {
             viewer {
                 zones(filter: { zoneTag: "${zoneId}" }) {
-                    httpRequests1dGroups(
+                    daily: httpRequests1dGroups(
                         limit: ${days}
                         filter: { date_geq: "${sinceStr}", date_leq: "${untilStr}" }
                         orderBy: [date_ASC]
@@ -61,6 +61,23 @@ async function fetchCloudflareAnalytics(days: number) {
                             threats
                         }
                         uniq { uniques }
+                    }
+                    totals: httpRequests1dGroups(
+                        limit: 1
+                        filter: { date_geq: "${sinceStr}", date_leq: "${untilStr}" }
+                    ) {
+                        sum {
+                            requests
+                            bytes
+                            pageViews
+                            threats
+                            countryMap {
+                                clientCountryName
+                                requests
+                                threats
+                                bytes
+                            }
+                        }
                     }
                 }
             }
@@ -83,33 +100,51 @@ async function fetchCloudflareAnalytics(days: number) {
         }
 
         const data = await res.json();
-        const groups = data?.data?.viewer?.zones?.[0]?.httpRequests1dGroups || [];
+        const zone = data?.data?.viewer?.zones?.[0];
+        const dailyGroups = zone?.daily || [];
+        const totalsGroup = zone?.totals?.[0];
 
         let totalRequests = 0;
         let totalBytes = 0;
         let totalPageViews = 0;
         let totalUniques = 0;
-        const dailyData: { date: string; requests: number; pageViews: number; bandwidth: number }[] = [];
+        let totalThreats = 0;
+        const dailyData: { date: string; requests: number; pageViews: number; bandwidth: number; threats: number }[] = [];
 
-        for (const group of groups) {
+        for (const group of dailyGroups) {
             totalRequests += group.sum?.requests || 0;
             totalBytes += group.sum?.bytes || 0;
             totalPageViews += group.sum?.pageViews || 0;
+            totalThreats += group.sum?.threats || 0;
             totalUniques += group.uniq?.uniques || 0;
             dailyData.push({
                 date: group.dimensions?.date || '',
                 requests: group.sum?.requests || 0,
                 pageViews: group.sum?.pageViews || 0,
                 bandwidth: Math.round((group.sum?.bytes || 0) / 1024 / 1024 * 100) / 100,
+                threats: group.sum?.threats || 0,
             });
         }
+
+        // Country breakdown from totals
+        const countryMap = totalsGroup?.sum?.countryMap || [];
+        const countryData: { country: string; requests: number; threats: number; bandwidthMB: number }[] = countryMap
+            .map((c: { clientCountryName: string; requests: number; threats: number; bytes: number }) => ({
+                country: c.clientCountryName,
+                requests: c.requests,
+                threats: c.threats,
+                bandwidthMB: Math.round(c.bytes / 1024 / 1024 * 100) / 100,
+            }))
+            .sort((a: { requests: number }, b: { requests: number }) => b.requests - a.requests);
 
         return {
             requests: totalRequests,
             bandwidthMB: Math.round(totalBytes / 1024 / 1024 * 100) / 100,
             pageViews: totalPageViews,
             uniqueVisitors: totalUniques,
+            threats: totalThreats,
             dailyData,
+            countryData,
         };
     } catch (err) {
         console.error('[CF Analytics] Fetch error:', err);

@@ -4,8 +4,10 @@
  * Platform Analytics — Cloudflare + platform-wide metrics dashboard
  *
  * Shows:
- * - Cloudflare KPIs (requests, bandwidth, page views, unique visitors)
+ * - Cloudflare KPIs (requests, bandwidth, page views, unique visitors, threats)
  * - Daily request & page view charts (AreaChart + BarChart)
+ * - Country breakdown (horizontal bar chart + table)
+ * - Security / threats section
  * - Platform KPIs (tenants, users, calls, enterprise count)
  * - Recent registrations table
  *
@@ -22,21 +24,58 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
     Globe, Activity, HardDrive, Eye, Users, Building2, Phone,
-    TrendingUp, RefreshCw, BarChart3, Calendar,
+    TrendingUp, RefreshCw, BarChart3, Calendar, ShieldAlert, Shield,
+    MapPin, AlertTriangle,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer,
+    Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
+// ─── Country name mapping ───
+
+const COUNTRY_NAMES: Record<string, string> = {
+    TR: 'Türkiye', US: 'Amerika', FR: 'Fransa', DE: 'Almanya', GB: 'İngiltere',
+    NL: 'Hollanda', HK: 'Hong Kong', CA: 'Kanada', IN: 'Hindistan', SG: 'Singapur',
+    SA: 'S. Arabistan', RU: 'Rusya', CN: 'Çin', JP: 'Japonya', KR: 'G. Kore',
+    AU: 'Avustralya', BR: 'Brezilya', PL: 'Polonya', CH: 'İsviçre', IE: 'İrlanda',
+    FI: 'Finlandiya', BE: 'Belçika', SE: 'İsveç', ES: 'İspanya', PT: 'Portekiz',
+    AT: 'Avusturya', IT: 'İtalya', EG: 'Mısır', UA: 'Ukrayna', ID: 'Endonezya',
+    TH: 'Tayland', VN: 'Vietnam', ZA: 'G. Afrika', MX: 'Meksika', CL: 'Şili',
+    SK: 'Slovakya', BG: 'Bulgaristan', EE: 'Estonya', BD: 'Bangladeş',
+    BY: 'Belarus', GT: 'Guatemala', TW: 'Tayvan', KZ: 'Kazakistan', T1: 'Tor Ağı',
+};
+
+function getCountryName(code: string) {
+    return COUNTRY_NAMES[code] || code;
+}
+
+// Country flag emoji
+function getFlag(code: string) {
+    if (code === 'T1') return '🧅';
+    if (code.length !== 2) return '🌐';
+    return String.fromCodePoint(
+        ...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65)
+    );
+}
+
 // ─── Types ───
+
+interface CountryEntry {
+    country: string;
+    requests: number;
+    threats: number;
+    bandwidthMB: number;
+}
 
 interface CloudflareData {
     requests: number;
     bandwidthMB: number;
     pageViews: number;
     uniqueVisitors: number;
-    dailyData: { date: string; requests: number; pageViews: number; bandwidth: number }[];
+    threats: number;
+    dailyData: { date: string; requests: number; pageViews: number; bandwidth: number; threats: number }[];
+    countryData: CountryEntry[];
 }
 
 interface PlatformData {
@@ -115,6 +154,13 @@ function planColor(plan: string) {
     }
 }
 
+// ─── Country Bar Colors ───
+const BAR_COLORS = [
+    '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#c084fc',
+    '#d8b4fe', '#818cf8', '#60a5fa', '#38bdf8', '#22d3ee',
+    '#2dd4bf', '#34d399', '#4ade80', '#a3e635', '#facc15',
+];
+
 // ─── Main Component ───
 
 export default function PlatformAnalytics() {
@@ -155,6 +201,19 @@ export default function PlatformAnalytics() {
     const cf = data?.cloudflare;
     const pf = data?.platform;
 
+    // Top 15 countries for chart
+    const topCountries = (cf?.countryData || []).slice(0, 15).map(c => ({
+        ...c,
+        name: getCountryName(c.country),
+        flag: getFlag(c.country),
+    }));
+
+    // Countries with threats
+    const threatCountries = (cf?.countryData || []).filter(c => c.threats > 0)
+        .sort((a, b) => b.threats - a.threats);
+
+    const totalThreats = cf?.threats || 0;
+
     return (
         <div className="space-y-6">
             {/* Header with controls */}
@@ -179,11 +238,18 @@ export default function PlatformAnalytics() {
 
             {/* Section 1: Cloudflare KPI Cards */}
             {cf ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <KpiCard icon={Activity} label="İstekler" value={cf.requests} color="text-blue-400" />
                     <KpiCard icon={HardDrive} label="Bant Genişliği" value={`${cf.bandwidthMB.toFixed(1)} MB`} color="text-cyan-400" />
                     <KpiCard icon={Eye} label="Sayfa Görüntüleme" value={cf.pageViews} color="text-amber-400" />
                     <KpiCard icon={Users} label="Benzersiz Ziyaretçi" value={cf.uniqueVisitors} color="text-emerald-400" />
+                    <KpiCard
+                        icon={ShieldAlert}
+                        label="Tehditler"
+                        value={totalThreats}
+                        subtitle={totalThreats > 0 ? `${threatCountries.length} ülkeden` : 'Engellendi'}
+                        color={totalThreats > 0 ? 'text-red-400' : 'text-green-400'}
+                    />
                 </div>
             ) : (
                 <Card className="border-white/10 bg-white/[0.02]">
@@ -195,7 +261,7 @@ export default function PlatformAnalytics() {
                 </Card>
             )}
 
-            {/* Section 2: Charts */}
+            {/* Section 2: Charts — Daily trends */}
             {cf?.dailyData && cf.dailyData.length > 0 && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Daily Requests Trend */}
@@ -223,12 +289,12 @@ export default function PlatformAnalytics() {
                         </CardContent>
                     </Card>
 
-                    {/* Daily Page Views */}
+                    {/* Daily Page Views + Threats */}
                     <Card className="border-white/10 bg-white/[0.02]">
                         <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <Eye className="h-4 w-4 text-amber-400" />
-                                <span className="text-sm font-medium text-white/70">Sayfa Görüntüleme & Bant Genişliği</span>
+                                <span className="text-sm font-medium text-white/70">Sayfa Görüntüleme & Tehditler</span>
                             </div>
                             <ResponsiveContainer width="100%" height={220}>
                                 <BarChart data={cf.dailyData}>
@@ -237,6 +303,7 @@ export default function PlatformAnalytics() {
                                     <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                     <Tooltip content={<CustomTooltip />} />
                                     <Bar dataKey="pageViews" name="Sayfa Görüntüleme" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="threats" name="Tehditler" fill="#ef4444" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -244,7 +311,117 @@ export default function PlatformAnalytics() {
                 </div>
             )}
 
-            {/* Section 3: Platform Metrics */}
+            {/* Section 3: Country Breakdown */}
+            {topCountries.length > 0 && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Country Horizontal Bar Chart */}
+                    <Card className="border-white/10 bg-white/[0.02]">
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Globe className="h-4 w-4 text-violet-400" />
+                                <span className="text-sm font-medium text-white/70">Ülkelere Göre Trafik (Top 15)</span>
+                            </div>
+                            <ResponsiveContainer width="100%" height={400}>
+                                <BarChart data={topCountries} layout="vertical" margin={{ left: 80 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                                    <XAxis type="number" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
+                                    <YAxis
+                                        type="category"
+                                        dataKey="name"
+                                        tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.6)' }}
+                                        width={75}
+                                    />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    <Bar dataKey="requests" name="İstekler" radius={[0, 4, 4, 0]}>
+                                        {topCountries.map((_, i) => (
+                                            <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Country Table */}
+                    <Card className="border-white/10 bg-white/[0.02]">
+                        <CardContent className="p-5">
+                            <div className="flex items-center gap-2 mb-4">
+                                <MapPin className="h-4 w-4 text-violet-400" />
+                                <span className="text-sm font-medium text-white/70">Ülke Detayları</span>
+                            </div>
+                            <div className="overflow-auto max-h-[400px]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="border-white/5">
+                                            <TableHead className="text-white/50">Ülke</TableHead>
+                                            <TableHead className="text-white/50 text-right">İstek</TableHead>
+                                            <TableHead className="text-white/50 text-right">Bant (MB)</TableHead>
+                                            <TableHead className="text-white/50 text-right">Tehdit</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(cf?.countryData || []).map((c, i) => (
+                                            <TableRow key={i} className="border-white/5">
+                                                <TableCell className="text-white/80 font-medium">
+                                                    <span className="mr-2">{getFlag(c.country)}</span>
+                                                    {getCountryName(c.country)}
+                                                </TableCell>
+                                                <TableCell className="text-right text-white/60 font-mono text-sm">
+                                                    {c.requests.toLocaleString()}
+                                                </TableCell>
+                                                <TableCell className="text-right text-white/60 font-mono text-sm">
+                                                    {c.bandwidthMB.toFixed(1)}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {c.threats > 0 ? (
+                                                        <Badge variant="outline" className="bg-red-500/20 text-red-300 border-red-500/30 font-mono">
+                                                            {c.threats}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-white/30 text-sm">0</span>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Section 4: Security / Threats */}
+            {totalThreats > 0 && threatCountries.length > 0 && (
+                <Card className="border-red-500/20 bg-red-500/[0.02]">
+                    <CardContent className="p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                            <AlertTriangle className="h-4 w-4 text-red-400" />
+                            <span className="text-sm font-medium text-red-300">Güvenlik Tehditleri</span>
+                            <Badge variant="outline" className="bg-red-500/20 text-red-300 border-red-500/30 ml-auto">
+                                {totalThreats} toplam tehdit
+                            </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                            {threatCountries.map((c, i) => (
+                                <div key={i} className="flex items-center gap-2 rounded-lg border border-red-500/10 bg-red-500/5 px-3 py-2">
+                                    <span className="text-lg">{getFlag(c.country)}</span>
+                                    <div className="min-w-0">
+                                        <p className="text-xs text-white/60 truncate">{getCountryName(c.country)}</p>
+                                        <p className="text-sm font-bold text-red-300">{c.threats}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
+                            <Shield className="h-3.5 w-3.5" />
+                            <span>Cloudflare WAF tarafından otomatik engellendi</span>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Section 5: Platform Metrics */}
             {pf && (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
