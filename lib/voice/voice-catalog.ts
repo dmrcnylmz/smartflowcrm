@@ -9,7 +9,7 @@
 // Types
 // =============================================
 
-export type TTSProvider = 'elevenlabs' | 'google' | 'openai' | 'kokoro';
+export type TTSProvider = 'elevenlabs' | 'google' | 'openai' | 'kokoro' | 'cartesia' | 'murf';
 export type VoiceGender = 'female' | 'male';
 export type VoiceLanguage = 'tr' | 'en' | 'multi';
 export type VoiceTier = 'premium' | 'standard' | 'free';
@@ -120,81 +120,112 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     },
 
     // ─────────────────────────────────────────
-    // Google Gemini TTS — Gemini 2.5 Flash (premium, multi-language)
-    // En üst segment Google sesleri, çok doğal ve ifade edici
+    // Cartesia Sonic-3 — Ultra-low latency (~40ms TTFB)
+    // 42+ dil, Türkçe dahil. Profesyonel voice agent standardı.
+    // Multilingual voices — aynı ses tüm dilleri konuşur.
     // ─────────────────────────────────────────
     {
-        id: 'gm-kore',
-        provider: 'google',
-        voiceId: 'Kore',
-        name: 'Kore',
+        id: 'ct-katie',
+        provider: 'cartesia',
+        voiceId: 'f786b574-daa5-4673-aa0c-cbe3e8534c02',
+        name: 'Katie',
         gender: 'female',
         language: 'multi',
-        tone: 'Kararlı & Doğal',
-        model: 'gemini-2.5-flash-tts',
+        tone: 'Sıcak & Doğal',
+        model: 'sonic-3',
         tier: 'premium',
-        avgLatencyMs: 600,
+        avgLatencyMs: 40,
         recommended: true,
     },
     {
-        id: 'gm-aoede',
-        provider: 'google',
-        voiceId: 'Aoede',
-        name: 'Aoede',
+        id: 'ct-kiefer',
+        provider: 'cartesia',
+        voiceId: '228fca29-3a0a-435c-8728-5cb483251068',
+        name: 'Kiefer',
+        gender: 'male',
+        language: 'multi',
+        tone: 'Profesyonel & Güvenilir',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-tessa',
+        provider: 'cartesia',
+        voiceId: '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',
+        name: 'Tessa',
         gender: 'female',
         language: 'multi',
-        tone: 'Sıcak & Akıcı',
-        model: 'gemini-2.5-flash-tts',
+        tone: 'Enerjik & İfade Edici',
+        model: 'sonic-3',
         tier: 'premium',
-        avgLatencyMs: 600,
+        avgLatencyMs: 40,
     },
     {
-        id: 'gm-leda',
-        provider: 'google',
-        voiceId: 'Leda',
-        name: 'Leda',
+        id: 'ct-kyle',
+        provider: 'cartesia',
+        voiceId: 'c961b81c-a935-4c17-bfb3-ba2239de8c2f',
+        name: 'Kyle',
+        gender: 'male',
+        language: 'multi',
+        tone: 'Güçlü & Kararlı',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+
+    // ─────────────────────────────────────────
+    // Murf Falcon — Budget-friendly (~130ms TTFB)
+    // 35+ dil, Türkçe 7 ses. $0.01/1K chars.
+    // Voice ID'ler Murf API'den güncellenecek.
+    // ─────────────────────────────────────────
+    {
+        id: 'mf-elif',
+        provider: 'murf',
+        voiceId: 'tr-TR-ElifNeural',
+        name: 'Elif',
         gender: 'female',
-        language: 'multi',
-        tone: 'Profesyonel & Sakin',
-        model: 'gemini-2.5-flash-tts',
-        tier: 'premium',
-        avgLatencyMs: 600,
+        language: 'tr',
+        tone: 'Doğal & Sıcak',
+        model: 'falcon',
+        tier: 'standard',
+        avgLatencyMs: 130,
     },
     {
-        id: 'gm-puck',
-        provider: 'google',
-        voiceId: 'Puck',
-        name: 'Puck',
+        id: 'mf-emre',
+        provider: 'murf',
+        voiceId: 'tr-TR-EmreNeural',
+        name: 'Emre',
         gender: 'male',
-        language: 'multi',
-        tone: 'Enerjik & Neşeli',
-        model: 'gemini-2.5-flash-tts',
-        tier: 'premium',
-        avgLatencyMs: 600,
+        language: 'tr',
+        tone: 'Profesyonel & Kararlı',
+        model: 'falcon',
+        tier: 'standard',
+        avgLatencyMs: 130,
     },
     {
-        id: 'gm-charon',
-        provider: 'google',
-        voiceId: 'Charon',
-        name: 'Charon',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Güçlü & Derin',
-        model: 'gemini-2.5-flash-tts',
-        tier: 'premium',
-        avgLatencyMs: 600,
+        id: 'mf-natalie',
+        provider: 'murf',
+        voiceId: 'en-US-NatalieNeural',
+        name: 'Natalie',
+        gender: 'female',
+        language: 'en',
+        tone: 'Net & Profesyonel',
+        model: 'falcon',
+        tier: 'standard',
+        avgLatencyMs: 130,
     },
     {
-        id: 'gm-fenrir',
-        provider: 'google',
-        voiceId: 'Fenrir',
-        name: 'Fenrir',
+        id: 'mf-ryan',
+        provider: 'murf',
+        voiceId: 'en-US-RyanNeural',
+        name: 'Ryan',
         gender: 'male',
-        language: 'multi',
-        tone: 'Otoriter & Kararlı',
-        model: 'gemini-2.5-flash-tts',
-        tier: 'premium',
-        avgLatencyMs: 600,
+        language: 'en',
+        tone: 'Güvenilir & Kararlı',
+        model: 'falcon',
+        tier: 'standard',
+        avgLatencyMs: 130,
     },
 
     // ─────────────────────────────────────────
@@ -294,9 +325,11 @@ export function getRecommendedVoices(): VoiceCatalogEntry[] {
 export function getProviderDisplayName(provider: TTSProvider): string {
     switch (provider) {
         case 'elevenlabs': return 'ElevenLabs';
-        case 'google': return 'Google Gemini';
+        case 'google': return 'Google Cloud';
         case 'openai': return 'OpenAI';
         case 'kokoro': return 'Kokoro';
+        case 'cartesia': return 'Cartesia Sonic';
+        case 'murf': return 'Murf Falcon';
     }
 }
 

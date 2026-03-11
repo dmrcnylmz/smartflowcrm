@@ -81,7 +81,7 @@ export function VoiceSelector({
             acc[v.provider].push(v);
             return acc;
         },
-        { elevenlabs: [], google: [], kokoro: [], openai: [] },
+        { elevenlabs: [], cartesia: [], murf: [], kokoro: [], openai: [], google: [] },
     );
 
     // ---- Cleanup audio on unmount ----
@@ -157,7 +157,8 @@ export function VoiceSelector({
     const providerButtons: { value: TTSProvider | null; label: string; icon: string }[] = [
         { value: null, label: 'Hepsi', icon: '🎤' },
         { value: 'elevenlabs', label: 'ElevenLabs', icon: '⚡' },
-        { value: 'google', label: 'Gemini', icon: '✨' },
+        { value: 'cartesia', label: 'Cartesia', icon: '🚀' },
+        { value: 'murf', label: 'Murf', icon: '🎯' },
         { value: 'kokoro', label: 'Kokoro', icon: '🔊' },
     ];
 
@@ -218,7 +219,7 @@ export function VoiceSelector({
 
             {/* ---- Voice List by Provider ---- */}
             <div className="space-y-4">
-                {(['elevenlabs', 'google', 'kokoro'] as TTSProvider[]).map(provider => {
+                {(['elevenlabs', 'cartesia', 'murf', 'kokoro'] as TTSProvider[]).map(provider => {
                     const providerVoices = grouped[provider];
                     if (providerVoices.length === 0) return null;
 

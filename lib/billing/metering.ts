@@ -55,18 +55,20 @@ export interface SubscriptionTier {
 // Per-call cost formula: C_call = C_Telephony + C_TTS + C_LLM
 // Twilio Native: ~$0.01/min, SIP Trunk: ~$0.003/min
 // ElevenLabs: ~$0.15/1000 chars (turbo_v2_5 @ 0.5 credits/char)
-// Gemini Flash TTS: ~$0.05/1000 chars (token-based, ~3x cheaper than ElevenLabs)
+// Cartesia Sonic-3: ~$0.038/1000 chars (default for all plans)
+// Murf Falcon: ~$0.01/1000 chars (budget fallback, TR+EN)
 // Kokoro: ~$0.001/1000 chars (near-free, EN only)
 // Groq/LLM: ~$0.02/call
 // Average 3-min call:
 //   Enterprise (ElevenLabs): ~$0.35-$0.50
-//   Starter/Pro (Gemini):    ~$0.12-$0.20
+//   Starter/Pro (Cartesia):  ~$0.10-$0.15
 //   EN (Kokoro):             ~$0.05-$0.08
 export const COST_RATES = {
     twilio: { perMinute: 0.01 },           // Twilio Native per-minute rate
     sip_trunk: { perMinute: 0.003 },       // SIP Trunk (Netgsm/Bulutfon) per-minute rate
     elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars (Enterprise only)
-    gemini_tts: { per1000Chars: 0.05 },     // Gemini 2.5 Flash TTS per 1000 chars (Starter/Pro default)
+    cartesia: { per1000Chars: 0.038 },      // Cartesia Sonic-3 per 1000 chars (default all plans)
+    murf: { per1000Chars: 0.01 },           // Murf Falcon per 1000 chars (budget TR+EN fallback)
     kokoro: { per1000Chars: 0.001 },        // Kokoro TTS per 1000 chars (EN only, near-free)
     llm: { perCall: 0.02 },                 // Groq/Gemini average per call
 };
@@ -319,10 +321,10 @@ export function estimateCost(
     const legacyCost = unaccountedMinutes > 0 ? unaccountedMinutes * COST_RATES.twilio.perMinute : 0;
 
     const voiceCost = twilioCost + sipTrunkCost + legacyCost;
-    // TTS cost varies by tier: Enterprise uses ElevenLabs, others use Gemini
+    // TTS cost varies by tier: Enterprise uses ElevenLabs, others use Cartesia
     const ttsRate = tierName === 'enterprise'
         ? COST_RATES.elevenlabs.per1000Chars
-        : COST_RATES.gemini_tts.per1000Chars;
+        : COST_RATES.cartesia.per1000Chars;
     const ttsCost = (ttsChars / 1000) * ttsRate;
     const llmCost = totalCalls * COST_RATES.llm.perCall;
     const infraCost = voiceCost + ttsCost + llmCost;
@@ -374,8 +376,9 @@ export function estimatePerCallCost(
     const voice = durationMinutes * voiceRate;
 
     // TTS cost based on provider
-    let ttsRate = COST_RATES.gemini_tts.per1000Chars; // default: Gemini
+    let ttsRate = COST_RATES.cartesia.per1000Chars; // default: Cartesia
     if (ttsProvider === 'elevenlabs') ttsRate = COST_RATES.elevenlabs.per1000Chars;
+    else if (ttsProvider === 'murf') ttsRate = COST_RATES.murf.per1000Chars;
     else if (ttsProvider === 'kokoro') ttsRate = COST_RATES.kokoro.per1000Chars;
 
     const tts = (durationMinutes * avgTtsCharsPerMin / 1000) * ttsRate;

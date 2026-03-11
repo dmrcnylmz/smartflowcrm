@@ -5,17 +5,19 @@
  * VoiceSelector bileşeninde "Dinle" butonuyla kullanılır.
  *
  * Request body:
- *   { voiceCatalogId: 'g-tr-wavenet-d' }
+ *   { voiceCatalogId: 'ct-katie' }
  *   veya
- *   { provider: 'google', voiceId: 'tr-TR-Wavenet-D', language: 'tr' }
+ *   { provider: 'cartesia', voiceId: '<uuid>', language: 'tr' }
  *
- * Response: audio/mpeg stream + latency/provider headers
+ * Response: audio stream + latency/provider headers
+ *
+ * Supported providers: elevenlabs, cartesia, murf, kokoro, openai
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
-import { synthesizeGoogleTTS } from '@/lib/voice/tts-google';
-import { synthesizeGeminiTTS } from '@/lib/voice/tts-gemini';
+import { synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
+import { synthesizeMurfTTS } from '@/lib/voice/tts-murf';
 import { synthesizeKokoroTTS } from '@/lib/voice/tts-kokoro';
 import { getVoiceById, PREVIEW_SAMPLES, type TTSProvider } from '@/lib/voice/voice-catalog';
 
@@ -94,15 +96,10 @@ export async function POST(request: NextRequest) {
             if (res.ok && res.body) {
                 audioResponse = res;
             }
-        } else if (resolvedProvider === 'google') {
-            // Use Gemini TTS for new voices (voiceId is just the name e.g. "Kore")
-            // Fall back to legacy Google Cloud TTS for old-format voices
-            const isGeminiVoice = !resolvedVoiceId.includes('-');
-            if (isGeminiVoice) {
-                audioResponse = await synthesizeGeminiTTS(sampleText, resolvedLang, resolvedVoiceId);
-            } else {
-                audioResponse = await synthesizeGoogleTTS(sampleText, resolvedLang, resolvedVoiceId);
-            }
+        } else if (resolvedProvider === 'cartesia') {
+            audioResponse = await synthesizeCartesiaTTS(sampleText, resolvedLang, resolvedVoiceId);
+        } else if (resolvedProvider === 'murf') {
+            audioResponse = await synthesizeMurfTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'kokoro') {
             audioResponse = await synthesizeKokoroTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'openai') {
@@ -140,7 +137,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Use original content-type from provider (WAV for Gemini, MP3 for others)
+        // Use original content-type from provider (WAV for Cartesia, MP3 for others)
         const contentType = audioResponse.headers.get('Content-Type') || 'audio/mpeg';
 
         return new NextResponse(audioResponse.body, {

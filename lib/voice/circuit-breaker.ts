@@ -321,3 +321,19 @@ export const deepgramCircuitBreaker = new CircuitBreaker({
     resetTimeout: 20_000,
     failureWindowMs: 60_000,
 });
+
+/** Circuit breaker for Cartesia Sonic TTS calls (40ms TTFB) */
+export const cartesiaCircuitBreaker = new CircuitBreaker({
+    name: 'cartesia-tts',
+    failureThreshold: 3,
+    resetTimeout: 20_000,
+    failureWindowMs: 60_000,
+});
+
+/** Circuit breaker for Murf Falcon TTS calls (130ms TTFB) */
+export const murfCircuitBreaker = new CircuitBreaker({
+    name: 'murf-tts',
+    failureThreshold: 3,
+    resetTimeout: 20_000,
+    failureWindowMs: 60_000,
+});

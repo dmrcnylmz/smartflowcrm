@@ -2,22 +2,26 @@
  * Voice TTS API — Multi-Provider Fallback Strategy
  *
  * ┌──────────────────────────────────────────────────────────────────────┐
- * │ PERFORMANS TESTİ SONUÇLARI:                                         │
+ * │ PROVIDER LATENCY BENCHMARK:                                         │
  * │                                                                      │
- * │  ElevenLabs multilingual_v2 (greeting): 1876ms ✅ Premium kalite    │
- * │  ElevenLabs turbo_v2_5 (body):           474ms ✅ HIZLI + kaliteli  │
- * │  Google Cloud TTS Neural2:              ~200ms ✅ Hızlı fallback   │
- * │  OpenAI TTS tts-1 (body):               4232ms ❌ 9x YAVAŞ!        │
+ * │  Cartesia Sonic-3:                       ~40ms ✅ ULTRA-HIZLI       │
+ * │  Murf Falcon:                           ~130ms ✅ Hızlı + ucuz     │
+ * │  ElevenLabs turbo_v2_5 (body):          ~474ms ✅ Premium kalite   │
+ * │  ElevenLabs multilingual_v2 (greeting): ~1876ms ✅ Premium kalite  │
+ * │  Kokoro (EN-only):                      ~150ms ✅ Ultra-ucuz       │
+ * │  Google Cloud TTS Neural2:              ~200ms ✅ Legacy fallback  │
+ * │  OpenAI TTS tts-1:                     ~4232ms ❌ Son çare         │
  * │                                                                      │
- * │ KARAR: ElevenLabs primary. Google Cloud TTS ilk fallback.           │
- * │ OpenAI TTS sadece ikisi de çökerse son çare.                        │
+ * │ KARAR: Cartesia varsayılan. ElevenLabs Enterprise-only.             │
+ * │ Murf budget fallback. OpenAI son çare.                              │
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * Strategy:
- *   greeting=true  → ElevenLabs multilingual_v2 (1876ms, premium kalite)
- *   greeting=false → ElevenLabs turbo_v2_5 (474ms, hızlı + iyi kalite)
- *   Fallback TR    → Google Cloud TTS (Chirp3-HD/Wavenet) → OpenAI
- *   Fallback EN    → Kokoro (~150ms, <$1/1M) → Google → OpenAI
+ *   Enterprise:     ElevenLabs → Cartesia → Murf → OpenAI
+ *   Starter/Pro TR: Cartesia → Murf → OpenAI
+ *   Starter/Pro EN: Kokoro → Cartesia → Murf → OpenAI
+ *   Emergency TR:   Murf → Cartesia → OpenAI → ElevenLabs
+ *   Emergency EN:   Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,9 +31,10 @@ import { shouldUseEmergencyTts } from '@/lib/billing/cost-monitor';
 import { sessionRegistry } from '@/lib/voice/session-registry';
 import { meterTtsUsage } from '@/lib/billing/metering';
 import { checkCostThresholds } from '@/lib/billing/cost-monitor';
-import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, kokoroCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
+import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, kokoroCircuitBreaker, cartesiaCircuitBreaker, murfCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 import { synthesizeGoogleTTS, getServiceAccountKey } from '@/lib/voice/tts-google';
-import { synthesizeGeminiTTS } from '@/lib/voice/tts-gemini';
+import { synthesizeCartesiaTTS, isCartesiaConfigured } from '@/lib/voice/tts-cartesia';
+import { synthesizeMurfTTS, isMurfConfigured } from '@/lib/voice/tts-murf';
 import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
 import { initAdmin } from '@/lib/auth/firebase-admin';
@@ -50,10 +55,7 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 // =============================================
-// ElevenLabs Configuration (PRIMARY — All TTS)
-// =============================================
-// Turkish: "Yildiz" — native Turkish female, warm professional
-// English: "Sarah"  — professional English female
+// ElevenLabs Configuration (ENTERPRISE ONLY)
 // =============================================
 
 const ELEVENLABS_VOICES = {
@@ -62,15 +64,12 @@ const ELEVENLABS_VOICES = {
 } as const;
 
 const ELEVENLABS_MODELS = {
-    greeting: 'eleven_multilingual_v2',   // Premium kalite — 1876ms, ilk izlenim
-    body: 'eleven_turbo_v2_5',            // Hızlı — 474ms, her yanıt için
+    greeting: 'eleven_multilingual_v2',   // Premium kalite — 1876ms
+    body: 'eleven_turbo_v2_5',            // Hızlı — 474ms
 } as const;
 
 // =============================================
 // OpenAI TTS (LAST RESORT FALLBACK ONLY)
-// =============================================
-// ⚠️ Test sonucu: 4232ms — 9x ElevenLabs Turbo'dan yavaş
-// Sadece ElevenLabs tamamen çökerse kullanılacak
 // =============================================
 
 const OPENAI_TTS_VOICE = 'nova';
@@ -88,7 +87,7 @@ function detectLanguage(text: string): 'tr' | 'en' {
 }
 
 // =============================================
-// Provider: ElevenLabs (PRIMARY)
+// Provider: ElevenLabs (ENTERPRISE ONLY)
 // =============================================
 
 async function synthesizeElevenLabs(
@@ -156,7 +155,6 @@ async function synthesizeElevenLabs(
 
 // =============================================
 // Provider: OpenAI TTS (LAST RESORT FALLBACK)
-// ⚠️ 4232ms latency — only when ElevenLabs is down
 // =============================================
 
 async function synthesizeOpenAI(
@@ -166,7 +164,6 @@ async function synthesizeOpenAI(
 ): Promise<Response | null> {
     if (!OPENAI_API_KEY) return null;
 
-    // Fast-fail if circuit breaker is open
     if (openaiCircuitBreaker.isOpen()) {
         console.warn('[TTS:OpenAI] Circuit breaker OPEN — skipping');
         return null;
@@ -187,7 +184,7 @@ async function synthesizeOpenAI(
                     response_format: 'mp3',
                     speed: 1.0,
                 }),
-                signal: AbortSignal.timeout(15000), // OpenAI is slow, give it more time
+                signal: AbortSignal.timeout(15000),
             });
 
             if (!res.ok || !res.body) {
@@ -240,7 +237,6 @@ export async function POST(request: NextRequest) {
         const charCount = safeText.length;
 
         // ---- Resolve tenant for metrics (non-blocking) ----
-        // Priority: explicit body param → auth header → session registry → default
         const authTenantId = request.headers.get('x-user-tenant') || '';
         const tenantId = tenant_id
             || authTenantId
@@ -248,19 +244,17 @@ export async function POST(request: NextRequest) {
             || 'default';
 
         // ---- Emergency Mode Check ----
-        // If active, body TTS switches to OpenAI (cheaper).
-        // Greeting TTS ALWAYS stays on ElevenLabs (first impression matters).
         let emergencyActive = false;
         if (!isGreeting && !forceProvider) {
             try {
                 emergencyActive = await shouldUseEmergencyTts(getTtsDb(), tenantId);
             } catch {
-                // Ignore — keep ElevenLabs
+                // Ignore — keep default
             }
         }
 
         // ---- Plan-Based Provider Enforcement ----
-        // Non-Enterprise tenants cannot use ElevenLabs → override to Gemini/Kokoro
+        // Non-Enterprise tenants cannot use ElevenLabs → override to Cartesia/Kokoro
         let effectiveProvider = forceProvider;
         let planId = 'starter';
         if (tenantId !== 'default' && forceProvider === 'elevenlabs') {
@@ -268,8 +262,8 @@ export async function POST(request: NextRequest) {
                 const guard = await checkSubscriptionActive(getTtsDb(), tenantId);
                 planId = guard.planId;
                 if (guard.planId !== 'enterprise') {
-                    // Override ElevenLabs → Gemini for TR, Kokoro for EN
-                    effectiveProvider = lang === 'en' ? 'kokoro' : 'google';
+                    // Override ElevenLabs → Cartesia for all, Kokoro for EN
+                    effectiveProvider = lang === 'en' ? 'kokoro' : 'cartesia';
                     console.info(`[TTS] Plan-based override: ${forceProvider} → ${effectiveProvider} (plan=${guard.planId}, tenant=${tenantId})`);
                 }
             } catch {
@@ -278,9 +272,9 @@ export async function POST(request: NextRequest) {
         }
 
         // ---- Strategy (Data-Driven) ----
-        // Enterprise:     forceProvider works as-is
-        // Non-Enterprise: ElevenLabs → auto-downgraded to Gemini/Kokoro
-        // Emergency:      Greeting → ElevenLabs, Body → OpenAI (cost saving)
+        // Enterprise:     ElevenLabs → Cartesia → Murf → OpenAI
+        // Non-Enterprise: Cartesia → Murf → OpenAI (TR) | Kokoro → Cartesia → Murf → OpenAI (EN)
+        // Emergency:      Murf (cheapest TR) → Cartesia → OpenAI → ElevenLabs
 
         let audioResponse: Response | null = null;
         let usedProvider = 'none';
@@ -289,19 +283,19 @@ export async function POST(request: NextRequest) {
         if (effectiveProvider === 'elevenlabs') {
             audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
+        } else if (effectiveProvider === 'cartesia') {
+            audioResponse = await synthesizeCartesiaTTS(safeText, lang, voice_id);
+            usedProvider = 'cartesia';
+            usedModel = 'sonic-3';
+        } else if (effectiveProvider === 'murf') {
+            audioResponse = await synthesizeMurfTTS(safeText, lang, voice_id);
+            usedProvider = 'murf';
+            usedModel = 'falcon';
         } else if (effectiveProvider === 'google') {
-            // Gemini TTS for simple voice names (Kore, Leda, etc.)
-            // Legacy Cloud TTS for hyphenated voice names (tr-TR-Chirp3-HD-Kore)
-            const isGeminiVoice = voice_id && !voice_id.includes('-');
-            if (isGeminiVoice) {
-                audioResponse = await synthesizeGeminiTTS(safeText, lang, voice_id);
-                usedProvider = 'google-gemini';
-                usedModel = 'gemini-2.5-flash-tts';
-            } else {
-                audioResponse = await synthesizeGoogleTTS(safeText, lang, voice_id);
-                usedProvider = 'google';
-                usedModel = voice_id || 'google-default';
-            }
+            // Legacy Google Cloud TTS (kept for backward compatibility)
+            audioResponse = await synthesizeGoogleTTS(safeText, lang, voice_id);
+            usedProvider = 'google';
+            usedModel = voice_id || 'google-default';
         } else if (effectiveProvider === 'openai') {
             audioResponse = await synthesizeOpenAI(safeText, lang, voice_id);
             usedProvider = 'openai';
@@ -315,9 +309,9 @@ export async function POST(request: NextRequest) {
             usedModel = 'kokoro-v1';
         } else if (emergencyActive) {
             // Emergency mode: cost-optimized fallback chain
-            // EN: Kokoro (cheapest) → Google → OpenAI → ElevenLabs
-            // TR: Google → OpenAI → ElevenLabs
-            console.info(`[TTS] ⚠️ Emergency mode active — using cost-optimized chain (${lang})`);
+            // EN: Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
+            // TR: Murf → Cartesia → OpenAI → ElevenLabs
+            console.info(`[TTS] Emergency mode active — using cost-optimized chain (${lang})`);
 
             // Kokoro first for English (ultra-low cost)
             if (lang === 'en') {
@@ -326,10 +320,18 @@ export async function POST(request: NextRequest) {
                 usedModel = 'kokoro-v1';
             }
 
+            // Murf next (cheapest TR option: $0.01/1K)
             if (!audioResponse) {
-                audioResponse = await synthesizeGoogleTTS(safeText, lang);
-                usedProvider = 'google-emergency';
-                usedModel = 'google-tts';
+                audioResponse = await synthesizeMurfTTS(safeText, lang);
+                usedProvider = 'murf-emergency';
+                usedModel = 'falcon';
+            }
+
+            // Cartesia fallback
+            if (!audioResponse) {
+                audioResponse = await synthesizeCartesiaTTS(safeText, lang);
+                usedProvider = 'cartesia-emergency';
+                usedModel = 'sonic-3';
             }
 
             if (!audioResponse) {
@@ -341,7 +343,7 @@ export async function POST(request: NextRequest) {
             // Fallback to ElevenLabs if all cheaper alternatives fail
             if (!audioResponse) {
                 audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
-                usedProvider = 'elevenlabs';
+                usedProvider = 'elevenlabs-emergency';
                 usedModel = ELEVENLABS_MODELS.body;
             }
         } else {
@@ -356,23 +358,30 @@ export async function POST(request: NextRequest) {
 
             if (isEnterprisePlan) {
                 // Enterprise default chain:
-                // EN: ElevenLabs → Kokoro → Gemini → OpenAI
-                // TR: ElevenLabs → Gemini → OpenAI
+                // TR: ElevenLabs → Cartesia → Murf → OpenAI
+                // EN: ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
                 audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
                 usedProvider = 'elevenlabs';
 
+                if (!audioResponse) {
+                    console.warn('[TTS] ElevenLabs failed, trying Cartesia Sonic...');
+                    audioResponse = await synthesizeCartesiaTTS(safeText, lang);
+                    usedProvider = 'cartesia-fallback';
+                    usedModel = 'sonic-3';
+                }
+
                 if (!audioResponse && lang === 'en') {
-                    console.warn('[TTS] ElevenLabs failed, trying Kokoro (EN)...');
+                    console.warn('[TTS] Trying Kokoro (EN)...');
                     audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                     usedProvider = 'kokoro-fallback';
                     usedModel = 'kokoro-v1';
                 }
 
                 if (!audioResponse) {
-                    console.warn('[TTS] Trying Gemini TTS...');
-                    audioResponse = await synthesizeGeminiTTS(safeText, lang, 'Kore');
-                    usedProvider = 'google-gemini-fallback';
-                    usedModel = 'gemini-2.5-flash-tts';
+                    console.warn('[TTS] Trying Murf Falcon...');
+                    audioResponse = await synthesizeMurfTTS(safeText, lang);
+                    usedProvider = 'murf-fallback';
+                    usedModel = 'falcon';
                 }
 
                 if (!audioResponse) {
@@ -383,8 +392,8 @@ export async function POST(request: NextRequest) {
                 }
             } else {
                 // Starter/Professional default chain (cost-optimized):
-                // EN: Kokoro → Gemini → OpenAI
-                // TR: Gemini → OpenAI
+                // EN: Kokoro → Cartesia → Murf → OpenAI
+                // TR: Cartesia → Murf → OpenAI
                 if (lang === 'en') {
                     audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                     usedProvider = 'kokoro';
@@ -392,16 +401,16 @@ export async function POST(request: NextRequest) {
                 }
 
                 if (!audioResponse) {
-                    audioResponse = await synthesizeGeminiTTS(safeText, lang, 'Kore');
-                    usedProvider = 'google-gemini';
-                    usedModel = 'gemini-2.5-flash-tts';
+                    audioResponse = await synthesizeCartesiaTTS(safeText, lang);
+                    usedProvider = 'cartesia';
+                    usedModel = 'sonic-3';
                 }
 
                 if (!audioResponse) {
-                    console.warn('[TTS] Gemini failed, trying legacy Google TTS...');
-                    audioResponse = await synthesizeGoogleTTS(safeText, lang);
-                    usedProvider = 'google-fallback';
-                    usedModel = 'google-tts';
+                    console.warn('[TTS] Cartesia failed, trying Murf Falcon...');
+                    audioResponse = await synthesizeMurfTTS(safeText, lang);
+                    usedProvider = 'murf-fallback';
+                    usedModel = 'falcon';
                 }
 
                 if (!audioResponse) {
@@ -417,15 +426,17 @@ export async function POST(request: NextRequest) {
 
         // ---- No provider succeeded ----
         if (!audioResponse || !audioResponse.body) {
-            const allOpen = ttsCircuitBreaker.isOpen() && googleTtsCircuitBreaker.isOpen()
-                && openaiCircuitBreaker.isOpen() && kokoroCircuitBreaker.isOpen();
+            const allOpen = ttsCircuitBreaker.isOpen() && cartesiaCircuitBreaker.isOpen()
+                && murfCircuitBreaker.isOpen() && openaiCircuitBreaker.isOpen()
+                && kokoroCircuitBreaker.isOpen();
             return NextResponse.json(
                 {
                     error: 'All TTS providers failed',
                     circuitBreakers: allOpen ? 'all_open' : 'partial',
                     stats: {
                         elevenlabs: ttsCircuitBreaker.getStats(),
-                        google: googleTtsCircuitBreaker.getStats(),
+                        cartesia: cartesiaCircuitBreaker.getStats(),
+                        murf: murfCircuitBreaker.getStats(),
                         openai: openaiCircuitBreaker.getStats(),
                         kokoro: kokoroCircuitBreaker.getStats(),
                     },
@@ -478,9 +489,18 @@ export async function POST(request: NextRequest) {
 export async function GET() {
     return NextResponse.json({
         providers: {
+            cartesia: {
+                configured: isCartesiaConfigured(),
+                role: 'default (all plans, TR+EN)',
+                model: 'sonic-3',
+                performance: {
+                    latency: '~40ms TTFB',
+                    note: '42+ languages. Ultra-low latency voice agent standard.',
+                },
+            },
             elevenlabs: {
                 configured: !!ELEVENLABS_API_KEY,
-                role: 'primary (all TTS)',
+                role: 'enterprise-only premium',
                 voices: ELEVENLABS_VOICES,
                 models: ELEVENLABS_MODELS,
                 performance: {
@@ -488,26 +508,30 @@ export async function GET() {
                     body_latency: '~474ms (turbo_v2_5)',
                 },
             },
-            google: {
-                configured: !!getServiceAccountKey(),
-                role: 'fallback (TR+EN, Wavenet free / Chirp3-HD standard)',
-                voices: {
-                    tr: 'tr-TR-Wavenet-D (free) / tr-TR-Chirp3-HD-Kore (standard)',
-                    en: 'en-US-Neural2-F (free)',
-                },
+            murf: {
+                configured: isMurfConfigured(),
+                role: 'budget-friendly fallback (TR+EN)',
+                model: 'falcon',
                 performance: {
-                    latency: '~200-300ms',
-                    note: 'Wavenet: 1M chars/month free. Chirp3-HD: $30/1M chars (premium quality)',
+                    latency: '~130ms TTFB',
+                    note: '35+ languages. $0.01/1K chars. 7 Turkish voices.',
                 },
             },
             kokoro: {
                 configured: isKokoroConfigured(),
-                role: 'EN-only cost-optimized fallback',
+                role: 'EN-only cost-optimized',
                 voice: 'af_heart (default)',
                 model: 'kokoro-v1',
                 performance: {
                     latency: '~150ms',
-                    note: 'English only. <$1/1M chars via Together AI. CPU+GPU support.',
+                    note: 'English only. <$1/1M chars via Together AI.',
+                },
+            },
+            google: {
+                configured: !!getServiceAccountKey(),
+                role: 'legacy fallback (backward compat)',
+                performance: {
+                    latency: '~200-300ms',
                 },
             },
             openai: {
@@ -516,23 +540,23 @@ export async function GET() {
                 voice: OPENAI_TTS_VOICE,
                 model: 'tts-1',
                 performance: {
-                    latency: '~4232ms (9x slower than ElevenLabs Turbo)',
-                    note: 'Only activates when other providers fail',
+                    latency: '~4232ms',
+                    note: 'Only activates when all other providers fail.',
                 },
             },
         },
         strategy: {
             enterprise: {
-                tr: 'ElevenLabs → Gemini Flash → OpenAI',
-                en: 'ElevenLabs → Kokoro → Gemini Flash → OpenAI',
+                tr: 'ElevenLabs → Cartesia → Murf → OpenAI',
+                en: 'ElevenLabs → Cartesia → Kokoro → Murf → OpenAI',
             },
             starter_professional: {
-                tr: 'Gemini Flash → Legacy Google → OpenAI',
-                en: 'Kokoro → Gemini Flash → Legacy Google → OpenAI',
+                tr: 'Cartesia → Murf → OpenAI',
+                en: 'Kokoro → Cartesia → Murf → OpenAI',
             },
-            emergency_tr: 'Google → OpenAI → ElevenLabs',
-            emergency_en: 'Kokoro → Google → OpenAI → ElevenLabs',
-            note: 'ElevenLabs is Enterprise-only. Non-Enterprise tenants auto-downgrade to Gemini/Kokoro.',
+            emergency_tr: 'Murf → Cartesia → OpenAI → ElevenLabs',
+            emergency_en: 'Kokoro → Murf → Cartesia → OpenAI → ElevenLabs',
+            note: 'ElevenLabs is Enterprise-only. Cartesia Sonic-3 is the default for all plans.',
         },
     });
 }
