@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { synthesizeMurfTTS } from '@/lib/voice/tts-murf';
-import { synthesizeKokoroTTS } from '@/lib/voice/tts-kokoro';
+import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { getVoiceById, PREVIEW_SAMPLES, type TTSProvider } from '@/lib/voice/voice-catalog';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
@@ -101,6 +101,9 @@ export async function POST(request: NextRequest) {
         } else if (resolvedProvider === 'murf') {
             audioResponse = await synthesizeMurfTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'kokoro') {
+            if (!isKokoroConfigured()) {
+                return NextResponse.json({ error: 'Kokoro TTS yapılandırılmamış (KOKORO_API_URL veya TOGETHER_AI_API_KEY gerekli)' }, { status: 503 });
+            }
             audioResponse = await synthesizeKokoroTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'openai') {
             if (!OPENAI_API_KEY) {
