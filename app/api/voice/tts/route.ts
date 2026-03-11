@@ -17,11 +17,14 @@
  * └──────────────────────────────────────────────────────────────────────┘
  *
  * Strategy:
- *   Enterprise:     ElevenLabs → Cartesia → Murf → OpenAI
- *   Starter/Pro TR: Cartesia → Murf → OpenAI
+ *   Enterprise TR:  ElevenLabs → Cartesia → OpenAI
+ *   Enterprise EN:  ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
+ *   Starter/Pro TR: Cartesia → OpenAI
  *   Starter/Pro EN: Kokoro → Cartesia → Murf → OpenAI
- *   Emergency TR:   Murf → Cartesia → OpenAI → ElevenLabs
+ *   Emergency TR:   Cartesia → OpenAI → ElevenLabs
  *   Emergency EN:   Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
+ *
+ * NOT: Murf Türkçe DESTEKLEMİYOR — sadece EN fallback'lerde kullanılır.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -272,9 +275,12 @@ export async function POST(request: NextRequest) {
         }
 
         // ---- Strategy (Data-Driven) ----
-        // Enterprise:     ElevenLabs → Cartesia → Murf → OpenAI
-        // Non-Enterprise: Cartesia → Murf → OpenAI (TR) | Kokoro → Cartesia → Murf → OpenAI (EN)
-        // Emergency:      Murf (cheapest TR) → Cartesia → OpenAI → ElevenLabs
+        // Enterprise TR:  ElevenLabs → Cartesia → OpenAI
+        // Enterprise EN:  ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
+        // Non-Enterprise: Cartesia → OpenAI (TR) | Kokoro → Cartesia → Murf → OpenAI (EN)
+        // Emergency TR:   Cartesia → OpenAI → ElevenLabs
+        // Emergency EN:   Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
+        // NOTE: Murf does NOT support Turkish — only used in EN fallback chains
 
         let audioResponse: Response | null = null;
         let usedProvider = 'none';
@@ -310,7 +316,7 @@ export async function POST(request: NextRequest) {
         } else if (emergencyActive) {
             // Emergency mode: cost-optimized fallback chain
             // EN: Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
-            // TR: Murf → Cartesia → OpenAI → ElevenLabs
+            // TR: Cartesia → OpenAI → ElevenLabs (Murf has NO Turkish support)
             console.info(`[TTS] Emergency mode active — using cost-optimized chain (${lang})`);
 
             // Kokoro first for English (ultra-low cost)
@@ -320,14 +326,14 @@ export async function POST(request: NextRequest) {
                 usedModel = 'kokoro-v1';
             }
 
-            // Murf next (cheapest TR option: $0.01/1K)
-            if (!audioResponse) {
+            // Murf for EN only ($0.01/1K — cheapest premium EN)
+            if (!audioResponse && lang === 'en') {
                 audioResponse = await synthesizeMurfTTS(safeText, lang);
                 usedProvider = 'murf-emergency';
                 usedModel = 'falcon';
             }
 
-            // Cartesia fallback
+            // Cartesia fallback (supports both TR + EN)
             if (!audioResponse) {
                 audioResponse = await synthesizeCartesiaTTS(safeText, lang);
                 usedProvider = 'cartesia-emergency';
@@ -358,7 +364,7 @@ export async function POST(request: NextRequest) {
 
             if (isEnterprisePlan) {
                 // Enterprise default chain:
-                // TR: ElevenLabs → Cartesia → Murf → OpenAI
+                // TR: ElevenLabs → Cartesia → OpenAI
                 // EN: ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
                 audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
                 usedProvider = 'elevenlabs';
@@ -377,8 +383,9 @@ export async function POST(request: NextRequest) {
                     usedModel = 'kokoro-v1';
                 }
 
-                if (!audioResponse) {
-                    console.warn('[TTS] Trying Murf Falcon...');
+                // Murf only for EN (no Turkish support)
+                if (!audioResponse && lang === 'en') {
+                    console.warn('[TTS] Trying Murf Falcon (EN)...');
                     audioResponse = await synthesizeMurfTTS(safeText, lang);
                     usedProvider = 'murf-fallback';
                     usedModel = 'falcon';
@@ -393,7 +400,7 @@ export async function POST(request: NextRequest) {
             } else {
                 // Starter/Professional default chain (cost-optimized):
                 // EN: Kokoro → Cartesia → Murf → OpenAI
-                // TR: Cartesia → Murf → OpenAI
+                // TR: Cartesia → OpenAI (Murf has NO Turkish support)
                 if (lang === 'en') {
                     audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                     usedProvider = 'kokoro';
@@ -406,8 +413,9 @@ export async function POST(request: NextRequest) {
                     usedModel = 'sonic-3';
                 }
 
-                if (!audioResponse) {
-                    console.warn('[TTS] Cartesia failed, trying Murf Falcon...');
+                // Murf only for EN (no Turkish support)
+                if (!audioResponse && lang === 'en') {
+                    console.warn('[TTS] Cartesia failed, trying Murf Falcon (EN)...');
                     audioResponse = await synthesizeMurfTTS(safeText, lang);
                     usedProvider = 'murf-fallback';
                     usedModel = 'falcon';
@@ -510,11 +518,11 @@ export async function GET() {
             },
             murf: {
                 configured: isMurfConfigured(),
-                role: 'budget-friendly fallback (TR+EN)',
+                role: 'budget-friendly EN-only fallback',
                 model: 'falcon',
                 performance: {
                     latency: '~130ms TTFB',
-                    note: '35+ languages. $0.01/1K chars. 7 Turkish voices.',
+                    note: 'English only. $0.01/1K chars. No Turkish support.',
                 },
             },
             kokoro: {
@@ -547,16 +555,16 @@ export async function GET() {
         },
         strategy: {
             enterprise: {
-                tr: 'ElevenLabs → Cartesia → Murf → OpenAI',
+                tr: 'ElevenLabs → Cartesia → OpenAI',
                 en: 'ElevenLabs → Cartesia → Kokoro → Murf → OpenAI',
             },
             starter_professional: {
-                tr: 'Cartesia → Murf → OpenAI',
+                tr: 'Cartesia → OpenAI',
                 en: 'Kokoro → Cartesia → Murf → OpenAI',
             },
-            emergency_tr: 'Murf → Cartesia → OpenAI → ElevenLabs',
+            emergency_tr: 'Cartesia → OpenAI → ElevenLabs',
             emergency_en: 'Kokoro → Murf → Cartesia → OpenAI → ElevenLabs',
-            note: 'ElevenLabs is Enterprise-only. Cartesia Sonic-3 is the default for all plans.',
+            note: 'ElevenLabs is Enterprise-only. Cartesia Sonic-3 is the default for all plans. Murf is EN-only.',
         },
     });
 }

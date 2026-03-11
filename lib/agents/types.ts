@@ -29,7 +29,7 @@ export interface AgentVoiceConfig {
     temperature: number;
     maxTokens: number;
     language: string;
-    /** Selected voice catalog ID (e.g. 'el-yildiz', 'ct-katie', 'kk-af-heart') */
+    /** Selected voice catalog ID (e.g. 'el-yildiz', 'ct-leyla', 'kk-af-heart') */
     voiceCatalogId?: string;
     /** TTS provider override (derived from catalog entry) */
     ttsProvider?: 'elevenlabs' | 'google' | 'openai' | 'kokoro';
@@ -115,6 +115,6 @@ export const DEFAULT_VOICE_CONFIG: AgentVoiceConfig = {
     temperature: 0.7,
     maxTokens: 512,
     language: 'tr',
-    voiceCatalogId: 'ct-katie',
+    voiceCatalogId: 'ct-leyla',
     ttsProvider: 'cartesia',
 };

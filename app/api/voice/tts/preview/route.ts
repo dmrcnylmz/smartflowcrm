@@ -5,7 +5,7 @@
  * VoiceSelector bileşeninde "Dinle" butonuyla kullanılır.
  *
  * Request body:
- *   { voiceCatalogId: 'ct-katie' }
+ *   { voiceCatalogId: 'ct-leyla' }
  *   veya
  *   { provider: 'cartesia', voiceId: '<uuid>', language: 'tr' }
  *

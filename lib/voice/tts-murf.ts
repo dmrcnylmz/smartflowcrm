@@ -1,14 +1,15 @@
 /**
  * Murf Falcon TTS Provider — Budget-friendly, low-latency voice synthesis
  *
- * 130ms TTFB, 35+ dil (Türkçe 7 ses dahil), streaming desteği.
+ * 130ms TTFB, 24 dil (Türkçe YOK — sadece EN fallback), streaming desteği.
  * Maliyet-optimizeli alternatif: $0.01/1K chars.
  *
  * Auth: MURF_API_KEY env var
- * Endpoint: https://global.api.murf.ai/v1/speech/stream (streaming)
- * Model: FALCON
- * Output: Audio stream (binary)
+ * Endpoint: https://api.murf.ai/v1/speech/stream (streaming)
+ * Output: Audio stream (MP3)
  * Pricing: ~$0.01/1K chars
+ *
+ * NOT: Murf Türkçe desteklemiyor. Türkçe sesler Cartesia Sonic-3 üzerinden.
  */
 
 import { murfCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
@@ -17,8 +18,7 @@ import { murfCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breake
 // Configuration
 // =============================================
 
-const MURF_API_URL = 'https://global.api.murf.ai/v1/speech/stream';
-const MURF_MODEL = 'FALCON';
+const MURF_API_URL = 'https://api.murf.ai/v1/speech/stream';
 
 function getMurfApiKey(): string | null {
     return process.env.MURF_API_KEY || null;
@@ -32,19 +32,14 @@ export function isMurfConfigured(): boolean {
 // =============================================
 // Default Voice Mapping
 // =============================================
-// Murf has 7+ Turkish voices and 20+ English voices.
-// Voice IDs are retrieved from Murf API GET /v1/speech/voices.
-// These defaults will be updated after API key is configured.
+// Murf does NOT support Turkish — only EN voices here.
+// Turkish fallback should go to Cartesia, not Murf.
 // =============================================
 
 const MURF_DEFAULT_VOICES = {
-    tr: {
-        female: 'tr-TR-ElifNeural',  // Placeholder — update from Murf voice list
-        male: 'tr-TR-EmreNeural',
-    },
     en: {
-        female: 'en-US-NatalieNeural',
-        male: 'en-US-RyanNeural',
+        female: 'en-US-alina',
+        male: 'en-US-cooper',
     },
 } as const;
 
@@ -53,8 +48,10 @@ const MURF_DEFAULT_VOICES = {
 // =============================================
 
 /**
- * Murf Falcon ile ses sentezi yapar.
+ * Murf ile ses sentezi yapar (sadece İngilizce).
  * Returns a Response with audio body, or null on failure.
+ *
+ * Türkçe isteklerde null döner — fallback'e bırakır.
  *
  * @param text - Sentezlenecek metin
  * @param lang - Dil kodu ('tr' | 'en')
@@ -65,6 +62,12 @@ export async function synthesizeMurfTTS(
     lang: 'tr' | 'en',
     voiceId?: string,
 ): Promise<Response | null> {
+    // Murf does NOT support Turkish — fast-fail
+    if (lang === 'tr' && !voiceId) {
+        console.warn('[TTS:Murf] Turkish not supported — skipping');
+        return null;
+    }
+
     const apiKey = getMurfApiKey();
     if (!apiKey) {
         console.warn('[TTS:Murf] No API key found (MURF_API_KEY)');
@@ -77,8 +80,7 @@ export async function synthesizeMurfTTS(
         return null;
     }
 
-    const defaultVoices = MURF_DEFAULT_VOICES[lang];
-    const resolvedVoiceId = voiceId || defaultVoices.female;
+    const resolvedVoiceId = voiceId || MURF_DEFAULT_VOICES.en.female;
 
     try {
         const response = await murfCircuitBreaker.execute(async () => {
@@ -92,7 +94,7 @@ export async function synthesizeMurfTTS(
                 body: JSON.stringify({
                     text,
                     voiceId: resolvedVoiceId,
-                    model: MURF_MODEL,
+                    style: 'Conversational',
                     format: 'MP3',
                     sampleRate: 24000,
                 }),

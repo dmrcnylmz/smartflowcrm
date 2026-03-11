@@ -1,7 +1,7 @@
 /**
  * Voice Catalog — Tüm TTS Provider Sesleri Merkezi Kayıt
  *
- * ElevenLabs, Google Gemini TTS ve Kokoro seslerini tek bir katalogda toplar.
+ * ElevenLabs, Cartesia Sonic-3, Murf Falcon ve Kokoro seslerini tek bir katalogda toplar.
  * Provider/dil/cinsiyet bazında filtreleme ve ses önizleme desteği sağlar.
  */
 
@@ -121,9 +121,96 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
 
     // ─────────────────────────────────────────
     // Cartesia Sonic-3 — Ultra-low latency (~40ms TTFB)
-    // 42+ dil, Türkçe dahil. Profesyonel voice agent standardı.
-    // Multilingual voices — aynı ses tüm dilleri konuşur.
+    // 42+ dil. Türkçe native sesler + EN multilingual sesler.
+    // Profesyonel voice agent standardı.
     // ─────────────────────────────────────────
+    // TR Native Voices
+    {
+        id: 'ct-leyla',
+        provider: 'cartesia',
+        voiceId: 'fa7bfcdc-603c-4bf1-a600-a371400d2f8c',
+        name: 'Leyla',
+        gender: 'female',
+        language: 'tr',
+        tone: 'İfade Edici & Sıcak',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+        recommended: true,
+    },
+    {
+        id: 'ct-aylin',
+        provider: 'cartesia',
+        voiceId: 'bb2347fe-69e9-4810-873f-ffd759fe8420',
+        name: 'Aylin',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Sıcak & Rehber',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-elif',
+        provider: 'cartesia',
+        voiceId: '8036098f-cff4-401e-bfba-f0a6a6e5e49b',
+        name: 'Elif',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Sistematik & Güvenilir',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-azra',
+        provider: 'cartesia',
+        voiceId: '0f95596c-09c4-4418-99fe-5c107e0713c0',
+        name: 'Azra',
+        gender: 'female',
+        language: 'tr',
+        tone: 'Profesyonel & Net',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-emre',
+        provider: 'cartesia',
+        voiceId: '39f753ef-b0eb-41cd-aa53-2f3c284f948f',
+        name: 'Emre',
+        gender: 'male',
+        language: 'tr',
+        tone: 'Sakin & Rahatlatıcı',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-taylan',
+        provider: 'cartesia',
+        voiceId: 'c1cfee3d-532d-47f8-8dd2-8e5b2b66bf1d',
+        name: 'Taylan',
+        gender: 'male',
+        language: 'tr',
+        tone: 'İfade Edici & Çok Yönlü',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    {
+        id: 'ct-murat',
+        provider: 'cartesia',
+        voiceId: '5a31e4fb-f823-4359-aa91-82c0ae9a991c',
+        name: 'Murat',
+        gender: 'male',
+        language: 'tr',
+        tone: 'Derin & Otoriter',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+    // EN Multilingual Voices (also speak Turkish via sonic-3)
     {
         id: 'ct-katie',
         provider: 'cartesia',
@@ -131,83 +218,47 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         name: 'Katie',
         gender: 'female',
         language: 'multi',
-        tone: 'Sıcak & Doğal',
+        tone: 'Doğal & Yardımsever',
         model: 'sonic-3',
         tier: 'premium',
         avgLatencyMs: 40,
         recommended: true,
     },
-    {
-        id: 'ct-kiefer',
-        provider: 'cartesia',
-        voiceId: '228fca29-3a0a-435c-8728-5cb483251068',
-        name: 'Kiefer',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Profesyonel & Güvenilir',
-        model: 'sonic-3',
-        tier: 'premium',
-        avgLatencyMs: 40,
-    },
-    {
-        id: 'ct-tessa',
-        provider: 'cartesia',
-        voiceId: '6ccbfb76-1fc6-48f7-b71d-91ac6298247b',
-        name: 'Tessa',
-        gender: 'female',
-        language: 'multi',
-        tone: 'Enerjik & İfade Edici',
-        model: 'sonic-3',
-        tier: 'premium',
-        avgLatencyMs: 40,
-    },
-    {
-        id: 'ct-kyle',
-        provider: 'cartesia',
-        voiceId: 'c961b81c-a935-4c17-bfb3-ba2239de8c2f',
-        name: 'Kyle',
-        gender: 'male',
-        language: 'multi',
-        tone: 'Güçlü & Kararlı',
-        model: 'sonic-3',
-        tier: 'premium',
-        avgLatencyMs: 40,
-    },
 
     // ─────────────────────────────────────────
-    // Murf Falcon — Budget-friendly (~130ms TTFB)
-    // 35+ dil, Türkçe 7 ses. $0.01/1K chars.
-    // Voice ID'ler Murf API'den güncellenecek.
+    // Murf Falcon — Budget-friendly EN fallback (~130ms TTFB)
+    // Türkçe desteği YOK. Sadece İngilizce voice agent'lar için.
+    // $0.01/1K chars — en ucuz premium ses.
     // ─────────────────────────────────────────
     {
-        id: 'mf-elif',
+        id: 'mf-alina',
         provider: 'murf',
-        voiceId: 'tr-TR-ElifNeural',
-        name: 'Elif',
+        voiceId: 'en-US-alina',
+        name: 'Alina',
         gender: 'female',
-        language: 'tr',
+        language: 'en',
         tone: 'Doğal & Sıcak',
         model: 'falcon',
         tier: 'standard',
         avgLatencyMs: 130,
     },
     {
-        id: 'mf-emre',
+        id: 'mf-cooper',
         provider: 'murf',
-        voiceId: 'tr-TR-EmreNeural',
-        name: 'Emre',
+        voiceId: 'en-US-cooper',
+        name: 'Cooper',
         gender: 'male',
-        language: 'tr',
-        tone: 'Profesyonel & Kararlı',
+        language: 'en',
+        tone: 'Profesyonel & Enerjik',
         model: 'falcon',
         tier: 'standard',
         avgLatencyMs: 130,
     },
     {
-        id: 'mf-natalie',
+        id: 'mf-imani',
         provider: 'murf',
-        voiceId: 'en-US-NatalieNeural',
-        name: 'Natalie',
+        voiceId: 'en-US-imani',
+        name: 'Imani',
         gender: 'female',
         language: 'en',
         tone: 'Net & Profesyonel',
@@ -216,13 +267,13 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
         avgLatencyMs: 130,
     },
     {
-        id: 'mf-ryan',
+        id: 'mf-daniel',
         provider: 'murf',
-        voiceId: 'en-US-RyanNeural',
-        name: 'Ryan',
+        voiceId: 'en-US-daniel',
+        name: 'Daniel',
         gender: 'male',
         language: 'en',
-        tone: 'Güvenilir & Kararlı',
+        tone: 'Güvenilir & Sakin',
         model: 'falcon',
         tier: 'standard',
         avgLatencyMs: 130,

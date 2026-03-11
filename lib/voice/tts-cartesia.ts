@@ -32,16 +32,21 @@ export function isCartesiaConfigured(): boolean {
 }
 
 // =============================================
-// Default Voice Mapping
+// Default Voice Mapping (language-aware)
 // =============================================
-// Cartesia voices are multilingual — same voice speaks all 42 languages.
-// Docs recommend Katie & Kiefer for voice agent use cases.
-// These UUIDs are from official Cartesia documentation.
+// TR: Native Turkish voices from Cartesia's Turkish voice library
+// EN: Multilingual voices recommended for voice agent use cases
 // =============================================
 
 const CARTESIA_DEFAULT_VOICES = {
-    female: 'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie — voice agent recommended
-    male: '228fca29-3a0a-435c-8728-5cb483251068',   // Kiefer — voice agent recommended
+    tr: {
+        female: 'fa7bfcdc-603c-4bf1-a600-a371400d2f8c', // Leyla — Story Companion (TR native)
+        male: '39f753ef-b0eb-41cd-aa53-2f3c284f948f',   // Emre — Calming Speaker (TR native)
+    },
+    en: {
+        female: 'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie — Friendly Fixer (multilingual)
+        male: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',   // Blake — Helpful Agent (multilingual)
+    },
 } as const;
 
 // =============================================
@@ -73,7 +78,7 @@ export async function synthesizeCartesiaTTS(
         return null;
     }
 
-    const resolvedVoiceId = voiceId || CARTESIA_DEFAULT_VOICES.female;
+    const resolvedVoiceId = voiceId || CARTESIA_DEFAULT_VOICES[lang].female;
 
     try {
         const response = await cartesiaCircuitBreaker.execute(async () => {
