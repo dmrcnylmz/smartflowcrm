@@ -869,6 +869,7 @@ function StepCustomize({
                                             voiceCatalogId: voice.id,
                                             ttsProvider: voice.provider,
                                         })}
+                                        language={(language as 'tr' | 'en') || 'tr'}
                                         authFetch={authFetch}
                                         isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
                                         compact

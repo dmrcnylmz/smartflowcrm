@@ -963,6 +963,7 @@ export default function AgentsPage() {
                                                         ttsProvider: voice.provider,
                                                     },
                                                 }))}
+                                                language={(editingAgent.voiceConfig?.language as 'tr' | 'en') || 'tr'}
                                                 authFetch={authFetch}
                                                 isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
                                             />

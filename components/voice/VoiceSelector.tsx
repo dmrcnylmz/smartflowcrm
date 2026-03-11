@@ -66,6 +66,7 @@ export function VoiceSelector({
     const [genderFilter, setGenderFilter] = useState<VoiceGender | null>(null);
     const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
     const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // ---- Filtered voices ----
@@ -110,6 +111,7 @@ export function VoiceSelector({
 
         setLoadingVoiceId(voice.id);
         setPlayingVoiceId(null);
+        setPreviewError(null);
 
         try {
             const fetchFn = authFetch || fetch;
@@ -119,9 +121,16 @@ export function VoiceSelector({
                 body: JSON.stringify({ voiceCatalogId: voice.id }),
             });
 
-            if (!res.ok) throw new Error(`Preview failed: ${res.status}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+                throw new Error(errData.error || `Preview failed: ${res.status}`);
+            }
 
             const blob = await res.blob();
+            if (blob.size < 100) {
+                throw new Error('Ses verisi alınamadı');
+            }
+
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
 
@@ -138,13 +147,18 @@ export function VoiceSelector({
             audio.onerror = () => {
                 setPlayingVoiceId(null);
                 setLoadingVoiceId(null);
+                setPreviewError('Ses çalınamadı');
             };
 
             audioRef.current = audio;
             await audio.play();
-        } catch {
+        } catch (err) {
             setLoadingVoiceId(null);
             setPlayingVoiceId(null);
+            const msg = err instanceof Error ? err.message : 'Önizleme başarısız';
+            setPreviewError(`${voice.name}: ${msg}`);
+            // Auto-clear error after 4 seconds
+            setTimeout(() => setPreviewError(null), 4000);
         }
     }, [playingVoiceId, authFetch]);
 
@@ -211,6 +225,13 @@ export function VoiceSelector({
                     </Button>
                 </div>
             </div>
+
+            {/* ---- Preview Error ---- */}
+            {previewError && (
+                <div className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+                    ⚠️ {previewError}
+                </div>
+            )}
 
             {/* ---- Voice Count ---- */}
             <p className="text-xs text-muted-foreground">
