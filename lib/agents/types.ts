@@ -32,7 +32,7 @@ export interface AgentVoiceConfig {
     /** Selected voice catalog ID (e.g. 'el-yildiz', 'ct-leyla', 'kk-af-heart') */
     voiceCatalogId?: string;
     /** TTS provider override (derived from catalog entry) */
-    ttsProvider?: 'elevenlabs' | 'google' | 'openai' | 'kokoro';
+    ttsProvider?: 'elevenlabs' | 'google' | 'openai' | 'kokoro' | 'cartesia' | 'murf';
 }
 
 export interface Agent {

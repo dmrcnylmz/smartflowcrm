@@ -358,6 +358,9 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 setShowAdvanced={setShowAdvanced}
                                 isSmartVariable={isSmartVariable}
                                 getSmartValue={getSmartValue}
+                                language={language}
+                                authFetch={authFetch}
+                                isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
                             />
                         )}
                         {currentStep === 3 && !createdAgentId && (
@@ -710,6 +713,7 @@ function StepCustomize({
     fallbackRules, setFallbackRules,
     showAdvanced, setShowAdvanced,
     isSmartVariable, getSmartValue,
+    language, authFetch, isEnterprise,
 }: {
     variables: AgentVariable[];
     setVariables: (v: AgentVariable[]) => void;
@@ -724,6 +728,9 @@ function StepCustomize({
     setShowAdvanced: (v: boolean) => void;
     isSmartVariable: (key: string) => boolean;
     getSmartValue: (key: string) => string | null;
+    language: string;
+    authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+    isEnterprise: boolean;
 }) {
     const [showPrompt, setShowPrompt] = useState(false);
 
@@ -871,7 +878,7 @@ function StepCustomize({
                                         })}
                                         language={(language as 'tr' | 'en') || 'tr'}
                                         authFetch={authFetch}
-                                        isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
+                                        isEnterprise={isEnterprise}
                                         compact
                                     />
                                 </div>
