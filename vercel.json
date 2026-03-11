@@ -87,7 +87,7 @@
         },
         {
             "path": "/api/cron/gpu-shutdown",
-            "schedule": "*/5 * * * *"
+            "schedule": "0 3 * * *"
         }
     ]
 }

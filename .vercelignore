@@ -1,0 +1,9 @@
+.agent
+.claude
+.agents
+.git
+personaplex_server/.venv
+node_modules
+coverage
+__tests__
+*.md
