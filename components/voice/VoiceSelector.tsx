@@ -142,13 +142,13 @@ export function VoiceSelector({
             setLoadingVoiceId(null);
             setPlayingVoiceId(null);
         }
-    }, [playingVoiceId]);
+    }, [playingVoiceId, authFetch]);
 
     // ---- Provider filter buttons ----
     const providerButtons: { value: TTSProvider | null; label: string; icon: string }[] = [
         { value: null, label: 'Tümü', icon: '🎤' },
         { value: 'elevenlabs', label: 'ElevenLabs', icon: '⚡' },
-        { value: 'google', label: 'Google', icon: '🔵' },
+        { value: 'google', label: 'Gemini', icon: '✨' },
         { value: 'kokoro', label: 'Kokoro', icon: '🔊' },
     ];
 

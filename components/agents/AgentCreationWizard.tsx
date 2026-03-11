@@ -869,11 +869,6 @@ function StepCustomize({
                                             voiceCatalogId: voice.id,
                                             ttsProvider: voice.provider,
                                         })}
-                                        language={
-                                            (voiceConfig.language === 'tr' || voiceConfig.language === 'en')
-                                                ? voiceConfig.language
-                                                : undefined
-                                        }
                                         authFetch={authFetch}
                                         compact
                                     />

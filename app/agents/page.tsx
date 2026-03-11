@@ -961,11 +961,6 @@ export default function AgentsPage() {
                                                         ttsProvider: voice.provider,
                                                     },
                                                 }))}
-                                                language={
-                                                    (editingAgent.voiceConfig?.language === 'tr' || editingAgent.voiceConfig?.language === 'en')
-                                                        ? editingAgent.voiceConfig.language
-                                                        : undefined
-                                                }
                                                 authFetch={authFetch}
                                             />
                                         </div>

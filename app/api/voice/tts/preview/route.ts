@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { synthesizeGoogleTTS } from '@/lib/voice/tts-google';
+import { synthesizeGeminiTTS } from '@/lib/voice/tts-gemini';
 import { synthesizeKokoroTTS } from '@/lib/voice/tts-kokoro';
 import { getVoiceById, PREVIEW_SAMPLES, type TTSProvider } from '@/lib/voice/voice-catalog';
 
@@ -94,7 +95,14 @@ export async function POST(request: NextRequest) {
                 audioResponse = res;
             }
         } else if (resolvedProvider === 'google') {
-            audioResponse = await synthesizeGoogleTTS(sampleText, resolvedLang, resolvedVoiceId);
+            // Use Gemini TTS for new voices (voiceId is just the name e.g. "Kore")
+            // Fall back to legacy Google Cloud TTS for old-format voices
+            const isGeminiVoice = !resolvedVoiceId.includes('-');
+            if (isGeminiVoice) {
+                audioResponse = await synthesizeGeminiTTS(sampleText, resolvedLang, resolvedVoiceId);
+            } else {
+                audioResponse = await synthesizeGoogleTTS(sampleText, resolvedLang, resolvedVoiceId);
+            }
         } else if (resolvedProvider === 'kokoro') {
             audioResponse = await synthesizeKokoroTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'openai') {
@@ -132,9 +140,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Use original content-type from provider (WAV for Gemini, MP3 for others)
+        const contentType = audioResponse.headers.get('Content-Type') || 'audio/mpeg';
+
         return new NextResponse(audioResponse.body, {
             headers: {
-                'Content-Type': 'audio/mpeg',
+                'Content-Type': contentType,
                 'Cache-Control': 'public, max-age=3600', // Cache previews for 1 hour
                 'X-TTS-Provider': resolvedProvider,
                 'X-TTS-Voice': resolvedVoiceId,

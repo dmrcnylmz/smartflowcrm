@@ -1,7 +1,7 @@
 /**
  * Voice Catalog — Tüm TTS Provider Sesleri Merkezi Kayıt
  *
- * ElevenLabs, Google Cloud TTS (Chirp3-HD) ve Kokoro seslerini tek bir katalogda toplar.
+ * ElevenLabs, Google Gemini TTS ve Kokoro seslerini tek bir katalogda toplar.
  * Provider/dil/cinsiyet bazında filtreleme ve ses önizleme desteği sağlar.
  */
 
@@ -120,80 +120,81 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     },
 
     // ─────────────────────────────────────────
-    // Google Cloud TTS — Turkish Chirp 3: HD ($30/1M chars, premium quality)
+    // Google Gemini TTS — Gemini 2.5 Flash (premium, multi-language)
+    // En üst segment Google sesleri, çok doğal ve ifade edici
     // ─────────────────────────────────────────
     {
-        id: 'g-tr-chirp3hd-kore',
+        id: 'gm-kore',
         provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Kore',
-        name: 'Kore (HD)',
+        voiceId: 'Kore',
+        name: 'Kore',
         gender: 'female',
-        language: 'tr',
-        tone: 'Sıcak & Doğal',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
+        language: 'multi',
+        tone: 'Kararlı & Doğal',
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
         recommended: true,
     },
     {
-        id: 'g-tr-chirp3hd-aoede',
+        id: 'gm-aoede',
         provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Aoede',
-        name: 'Aoede (HD)',
+        voiceId: 'Aoede',
+        name: 'Aoede',
         gender: 'female',
-        language: 'tr',
-        tone: 'Doğal & Akıcı',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
+        language: 'multi',
+        tone: 'Sıcak & Akıcı',
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
     },
     {
-        id: 'g-tr-chirp3hd-leda',
+        id: 'gm-leda',
         provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Leda',
-        name: 'Leda (HD)',
+        voiceId: 'Leda',
+        name: 'Leda',
         gender: 'female',
-        language: 'tr',
-        tone: 'Profesyonel',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
+        language: 'multi',
+        tone: 'Profesyonel & Sakin',
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
     },
     {
-        id: 'g-tr-chirp3hd-charon',
+        id: 'gm-puck',
         provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Charon',
-        name: 'Charon (HD)',
+        voiceId: 'Puck',
+        name: 'Puck',
         gender: 'male',
-        language: 'tr',
+        language: 'multi',
+        tone: 'Enerjik & Neşeli',
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
+    },
+    {
+        id: 'gm-charon',
+        provider: 'google',
+        voiceId: 'Charon',
+        name: 'Charon',
+        gender: 'male',
+        language: 'multi',
         tone: 'Güçlü & Derin',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
     },
     {
-        id: 'g-tr-chirp3hd-fenrir',
+        id: 'gm-fenrir',
         provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Fenrir',
-        name: 'Fenrir (HD)',
+        voiceId: 'Fenrir',
+        name: 'Fenrir',
         gender: 'male',
-        language: 'tr',
-        tone: 'Kararlı',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
-    },
-    {
-        id: 'g-tr-chirp3hd-orus',
-        provider: 'google',
-        voiceId: 'tr-TR-Chirp3-HD-Orus',
-        name: 'Orus (HD)',
-        gender: 'male',
-        language: 'tr',
-        tone: 'Doğal',
-        model: 'Chirp3-HD',
-        tier: 'standard',
-        avgLatencyMs: 300,
+        language: 'multi',
+        tone: 'Otoriter & Kararlı',
+        model: 'gemini-2.5-flash-tts',
+        tier: 'premium',
+        avgLatencyMs: 600,
     },
 
     // ─────────────────────────────────────────
@@ -293,7 +294,7 @@ export function getRecommendedVoices(): VoiceCatalogEntry[] {
 export function getProviderDisplayName(provider: TTSProvider): string {
     switch (provider) {
         case 'elevenlabs': return 'ElevenLabs';
-        case 'google': return 'Google Cloud';
+        case 'google': return 'Google Gemini';
         case 'openai': return 'OpenAI';
         case 'kokoro': return 'Kokoro';
     }

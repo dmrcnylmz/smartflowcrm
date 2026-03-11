@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
         },
         google: {
             name: getProviderDisplayName('google'),
-            available: !!getServiceAccountKey(),
+            available: !!(process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || getServiceAccountKey()),
+            note: 'Gemini 2.5 Flash TTS — multi-language premium',
         },
         kokoro: {
             name: getProviderDisplayName('kokoro'),

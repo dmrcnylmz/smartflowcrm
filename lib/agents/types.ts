@@ -29,7 +29,7 @@ export interface AgentVoiceConfig {
     temperature: number;
     maxTokens: number;
     language: string;
-    /** Selected voice catalog ID (e.g. 'el-yildiz', 'g-tr-chirp3hd-kore') */
+    /** Selected voice catalog ID (e.g. 'el-yildiz', 'gm-kore', 'kk-af-heart') */
     voiceCatalogId?: string;
     /** TTS provider override (derived from catalog entry) */
     ttsProvider?: 'elevenlabs' | 'google' | 'openai' | 'kokoro';

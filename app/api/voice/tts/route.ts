@@ -29,6 +29,7 @@ import { meterTtsUsage } from '@/lib/billing/metering';
 import { checkCostThresholds } from '@/lib/billing/cost-monitor';
 import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, kokoroCircuitBreaker, CircuitOpenError } from '@/lib/voice/circuit-breaker';
 import { synthesizeGoogleTTS, getServiceAccountKey } from '@/lib/voice/tts-google';
+import { synthesizeGeminiTTS } from '@/lib/voice/tts-gemini';
 import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -270,9 +271,18 @@ export async function POST(request: NextRequest) {
             audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
         } else if (forceProvider === 'google') {
-            audioResponse = await synthesizeGoogleTTS(safeText, lang, voice_id);
-            usedProvider = 'google';
-            usedModel = voice_id || 'google-default';
+            // Gemini TTS for simple voice names (Kore, Leda, etc.)
+            // Legacy Cloud TTS for hyphenated voice names (tr-TR-Chirp3-HD-Kore)
+            const isGeminiVoice = voice_id && !voice_id.includes('-');
+            if (isGeminiVoice) {
+                audioResponse = await synthesizeGeminiTTS(safeText, lang, voice_id);
+                usedProvider = 'google-gemini';
+                usedModel = 'gemini-2.5-flash-tts';
+            } else {
+                audioResponse = await synthesizeGoogleTTS(safeText, lang, voice_id);
+                usedProvider = 'google';
+                usedModel = voice_id || 'google-default';
+            }
         } else if (forceProvider === 'openai') {
             audioResponse = await synthesizeOpenAI(safeText, lang, voice_id);
             usedProvider = 'openai';
@@ -384,9 +394,11 @@ export async function POST(request: NextRequest) {
         }
 
         // ---- Stream audio back to client ----
+        const contentType = audioResponse.headers.get('Content-Type') || 'audio/mpeg';
+
         return new NextResponse(audioResponse.body, {
             headers: {
-                'Content-Type': 'audio/mpeg',
+                'Content-Type': contentType,
                 'Cache-Control': 'no-cache',
                 'Transfer-Encoding': 'chunked',
                 'X-TTS-Provider': usedProvider,
