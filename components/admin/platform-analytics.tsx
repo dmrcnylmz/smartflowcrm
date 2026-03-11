@@ -25,7 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
     Globe, Activity, HardDrive, Eye, Users, Building2, Phone,
     TrendingUp, RefreshCw, BarChart3, Calendar, ShieldAlert, Shield,
-    MapPin, AlertTriangle,
+    MapPin, AlertTriangle, LogIn, MousePointerClick, UserCheck,
+    FileText,
 } from 'lucide-react';
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -88,11 +89,20 @@ interface PlatformData {
     recentRegistrations: { email: string; companyName: string; plan: string; createdAt: string }[];
 }
 
+interface UserActivityData {
+    totalLogins: number;
+    totalPageViews: number;
+    uniqueActiveUsers: number;
+    topPages: { page: string; views: number }[];
+    dailyLogins: { date: string; logins: number; pageViews: number; activeUsers: number }[];
+}
+
 interface AnalyticsResponse {
     range: string;
     days: number;
     cloudflare: CloudflareData | null;
     platform: PlatformData;
+    userActivity?: UserActivityData;
     generatedAt: string;
 }
 
@@ -467,6 +477,161 @@ export default function PlatformAnalytics() {
                                         </TableBody>
                                     </Table>
                                 </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </>
+            )}
+
+            {/* Section 6: User Activity (Real logged-in users) */}
+            {data?.userActivity && (
+                <>
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 pt-2">
+                        <div className="h-px flex-1 bg-white/10" />
+                        <span className="text-xs text-white/40 uppercase tracking-wider">Kullanıcı Aktivitesi</span>
+                        <div className="h-px flex-1 bg-white/10" />
+                    </div>
+
+                    {/* User Activity KPI Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <KpiCard
+                            icon={LogIn}
+                            label="Toplam Giriş"
+                            value={data.userActivity.totalLogins}
+                            subtitle={`Son ${data.days} gün`}
+                            color="text-teal-400"
+                        />
+                        <KpiCard
+                            icon={UserCheck}
+                            label="Aktif Kullanıcı"
+                            value={data.userActivity.uniqueActiveUsers}
+                            subtitle="Benzersiz kullanıcı"
+                            color="text-sky-400"
+                        />
+                        <KpiCard
+                            icon={MousePointerClick}
+                            label="Sayfa Görüntüleme"
+                            value={data.userActivity.totalPageViews}
+                            subtitle="Uygulama içi"
+                            color="text-orange-400"
+                        />
+                        <KpiCard
+                            icon={FileText}
+                            label="Popüler Sayfa"
+                            value={data.userActivity.topPages?.[0]?.page || '—'}
+                            subtitle={data.userActivity.topPages?.[0] ? `${data.userActivity.topPages[0].views} görüntüleme` : undefined}
+                            color="text-indigo-400"
+                        />
+                    </div>
+
+                    {/* Daily Logins & Active Users Chart + Top Pages */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* Daily Logins & Active Users */}
+                        {data.userActivity.dailyLogins.length > 0 && (
+                            <Card className="border-white/10 bg-white/[0.02]">
+                                <CardContent className="p-5">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <LogIn className="h-4 w-4 text-teal-400" />
+                                        <span className="text-sm font-medium text-white/70">Günlük Giriş & Aktif Kullanıcılar</span>
+                                    </div>
+                                    <ResponsiveContainer width="100%" height={260}>
+                                        <AreaChart data={data.userActivity.dailyLogins}>
+                                            <defs>
+                                                <linearGradient id="loginGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#2dd4bf" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#2dd4bf" stopOpacity={0} />
+                                                </linearGradient>
+                                                <linearGradient id="activeGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
+                                            <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
+                                            <Tooltip content={<CustomTooltip />} />
+                                            <Area type="monotone" dataKey="logins" name="Giriş" stroke="#2dd4bf" fill="url(#loginGrad)" strokeWidth={2} />
+                                            <Area type="monotone" dataKey="activeUsers" name="Aktif Kullanıcı" stroke="#38bdf8" fill="url(#activeGrad)" strokeWidth={2} />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Top Pages Table */}
+                        {data.userActivity.topPages.length > 0 && (
+                            <Card className="border-white/10 bg-white/[0.02]">
+                                <CardContent className="p-5">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <FileText className="h-4 w-4 text-indigo-400" />
+                                        <span className="text-sm font-medium text-white/70">En Çok Ziyaret Edilen Sayfalar</span>
+                                    </div>
+                                    <div className="overflow-auto max-h-[280px]">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="border-white/5">
+                                                    <TableHead className="text-white/50">#</TableHead>
+                                                    <TableHead className="text-white/50">Sayfa</TableHead>
+                                                    <TableHead className="text-white/50 text-right">Görüntüleme</TableHead>
+                                                    <TableHead className="text-white/50 text-right">Oran</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {data.userActivity.topPages.map((page, i) => {
+                                                    const pct = data.userActivity!.totalPageViews > 0
+                                                        ? ((page.views / data.userActivity!.totalPageViews) * 100).toFixed(1)
+                                                        : '0';
+                                                    return (
+                                                        <TableRow key={i} className="border-white/5">
+                                                            <TableCell className="text-white/30 text-sm w-8">{i + 1}</TableCell>
+                                                            <TableCell className="text-white/80 font-medium text-sm">
+                                                                <code className="bg-white/5 px-2 py-0.5 rounded text-xs">
+                                                                    {page.page}
+                                                                </code>
+                                                            </TableCell>
+                                                            <TableCell className="text-right text-white/60 font-mono text-sm">
+                                                                {page.views.toLocaleString()}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className="h-full bg-indigo-500 rounded-full"
+                                                                            style={{ width: `${Math.min(parseFloat(pct), 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                    <span className="text-white/40 text-xs font-mono w-12 text-right">{pct}%</span>
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+
+                    {/* Daily Page Views from App (bar chart) */}
+                    {data.userActivity.dailyLogins.length > 0 && data.userActivity.totalPageViews > 0 && (
+                        <Card className="border-white/10 bg-white/[0.02]">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <MousePointerClick className="h-4 w-4 text-orange-400" />
+                                    <span className="text-sm font-medium text-white/70">Günlük Uygulama Sayfa Görüntüleme</span>
+                                </div>
+                                <ResponsiveContainer width="100%" height={200}>
+                                    <BarChart data={data.userActivity.dailyLogins}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                        <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
+                                        <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
+                                        <Tooltip content={<CustomTooltip />} />
+                                        <Bar dataKey="pageViews" name="Sayfa Görüntüleme" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </CardContent>
                         </Card>
                     )}

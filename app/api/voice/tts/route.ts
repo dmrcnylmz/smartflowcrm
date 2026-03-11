@@ -231,9 +231,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Text is required' }, { status: 400 });
         }
 
-        const lang = (language || detectLanguage(text)) as 'tr' | 'en';
+        // Security: limit text length to prevent API cost abuse
+        const safeText = text.slice(0, 5000);
+        const lang = (language || detectLanguage(safeText)) as 'tr' | 'en';
         const isGreeting = greeting === true;
-        const charCount = text.length;
+        const charCount = safeText.length;
 
         // ---- Resolve tenant for metrics (non-blocking) ----
         // Priority: explicit body param → auth header → session registry → default
@@ -265,21 +267,21 @@ export async function POST(request: NextRequest) {
         let usedModel: string = isGreeting ? ELEVENLABS_MODELS.greeting : ELEVENLABS_MODELS.body;
 
         if (forceProvider === 'elevenlabs') {
-            audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
+            audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
         } else if (forceProvider === 'google') {
-            audioResponse = await synthesizeGoogleTTS(text, lang, voice_id);
+            audioResponse = await synthesizeGoogleTTS(safeText, lang, voice_id);
             usedProvider = 'google';
             usedModel = voice_id || 'google-default';
         } else if (forceProvider === 'openai') {
-            audioResponse = await synthesizeOpenAI(text, lang, voice_id);
+            audioResponse = await synthesizeOpenAI(safeText, lang, voice_id);
             usedProvider = 'openai';
             usedModel = 'tts-1';
         } else if (forceProvider === 'kokoro') {
             if (lang !== 'en') {
                 return NextResponse.json({ error: 'Kokoro only supports English' }, { status: 400 });
             }
-            audioResponse = await synthesizeKokoroTTS(text, lang, voice_id);
+            audioResponse = await synthesizeKokoroTTS(safeText, lang, voice_id);
             usedProvider = 'kokoro';
             usedModel = 'kokoro-v1';
         } else if (emergencyActive) {
@@ -290,26 +292,26 @@ export async function POST(request: NextRequest) {
 
             // Kokoro first for English (ultra-low cost)
             if (lang === 'en') {
-                audioResponse = await synthesizeKokoroTTS(text, 'en');
+                audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                 usedProvider = 'kokoro-emergency';
                 usedModel = 'kokoro-v1';
             }
 
             if (!audioResponse) {
-                audioResponse = await synthesizeGoogleTTS(text, lang);
+                audioResponse = await synthesizeGoogleTTS(safeText, lang);
                 usedProvider = 'google-emergency';
                 usedModel = 'google-tts';
             }
 
             if (!audioResponse) {
-                audioResponse = await synthesizeOpenAI(text, lang);
+                audioResponse = await synthesizeOpenAI(safeText, lang);
                 usedProvider = 'openai-emergency';
                 usedModel = 'tts-1';
             }
 
             // Fallback to ElevenLabs if all cheaper alternatives fail
             if (!audioResponse) {
-                audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
+                audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
                 usedProvider = 'elevenlabs';
                 usedModel = ELEVENLABS_MODELS.body;
             }
@@ -317,27 +319,27 @@ export async function POST(request: NextRequest) {
             // Default fallback chain:
             // EN: ElevenLabs → Kokoro → Google → OpenAI
             // TR: ElevenLabs → Google → OpenAI
-            audioResponse = await synthesizeElevenLabs(text, lang, isGreeting, voice_id, model_id);
+            audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
 
             // Kokoro fallback for English only (fast + ultra-low cost)
             if (!audioResponse && lang === 'en') {
                 console.warn('[TTS] ElevenLabs failed, trying Kokoro (EN)...');
-                audioResponse = await synthesizeKokoroTTS(text, 'en');
+                audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                 usedProvider = 'kokoro-fallback';
                 usedModel = 'kokoro-v1';
             }
 
             if (!audioResponse) {
                 console.warn('[TTS] Trying Google Cloud TTS...');
-                audioResponse = await synthesizeGoogleTTS(text, lang);
+                audioResponse = await synthesizeGoogleTTS(safeText, lang);
                 usedProvider = 'google-fallback';
                 usedModel = 'google-tts';
             }
 
             if (!audioResponse) {
                 console.warn('[TTS] Google TTS also failed, falling back to OpenAI TTS (slow!)');
-                audioResponse = await synthesizeOpenAI(text, lang);
+                audioResponse = await synthesizeOpenAI(safeText, lang);
                 usedProvider = 'openai-fallback';
                 usedModel = 'tts-1';
             }

@@ -25,10 +25,8 @@ const PUBLIC_API_PATHS = [
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
     '/api/cron/gpu-shutdown',
-    '/api/voice/test-e2e',
-    '/api/twilio/test',
-    '/api/billing/alert-test',
-    '/api/system/go-live-check',
+    // Security: test & diagnostic endpoints moved behind auth
+    // '/api/voice/test-e2e', '/api/twilio/test', '/api/billing/alert-test', '/api/system/go-live-check'
 ];
 
 /** Server-to-server endpoints (webhooks, cron, etc.) legitimately have no Origin */

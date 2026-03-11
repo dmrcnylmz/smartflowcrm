@@ -38,10 +38,10 @@ export async function requireSuperAdmin(
     if (auth.error) return auth as unknown as SuperAdminAuth;
 
     const email = (auth.email || '').toLowerCase();
+    // Only trust email-based checks — header-based role is spoofable
     const isSuperAdmin =
         email.endsWith(`@${SUPER_ADMIN_DOMAIN}`) ||
-        SUPER_ADMIN_EMAILS.includes(email) ||
-        request.headers.get('x-user-role') === 'superadmin';
+        SUPER_ADMIN_EMAILS.includes(email);
 
     if (!isSuperAdmin) {
         return {

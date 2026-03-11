@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/firebase/auth-context';
+import { useTrackEvent } from '@/lib/hooks/useActivityTracker';
 import { Mail, Lock, User, AlertCircle, Loader2, Phone } from 'lucide-react';
 
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
@@ -71,6 +72,7 @@ function SoundWave({ className }: { className?: string }) {
 export default function LoginPage() {
     const router = useRouter();
     const { signIn, signInWithGoogle, signUp, resetPassword, loading, error, clearError } = useAuth();
+    const trackEvent = useTrackEvent();
     const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
     const [showResetPassword, setShowResetPassword] = useState(false);
     const [resetEmailSent, setResetEmailSent] = useState(false);
@@ -104,6 +106,7 @@ export default function LoginPage() {
                 localStorage.removeItem('callception_remembered_email');
             }
             await signIn(loginData.email, loginData.password);
+            trackEvent('login', { method: 'email' });
             router.push('/');
         } catch { /* handled in context */ }
     }
@@ -113,6 +116,7 @@ export default function LoginPage() {
         clearError();
         try {
             await signInWithGoogle();
+            trackEvent('login', { method: 'google' });
             router.push('/');
         } catch { /* handled in context */ }
     }

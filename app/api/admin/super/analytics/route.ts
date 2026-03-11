@@ -253,6 +253,89 @@ async function fetchPlatformMetrics(firestore: FirebaseFirestore.Firestore, days
     };
 }
 
+// ---- User Activity (from platform_analytics collection) ----
+async function fetchUserActivity(firestore: FirebaseFirestore.Firestore, days: number) {
+    try {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+
+        // Fetch platform_analytics daily docs
+        const analyticsSnap = await firestore
+            .collection('platform_analytics')
+            .where('updatedAt', '>=', since)
+            .orderBy('updatedAt', 'desc')
+            .limit(days + 1)
+            .get();
+
+        let totalLogins = 0;
+        let totalPageViews = 0;
+        const uniqueUsers = new Set<string>();
+        const pageBreakdown: Record<string, number> = {};
+        const dailyLogins: { date: string; logins: number; pageViews: number; activeUsers: number }[] = [];
+
+        for (const doc of analyticsSnap.docs) {
+            const data = doc.data();
+            const dateId = doc.id; // YYYY-MM-DD
+
+            // Logins
+            const dayLogins = data.logins || 0;
+            totalLogins += dayLogins;
+
+            // Page views
+            const dayPV = data.totalPageViews || 0;
+            totalPageViews += dayPV;
+
+            // Active users
+            const activeUsers = data.activeUsers ? Object.keys(data.activeUsers) : [];
+            const loginUsers = data.loginUsers ? Object.keys(data.loginUsers) : [];
+            [...activeUsers, ...loginUsers].forEach(u => uniqueUsers.add(u));
+
+            // Page breakdown
+            if (data.pageViews && typeof data.pageViews === 'object') {
+                for (const [page, count] of Object.entries(data.pageViews)) {
+                    if (typeof count === 'number') {
+                        const cleanPage = page.replace(/_/g, '/');
+                        pageBreakdown[cleanPage] = (pageBreakdown[cleanPage] || 0) + count;
+                    }
+                }
+            }
+
+            dailyLogins.push({
+                date: dateId,
+                logins: dayLogins,
+                pageViews: dayPV,
+                activeUsers: activeUsers.length || loginUsers.length,
+            });
+        }
+
+        // Sort by date ascending
+        dailyLogins.sort((a, b) => a.date.localeCompare(b.date));
+
+        // Page breakdown sorted by count
+        const topPages = Object.entries(pageBreakdown)
+            .map(([page, views]) => ({ page, views }))
+            .sort((a, b) => b.views - a.views)
+            .slice(0, 20);
+
+        return {
+            totalLogins,
+            totalPageViews,
+            uniqueActiveUsers: uniqueUsers.size,
+            topPages,
+            dailyLogins,
+        };
+    } catch (err) {
+        console.error('[Analytics] User activity fetch error:', err);
+        return {
+            totalLogins: 0,
+            totalPageViews: 0,
+            uniqueActiveUsers: 0,
+            topPages: [],
+            dailyLogins: [],
+        };
+    }
+}
+
 export async function GET(request: NextRequest) {
     try {
         const auth = await requireSuperAdmin(request);
@@ -264,10 +347,11 @@ export async function GET(request: NextRequest) {
 
         const firestore = getDb();
 
-        // Fetch both in parallel
-        const [cloudflare, platform] = await Promise.all([
+        // Fetch all in parallel
+        const [cloudflare, platform, userActivity] = await Promise.all([
             fetchCloudflareAnalytics(days),
             fetchPlatformMetrics(firestore, days),
+            fetchUserActivity(firestore, days),
         ]);
 
         return NextResponse.json({
@@ -275,6 +359,7 @@ export async function GET(request: NextRequest) {
             days,
             cloudflare, // null if not configured
             platform,
+            userActivity,
             generatedAt: new Date().toISOString(),
         });
 

@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { initClientErrorReporting } from '@/lib/monitoring/client-reporter';
+import { usePageViewTracker } from '@/lib/hooks/useActivityTracker';
 
 /** Pages that should NOT show the sidebar (public pages) */
 const PUBLIC_PAGES = ['/login', '/onboarding', '/privacy', '/landing'];
@@ -24,6 +25,9 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         initClientErrorReporting();
     }, []);
+
+    // Track page views for analytics
+    usePageViewTracker();
 
     // Redirect: logged in but no tenant → onboarding
     // Redirect: not logged in on protected page → login

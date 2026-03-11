@@ -71,7 +71,10 @@ log "  PID: $CONTEXT_PID"
 
 # ─── Step 5: Start Personaplex Server ───
 log "🚀 Personaplex Server başlatılıyor (port $PERSONAPLEX_PORT)..."
-export PERSONAPLEX_API_KEY="${PERSONAPLEX_API_KEY:-34abba47d042cf4d3481a2391b7839b980fb24a70abfc2486dda8132274091d5}"
+if [ -z "$PERSONAPLEX_API_KEY" ]; then
+    log "⚠️  PERSONAPLEX_API_KEY not set — server will reject authenticated requests"
+fi
+export PERSONAPLEX_API_KEY="${PERSONAPLEX_API_KEY:-}"
 export DEVICE="${DEVICE:-cuda}"
 nohup python3 server.py > "$LOG_DIR/personaplex.log" 2>&1 &
 PERSONA_PID=$!
