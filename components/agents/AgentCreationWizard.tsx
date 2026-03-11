@@ -874,6 +874,7 @@ function StepCustomize({
                                                 ? voiceConfig.language
                                                 : undefined
                                         }
+                                        authFetch={authFetch}
                                         compact
                                     />
                                 </div>
