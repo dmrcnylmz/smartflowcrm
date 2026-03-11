@@ -54,55 +54,56 @@ export interface SubscriptionTier {
 
 // Per-call cost formula: C_call = C_Telephony + C_TTS + C_LLM
 // Twilio Native: ~$0.01/min, SIP Trunk: ~$0.003/min
-// ElevenLabs: ~$0.15/1000 chars (turbo_v2_5 @ 0.5 credits/char)
-// Cartesia Sonic-3: ~$0.038/1000 chars (default for all plans)
-// Murf Falcon: ~$0.01/1000 chars (budget fallback, TR+EN)
-// Kokoro: ~$0.001/1000 chars (near-free, EN only)
-// Groq/LLM: ~$0.02/call
-// Average 3-min call:
-//   Enterprise (ElevenLabs): ~$0.35-$0.50
-//   Starter/Pro (Cartesia):  ~$0.10-$0.15
-//   EN (Kokoro):             ~$0.05-$0.08
+// Cartesia Sonic-3: ~$0.038/1000 chars (PRIMARY — all plans including Enterprise)
+// ElevenLabs: ~$0.15/1000 chars (optional premium, not used by default)
+// Murf Falcon: ~$0.017/1000 chars (budget EN-only fallback, $0.01/min audio)
+// Kokoro: ~$0.001/1000 chars (near-free, EN only via Together AI)
+// Groq LLM (Llama 3.3 70B): ~$0.002/call ($0.59/$0.79 per M tokens, ~3500 tokens/call)
+// Average 3-min call (SIP + Cartesia):
+//   All plans:  ~$0.05-$0.06
+//   EN (Kokoro): ~$0.02-$0.03
 export const COST_RATES = {
     twilio: { perMinute: 0.01 },           // Twilio Native per-minute rate
     sip_trunk: { perMinute: 0.003 },       // SIP Trunk (Netgsm/Bulutfon) per-minute rate
-    elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars (Enterprise only)
-    cartesia: { per1000Chars: 0.038 },      // Cartesia Sonic-3 per 1000 chars (default all plans)
-    murf: { per1000Chars: 0.01 },           // Murf Falcon per 1000 chars (budget TR+EN fallback)
+    elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars (optional premium)
+    cartesia: { per1000Chars: 0.038 },      // Cartesia Sonic-3 per 1000 chars (PRIMARY all plans)
+    murf: { per1000Chars: 0.017 },          // Murf Falcon per 1000 chars ($0.01/min ÷ 600 chars/min)
     kokoro: { per1000Chars: 0.001 },        // Kokoro TTS per 1000 chars (EN only, near-free)
-    llm: { perCall: 0.02 },                 // Groq/Gemini average per call
+    llm: { perCall: 0.002 },               // Groq Llama 3.3 70B (~3500 tokens × $0.59-0.79/M)
 };
 
+// Monthly prices in USD (converted from TRY at ~44 TRY/USD, March 2026)
+// Başlangıç: 990₺ ≈ $22.50, Profesyonel: 2990₺ ≈ $68, Kurumsal: 7990₺ ≈ $182
 export const SUBSCRIPTION_TIERS: Record<string, SubscriptionTier> = {
     starter: {
         name: 'Başlangıç',
         includedMinutes: 100,
         includedCalls: 500,
         pricePerMinute: 0.15,
-        pricePerTtsChar: 0.00015, // $0.15 / 1000 chars
+        pricePerTtsChar: 0.000038, // Cartesia: $0.038/1000 chars
         pricePerGpuSecond: 0.002,
         pricePerApiCall: 0.001,
-        monthlyBase: 29,
+        monthlyBase: 22.50,        // 990₺ ÷ 44
     },
     professional: {
         name: 'Profesyonel',
         includedMinutes: 500,
         includedCalls: 2000,
         pricePerMinute: 0.10,
-        pricePerTtsChar: 0.00012,
+        pricePerTtsChar: 0.000038, // Cartesia: $0.038/1000 chars
         pricePerGpuSecond: 0.0015,
         pricePerApiCall: 0.0005,
-        monthlyBase: 99,
+        monthlyBase: 68,            // 2990₺ ÷ 44
     },
     enterprise: {
         name: 'Kurumsal',
         includedMinutes: 2000,
         includedCalls: 10000,
         pricePerMinute: 0.07,
-        pricePerTtsChar: 0.0001,
+        pricePerTtsChar: 0.000038, // Cartesia: $0.038/1000 chars (same provider, all plans)
         pricePerGpuSecond: 0.001,
         pricePerApiCall: 0.0002,
-        monthlyBase: 299,
+        monthlyBase: 182,           // 7990₺ ÷ 44
     },
 };
 
@@ -321,10 +322,8 @@ export function estimateCost(
     const legacyCost = unaccountedMinutes > 0 ? unaccountedMinutes * COST_RATES.twilio.perMinute : 0;
 
     const voiceCost = twilioCost + sipTrunkCost + legacyCost;
-    // TTS cost varies by tier: Enterprise uses ElevenLabs, others use Cartesia
-    const ttsRate = tierName === 'enterprise'
-        ? COST_RATES.elevenlabs.per1000Chars
-        : COST_RATES.cartesia.per1000Chars;
+    // TTS cost — Cartesia Sonic-3 for all plans (primary provider)
+    const ttsRate = COST_RATES.cartesia.per1000Chars;
     const ttsCost = (ttsChars / 1000) * ttsRate;
     const llmCost = totalCalls * COST_RATES.llm.perCall;
     const infraCost = voiceCost + ttsCost + llmCost;
@@ -362,7 +361,7 @@ export function estimateCost(
  * Uses provider-specific voice and TTS rates.
  *
  * @param providerType 'SIP_TRUNK' for cheaper voice rate
- * @param ttsProvider 'elevenlabs' (Enterprise), 'gemini' (Starter/Pro), 'kokoro' (EN only)
+ * @param ttsProvider 'cartesia' (default all plans), 'murf' (EN budget), 'kokoro' (EN free), 'elevenlabs' (optional premium)
  */
 export function estimatePerCallCost(
     durationMinutes: number,

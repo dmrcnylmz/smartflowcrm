@@ -16,9 +16,9 @@
  * │ Murf budget fallback. OpenAI son çare.                              │
  * └──────────────────────────────────────────────────────────────────────┘
  *
- * Strategy:
- *   Enterprise TR:  ElevenLabs → Cartesia → OpenAI
- *   Enterprise EN:  ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
+ * Strategy (Cartesia primary — all plans):
+ *   Enterprise TR:  Cartesia → ElevenLabs → OpenAI
+ *   Enterprise EN:  Cartesia → Kokoro → Murf → ElevenLabs → OpenAI
  *   Starter/Pro TR: Cartesia → OpenAI
  *   Starter/Pro EN: Kokoro → Cartesia → Murf → OpenAI
  *   Emergency TR:   Cartesia → OpenAI → ElevenLabs
@@ -274,9 +274,9 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // ---- Strategy (Data-Driven) ----
-        // Enterprise TR:  ElevenLabs → Cartesia → OpenAI
-        // Enterprise EN:  ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
+        // ---- Strategy (Data-Driven, Cartesia primary all plans) ----
+        // Enterprise TR:  Cartesia → ElevenLabs → OpenAI
+        // Enterprise EN:  Cartesia → Kokoro → Murf → ElevenLabs → OpenAI
         // Non-Enterprise: Cartesia → OpenAI (TR) | Kokoro → Cartesia → Murf → OpenAI (EN)
         // Emergency TR:   Cartesia → OpenAI → ElevenLabs
         // Emergency EN:   Kokoro → Murf → Cartesia → OpenAI → ElevenLabs
@@ -363,21 +363,15 @@ export async function POST(request: NextRequest) {
             }
 
             if (isEnterprisePlan) {
-                // Enterprise default chain:
-                // TR: ElevenLabs → Cartesia → OpenAI
-                // EN: ElevenLabs → Cartesia → Kokoro → Murf → OpenAI
-                audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
-                usedProvider = 'elevenlabs';
-
-                if (!audioResponse) {
-                    console.warn('[TTS] ElevenLabs failed, trying Cartesia Sonic...');
-                    audioResponse = await synthesizeCartesiaTTS(safeText, lang);
-                    usedProvider = 'cartesia-fallback';
-                    usedModel = 'sonic-3';
-                }
+                // Enterprise default chain (Cartesia primary — same quality, 4x cheaper than ElevenLabs):
+                // TR: Cartesia → ElevenLabs → OpenAI
+                // EN: Cartesia → Kokoro → Murf → ElevenLabs → OpenAI
+                audioResponse = await synthesizeCartesiaTTS(safeText, lang, voice_id);
+                usedProvider = 'cartesia';
+                usedModel = 'sonic-3';
 
                 if (!audioResponse && lang === 'en') {
-                    console.warn('[TTS] Trying Kokoro (EN)...');
+                    console.warn('[TTS] Cartesia failed, trying Kokoro (EN)...');
                     audioResponse = await synthesizeKokoroTTS(safeText, 'en');
                     usedProvider = 'kokoro-fallback';
                     usedModel = 'kokoro-v1';
@@ -389,6 +383,13 @@ export async function POST(request: NextRequest) {
                     audioResponse = await synthesizeMurfTTS(safeText, lang);
                     usedProvider = 'murf-fallback';
                     usedModel = 'falcon';
+                }
+
+                // ElevenLabs as premium fallback (Enterprise has access)
+                if (!audioResponse) {
+                    console.warn('[TTS] Trying ElevenLabs fallback...');
+                    audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
+                    usedProvider = 'elevenlabs-fallback';
                 }
 
                 if (!audioResponse) {
