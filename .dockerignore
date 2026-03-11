@@ -7,7 +7,14 @@ node_modules
 .DS_Store
 .vscode
 .idea
-personaplex_server
+# personaplex_server — exclude everything except what GPU pod needs
+personaplex_server/.venv
+personaplex_server/docker-compose.yml
+personaplex_server/deploy-runpod.sh
+personaplex_server/deploy-lambda.sh
+personaplex_server/auto-start.sh
+personaplex_server/setup-runpod.sh
+personaplex_server/start-services.sh
 n8n/workflows
 test-*.js
 vitest.config.*
