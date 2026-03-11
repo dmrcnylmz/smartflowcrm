@@ -29,6 +29,10 @@ export interface AgentVoiceConfig {
     temperature: number;
     maxTokens: number;
     language: string;
+    /** Selected voice catalog ID (e.g. 'el-yildiz', 'g-tr-chirp3hd-kore') */
+    voiceCatalogId?: string;
+    /** TTS provider override (derived from catalog entry) */
+    ttsProvider?: 'elevenlabs' | 'google' | 'openai' | 'kokoro';
 }
 
 export interface Agent {
@@ -111,4 +115,6 @@ export const DEFAULT_VOICE_CONFIG: AgentVoiceConfig = {
     temperature: 0.7,
     maxTokens: 512,
     language: 'tr',
+    voiceCatalogId: 'el-yildiz',
+    ttsProvider: 'elevenlabs',
 };

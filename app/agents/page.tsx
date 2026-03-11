@@ -49,6 +49,8 @@ import {
 import type { Agent, AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
 import { VOICE_STYLES as SHARED_VOICE_STYLES, AGENT_LANGUAGES } from '@/lib/agents/types';
 import { AGENT_TEMPLATES, getTemplateById } from '@/lib/agents/templates';
+import { VoiceSelector } from '@/components/voice/VoiceSelector';
+import { getVoiceById, type VoiceCatalogEntry } from '@/lib/voice/voice-catalog';
 
 // =============================================
 // Icon Map for template colors
@@ -922,6 +924,60 @@ export default function AgentsPage() {
                             {/* --- Voice Tab --- */}
                             {activeTab === 'voice' && (
                                 <div className="space-y-6">
+                                    {/* TTS Voice Selection */}
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Volume2 className="h-4 w-4 text-primary" />
+                                            <Label className="text-base font-semibold">TTS Ses Seçimi</Label>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mb-3">
+                                            Asistanınızın telefonda konuşacağı sesi seçin. Dinlemek için ▶ butonuna tıklayın.
+                                        </p>
+
+                                        {/* Current voice display */}
+                                        {editingAgent.voiceConfig?.voiceCatalogId && (() => {
+                                            const currentVoice = getVoiceById(editingAgent.voiceConfig.voiceCatalogId);
+                                            if (!currentVoice) return null;
+                                            return (
+                                                <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <CheckCircle className="h-4 w-4 text-primary" />
+                                                        <span className="font-medium">Seçili: {currentVoice.name}</span>
+                                                        <Badge variant="secondary" className="text-[10px]">{currentVoice.provider}</Badge>
+                                                        <span className="text-muted-foreground text-xs">{currentVoice.tone}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
+                                        <div className="max-h-[320px] overflow-y-auto rounded-lg border p-3">
+                                            <VoiceSelector
+                                                selectedVoiceId={editingAgent.voiceConfig?.voiceCatalogId}
+                                                onSelect={(voice: VoiceCatalogEntry) => setEditingAgent(prev => ({
+                                                    ...prev,
+                                                    voiceConfig: {
+                                                        ...(prev.voiceConfig || {} as VoiceConfig),
+                                                        voiceCatalogId: voice.id,
+                                                        ttsProvider: voice.provider,
+                                                    },
+                                                }))}
+                                                language={
+                                                    (editingAgent.voiceConfig?.language === 'tr' || editingAgent.voiceConfig?.language === 'en')
+                                                        ? editingAgent.voiceConfig.language
+                                                        : undefined
+                                                }
+                                                authFetch={authFetch}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Divider */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-px flex-1 bg-border" />
+                                        <span className="text-xs text-muted-foreground">Diğer Ayarlar</span>
+                                        <div className="h-px flex-1 bg-border" />
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-6">
                                         <div>
                                             <Label>Konuşma Stili</Label>

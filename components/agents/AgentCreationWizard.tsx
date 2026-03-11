@@ -31,6 +31,8 @@ import { AgentTestPanel } from '@/components/agents/AgentTestPanel';
 import { AGENT_TEMPLATES, getTemplateById } from '@/lib/agents/templates';
 import type { AgentVariable, FallbackRule, AgentVoiceConfig, AgentTemplate, AgentDraft } from '@/lib/agents/types';
 import { VOICE_STYLES, AGENT_LANGUAGES, DEFAULT_VOICE_CONFIG } from '@/lib/agents/types';
+import { VoiceSelector } from '@/components/voice/VoiceSelector';
+import { getVoiceById, type VoiceCatalogEntry } from '@/lib/voice/voice-catalog';
 
 // =============================================
 // Icon Map (string → component)
@@ -837,6 +839,47 @@ function StepCustomize({
                                 <Volume2 className="h-3.5 w-3.5" />
                                 Ses Ayarları
                             </h4>
+
+                            {/* TTS Voice Selection */}
+                            <div>
+                                <Label className="text-white/70 text-sm mb-2 block">TTS Ses Seçimi</Label>
+                                <p className="text-xs text-white/40 mb-3">
+                                    Asistanınızın telefonda kullanacağı sesi seçin. Dinlemek için ▶ tıklayın.
+                                </p>
+
+                                {/* Current voice badge */}
+                                {voiceConfig.voiceCatalogId && (() => {
+                                    const cv = getVoiceById(voiceConfig.voiceCatalogId);
+                                    if (!cv) return null;
+                                    return (
+                                        <div className="mb-3 p-2.5 rounded-lg bg-inception-red/5 border border-inception-red/20 flex items-center gap-2">
+                                            <CheckCircle className="h-3.5 w-3.5 text-inception-red" />
+                                            <span className="text-sm text-white/90 font-medium">{cv.name}</span>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60">{cv.provider}</span>
+                                            <span className="text-xs text-white/40">{cv.tone}</span>
+                                        </div>
+                                    );
+                                })()}
+
+                                <div className="max-h-[280px] overflow-y-auto rounded-lg border border-white/[0.08] p-2">
+                                    <VoiceSelector
+                                        selectedVoiceId={voiceConfig.voiceCatalogId}
+                                        onSelect={(voice: VoiceCatalogEntry) => setVoiceConfig({
+                                            ...voiceConfig,
+                                            voiceCatalogId: voice.id,
+                                            ttsProvider: voice.provider,
+                                        })}
+                                        language={
+                                            (voiceConfig.language === 'tr' || voiceConfig.language === 'en')
+                                                ? voiceConfig.language
+                                                : undefined
+                                        }
+                                        compact
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Other voice settings */}
                             <div className="grid sm:grid-cols-3 gap-3">
                                 <div>
                                     <Label className="text-white/50 text-xs mb-1">Konuşma Stili</Label>
@@ -1051,6 +1094,10 @@ function StepReview({
                     <ReviewItem label="Dil" value={AGENT_LANGUAGES.find(l => l.value === language)?.label || language} />
                     {template && <ReviewItem label="Şablon" value={template.name} />}
                     <ReviewItem label="Ses Stili" value={VOICE_STYLES.find(s => s.value === voiceConfig.style)?.label || voiceConfig.style} />
+                    {voiceConfig.voiceCatalogId && (() => {
+                        const cv = getVoiceById(voiceConfig.voiceCatalogId);
+                        return cv ? <ReviewItem label="TTS Ses" value={`${cv.name} (${cv.provider})`} /> : null;
+                    })()}
                 </div>
             </div>
 

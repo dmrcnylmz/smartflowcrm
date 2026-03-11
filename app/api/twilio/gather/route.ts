@@ -131,6 +131,22 @@ export async function POST(request: NextRequest) {
         const tenantData = tenantSnap.data();
         const language = tenantData?.language === 'en' ? 'en' : 'tr';
 
+        // Load active agent config from Firestore (if any)
+        let activeAgent: FirebaseFirestore.DocumentData | null = null;
+        try {
+            const agentsSnap = await getDb()
+                .collection('tenants').doc(tenantId)
+                .collection('agents')
+                .where('isActive', '==', true)
+                .limit(1)
+                .get();
+            if (!agentsSnap.empty) {
+                activeAgent = agentsSnap.docs[0].data();
+            }
+        } catch {
+            // Fallback to tenant-level config if agents query fails
+        }
+
         // 1. Fast intent detection
         const intent = detectIntentFast(speechResult);
         // Intent detected; determining response
@@ -143,8 +159,8 @@ export async function POST(request: NextRequest) {
             aiResponse = getShortcutResponse(intent.intent, language);
             shouldEndCall = intent.intent === 'farewell';
         } else {
-            // 3. Call LLM for full response
-            aiResponse = await generateLLMResponse(speechResult, tenantData, tenantId, callSid, language);
+            // 3. Call LLM for full response (use active agent if available)
+            aiResponse = await generateLLMResponse(speechResult, tenantData, tenantId, callSid, language, activeAgent);
 
             // Check if LLM suggests ending the call
             shouldEndCall = aiResponse.toLowerCase().includes('iyi günler') ||
@@ -212,19 +228,43 @@ async function generateLLMResponse(
     tenantData: FirebaseFirestore.DocumentData | undefined,
     tenantId: string,
     callSid: string,
-    language: string
+    language: string,
+    activeAgent?: FirebaseFirestore.DocumentData | null,
 ): Promise<string> {
     try {
-        // Build system prompt from tenant data
-        const agentName = tenantData?.agent?.name || 'Asistan';
-        const companyName = tenantData?.companyName || 'Şirket';
-        const agentRole = tenantData?.agent?.role || 'Müşteri Temsilcisi';
-        const traits = tenantData?.agent?.traits?.join(', ') || 'profesyonel, nazik';
-        const services = tenantData?.business?.services?.join(', ') || '';
-        const workingHours = tenantData?.business?.workingHours || '09:00-18:00';
-        const workingDays = tenantData?.business?.workingDays || 'Pazartesi-Cuma';
+        let systemPrompt: string;
 
-        const systemPrompt = `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
+        if (activeAgent?.systemPrompt) {
+            // Use agent's custom system prompt (from agents collection)
+            // Resolve variables: replace {key} with defaultValue
+            systemPrompt = activeAgent.systemPrompt;
+            const variables = activeAgent.variables || [];
+            for (const v of variables) {
+                if (v.key && v.defaultValue) {
+                    systemPrompt = systemPrompt.replace(
+                        new RegExp(`\\{${v.key}\\}`, 'g'),
+                        v.defaultValue,
+                    );
+                }
+            }
+            // Append phone-call rules if not already present
+            if (!systemPrompt.includes('telefon görüşmesi')) {
+                systemPrompt += `\n\nTelefon Görüşmesi Kuralları:
+- Kısa ve öz yanıtlar ver (max 2-3 cümle)
+- ${language === 'tr' ? 'Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)' : 'Speak English unless the customer speaks Turkish'}
+- Doğal ve samimi bir üslup kullan`;
+            }
+        } else {
+            // Fallback: Build system prompt from tenant-level config
+            const agentName = tenantData?.agent?.name || 'Asistan';
+            const companyName = tenantData?.companyName || 'Şirket';
+            const agentRole = tenantData?.agent?.role || 'Müşteri Temsilcisi';
+            const traits = tenantData?.agent?.traits?.join(', ') || 'profesyonel, nazik';
+            const services = tenantData?.business?.services?.join(', ') || '';
+            const workingHours = tenantData?.business?.workingHours || '09:00-18:00';
+            const workingDays = tenantData?.business?.workingDays || 'Pazartesi-Cuma';
+
+            systemPrompt = `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
 Karakter özelliklerin: ${traits}.
 ${services ? `Sunduğun hizmetler: ${services}.` : ''}
 Çalışma saatleri: ${workingDays}, ${workingHours}.
@@ -237,6 +277,7 @@ Kurallar:
 - Çözemediğin konularda müşteriye yetkili birine yönlendir
 - Doğal ve samimi bir üslup kullan
 - Müşterinin adını sor ve kullan`;
+        }
 
         // Load conversation history
         const callSnap = await getDb()

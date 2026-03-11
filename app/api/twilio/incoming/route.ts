@@ -116,8 +116,37 @@ export async function POST(request: NextRequest) {
         // ── Load tenant config for greeting ─────────────────────────
         const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
         const tenantData = tenantSnap.data();
-        const greeting = tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
-        const language = tenantData?.language === 'en' ? 'en-US' : 'tr-TR';
+
+        // Load active agent from agents collection (if any)
+        let activeAgentGreeting: string | null = null;
+        let activeAgentLanguage: string | null = null;
+        try {
+            const agentsSnap = await getDb()
+                .collection('tenants').doc(tenantId)
+                .collection('agents')
+                .where('isActive', '==', true)
+                .limit(1)
+                .get();
+            if (!agentsSnap.empty) {
+                const agentData = agentsSnap.docs[0].data();
+                // Use agent's configured language
+                activeAgentLanguage = agentData?.voiceConfig?.language || null;
+                // Extract greeting from agent's variables (company_name) and system prompt
+                const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
+                const agentName = agentData?.name || '';
+                if (companyName || agentName) {
+                    const lang = activeAgentLanguage || 'tr';
+                    activeAgentGreeting = lang === 'en'
+                        ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
+                        : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+                }
+            }
+        } catch {
+            // Fallback to tenant-level greeting
+        }
+
+        const greeting = activeAgentGreeting || tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
+        const language = (activeAgentLanguage === 'en' || tenantData?.language === 'en') ? 'en-US' : 'tr-TR';
 
         // ── Check if AI assistant is enabled ─────────────────────────
         const assistantEnabled = tenantData?.settings?.assistantEnabled ?? false;
