@@ -8,6 +8,7 @@
  *   2. Tenant Analitik — Platform-wide tenant analytics & detail view
  *   3. Numara Havuzu — NumberPoolAdmin
  *   4. Porting İstekleri — PortingAdmin
+ *   5. Platform Analitik — Cloudflare + platform metrics dashboard
  */
 
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
@@ -27,12 +28,14 @@ import {
     Loader2,
     RefreshCw,
     AlertCircle,
+    Globe,
 } from 'lucide-react';
 
 // Lazy load heavy components
 const NumberPoolAdmin = lazy(() => import('@/components/admin/number-pool-admin'));
 const PortingAdmin = lazy(() => import('@/components/admin/porting-admin'));
 const TenantAnalytics = lazy(() => import('@/components/admin/tenant-analytics'));
+const PlatformAnalytics = lazy(() => import('@/components/admin/platform-analytics'));
 
 // ─── Types ───
 
@@ -297,7 +300,7 @@ function SystemMetrics() {
 export default function SuperAdminPage() {
     return (
         <Tabs defaultValue="metrics" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+            <TabsList className="grid w-full grid-cols-5 max-w-3xl">
                 <TabsTrigger value="metrics" className="gap-2">
                     <BarChart3 className="h-4 w-4" />
                     <span className="hidden sm:inline">Metrikler</span>
@@ -313,6 +316,10 @@ export default function SuperAdminPage() {
                 <TabsTrigger value="porting" className="gap-2">
                     <ArrowRightLeft className="h-4 w-4" />
                     <span className="hidden sm:inline">Porting</span>
+                </TabsTrigger>
+                <TabsTrigger value="platform" className="gap-2">
+                    <Globe className="h-4 w-4" />
+                    <span className="hidden sm:inline">Platform Analitik</span>
                 </TabsTrigger>
             </TabsList>
 
@@ -335,6 +342,12 @@ export default function SuperAdminPage() {
             <TabsContent value="porting">
                 <Suspense fallback={<TabLoader />}>
                     <PortingAdmin />
+                </Suspense>
+            </TabsContent>
+
+            <TabsContent value="platform">
+                <Suspense fallback={<TabLoader />}>
+                    <PlatformAnalytics />
                 </Suspense>
             </TabsContent>
         </Tabs>

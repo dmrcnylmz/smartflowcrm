@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
             agentPersonality: data.agent?.personality || data.agentPersonality || 'Profesyonel, yardımsever ve nazik bir asistan.',
             agentFallbackMessage: data.agent?.fallbackMessage || data.agentFallbackMessage || 'Anlayamadım, tekrar eder misiniz?',
             // Features
+            assistantEnabled: data.settings?.assistantEnabled ?? false,
             callRecording: data.settings?.callRecording ?? data.callRecording ?? false,
             emailNotifications: data.settings?.emailNotifications ?? data.emailNotifications ?? true,
             autoAppointments: data.settings?.autoAppointments ?? data.autoAppointments ?? true,
@@ -141,6 +142,7 @@ export async function PUT(request: NextRequest) {
         if (body.agentFallbackMessage !== undefined) updateData['agent.fallbackMessage'] = body.agentFallbackMessage;
 
         // Feature toggles (nested under settings)
+        if (body.assistantEnabled !== undefined) updateData['settings.assistantEnabled'] = body.assistantEnabled;
         if (body.callRecording !== undefined) updateData['settings.callRecording'] = body.callRecording;
         if (body.emailNotifications !== undefined) updateData['settings.emailNotifications'] = body.emailNotifications;
         if (body.autoAppointments !== undefined) updateData['settings.autoAppointments'] = body.autoAppointments;
@@ -183,6 +185,7 @@ function getDefaultSettings() {
         agentGreeting: 'Merhaba, size nasıl yardımcı olabilirim?',
         agentPersonality: 'Profesyonel, yardımsever ve nazik bir asistan. Türkçe konuşur.',
         agentFallbackMessage: 'Anlayamadım, tekrar eder misiniz?',
+        assistantEnabled: false,
         callRecording: false,
         emailNotifications: true,
         autoAppointments: true,

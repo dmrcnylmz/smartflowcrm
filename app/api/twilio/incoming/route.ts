@@ -107,17 +107,33 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        // ── Pre-warm GPU Pod for enterprise tenants (fire-and-forget) ─
-        const isEnterprisePlan = tierName === 'enterprise';
-        if (isEnterprisePlan && gpuManager.isPodConfigured()) {
-            gpuManager.ensureReady().catch(() => {});
-        }
-
         // ── Load tenant config for greeting ─────────────────────────
         const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
         const tenantData = tenantSnap.data();
         const greeting = tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
         const language = tenantData?.language === 'en' ? 'en-US' : 'tr-TR';
+
+        // ── Check if AI assistant is enabled ─────────────────────────
+        const assistantEnabled = tenantData?.settings?.assistantEnabled ?? false;
+        if (!assistantEnabled) {
+            const disabledMessage = language === 'en-US'
+                ? 'Our assistant is currently unavailable. Please call again later. Have a good day.'
+                : 'Şu anda asistanımız aktif değildir. Lütfen daha sonra tekrar arayınız. İyi günler.';
+            const disabledTwiml = generateUnavailableTwiML({
+                message: disabledMessage,
+                language,
+            });
+            return new NextResponse(disabledTwiml, {
+                status: 200,
+                headers: { 'Content-Type': 'text/xml' },
+            });
+        }
+
+        // ── Pre-warm GPU Pod for enterprise tenants (fire-and-forget) ─
+        const isEnterprisePlan = tierName === 'enterprise';
+        if (isEnterprisePlan && assistantEnabled && gpuManager.isPodConfigured()) {
+            gpuManager.ensureReady().catch(() => {});
+        }
 
         // Build URLs
         const host = request.headers.get('host') || 'localhost:3000';

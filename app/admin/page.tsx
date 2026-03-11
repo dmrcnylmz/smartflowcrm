@@ -49,6 +49,7 @@ interface TenantSettings {
     agentPersonality: string;
     agentFallbackMessage: string;
     // Settings
+    assistantEnabled: boolean;
     callRecording: boolean;
     emailNotifications: boolean;
     autoAppointments: boolean;
@@ -70,6 +71,7 @@ const defaultSettings: TenantSettings = {
     agentGreeting: 'Merhaba, size nasıl yardımcı olabilirim?',
     agentPersonality: 'Profesyonel, yardımsever ve nazik bir asistan. Türkçe konuşur.',
     agentFallbackMessage: 'Anlayamadım, tekrar eder misiniz?',
+    assistantEnabled: false,
     callRecording: false,
     emailNotifications: true,
     autoAppointments: true,
@@ -213,6 +215,23 @@ export default function AdminPage() {
     function updateSetting<K extends keyof TenantSettings>(key: K, value: TenantSettings[K]) {
         setSettings(prev => ({ ...prev, [key]: value }));
     }
+
+    const handleAssistantToggle = async (enabled: boolean) => {
+        updateSetting('assistantEnabled', enabled);
+        // GPU pre-warm: fire-and-forget
+        if (enabled) {
+            try {
+                await authFetch('/api/gpu/warm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'start' }),
+                });
+            } catch (e) {
+                // Non-critical, pod will warm on next call anyway
+                console.warn('GPU pre-warm failed:', e);
+            }
+        }
+    };
 
     // ─── Loading ───
     if (loading) {
@@ -512,6 +531,16 @@ export default function AdminPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-1">
+                            {/* AI Assistant */}
+                            <FeatureToggle
+                                icon={Bot}
+                                title="AI Asistan"
+                                description="Gelen çağrılarda AI asistanı aktif edin. Enterprise planda GPU ile çalışır."
+                                enabled={settings.assistantEnabled}
+                                onChange={(v) => handleAssistantToggle(v)}
+                                color="text-emerald-500"
+                            />
+
                             {/* Call Recording */}
                             <FeatureToggle
                                 icon={Mic}
