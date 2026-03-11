@@ -60,7 +60,7 @@ async function createPod() {
                     name: "callception-personaplex"
                     imageName: "${DOCKER_IMAGE}"
                     gpuTypeId: "NVIDIA RTX A5000"
-                    cloudType: "SECURE"
+                    cloudType: SECURE
                     gpuCount: 1
                     volumeInGb: 50
                     containerDiskInGb: 20
