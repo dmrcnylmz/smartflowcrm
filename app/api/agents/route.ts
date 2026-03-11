@@ -188,8 +188,10 @@ export async function DELETE(request: NextRequest) {
         const auth = await requireStrictAuth(request);
         if (auth.error) return auth.error;
 
-        // Role check: only admins and owners can delete agents
-        const callerRole = request.headers.get('x-user-role');
+        // Role check: verify from Firestore (not spoofable headers)
+        const memberDoc = await getDb().collection('tenants').doc(auth.tenantId)
+            .collection('members').doc(auth.uid).get();
+        const callerRole = memberDoc.exists ? memberDoc.data()?.role : null;
         if (!callerRole || !['owner', 'admin'].includes(callerRole)) {
             return NextResponse.json(
                 { error: 'Only owners and admins can delete agents' },

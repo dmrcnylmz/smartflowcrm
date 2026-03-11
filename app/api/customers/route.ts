@@ -94,3 +94,52 @@ export async function PATCH(request: NextRequest) {
     return handleApiError(error, 'Customers PATCH');
   }
 }
+
+// =============================================
+// DELETE: Soft-delete a customer (marks as deleted)
+// =============================================
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await requireStrictAuth(request);
+    if (auth.error) return auth.error;
+
+    const { searchParams } = new URL(request.url);
+    const customerId = searchParams.get('id');
+
+    if (!customerId) {
+      return errorResponse(createApiError('VALIDATION_ERROR', 'Müşteri ID gerekli'));
+    }
+
+    const { initAdmin } = await import('@/lib/auth/firebase-admin');
+    const { getFirestore, FieldValue } = await import('firebase-admin/firestore');
+    const app = initAdmin();
+    const db = getFirestore(app);
+
+    const customerRef = db.collection('tenants').doc(auth.tenantId)
+      .collection('customers').doc(customerId);
+    const customerDoc = await customerRef.get();
+
+    if (!customerDoc.exists) {
+      return errorResponse(createApiError('NOT_FOUND', 'Müşteri bulunamadı'));
+    }
+
+    // Soft-delete: mark as deleted rather than removing data
+    await customerRef.update({
+      status: 'deleted',
+      deletedAt: FieldValue.serverTimestamp(),
+      deletedBy: auth.uid,
+    });
+
+    await addActivityLog(auth.tenantId, {
+      type: 'customer_deleted',
+      description: `Müşteri silindi: ${customerDoc.data()?.name || customerId}`,
+      customerId,
+      updatedBy: auth.uid || 'unknown',
+    });
+
+    return NextResponse.json({ success: true, customerId });
+  } catch (error: unknown) {
+    return handleApiError(error, 'Customers DELETE');
+  }
+}

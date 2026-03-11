@@ -176,7 +176,15 @@ export function validateTwilioSignature(
     hmac.update(data, 'utf-8');
     const expectedSignature = hmac.digest('base64');
 
-    return signature === expectedSignature;
+    // Timing-safe comparison to prevent timing attacks
+    try {
+        const sigBuf = Buffer.from(signature, 'utf-8');
+        const expBuf = Buffer.from(expectedSignature, 'utf-8');
+        if (sigBuf.length !== expBuf.length) return false;
+        return crypto.timingSafeEqual(sigBuf, expBuf);
+    } catch {
+        return false;
+    }
 }
 
 // =============================================

@@ -77,14 +77,21 @@ export async function POST(request: NextRequest) {
             params = await request.json();
         }
 
-        // Validate Twilio signature
+        // Validate Twilio signature — mandatory in production
         const config = getTwilioConfig();
+        const signature = request.headers.get('x-twilio-signature') || '';
         if (config.authToken) {
-            const signature = request.headers.get('x-twilio-signature') || '';
             if (!validateTwilioSignature(config.authToken, request.url, params, signature)) {
+                console.error('[twilio/gather] Invalid Twilio signature — rejecting');
                 const twiml = generateUnavailableTwiML({ message: 'Yetkisiz istek.' });
                 return new NextResponse(twiml, { status: 403, headers: { 'Content-Type': 'text/xml' } });
             }
+        } else if (process.env.NODE_ENV === 'production') {
+            console.error('[twilio/gather] TWILIO_AUTH_TOKEN not configured in production');
+            return new NextResponse(
+                generateUnavailableTwiML({ message: 'Sistem hatası.' }),
+                { headers: { 'Content-Type': 'text/xml' } },
+            );
         }
 
         // Get query params

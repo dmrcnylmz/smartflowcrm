@@ -108,9 +108,10 @@ export async function PUT(request: NextRequest) {
         const auth = await requireStrictAuth(request);
         if (auth.error) return auth.error;
 
-        const userRole = request.headers.get('x-user-role');
-
-        // Role check — only owner/admin can update settings
+        // Role check from Firestore (not spoofable headers)
+        const memberDoc = await getDb().collection('tenants').doc(auth.tenantId)
+            .collection('members').doc(auth.uid).get();
+        const userRole = memberDoc.exists ? memberDoc.data()?.role : null;
         if (userRole && userRole !== 'owner' && userRole !== 'admin') {
             return errorResponse(createApiError(
                 'AUTH_ERROR',

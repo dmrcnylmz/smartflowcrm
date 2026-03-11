@@ -36,19 +36,19 @@ const swapSchema = z.object({
 
 export async function POST(request: NextRequest) {
     try {
-        // Auth check — middleware injects these headers
-        const tenantId = request.headers.get('x-user-tenant');
-        const userId = request.headers.get('x-user-id') || request.headers.get('x-user-uid');
-        const userRole = request.headers.get('x-user-role');
+        // Auth: Full Firebase Admin SDK verification
+        const { requireStrictAuth } = await import('@/lib/utils/require-strict-auth');
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        if (!tenantId || !userId) {
-            return NextResponse.json(
-                { error: 'Kimlik doğrulaması gerekli.' },
-                { status: 401 }
-            );
-        }
+        const tenantId = auth.tenantId;
+        const userId = auth.uid;
 
-        // Only owner/admin can manage billing
+        // Role check from Firestore (not spoofable headers)
+        const authDb = getFirestore(initAdmin());
+        const memberDoc = await authDb.collection('tenants').doc(tenantId).collection('members').doc(userId).get();
+        const userRole = memberDoc.exists ? memberDoc.data()?.role : null;
+
         if (userRole !== 'owner' && userRole !== 'admin') {
             return NextResponse.json(
                 { error: 'Yalnızca sahip ve yöneticiler faturalandırmayı yönetebilir.' },

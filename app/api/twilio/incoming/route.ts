@@ -56,14 +56,20 @@ export async function POST(request: NextRequest) {
         const callEvent = params as unknown as TwilioCallEvent;
         const config = getTwilioConfig();
 
-        // Validate Twilio signature (if auth token configured)
+        // Validate Twilio signature — mandatory in production
+        const signature = request.headers.get('x-twilio-signature') || '';
         if (config.authToken) {
-            const signature = request.headers.get('x-twilio-signature') || '';
             const requestUrl = request.url;
-
             if (!validateTwilioSignature(config.authToken, requestUrl, params, signature)) {
+                console.error('[twilio/incoming] Invalid Twilio signature — rejecting request');
                 return new NextResponse('Forbidden', { status: 403 });
             }
+        } else if (process.env.NODE_ENV === 'production') {
+            console.error('[twilio/incoming] TWILIO_AUTH_TOKEN not configured in production — rejecting');
+            return new NextResponse(
+                generateUnavailableTwiML({ message: 'Sistem bakımda. Lütfen daha sonra arayın.' }),
+                { headers: { 'Content-Type': 'text/xml' } },
+            );
         }
 
         // Resolve tenant from the called number (returns enriched ResolvedTenant)
@@ -147,8 +153,9 @@ export async function POST(request: NextRequest) {
         // ── Working Hours Check → Voicemail ──────────────────────────
         const workingHours = tenantData?.business?.workingHours; // e.g. "09:00-18:00"
         const workingDays = tenantData?.business?.workingDays;   // e.g. "Pazartesi-Cuma"
+        const tenantTimezone = tenantData?.timezone;             // e.g. "Europe/Istanbul"
 
-        if (workingHours && isOutsideWorkingHours(workingHours, workingDays)) {
+        if (workingHours && isOutsideWorkingHours(workingHours, workingDays, tenantTimezone)) {
             const afterHoursMsg = tenantData?.agent?.farewell
                 || 'Şu anda mesai saatleri dışındayız. Lütfen bip sesinden sonra mesajınızı bırakın.';
 
@@ -262,9 +269,10 @@ const DAY_MAP: Record<string, number> = {
  *
  * @param workingHours - Format: "09:00-18:00"
  * @param workingDays - Format: "Pazartesi-Cuma" or "Monday-Friday"
+ * @param timezone - IANA timezone (e.g. "Europe/Istanbul"). Defaults to Europe/Istanbul.
  * @returns true if currently outside working hours
  */
-function isOutsideWorkingHours(workingHours: string, workingDays?: string): boolean {
+function isOutsideWorkingHours(workingHours: string, workingDays?: string, timezone?: string): boolean {
     try {
         // Parse hours — "09:00-18:00"
         const hoursParts = workingHours.split('-');
@@ -274,10 +282,11 @@ function isOutsideWorkingHours(workingHours: string, workingDays?: string): bool
         const [startH, startM] = startStr.trim().split(':').map(Number);
         const [endH, endM] = endStr.trim().split(':').map(Number);
 
-        // Use Turkey timezone (most tenants are TR-based)
+        // Use tenant's timezone, fallback to Europe/Istanbul for backward compat
+        const tz = timezone || 'Europe/Istanbul';
         const now = new Date();
-        const trTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }));
-        const currentMinutes = trTime.getHours() * 60 + trTime.getMinutes();
+        const localTime = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+        const currentMinutes = localTime.getHours() * 60 + localTime.getMinutes();
         const startMinutes = startH * 60 + (startM || 0);
         const endMinutes = endH * 60 + (endM || 0);
 
@@ -288,7 +297,7 @@ function isOutsideWorkingHours(workingHours: string, workingDays?: string): bool
                 const startDay = DAY_MAP[dayParts[0].trim()];
                 const endDay = DAY_MAP[dayParts[1].trim()];
                 if (startDay !== undefined && endDay !== undefined) {
-                    const currentDay = trTime.getDay();
+                    const currentDay = localTime.getDay();
                     // Check if current day is outside working days
                     if (startDay <= endDay) {
                         // Normal range: Mon(1)-Fri(5)
