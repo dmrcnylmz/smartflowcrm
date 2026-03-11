@@ -30,7 +30,10 @@ sleep 3
 # Personaplex Server
 cd $WORK
 export DEVICE=cuda
-export PERSONAPLEX_API_KEY=34abba47d042cf4d3481a2391b7839b980fb24a70abfc2486dda8132274091d5
+if [ -z "$PERSONAPLEX_API_KEY" ]; then
+    echo "  ⚠️  PERSONAPLEX_API_KEY not set — server will reject authenticated requests"
+fi
+export PERSONAPLEX_API_KEY="${PERSONAPLEX_API_KEY:-}"
 nohup python3 server.py > $WORK/logs/personaplex.log 2>&1 &
 echo "  ✅ Personaplex PID: $! (port 8998)"
 sleep 5
