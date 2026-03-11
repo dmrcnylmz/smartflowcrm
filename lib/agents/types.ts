@@ -115,6 +115,6 @@ export const DEFAULT_VOICE_CONFIG: AgentVoiceConfig = {
     temperature: 0.7,
     maxTokens: 512,
     language: 'tr',
-    voiceCatalogId: 'el-yildiz',
-    ttsProvider: 'elevenlabs',
+    voiceCatalogId: 'gm-kore',
+    ttsProvider: 'google',
 };

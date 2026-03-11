@@ -14,6 +14,7 @@ import {
     Clock,
     Star,
     Filter,
+    Lock,
 } from 'lucide-react';
 import {
     VOICE_CATALOG,
@@ -41,6 +42,8 @@ interface VoiceSelectorProps {
     compact?: boolean;
     /** Auth-aware fetch function (from useAuthFetch) */
     authFetch?: (url: string, init?: RequestInit) => Promise<Response>;
+    /** Whether current tenant is Enterprise plan */
+    isEnterprise?: boolean;
     /** Class name */
     className?: string;
 }
@@ -55,6 +58,7 @@ export function VoiceSelector({
     language,
     compact = false,
     authFetch,
+    isEnterprise = false,
     className = '',
 }: VoiceSelectorProps) {
     // ---- State ----
@@ -144,9 +148,14 @@ export function VoiceSelector({
         }
     }, [playingVoiceId, authFetch]);
 
+    // ---- Check if voice is locked (ElevenLabs for non-Enterprise) ----
+    const isVoiceLocked = useCallback((voice: VoiceCatalogEntry): boolean => {
+        return voice.provider === 'elevenlabs' && !isEnterprise;
+    }, [isEnterprise]);
+
     // ---- Provider filter buttons ----
     const providerButtons: { value: TTSProvider | null; label: string; icon: string }[] = [
-        { value: null, label: 'Tümü', icon: '🎤' },
+        { value: null, label: 'Hepsi', icon: '🎤' },
         { value: 'elevenlabs', label: 'ElevenLabs', icon: '⚡' },
         { value: 'google', label: 'Gemini', icon: '✨' },
         { value: 'kokoro', label: 'Kokoro', icon: '🔊' },
@@ -189,7 +198,7 @@ export function VoiceSelector({
                         className="text-xs h-7 px-2"
                         onClick={() => setGenderFilter('female')}
                     >
-                        Kadın
+                        Kad&#305;n
                     </Button>
                     <Button
                         variant={genderFilter === 'male' ? 'default' : 'outline'}
@@ -213,6 +222,8 @@ export function VoiceSelector({
                     const providerVoices = grouped[provider];
                     if (providerVoices.length === 0) return null;
 
+                    const isProviderLocked = provider === 'elevenlabs' && !isEnterprise;
+
                     return (
                         <div key={provider}>
                             {/* Provider Header */}
@@ -223,12 +234,26 @@ export function VoiceSelector({
                                 <Badge variant="secondary" className="text-[10px] h-4">
                                     {providerVoices.length}
                                 </Badge>
+                                {isProviderLocked && (
+                                    <Badge variant="outline" className="text-[10px] h-4 text-amber-400 border-amber-400/40 gap-1">
+                                        <Lock className="w-2.5 h-2.5" />
+                                        Enterprise
+                                    </Badge>
+                                )}
                             </div>
+
+                            {/* Enterprise notice for locked provider */}
+                            {isProviderLocked && (
+                                <p className="text-[11px] text-amber-400/80 mb-2 pl-1">
+                                    Sesleri dinleyebilirsiniz. Kullanmak i&#231;in Enterprise pakete ge&#231;in.
+                                </p>
+                            )}
 
                             {/* Voice Cards */}
                             <div className="grid gap-2">
                                 {providerVoices.map(voice => {
-                                    const isSelected = selectedVoiceId === voice.id;
+                                    const locked = isVoiceLocked(voice);
+                                    const isSelected = !locked && selectedVoiceId === voice.id;
                                     const isPlaying = playingVoiceId === voice.id;
                                     const isLoading = loadingVoiceId === voice.id;
                                     const latency = getLatencyLabel(voice.avgLatencyMs);
@@ -236,12 +261,18 @@ export function VoiceSelector({
                                     return (
                                         <Card
                                             key={voice.id}
-                                            className={`cursor-pointer transition-all duration-150 ${
-                                                isSelected
-                                                    ? 'ring-2 ring-primary bg-primary/5'
-                                                    : 'hover:bg-muted/50'
+                                            className={`transition-all duration-150 ${
+                                                locked
+                                                    ? 'cursor-default opacity-70 border-dashed'
+                                                    : isSelected
+                                                        ? 'cursor-pointer ring-2 ring-primary bg-primary/5'
+                                                        : 'cursor-pointer hover:bg-muted/50'
                                             }`}
-                                            onClick={() => onSelect(voice)}
+                                            onClick={() => {
+                                                if (!locked) {
+                                                    onSelect(voice);
+                                                }
+                                            }}
                                         >
                                             <CardContent className="p-3">
                                                 <div className="flex items-center justify-between">
@@ -253,22 +284,25 @@ export function VoiceSelector({
                                                                 ? 'bg-pink-500/20 text-pink-400'
                                                                 : 'bg-blue-500/20 text-blue-400'
                                                         }`}>
-                                                            {voice.gender === 'female' ? '♀' : '♂'}
+                                                            {voice.gender === 'female' ? '\u2640' : '\u2642'}
                                                         </div>
 
                                                         {/* Name + Tone */}
                                                         <div className="min-w-0">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-medium text-sm truncate">
+                                                                <span className={`font-medium text-sm truncate ${locked ? 'text-muted-foreground' : ''}`}>
                                                                     {voice.name}
                                                                 </span>
                                                                 {voice.recommended && (
                                                                     <Star className="w-3 h-3 text-amber-400 flex-shrink-0" />
                                                                 )}
+                                                                {locked && (
+                                                                    <Lock className="w-3 h-3 text-amber-400/60 flex-shrink-0" />
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                                 <span>{voice.tone}</span>
-                                                                <span>•</span>
+                                                                <span>&#x2022;</span>
                                                                 <span className="uppercase">{voice.language}</span>
                                                             </div>
                                                         </div>
@@ -286,7 +320,7 @@ export function VoiceSelector({
                                                             {voice.avgLatencyMs}ms
                                                         </span>
 
-                                                        {/* Preview button */}
+                                                        {/* Preview button — always available for everyone */}
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"

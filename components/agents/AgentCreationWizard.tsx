@@ -870,6 +870,7 @@ function StepCustomize({
                                             ttsProvider: voice.provider,
                                         })}
                                         authFetch={authFetch}
+                                        isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
                                         compact
                                     />
                                 </div>

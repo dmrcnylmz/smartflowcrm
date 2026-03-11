@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { useTenantSettings } from '@/lib/hooks/useTenantSettings';
 import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
 import { AgentCreationWizard } from '@/components/agents/AgentCreationWizard';
 import {
@@ -177,6 +178,7 @@ const DEFAULT_AGENT: Omit<Agent, 'id'> = {
 export default function AgentsPage() {
     const { toast } = useToast();
     const authFetch = useAuthFetch();
+    const { settings: tenantSettings } = useTenantSettings();
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -962,6 +964,7 @@ export default function AgentsPage() {
                                                     },
                                                 }))}
                                                 authFetch={authFetch}
+                                                isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
                                             />
                                         </div>
                                     </div>

@@ -28,7 +28,7 @@ export interface UsageRecord {
     totalMinutes: number;
     twilioMinutes: number;       // Twilio Native dakika
     sipTrunkMinutes: number;     // SIP Trunk (Netgsm/Bulutfon) dakika
-    ttsChars: number; // ElevenLabs TTS character count
+    ttsChars: number; // TTS character count (all providers)
     gpuSeconds: number;
     apiCalls: number;
     kbQueries: number;
@@ -42,7 +42,7 @@ export interface SubscriptionTier {
     includedMinutes: number;
     includedCalls: number;
     pricePerMinute: number;
-    pricePerTtsChar: number; // ElevenLabs TTS cost per character
+    pricePerTtsChar: number; // TTS cost per character (varies by plan/provider)
     pricePerGpuSecond: number;
     pricePerApiCall: number;
     monthlyBase: number;
@@ -54,12 +54,20 @@ export interface SubscriptionTier {
 
 // Per-call cost formula: C_call = C_Telephony + C_TTS + C_LLM
 // Twilio Native: ~$0.01/min, SIP Trunk: ~$0.003/min
-// ElevenLabs: ~$0.15/1000 chars, Groq/LLM: ~$0.02/call
-// Average 3-min call ≈ $0.35-$0.50
+// ElevenLabs: ~$0.15/1000 chars (turbo_v2_5 @ 0.5 credits/char)
+// Gemini Flash TTS: ~$0.05/1000 chars (token-based, ~3x cheaper than ElevenLabs)
+// Kokoro: ~$0.001/1000 chars (near-free, EN only)
+// Groq/LLM: ~$0.02/call
+// Average 3-min call:
+//   Enterprise (ElevenLabs): ~$0.35-$0.50
+//   Starter/Pro (Gemini):    ~$0.12-$0.20
+//   EN (Kokoro):             ~$0.05-$0.08
 export const COST_RATES = {
     twilio: { perMinute: 0.01 },           // Twilio Native per-minute rate
     sip_trunk: { perMinute: 0.003 },       // SIP Trunk (Netgsm/Bulutfon) per-minute rate
-    elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars
+    elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars (Enterprise only)
+    gemini_tts: { per1000Chars: 0.05 },     // Gemini 2.5 Flash TTS per 1000 chars (Starter/Pro default)
+    kokoro: { per1000Chars: 0.001 },        // Kokoro TTS per 1000 chars (EN only, near-free)
     llm: { perCall: 0.02 },                 // Groq/Gemini average per call
 };
 
@@ -311,7 +319,11 @@ export function estimateCost(
     const legacyCost = unaccountedMinutes > 0 ? unaccountedMinutes * COST_RATES.twilio.perMinute : 0;
 
     const voiceCost = twilioCost + sipTrunkCost + legacyCost;
-    const ttsCost = (ttsChars / 1000) * COST_RATES.elevenlabs.per1000Chars;
+    // TTS cost varies by tier: Enterprise uses ElevenLabs, others use Gemini
+    const ttsRate = tierName === 'enterprise'
+        ? COST_RATES.elevenlabs.per1000Chars
+        : COST_RATES.gemini_tts.per1000Chars;
+    const ttsCost = (ttsChars / 1000) * ttsRate;
     const llmCost = totalCalls * COST_RATES.llm.perCall;
     const infraCost = voiceCost + ttsCost + llmCost;
 
@@ -345,18 +357,28 @@ export function estimateCost(
 
 /**
  * Estimate per-call cost for a given duration.
- * Uses provider-specific voice rate (SIP trunk is cheaper).
+ * Uses provider-specific voice and TTS rates.
+ *
+ * @param providerType 'SIP_TRUNK' for cheaper voice rate
+ * @param ttsProvider 'elevenlabs' (Enterprise), 'gemini' (Starter/Pro), 'kokoro' (EN only)
  */
 export function estimatePerCallCost(
     durationMinutes: number,
     avgTtsCharsPerMin: number = 600,
     providerType?: string,
+    ttsProvider?: string,
 ): { voice: number; tts: number; llm: number; total: number } {
     const voiceRate = providerType === 'SIP_TRUNK'
         ? COST_RATES.sip_trunk.perMinute
         : COST_RATES.twilio.perMinute;
     const voice = durationMinutes * voiceRate;
-    const tts = (durationMinutes * avgTtsCharsPerMin / 1000) * COST_RATES.elevenlabs.per1000Chars;
+
+    // TTS cost based on provider
+    let ttsRate = COST_RATES.gemini_tts.per1000Chars; // default: Gemini
+    if (ttsProvider === 'elevenlabs') ttsRate = COST_RATES.elevenlabs.per1000Chars;
+    else if (ttsProvider === 'kokoro') ttsRate = COST_RATES.kokoro.per1000Chars;
+
+    const tts = (durationMinutes * avgTtsCharsPerMin / 1000) * ttsRate;
     const llm = COST_RATES.llm.perCall;
     return {
         voice: round2(voice),

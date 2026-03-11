@@ -23,6 +23,10 @@ export interface TenantSettings {
     agentGreeting: string;
     agentPersonality: string;
     agentFallbackMessage: string;
+    // Subscription info (from billing/subscription)
+    subscriptionPlan?: string;
+    subscriptionStatus?: string;
+    subscriptionActive?: boolean;
     // Business info (from tenant doc)
     business?: {
         workingHours?: string;

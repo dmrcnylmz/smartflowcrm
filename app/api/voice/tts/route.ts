@@ -31,6 +31,7 @@ import { ttsCircuitBreaker, openaiCircuitBreaker, googleTtsCircuitBreaker, kokor
 import { synthesizeGoogleTTS, getServiceAccountKey } from '@/lib/voice/tts-google';
 import { synthesizeGeminiTTS } from '@/lib/voice/tts-gemini';
 import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
+import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -258,19 +259,37 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // ---- Plan-Based Provider Enforcement ----
+        // Non-Enterprise tenants cannot use ElevenLabs → override to Gemini/Kokoro
+        let effectiveProvider = forceProvider;
+        let planId = 'starter';
+        if (tenantId !== 'default' && forceProvider === 'elevenlabs') {
+            try {
+                const guard = await checkSubscriptionActive(getTtsDb(), tenantId);
+                planId = guard.planId;
+                if (guard.planId !== 'enterprise') {
+                    // Override ElevenLabs → Gemini for TR, Kokoro for EN
+                    effectiveProvider = lang === 'en' ? 'kokoro' : 'google';
+                    console.info(`[TTS] Plan-based override: ${forceProvider} → ${effectiveProvider} (plan=${guard.planId}, tenant=${tenantId})`);
+                }
+            } catch {
+                // Fail-open: allow ElevenLabs if subscription check fails
+            }
+        }
+
         // ---- Strategy (Data-Driven) ----
-        // Normal:    ALL traffic → ElevenLabs
-        // Emergency: Greeting → ElevenLabs, Body → OpenAI (cost saving)
-        // forceProvider → Use specified provider only
+        // Enterprise:     forceProvider works as-is
+        // Non-Enterprise: ElevenLabs → auto-downgraded to Gemini/Kokoro
+        // Emergency:      Greeting → ElevenLabs, Body → OpenAI (cost saving)
 
         let audioResponse: Response | null = null;
         let usedProvider = 'none';
         let usedModel: string = isGreeting ? ELEVENLABS_MODELS.greeting : ELEVENLABS_MODELS.body;
 
-        if (forceProvider === 'elevenlabs') {
+        if (effectiveProvider === 'elevenlabs') {
             audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
             usedProvider = 'elevenlabs';
-        } else if (forceProvider === 'google') {
+        } else if (effectiveProvider === 'google') {
             // Gemini TTS for simple voice names (Kore, Leda, etc.)
             // Legacy Cloud TTS for hyphenated voice names (tr-TR-Chirp3-HD-Kore)
             const isGeminiVoice = voice_id && !voice_id.includes('-');
@@ -283,11 +302,11 @@ export async function POST(request: NextRequest) {
                 usedProvider = 'google';
                 usedModel = voice_id || 'google-default';
             }
-        } else if (forceProvider === 'openai') {
+        } else if (effectiveProvider === 'openai') {
             audioResponse = await synthesizeOpenAI(safeText, lang, voice_id);
             usedProvider = 'openai';
             usedModel = 'tts-1';
-        } else if (forceProvider === 'kokoro') {
+        } else if (effectiveProvider === 'kokoro') {
             if (lang !== 'en') {
                 return NextResponse.json({ error: 'Kokoro only supports English' }, { status: 400 });
             }
@@ -326,32 +345,71 @@ export async function POST(request: NextRequest) {
                 usedModel = ELEVENLABS_MODELS.body;
             }
         } else {
-            // Default fallback chain:
-            // EN: ElevenLabs → Kokoro → Google → OpenAI
-            // TR: ElevenLabs → Google → OpenAI
-            audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
-            usedProvider = 'elevenlabs';
-
-            // Kokoro fallback for English only (fast + ultra-low cost)
-            if (!audioResponse && lang === 'en') {
-                console.warn('[TTS] ElevenLabs failed, trying Kokoro (EN)...');
-                audioResponse = await synthesizeKokoroTTS(safeText, 'en');
-                usedProvider = 'kokoro-fallback';
-                usedModel = 'kokoro-v1';
+            // ---- Resolve plan for default chain ----
+            let isEnterprisePlan = false;
+            if (tenantId !== 'default') {
+                try {
+                    const guard = await checkSubscriptionActive(getTtsDb(), tenantId);
+                    isEnterprisePlan = guard.planId === 'enterprise';
+                } catch { /* fail-open */ }
             }
 
-            if (!audioResponse) {
-                console.warn('[TTS] Trying Google Cloud TTS...');
-                audioResponse = await synthesizeGoogleTTS(safeText, lang);
-                usedProvider = 'google-fallback';
-                usedModel = 'google-tts';
-            }
+            if (isEnterprisePlan) {
+                // Enterprise default chain:
+                // EN: ElevenLabs → Kokoro → Gemini → OpenAI
+                // TR: ElevenLabs → Gemini → OpenAI
+                audioResponse = await synthesizeElevenLabs(safeText, lang, isGreeting, voice_id, model_id);
+                usedProvider = 'elevenlabs';
 
-            if (!audioResponse) {
-                console.warn('[TTS] Google TTS also failed, falling back to OpenAI TTS (slow!)');
-                audioResponse = await synthesizeOpenAI(safeText, lang);
-                usedProvider = 'openai-fallback';
-                usedModel = 'tts-1';
+                if (!audioResponse && lang === 'en') {
+                    console.warn('[TTS] ElevenLabs failed, trying Kokoro (EN)...');
+                    audioResponse = await synthesizeKokoroTTS(safeText, 'en');
+                    usedProvider = 'kokoro-fallback';
+                    usedModel = 'kokoro-v1';
+                }
+
+                if (!audioResponse) {
+                    console.warn('[TTS] Trying Gemini TTS...');
+                    audioResponse = await synthesizeGeminiTTS(safeText, lang, 'Kore');
+                    usedProvider = 'google-gemini-fallback';
+                    usedModel = 'gemini-2.5-flash-tts';
+                }
+
+                if (!audioResponse) {
+                    console.warn('[TTS] All premium failed, falling back to OpenAI TTS (slow!)');
+                    audioResponse = await synthesizeOpenAI(safeText, lang);
+                    usedProvider = 'openai-fallback';
+                    usedModel = 'tts-1';
+                }
+            } else {
+                // Starter/Professional default chain (cost-optimized):
+                // EN: Kokoro → Gemini → OpenAI
+                // TR: Gemini → OpenAI
+                if (lang === 'en') {
+                    audioResponse = await synthesizeKokoroTTS(safeText, 'en');
+                    usedProvider = 'kokoro';
+                    usedModel = 'kokoro-v1';
+                }
+
+                if (!audioResponse) {
+                    audioResponse = await synthesizeGeminiTTS(safeText, lang, 'Kore');
+                    usedProvider = 'google-gemini';
+                    usedModel = 'gemini-2.5-flash-tts';
+                }
+
+                if (!audioResponse) {
+                    console.warn('[TTS] Gemini failed, trying legacy Google TTS...');
+                    audioResponse = await synthesizeGoogleTTS(safeText, lang);
+                    usedProvider = 'google-fallback';
+                    usedModel = 'google-tts';
+                }
+
+                if (!audioResponse) {
+                    console.warn('[TTS] All cost-optimized failed, falling back to OpenAI TTS (slow!)');
+                    audioResponse = await synthesizeOpenAI(safeText, lang);
+                    usedProvider = 'openai-fallback';
+                    usedModel = 'tts-1';
+                }
             }
         }
 
@@ -464,11 +522,17 @@ export async function GET() {
             },
         },
         strategy: {
-            greeting: 'ElevenLabs multilingual_v2 (premium quality)',
-            body_tr: 'ElevenLabs → Google (Chirp3-HD/Wavenet) → OpenAI',
-            body_en: 'ElevenLabs → Kokoro → Google → OpenAI',
+            enterprise: {
+                tr: 'ElevenLabs → Gemini Flash → OpenAI',
+                en: 'ElevenLabs → Kokoro → Gemini Flash → OpenAI',
+            },
+            starter_professional: {
+                tr: 'Gemini Flash → Legacy Google → OpenAI',
+                en: 'Kokoro → Gemini Flash → Legacy Google → OpenAI',
+            },
             emergency_tr: 'Google → OpenAI → ElevenLabs',
             emergency_en: 'Kokoro → Google → OpenAI → ElevenLabs',
+            note: 'ElevenLabs is Enterprise-only. Non-Enterprise tenants auto-downgrade to Gemini/Kokoro.',
         },
     });
 }
