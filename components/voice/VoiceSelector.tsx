@@ -115,10 +115,12 @@ export function VoiceSelector({
 
         try {
             const fetchFn = authFetch || fetch;
+            // Pass agent language so preview uses correct sample text
+            // For 'multi' voices, preview route uses this language to pick TR/EN sample
             const res = await fetchFn('/api/voice/tts/preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ voiceCatalogId: voice.id }),
+                body: JSON.stringify({ voiceCatalogId: voice.id, language: language || 'tr' }),
             });
 
             if (!res.ok) {
@@ -160,7 +162,7 @@ export function VoiceSelector({
             // Auto-clear error after 4 seconds
             setTimeout(() => setPreviewError(null), 4000);
         }
-    }, [playingVoiceId, authFetch]);
+    }, [playingVoiceId, authFetch, language]);
 
     // ---- Check if voice is locked (ElevenLabs for non-Enterprise) ----
     const isVoiceLocked = useCallback((voice: VoiceCatalogEntry): boolean => {
@@ -325,7 +327,7 @@ export function VoiceSelector({
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                                                 <span>{voice.tone}</span>
                                                                 <span>&#x2022;</span>
-                                                                <span className="uppercase">{voice.language}</span>
+                                                                <span className="uppercase">{voice.language === 'multi' ? 'TR/EN 🌐' : voice.language}</span>
                                                             </div>
                                                         </div>
                                                     </div>
