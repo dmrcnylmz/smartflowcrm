@@ -16,13 +16,14 @@ import {
     Shield, Users, Settings, Activity, Database, Server,
     Building2, Bot, Phone, Globe, Save, Loader2,
     Key, Eye, EyeOff, CheckCircle, XCircle, Mic,
-    Mail, Bell, FileText,
+    Mail, Bell, FileText, Palette,
     RefreshCw, Copy, Zap, ChevronDown, Clock, AlertTriangle,
     UserCheck, Crown, UserCog, UserX,
 } from 'lucide-react';
 
 // Lazy-loaded components
 const PhoneManagementTab = lazy(() => import('@/components/admin/phone-management'));
+const ThemeSettingsTab = lazy(() => import('@/components/admin/ThemeSettingsTab'));
 
 // =============================================
 // Types
@@ -93,7 +94,7 @@ export default function AdminPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [settings, setSettings] = useState<TenantSettings>(defaultSettings);
-    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'phone' | 'users' | 'system'>('company');
+    const [activeTab, setActiveTab] = useState<'company' | 'assistant' | 'features' | 'phone' | 'users' | 'system' | 'theme'>('company');
     const [healthData, setHealthData] = useState<Record<string, unknown> | null>(null);
     const [members, setMembers] = useState<TenantMember[]>([]);
     const [membersLoading, setMembersLoading] = useState(false);
@@ -291,6 +292,7 @@ export default function AdminPage() {
         { id: 'phone' as const, label: 'Telefon', icon: Phone },
         { id: 'users' as const, label: 'Kullanıcılar', icon: Users },
         { id: 'system' as const, label: 'Sistem Durumu', icon: Activity },
+        { id: 'theme' as const, label: 'Görünüm', icon: Palette },
     ];
 
     return (
@@ -306,7 +308,7 @@ export default function AdminPage() {
                         Şirket ayarları, AI asistan yapılandırması ve sistem durumu
                     </p>
                 </div>
-                {activeTab !== 'system' && (
+                {activeTab !== 'system' && activeTab !== 'theme' && (
                     <Button
                         onClick={handleSave}
                         disabled={saving}
@@ -797,6 +799,22 @@ export default function AdminPage() {
                         </CardContent>
                     </Card>
                 </div>
+            )}
+
+            {/* ─── Theme Tab ─── */}
+            {activeTab === 'theme' && (
+                <Suspense fallback={
+                    <div className="space-y-4 animate-fade-in-up">
+                        <Skeleton className="h-12 w-64" />
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <Skeleton className="h-64 rounded-2xl" />
+                            <Skeleton className="h-64 rounded-2xl" />
+                            <Skeleton className="h-64 rounded-2xl" />
+                        </div>
+                    </div>
+                }>
+                    <ThemeSettingsTab />
+                </Suspense>
             )}
         </div>
     );

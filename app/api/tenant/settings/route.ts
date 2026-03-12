@@ -80,6 +80,8 @@ export async function GET(request: NextRequest) {
                 address: data.business?.address || '',
                 website: data.business?.website || data.companyWebsite || '',
             },
+            // Theme preference
+            themeId: data.themeId || data.settings?.themeId || null,
             // System (read-only) — fetch real subscription from billing/subscription
             twilioConfigured: !!data.twilio?.accountSid || !!process.env.TWILIO_ACCOUNT_SID,
             openaiConfigured: !!process.env.OPENAI_API_KEY,
@@ -147,6 +149,9 @@ export async function PUT(request: NextRequest) {
         if (body.callRecording !== undefined) updateData['settings.callRecording'] = body.callRecording;
         if (body.emailNotifications !== undefined) updateData['settings.emailNotifications'] = body.emailNotifications;
         if (body.autoAppointments !== undefined) updateData['settings.autoAppointments'] = body.autoAppointments;
+
+        // Theme preference
+        if (body.themeId !== undefined) updateData.themeId = body.themeId;
 
         // Use set with merge to create doc if it doesn't exist
         await tenantRef.set(updateData, { merge: true });

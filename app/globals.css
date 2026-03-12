@@ -1,91 +1,92 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* ── Inception Dark Theme (Default) ── */
+  /* ── Midnight Professional (Default Enterprise Theme) ── */
   :root {
-    --background: 220 20% 4%;
+    --background: 222 47% 6%;
     --foreground: 210 20% 92%;
-    --card: 220 18% 7%;
+    --card: 222 40% 9%;
     --card-foreground: 210 20% 92%;
-    --popover: 220 18% 7%;
+    --popover: 222 40% 9%;
     --popover-foreground: 210 20% 92%;
-    --primary: 0 72% 51%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 16% 12%;
+    --secondary: 222 30% 14%;
     --secondary-foreground: 210 20% 88%;
-    --muted: 220 14% 11%;
+    --muted: 222 25% 12%;
     --muted-foreground: 215 14% 50%;
-    --accent: 220 16% 14%;
+    --accent: 222 30% 16%;
     --accent-foreground: 210 20% 92%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 14% 14%;
-    --input: 220 14% 14%;
-    --ring: 0 72% 51%;
+    --border: 222 20% 18%;
+    --input: 222 20% 18%;
+    --ring: 217 91% 60%;
     --radius: 0.625rem;
-    /* Charts — cinematic palette */
-    --chart-1: 0 72% 51%;
+    /* Charts */
+    --chart-1: 217 91% 60%;
     --chart-2: 174 60% 41%;
-    --chart-3: 220 60% 50%;
+    --chart-3: 280 60% 55%;
     --chart-4: 38 92% 50%;
-    --chart-5: 280 60% 55%;
+    --chart-5: 160 60% 45%;
     /* Sidebar */
-    --sidebar-background: 220 20% 5%;
+    --sidebar-background: 222 47% 5%;
     --sidebar-foreground: 210 20% 85%;
-    --sidebar-primary: 0 72% 51%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 16% 10%;
+    --sidebar-accent: 222 30% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 12%;
-    --sidebar-ring: 0 72% 51%;
-    /* Custom Inception tokens */
-    --inception-red: 0 72% 51%;
-    --inception-teal: 174 60% 41%;
-    --inception-cyan: 188 70% 45%;
-    --inception-gold: 38 92% 50%;
-    --inception-dark: 220 20% 4%;
-    --inception-surface: 220 18% 7%;
-    --inception-glow: 0 72% 51%;
+    --sidebar-border: 222 20% 14%;
+    --sidebar-ring: 217 91% 60%;
+    /* Theme-aware dynamic tokens (set by ThemeProvider) */
+    --glass-bg: rgba(8, 16, 32, 0.7);
+    --glass-border: rgba(59, 130, 246, 0.08);
+    --glass-hover-border: rgba(59, 130, 246, 0.18);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    --glass-hover-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(59, 130, 246, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #60A5FA 40%, #93C5FD 100%);
+    --gradient-secondary: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+    --scrollbar-color: rgba(59, 130, 246, 0.2);
   }
 
-  /* ── Light Override (for accessibility) ── */
+  /* ── Light Override (Corporate Light — set via ThemeProvider) ── */
   .light {
-    --background: 210 20% 96%;
-    --foreground: 220 20% 8%;
+    --background: 210 20% 97%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 8%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 8%;
-    --primary: 0 72% 48%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 92%;
-    --secondary-foreground: 220 20% 8%;
-    --muted: 220 14% 94%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 96%;
     --muted-foreground: 215 14% 40%;
-    --accent: 220 14% 92%;
-    --accent-foreground: 220 20% 8%;
+    --accent: 221 70% 95%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 220 13% 88%;
     --input: 220 13% 88%;
-    --ring: 0 72% 48%;
-    --chart-1: 0 72% 51%;
+    --ring: 221 83% 53%;
+    --chart-1: 221 83% 53%;
     --chart-2: 174 60% 41%;
-    --chart-3: 220 60% 50%;
+    --chart-3: 280 60% 55%;
     --chart-4: 38 92% 50%;
-    --chart-5: 280 60% 55%;
-    --sidebar-background: 220 16% 96%;
-    --sidebar-foreground: 220 20% 8%;
-    --sidebar-primary: 0 72% 48%;
+    --chart-5: 160 60% 45%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 92%;
-    --sidebar-accent-foreground: 220 20% 8%;
-    --sidebar-border: 220 13% 88%;
-    --sidebar-ring: 0 72% 48%;
+    --sidebar-accent: 210 20% 95%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-ring: 221 83% 53%;
   }
 }
 
@@ -99,9 +100,11 @@
   }
 }
 
-/* ── Inception Brand Typography ── */
+/* ── Brand Typography ── */
 .font-display {
-  font-family: 'Orbitron', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* ── Animation Utilities ── */
@@ -115,25 +118,25 @@
   .stagger-7 { animation-delay: 350ms; }
   .stagger-8 { animation-delay: 400ms; }
 
-  /* Inception Glass Morphism */
+  /* Glass Morphism — Theme-aware via CSS variables */
   .glass {
-    background: rgba(10, 10, 20, 0.6);
+    background: var(--glass-bg);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border: 1px solid rgba(220, 38, 38, 0.08);
+    border: 1px solid var(--glass-border);
   }
 
   .glass-card {
-    background: linear-gradient(135deg, rgba(15, 15, 25, 0.8) 0%, rgba(10, 10, 18, 0.9) 100%);
+    background: var(--glass-bg);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    box-shadow: var(--glass-shadow);
   }
 
   .glass-card:hover {
-    border-color: rgba(220, 38, 38, 0.15);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(220, 38, 38, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border-color: var(--glass-hover-border);
+    box-shadow: var(--glass-hover-shadow);
   }
 
   .light .glass {
@@ -147,42 +150,52 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   }
 
-  /* Smooth hover lift */
+  .light .glass-card:hover {
+    border-color: hsl(var(--primary) / 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Smooth hover lift — Theme-aware */
   .hover-lift {
     transition: transform 0.25s ease, box-shadow 0.25s ease;
   }
   .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px -5px rgba(220, 38, 38, 0.15), 0 4px 10px -6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px -5px hsl(var(--primary) / 0.15), 0 4px 10px -6px rgba(0, 0, 0, 0.3);
   }
 
-  /* Gradient text — Inception Red */
+  /* Gradient text — Theme-aware via CSS variables */
   .text-gradient {
-    background: linear-gradient(135deg, #dc2626 0%, #ef4444 40%, #f87171 100%);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .text-gradient-teal {
-    background: linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%);
+  .text-gradient-secondary {
+    background: var(--gradient-secondary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* Red glow effects */
-  .glow-red {
-    box-shadow: 0 0 15px rgba(220, 38, 38, 0.2), 0 0 40px rgba(220, 38, 38, 0.08);
+  /* Glow effects — Theme-aware */
+  .glow-primary {
+    box-shadow: 0 0 15px hsl(var(--primary) / 0.2), 0 0 40px hsl(var(--primary) / 0.08);
   }
 
-  .glow-red-sm {
-    box-shadow: 0 0 8px rgba(220, 38, 38, 0.15);
+  .glow-primary-sm {
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.15);
   }
 
-  .glow-teal {
-    box-shadow: 0 0 15px rgba(13, 148, 136, 0.2), 0 0 40px rgba(13, 148, 136, 0.08);
+  .glow-accent {
+    box-shadow: 0 0 15px hsl(var(--chart-2) / 0.2), 0 0 40px hsl(var(--chart-2) / 0.08);
   }
+
+  /* Legacy aliases for backward compatibility */
+  .glow-red { box-shadow: 0 0 15px hsl(var(--primary) / 0.2), 0 0 40px hsl(var(--primary) / 0.08); }
+  .glow-red-sm { box-shadow: 0 0 8px hsl(var(--primary) / 0.15); }
+  .glow-teal { box-shadow: 0 0 15px hsl(var(--chart-2) / 0.2), 0 0 40px hsl(var(--chart-2) / 0.08); }
 
   /* Shimmer loading */
   .shimmer-bg {
@@ -196,15 +209,15 @@
     animation: shimmer 2s linear infinite;
   }
 
-  /* Circuit Board Pattern */
+  /* Subtle grid pattern — Theme-aware */
   .circuit-pattern {
     background-image:
-      linear-gradient(rgba(220, 38, 38, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(220, 38, 38, 0.03) 1px, transparent 1px);
+      linear-gradient(hsl(var(--primary) / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.03) 1px, transparent 1px);
     background-size: 40px 40px;
   }
 
-  /* Scan Line Effect */
+  /* Scan Line Effect — Theme-aware */
   .scan-line::after {
     content: '';
     position: absolute;
@@ -212,7 +225,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, transparent, rgba(220, 38, 38, 0.3), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent);
     animation: scan-line 4s linear infinite;
   }
 }
@@ -229,9 +242,9 @@
   }
 }
 
-/* ── Selection Styling — Inception Red ── */
+/* ── Selection Styling — Theme-aware ── */
 ::selection {
-  background: hsl(0 72% 51% / 0.25);
+  background: hsl(var(--primary) / 0.25);
   color: hsl(var(--foreground));
 }
 
@@ -247,7 +260,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ── Scrollbar — Dark Cinematic ── */
+/* ── Scrollbar — Theme-aware ── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -256,16 +269,17 @@ html {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(220, 38, 38, 0.2);
+  background: var(--scrollbar-color);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(220, 38, 38, 0.4);
+  background: var(--scrollbar-color);
+  opacity: 0.8;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(220, 38, 38, 0.2) transparent;
+  scrollbar-color: var(--scrollbar-color) transparent;
 }
 
 /* ── Page Transition ── */
@@ -304,7 +318,7 @@ html {
 @media (prefers-contrast: high) {
   :root {
     --border: 0 0% 40%;
-    --ring: 0 72% 51%;
+    --ring: 217 91% 60%;
   }
 }
 

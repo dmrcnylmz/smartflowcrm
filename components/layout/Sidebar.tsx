@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
+import { Logo } from '@/components/layout/Logo';
 
 interface NavSection {
   title: string;
@@ -103,12 +104,10 @@ export const Sidebar = memo(function Sidebar() {
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setMobileOpen(false);
-        // Return focus to hamburger button
         hamburgerRef.current?.focus();
         return;
       }
 
-      // Focus trap: Tab cycles within drawer
       if (e.key === 'Tab' && mobileDrawerRef.current) {
         const focusable = mobileDrawerRef.current.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -130,7 +129,6 @@ export const Sidebar = memo(function Sidebar() {
 
     window.addEventListener('keydown', handleKey);
 
-    // Focus first focusable element when drawer opens
     requestAnimationFrame(() => {
       const firstLink = mobileDrawerRef.current?.querySelector<HTMLElement>('a[href]');
       firstLink?.focus();
@@ -151,15 +149,10 @@ export const Sidebar = memo(function Sidebar() {
     <>
       {/* Header */}
       <div className={cn(
-        "border-b border-white/[0.06] flex items-center transition-all duration-300",
+        "border-b border-border/40 flex items-center transition-all duration-300",
         collapsed ? "px-3 py-4 justify-center" : "px-5 py-5 justify-between"
       )}>
-        {!collapsed && (
-          <div className="animate-fade-in">
-            <h1 className="text-base font-display font-bold tracking-wider text-gradient">CALLCEPTION</h1>
-            <p className="text-[10px] text-muted-foreground mt-0.5 tracking-wide">AI CALL CENTER</p>
-          </div>
-        )}
+        <Logo collapsed={collapsed} />
         <div className="flex items-center gap-1">
           {!collapsed && <NotificationCenter />}
           <button
@@ -173,7 +166,7 @@ export const Sidebar = memo(function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav role="navigation" aria-label="Ana men\u00fc" className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
+      <nav role="navigation" aria-label="Ana menü" className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
         {navSections.map((section, sectionIdx) => {
           let itemIndex = 0;
           for (let s = 0; s < sectionIdx; s++) itemIndex += navSections[s].items.length;
@@ -203,7 +196,7 @@ export const Sidebar = memo(function Sidebar() {
                         "group relative flex items-center gap-3 rounded-xl transition-all duration-200",
                         collapsed ? "justify-center p-2.5" : "px-3 py-2",
                         isActive
-                          ? "bg-inception-red text-white shadow-md shadow-inception-red/20"
+                          ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                           : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground",
                         "animate-fade-in-up"
                       )}
@@ -230,11 +223,11 @@ export const Sidebar = memo(function Sidebar() {
 
       {/* User Profile & Logout */}
       {user && (
-        <div className={cn("border-t border-white/[0.06] transition-all duration-300", collapsed ? "p-2" : "p-3")}>
+        <div className={cn("border-t border-border/40 transition-all duration-300", collapsed ? "p-2" : "p-3")}>
           {collapsed ? (
             <div className="flex flex-col items-center gap-2">
-              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-inception-red/20 to-inception-red/5 flex items-center justify-center ring-2 ring-inception-red/10">
-                <User className="h-4 w-4 text-inception-red" />
+              <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/10">
+                <User className="h-4 w-4 text-primary" />
               </div>
               <button
                 onClick={handleLogout}
@@ -246,9 +239,9 @@ export const Sidebar = memo(function Sidebar() {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-3 px-2 py-2 mb-1.5 rounded-xl bg-white/[0.03] border border-white/[0.04]">
-                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-inception-red/20 to-inception-red/5 flex items-center justify-center ring-2 ring-inception-red/10 shrink-0">
-                  <User className="h-4 w-4 text-inception-red" />
+              <div className="flex items-center gap-3 px-2 py-2 mb-1.5 rounded-xl bg-white/[0.03] border border-border/40">
+                <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/10 shrink-0">
+                  <User className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
@@ -281,7 +274,7 @@ export const Sidebar = memo(function Sidebar() {
       <button
         ref={hamburgerRef}
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card/80 backdrop-blur-md border border-white/[0.08] shadow-lg text-foreground hover:bg-white/[0.06] transition-colors"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card/80 backdrop-blur-md border border-border/30 shadow-lg text-foreground hover:bg-accent/50 transition-colors"
         aria-label="Menüyü aç"
         aria-expanded={mobileOpen}
         aria-controls="mobile-sidebar"
@@ -305,7 +298,7 @@ export const Sidebar = memo(function Sidebar() {
         aria-modal={mobileOpen}
         aria-label="Mobil navigasyon menüsü"
         className={cn(
-          "lg:hidden fixed top-0 left-0 z-50 h-full w-72 bg-[#0a0a14] border-r border-white/[0.06] flex flex-col shadow-2xl transition-transform duration-300 ease-out",
+          "lg:hidden fixed top-0 left-0 z-50 h-full w-72 bg-sidebar border-r border-sidebar-border flex flex-col shadow-2xl transition-transform duration-300 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -321,7 +314,7 @@ export const Sidebar = memo(function Sidebar() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col bg-[#0a0a14]/95 backdrop-blur-md border-r border-white/[0.06] sidebar-transition shrink-0",
+          "hidden lg:flex flex-col bg-sidebar/95 backdrop-blur-md border-r border-sidebar-border sidebar-transition shrink-0",
           collapsed ? "w-[68px]" : "w-64"
         )}
       >

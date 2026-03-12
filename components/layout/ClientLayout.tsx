@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/firebase/auth-context';
 import { ToastProvider } from '@/components/ui/toast';
+import { ThemeProvider } from '@/lib/theme/ThemeProvider';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { initClientErrorReporting } from '@/lib/monitoring/client-reporter';
@@ -79,11 +80,13 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 export function ClientLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthProvider>
-            <ToastProvider>
-                <ErrorBoundary>
-                    <LayoutInner>{children}</LayoutInner>
-                </ErrorBoundary>
-            </ToastProvider>
+            <ThemeProvider>
+                <ToastProvider>
+                    <ErrorBoundary>
+                        <LayoutInner>{children}</LayoutInner>
+                    </ErrorBoundary>
+                </ToastProvider>
+            </ThemeProvider>
         </AuthProvider>
     );
 }

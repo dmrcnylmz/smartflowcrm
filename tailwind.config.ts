@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        display: ["Orbitron", "Inter", "system-ui", "sans-serif"],
+        display: ["Inter", "system-ui", "-apple-system", "sans-serif"],
         sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
@@ -64,17 +64,18 @@ const config: Config = {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // Inception brand colors
+        // Legacy aliases — maps to theme-aware CSS variables
+        // so existing components using inception-* auto-adapt to active theme
         inception: {
-          red: "#dc2626",
-          "red-light": "#ef4444",
-          "red-dark": "#b91c1c",
-          teal: "#0d9488",
-          "teal-light": "#14b8a6",
-          cyan: "#0891b2",
-          gold: "#eab308",
-          dark: "#0a0a14",
-          surface: "#0f0f19",
+          red: "hsl(var(--primary))",
+          "red-light": "hsl(var(--primary))",
+          "red-dark": "hsl(var(--primary))",
+          teal: "hsl(var(--chart-2))",
+          "teal-light": "hsl(var(--chart-2))",
+          cyan: "hsl(var(--chart-3))",
+          gold: "hsl(var(--chart-4))",
+          dark: "hsl(var(--background))",
+          surface: "hsl(var(--card))",
         },
       },
       borderRadius: {
@@ -127,10 +128,9 @@ const config: Config = {
           "0%": { opacity: "0", transform: "translateY(100%)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        // Inception-specific animations
         "glow-pulse": {
-          "0%, 100%": { boxShadow: "0 0 15px rgba(220, 38, 38, 0.15)" },
-          "50%": { boxShadow: "0 0 30px rgba(220, 38, 38, 0.3)" },
+          "0%, 100%": { boxShadow: "0 0 15px hsl(var(--primary) / 0.15)" },
+          "50%": { boxShadow: "0 0 30px hsl(var(--primary) / 0.3)" },
         },
         "scan-line": {
           "0%": { top: "-2px" },
@@ -141,8 +141,8 @@ const config: Config = {
           "100%": { backgroundPosition: "40px 40px" },
         },
         "border-glow": {
-          "0%, 100%": { borderColor: "rgba(220, 38, 38, 0.1)" },
-          "50%": { borderColor: "rgba(220, 38, 38, 0.3)" },
+          "0%, 100%": { borderColor: "hsl(var(--primary) / 0.1)" },
+          "50%": { borderColor: "hsl(var(--primary) / 0.3)" },
         },
         "text-reveal": {
           "0%": { opacity: "0", transform: "translateY(20px) scale(0.95)", filter: "blur(8px)" },
