@@ -183,4 +183,6 @@ export interface ProvisionResult {
     success: boolean;
     phoneNumber?: PhoneNumberRecord;
     error?: string;
+    /** Maintenance mode message (TR pool empty) */
+    maintenanceMessage?: string;
 }

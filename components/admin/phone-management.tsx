@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/toast';
 import {
     Phone, Plus, Trash2, Loader2, Globe, RefreshCw,
     ArrowRightLeft, CheckCircle, Clock, AlertTriangle, XCircle,
+    Construction,
 } from 'lucide-react';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 
@@ -70,6 +71,9 @@ export default function PhoneManagementTab() {
     const [showProvisionForm, setShowProvisionForm] = useState(false);
     const [provisionCountry, setProvisionCountry] = useState('TR');
 
+    // TR pool maintenance state
+    const [trPoolMaintenance, setTrPoolMaintenance] = useState(false);
+
     // Porting form
     const [showPortingForm, setShowPortingForm] = useState(false);
     const [portingPhone, setPortingPhone] = useState('');
@@ -81,9 +85,10 @@ export default function PhoneManagementTab() {
     // ─── Fetch Data ───
     const fetchData = useCallback(async () => {
         try {
-            const [numbersRes, portingRes] = await Promise.all([
+            const [numbersRes, portingRes, poolStatusRes] = await Promise.all([
                 authFetch('/api/phone/numbers'),
                 authFetch('/api/phone/porting'),
+                authFetch('/api/phone/pool/status'),
             ]);
 
             if (numbersRes.ok) {
@@ -94,6 +99,11 @@ export default function PhoneManagementTab() {
             if (portingRes.ok) {
                 const data = await portingRes.json();
                 setPortingRequests(data.requests || []);
+            }
+
+            if (poolStatusRes.ok) {
+                const poolData = await poolStatusRes.json();
+                setTrPoolMaintenance(poolData.maintenance === true);
             }
         } catch {
             // Silent
@@ -254,7 +264,11 @@ export default function PhoneManagementTab() {
                                         <option value="NL">🇳🇱 Hollanda (+31) — Twilio</option>
                                     </select>
                                 </div>
-                                <Button onClick={handleProvision} disabled={provisioning} className="gap-2">
+                                <Button
+                                    onClick={handleProvision}
+                                    disabled={provisioning || (provisionCountry === 'TR' && trPoolMaintenance)}
+                                    className="gap-2"
+                                >
                                     {provisioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                                     {provisionCountry === 'TR' ? 'Havuzdan Al' : 'Satın Al'}
                                 </Button>
@@ -262,7 +276,24 @@ export default function PhoneManagementTab() {
                                     İptal
                                 </Button>
                             </div>
-                            {provisionCountry === 'TR' && (
+
+                            {/* TR Pool Maintenance Banner */}
+                            {provisionCountry === 'TR' && trPoolMaintenance && (
+                                <div className="flex items-start gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/5">
+                                    <Construction className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                                            Bakım Modu
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Türkiye numara havuzu şu anda bakımdadır. Yeni numara tahsisi geçici olarak kullanılamaz.
+                                            Lütfen daha sonra tekrar deneyin veya diğer ülke seçeneklerini değerlendirin.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {provisionCountry === 'TR' && !trPoolMaintenance && (
                                 <p className="text-xs text-muted-foreground">
                                     Türkiye numaraları önceden satın alınmış havuzdan atanır (SIP Trunk).
                                 </p>

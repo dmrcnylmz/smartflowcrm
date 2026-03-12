@@ -28,6 +28,29 @@ const TENANT_NUMBERS_COLLECTION = 'tenant_phone_numbers';
 const RESERVATION_TTL_MS = 10 * 60 * 1000;
 
 // =============================================
+// Pool Availability Check
+// =============================================
+
+/**
+ * Check if the TR number pool has available numbers.
+ * Used to show "maintenance" state when pool is empty.
+ */
+export async function isPoolAvailable(
+    db: FirebaseFirestore.Firestore,
+): Promise<{ available: boolean; count: number }> {
+    const snap = await db
+        .collection(POOL_COLLECTION)
+        .where('status', '==', 'available')
+        .limit(1)
+        .get();
+
+    return {
+        available: !snap.empty,
+        count: snap.empty ? 0 : snap.size,
+    };
+}
+
+// =============================================
 // Assignment (Tenant-Facing)
 // =============================================
 

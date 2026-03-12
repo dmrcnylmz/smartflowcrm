@@ -786,6 +786,28 @@ function StepPhoneSetup({
 }) {
     const [isProvisioning, setIsProvisioning] = useState(false);
     const [phoneError, setPhoneError] = useState<string | null>(null);
+    const [trPoolMaintenance, setTrPoolMaintenance] = useState(false);
+
+    // Check TR pool availability on mount
+    useEffect(() => {
+        async function checkPoolStatus() {
+            try {
+                const currentUser = auth.currentUser;
+                if (!currentUser) return;
+                const token = await currentUser.getIdToken();
+                const res = await fetch('/api/phone/pool/status', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) {
+                    const poolData = await res.json();
+                    setTrPoolMaintenance(poolData.maintenance === true);
+                }
+            } catch {
+                // Silent — will fail gracefully at provision time
+            }
+        }
+        checkPoolStatus();
+    }, []);
 
     async function handleProvision(countryCode: string) {
         setIsProvisioning(true);
@@ -874,34 +896,45 @@ function StepPhoneSetup({
                     Ülke Seçin <span className="text-white/30">(numaranızın ülke kodu)</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                    {PHONE_COUNTRIES.map((country) => (
-                        <button
-                            key={country.code}
-                            onClick={() => handleProvision(country.code)}
-                            disabled={isProvisioning}
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all text-left
-                                ${isProvisioning && data.phoneCountry === country.code
-                                    ? 'border-inception-red/40 bg-inception-red/5'
-                                    : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05]'
-                                }
-                                ${isProvisioning ? 'opacity-60 cursor-wait' : ''}
-                            `}
-                        >
-                            {country.badge && (
-                                <span className="absolute -top-2 right-3 bg-inception-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                    {country.badge}
-                                </span>
-                            )}
-                            <span className="text-2xl">{country.flag}</span>
-                            <div className="flex-1">
-                                <div className="text-sm font-semibold text-white/80">{country.name}</div>
-                                <div className="text-xs text-white/30">{country.description}</div>
-                            </div>
-                            {isProvisioning && data.phoneCountry === country.code && (
-                                <Loader2 className="h-4 w-4 animate-spin text-inception-red" />
-                            )}
-                        </button>
-                    ))}
+                    {PHONE_COUNTRIES.map((country) => {
+                        const isTrMaintenance = country.code === 'TR' && trPoolMaintenance;
+                        return (
+                            <button
+                                key={country.code}
+                                onClick={() => handleProvision(country.code)}
+                                disabled={isProvisioning || isTrMaintenance}
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all text-left
+                                    ${isTrMaintenance
+                                        ? 'border-amber-500/30 bg-amber-500/5 opacity-70 cursor-not-allowed'
+                                        : isProvisioning && data.phoneCountry === country.code
+                                            ? 'border-inception-red/40 bg-inception-red/5'
+                                            : 'border-white/[0.08] bg-white/[0.02] hover:border-white/[0.15] hover:bg-white/[0.05]'
+                                    }
+                                    ${isProvisioning && !isTrMaintenance ? 'opacity-60 cursor-wait' : ''}
+                                `}
+                            >
+                                {isTrMaintenance ? (
+                                    <span className="absolute -top-2 right-3 bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        Bakımda
+                                    </span>
+                                ) : country.badge ? (
+                                    <span className="absolute -top-2 right-3 bg-inception-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        {country.badge}
+                                    </span>
+                                ) : null}
+                                <span className="text-2xl">{country.flag}</span>
+                                <div className="flex-1">
+                                    <div className="text-sm font-semibold text-white/80">{country.name}</div>
+                                    <div className="text-xs text-white/30">
+                                        {isTrMaintenance ? 'Numara havuzu bakımda' : country.description}
+                                    </div>
+                                </div>
+                                {isProvisioning && data.phoneCountry === country.code && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-inception-red" />
+                                )}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

@@ -12,7 +12,7 @@
 
 import type { PhoneNumberRecord, ProvisionOptions, ProvisionResult } from './types';
 import { getProviderForCountry } from './types';
-import { assignFromPool, returnToPool } from './number-pool';
+import { assignFromPool, returnToPool, isPoolAvailable } from './number-pool';
 import { purchaseFromTwilio, releaseTwilioNumber } from './twilio-native';
 
 // =============================================
@@ -40,6 +40,16 @@ export async function provisionNumber(
         let phoneNumber: PhoneNumberRecord;
 
         if (providerType === 'SIP_TRUNK') {
+            // Turkey: Check pool availability first (maintenance mode)
+            const pool = await isPoolAvailable(db);
+            if (!pool.available) {
+                return {
+                    success: false,
+                    error: 'TR_POOL_MAINTENANCE',
+                    maintenanceMessage: 'Türkiye numara havuzu şu anda bakımdadır. Numara tahsisi geçici olarak kullanılamaz. Lütfen daha sonra tekrar deneyin.',
+                };
+            }
+
             // Turkey: Assign from pre-purchased number pool
             phoneNumber = await assignFromPool(db, tenantId, options?.carrier);
         } else {

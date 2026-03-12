@@ -53,6 +53,19 @@ export async function POST(request: NextRequest) {
         );
 
         if (!result.success) {
+            // TR pool maintenance mode
+            if (result.error === 'TR_POOL_MAINTENANCE') {
+                return NextResponse.json(
+                    {
+                        error: result.maintenanceMessage || 'Türkiye numara havuzu bakımda',
+                        code: 'TR_POOL_MAINTENANCE',
+                        maintenance: true,
+                        canSkip: true,
+                    },
+                    { status: 503 },
+                );
+            }
+
             return NextResponse.json(
                 {
                     error: result.error || 'Numara tahsisi başarısız',
