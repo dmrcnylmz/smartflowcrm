@@ -19,16 +19,14 @@ export const dynamic = 'force-dynamic';
 function getPipelineConfig(): PipelineConfig | null {
     const deepgramApiKey = process.env.DEEPGRAM_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
-    const elevenlabsApiKey = process.env.ELEVENLABS_API_KEY;
 
-    if (!openaiApiKey || !elevenlabsApiKey) {
+    if (!openaiApiKey) {
         return null;
     }
 
     return {
         deepgramApiKey: deepgramApiKey || '',
         openaiApiKey,
-        elevenlabsApiKey,
     };
 }
 
@@ -196,7 +194,7 @@ export async function GET() {
             providers: {
                 stt: !!process.env.DEEPGRAM_API_KEY ? 'deepgram-nova-3' : 'not-configured',
                 llm: !!process.env.OPENAI_API_KEY ? 'gpt-4o' : 'not-configured',
-                tts: !!process.env.ELEVENLABS_API_KEY ? 'elevenlabs-flash-v2.5' : 'not-configured',
+                tts: !!process.env.CARTESIA_API_KEY ? 'cartesia-sonic-3' : 'not-configured',
             },
         },
         timestamp: new Date().toISOString(),

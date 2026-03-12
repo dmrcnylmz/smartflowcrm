@@ -106,8 +106,8 @@ export async function GET() {
             status: process.env.DEEPGRAM_API_KEY ? 'configured' : 'missing',
         },
         {
-            name: 'elevenlabs',
-            status: process.env.ELEVENLABS_API_KEY ? 'configured' : 'missing',
+            name: 'cartesia',
+            status: process.env.CARTESIA_API_KEY ? 'configured' : 'missing',
         },
         {
             name: 'resend',

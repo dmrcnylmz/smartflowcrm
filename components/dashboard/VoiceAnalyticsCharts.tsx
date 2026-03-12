@@ -5,7 +5,7 @@
  *
  * Three charts for the billing/analytics page:
  * 1. Latency Trend (LineChart) — STT, LLM, TTS, Total per day
- * 2. Provider Distribution (PieChart) — Groq vs OpenAI, ElevenLabs vs OpenAI
+ * 2. Provider Distribution (PieChart) — Groq vs OpenAI, Cartesia vs OpenAI
  * 3. Cost Trend (BarChart) — Monthly TTS + LLM costs
  *
  * Lazy-loaded via next/dynamic to keep recharts (~100KB) out of initial bundle.
@@ -299,7 +299,7 @@ function formatProviderName(name: string): string {
         'openai-gpt': 'OpenAI',
         'openai-fallback': 'OpenAI (FB)',
         'openai-emergency': 'OpenAI (Acil)',
-        'elevenlabs': 'ElevenLabs',
+        'cartesia': 'Cartesia',
         'deepgram': 'Deepgram',
     };
     return map[name] || name;

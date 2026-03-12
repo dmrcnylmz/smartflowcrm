@@ -5,8 +5,8 @@
  * POST /api/billing/emergency — Toggle emergency mode
  *   { action: 'activate' | 'deactivate' | 'auto' }
  *
- * Emergency mode switches body TTS from ElevenLabs to cheaper OpenAI.
- * Greeting TTS always stays on ElevenLabs.
+ * Emergency mode switches body TTS from Cartesia to cheaper OpenAI.
+ * Greeting TTS always stays on Cartesia.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

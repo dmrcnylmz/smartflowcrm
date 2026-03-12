@@ -4,7 +4,7 @@
  * Tüm TTS seslerini listeler. Provider, dil ve cinsiyet bazında filtreleme destekler.
  *
  * Query params:
- *   ?provider=google|elevenlabs|openai|kokoro
+ *   ?provider=cartesia|murf|google|kokoro|openai
  *   ?lang=tr|en
  *   ?gender=female|male
  */
@@ -23,7 +23,7 @@ import { isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
-    const provider = searchParams.get('provider') as 'elevenlabs' | 'google' | 'kokoro' | null;
+    const provider = searchParams.get('provider') as 'cartesia' | 'murf' | 'google' | 'kokoro' | null;
     const lang = searchParams.get('lang') as 'tr' | 'en' | null;
     const gender = searchParams.get('gender') as VoiceGender | null;
 
@@ -36,9 +36,15 @@ export async function GET(request: NextRequest) {
 
     // Provider availability check
     const providers = {
-        elevenlabs: {
-            name: getProviderDisplayName('elevenlabs'),
-            available: !!process.env.ELEVENLABS_API_KEY,
+        cartesia: {
+            name: getProviderDisplayName('cartesia'),
+            available: !!process.env.CARTESIA_API_KEY,
+            note: 'Primary TTS — ultra-low latency (~40ms)',
+        },
+        murf: {
+            name: getProviderDisplayName('murf'),
+            available: !!process.env.MURF_API_KEY,
+            note: 'Budget EN-only fallback (~130ms)',
         },
         google: {
             name: getProviderDisplayName('google'),

@@ -1,12 +1,11 @@
 /**
  * Cost Monitor Engine — TTS Budget Tracking & Emergency Mode
  *
- * Monitors ElevenLabs TTS character usage against a monthly budget.
+ * Monitors TTS character usage against a monthly budget.
  * When usage exceeds configurable thresholds:
  * - 80%: Warning alert
  * - 95%: Critical alert + auto Emergency Mode
- * - Emergency Mode: Body TTS switches to OpenAI (cheaper)
- *                   Greeting TTS stays on ElevenLabs (quality matters)
+ * - Emergency Mode: Body TTS switches to cost-optimized chain
  *
  * Performance:
  * - Config cached in-memory for 60 seconds (avoids Firestore reads per TTS call)
@@ -56,7 +55,7 @@ export interface EmergencyModeStatus {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const CONFIG_CACHE_TTL_MS = 60_000; // 60 seconds
-const ELEVENLABS_COST_PER_1000_CHARS = 0.15;
+const CARTESIA_COST_PER_1000_CHARS = 0.038;
 
 const DEFAULT_CONFIG: CostMonitoringConfig = {
     ttsMonthlyCharBudget: 500_000,
@@ -82,7 +81,7 @@ const configCache: Map<string, CachedConfig> = new Map();
  * Check if emergency TTS mode should be used for a given tenant.
  * Uses 60-second in-memory cache to avoid Firestore reads on every TTS call.
  *
- * Returns: true if body TTS should use OpenAI instead of ElevenLabs.
+ * Returns: true if body TTS should use cost-optimized chain.
  */
 export async function shouldUseEmergencyTts(
     db: FirebaseFirestore.Firestore,
@@ -92,7 +91,7 @@ export async function shouldUseEmergencyTts(
         const config = await getCostMonitoringConfig(db, tenantId);
         return config.emergencyModeActive;
     } catch {
-        // On error, don't activate emergency mode — keep ElevenLabs
+        // On error, don't activate emergency mode — keep default
         return false;
     }
 }
@@ -159,7 +158,7 @@ export async function checkCostThresholds(
         const percentUsed = (ttsCharsUsed / config.ttsMonthlyCharBudget) * 100;
 
         const roundedPercent = Math.round(percentUsed);
-        const estimatedCost = round2((ttsCharsUsed / 1000) * ELEVENLABS_COST_PER_1000_CHARS);
+        const estimatedCost = round2((ttsCharsUsed / 1000) * CARTESIA_COST_PER_1000_CHARS);
 
         // Warning threshold (e.g., 80%)
         if (percentUsed >= config.ttsWarningThresholdPercent && percentUsed < config.ttsCriticalThresholdPercent) {
@@ -205,7 +204,7 @@ export async function checkCostThresholds(
 }
 
 /**
- * Activate emergency mode — body TTS switches to OpenAI.
+ * Activate emergency mode — body TTS switches to cost-optimized chain.
  */
 export async function activateEmergencyMode(
     db: FirebaseFirestore.Firestore,
@@ -248,7 +247,7 @@ export async function activateEmergencyMode(
             ttsCharsUsed,
             ttsCharsBudget: config.ttsMonthlyCharBudget,
             percentUsed: Math.round((ttsCharsUsed / config.ttsMonthlyCharBudget) * 100),
-            estimatedCostUsd: round2((ttsCharsUsed / 1000) * ELEVENLABS_COST_PER_1000_CHARS),
+            estimatedCostUsd: round2((ttsCharsUsed / 1000) * CARTESIA_COST_PER_1000_CHARS),
             reason,
             timestamp: FieldValue.serverTimestamp(),
         });
@@ -257,7 +256,7 @@ export async function activateEmergencyMode(
     const percentUsed = config.ttsMonthlyCharBudget > 0
         ? Math.round((ttsCharsUsed / config.ttsMonthlyCharBudget) * 100)
         : 0;
-    const estimatedCostUsd = round2((ttsCharsUsed / 1000) * ELEVENLABS_COST_PER_1000_CHARS);
+    const estimatedCostUsd = round2((ttsCharsUsed / 1000) * CARTESIA_COST_PER_1000_CHARS);
     alertEmergencyModeActivated(tenantId, reason, percentUsed, estimatedCostUsd);
 
     if (process.env.NODE_ENV === 'development') {
@@ -266,7 +265,7 @@ export async function activateEmergencyMode(
 }
 
 /**
- * Deactivate emergency mode — resume ElevenLabs for all TTS.
+ * Deactivate emergency mode — resume normal TTS chain.
  */
 export async function deactivateEmergencyMode(
     db: FirebaseFirestore.Firestore,
@@ -361,7 +360,7 @@ export async function getEmergencyModeStatus(
         ttsCharsUsed,
         ttsCharsBudget: config.ttsMonthlyCharBudget,
         percentUsed,
-        estimatedCostUsd: round2((ttsCharsUsed / 1000) * ELEVENLABS_COST_PER_1000_CHARS),
+        estimatedCostUsd: round2((ttsCharsUsed / 1000) * CARTESIA_COST_PER_1000_CHARS),
         recentAlerts,
     };
 }

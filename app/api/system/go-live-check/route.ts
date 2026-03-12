@@ -36,7 +36,7 @@ export async function GET() {
     const requiredEnvs: [string, string][] = [
         ['OPENAI_API_KEY', 'OpenAI LLM + TTS Fallback'],
         ['DEEPGRAM_API_KEY', 'Deepgram STT'],
-        ['ELEVENLABS_API_KEY', 'ElevenLabs TTS'],
+        ['CARTESIA_API_KEY', 'Cartesia TTS'],
     ];
 
     for (const [key, label] of requiredEnvs) {

@@ -397,7 +397,7 @@
       "post": {
         "tags": ["Voice Pipeline"],
         "summary": "Text-to-Speech synthesis",
-        "description": "Converts text to audio using ElevenLabs (primary) with OpenAI fallback. Returns audio/mpeg stream.",
+        "description": "Converts text to audio using Cartesia Sonic-3 (primary) with multi-provider fallback. Returns audio/mpeg stream.",
         "requestBody": {
           "required": true,
           "content": {
@@ -407,11 +407,10 @@
                 "required": ["text"],
                 "properties": {
                   "text": { "type": "string" },
-                  "voice_id": { "type": "string", "description": "ElevenLabs voice ID override" },
-                  "model_id": { "type": "string", "description": "ElevenLabs model ID override" },
+                  "voice_id": { "type": "string", "description": "TTS voice ID override" },
                   "language": { "type": "string", "enum": ["tr", "en"] },
                   "greeting": { "type": "boolean", "default": false },
-                  "provider": { "type": "string", "enum": ["elevenlabs", "openai"] },
+                  "provider": { "type": "string", "enum": ["cartesia", "murf", "kokoro", "google", "openai"] },
                   "session_id": { "type": "string" },
                   "tenant_id": { "type": "string" }
                 }

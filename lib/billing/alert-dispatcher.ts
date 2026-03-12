@@ -113,7 +113,7 @@ export function alertEmergencyModeDeactivated(tenantId: string): void {
     dispatchAlert({
         level: 'info',
         title: 'Acil Durum Modu Kapandi',
-        message: 'TTS normal moda dondu. Tum TTS trafigi ElevenLabs uzerinden.',
+        message: 'TTS normal moda dondu. Tum TTS trafigi Cartesia uzerinden.',
         tenantId,
     });
 }

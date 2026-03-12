@@ -42,7 +42,7 @@ const SECTIONS = [
         content: `Kişisel verileriniz, hizmet sunumu için aşağıdaki üçüncü taraflara aktarılabilir:
 
 • **Google Firebase:** Veritabanı ve kimlik doğrulama hizmetleri (AB veri merkezleri)
-• **ElevenLabs:** Ses sentezleme (TTS) hizmeti
+• **Cartesia:** Ses sentezleme (TTS) hizmeti
 • **OpenAI:** Doğal dil işleme hizmeti
 • **Deepgram:** Konuşmadan metne (STT) dönüşüm hizmeti
 • **Twilio:** Telefon altyapı hizmeti

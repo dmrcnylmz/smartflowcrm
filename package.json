@@ -61,7 +61,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
-    "elevenlabs": "^1.59.0",
     "firebase": "^11.1.0",
     "firebase-admin": "^13.6.1",
     "fraction.js": "^5.3.4",

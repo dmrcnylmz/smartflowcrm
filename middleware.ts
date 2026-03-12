@@ -11,7 +11,7 @@ import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit } from '@/lib/
  * health checks, Twilio callbacks with their own signature verification).
  *
  * Voice/TTS/STT endpoints are intentionally NOT public — they call paid
- * third-party APIs (ElevenLabs, OpenAI, Deepgram) and must be gated.
+ * third-party APIs (Cartesia, OpenAI, Deepgram) and must be gated.
  */
 const PUBLIC_API_PATHS = [
     '/api/webhook',

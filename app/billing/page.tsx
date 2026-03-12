@@ -907,7 +907,7 @@ function BillingPageContent() {
                                         {perCallCost && (
                                             <div className="space-y-3">
                                                 <CostRow label="Ses (Telekom)" value={perCallCost.voice} color="bg-blue-500" />
-                                                <CostRow label="ElevenLabs (TTS)" value={perCallCost.tts} color="bg-purple-500" />
+                                                <CostRow label="Cartesia (TTS)" value={perCallCost.tts} color="bg-purple-500" />
                                                 <CostRow label="Groq/Gemini (LLM)" value={perCallCost.llm} color="bg-amber-500" />
                                                 <div className="border-t border-border/60 pt-3 flex items-center justify-between">
                                                     <span className="text-sm font-semibold text-foreground">Toplam / Çağrı</span>
@@ -978,7 +978,7 @@ function BillingPageContent() {
                                                 </div>
                                             )}
                                             <div className="flex items-center justify-between py-2">
-                                                <span className="text-sm text-muted-foreground">├ ElevenLabs TTS</span>
+                                                <span className="text-sm text-muted-foreground">├ Cartesia TTS</span>
                                                 <span className="text-sm text-muted-foreground">${cost.ttsCost}</span>
                                             </div>
                                             <div className="flex items-center justify-between py-2">
@@ -1218,7 +1218,7 @@ function BillingPageContent() {
                             {/* Breakdown bars */}
                             <div className="space-y-3">
                                 <CostBar label="Twilio" value={calcTwilio} total={calcInfra} color="bg-blue-500" />
-                                <CostBar label="ElevenLabs TTS" value={calcTts} total={calcInfra} color="bg-purple-500" />
+                                <CostBar label="Cartesia TTS" value={calcTts} total={calcInfra} color="bg-purple-500" />
                                 <CostBar label="LLM (Groq/Gemini)" value={calcLlm} total={calcInfra} color="bg-amber-500" />
                             </div>
 

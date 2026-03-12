@@ -61,7 +61,7 @@ export interface ProviderBreakdown {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const COST_ELEVENLABS_PER_1000 = 0.15;
+const COST_CARTESIA_PER_1000 = 0.15;
 const COST_OPENAI_TTS_PER_1000 = 0.015;
 const COST_LLM_PER_CALL = 0.02;
 
@@ -179,7 +179,7 @@ export async function getCostTrend(
         const ttsChars = data.ttsChars || 0;
         const totalCalls = data.totalCalls || 0;
 
-        const ttsCost = (ttsChars / 1000) * COST_ELEVENLABS_PER_1000;
+        const ttsCost = (ttsChars / 1000) * COST_CARTESIA_PER_1000;
         const llmCost = totalCalls * COST_LLM_PER_CALL;
 
         monthlyData.push({
@@ -239,7 +239,7 @@ export async function getDailyMetrics(
             avgPipelineMs: callCount > 0 ? Math.round((data.totalPipelineMs || 0) / callCount) : 0,
             totalTtsChars,
             providerBreakdown,
-            estimatedCostUsd: round2((totalTtsChars / 1000) * COST_ELEVENLABS_PER_1000 + callCount * COST_LLM_PER_CALL),
+            estimatedCostUsd: round2((totalTtsChars / 1000) * COST_CARTESIA_PER_1000 + callCount * COST_LLM_PER_CALL),
         };
     }).sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -296,7 +296,7 @@ export async function getPipelineSummary(
         totalCalls,
         avgPipelineMs: totalCalls > 0 ? Math.round(totalPipelineMs / totalCalls) : 0,
         totalTtsChars,
-        estimatedCostUsd: round2((totalTtsChars / 1000) * COST_ELEVENLABS_PER_1000 + totalCalls * COST_LLM_PER_CALL),
+        estimatedCostUsd: round2((totalTtsChars / 1000) * COST_CARTESIA_PER_1000 + totalCalls * COST_LLM_PER_CALL),
         emergencyModeActive,
         callsTrend,
     };

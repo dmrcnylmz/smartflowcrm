@@ -82,7 +82,7 @@ export function VoiceSelector({
             acc[v.provider].push(v);
             return acc;
         },
-        { elevenlabs: [], cartesia: [], murf: [], kokoro: [], openai: [], google: [] },
+        { cartesia: [], murf: [], kokoro: [], openai: [], google: [] },
     );
 
     // ---- Cleanup audio on unmount ----
@@ -164,15 +164,14 @@ export function VoiceSelector({
         }
     }, [playingVoiceId, authFetch, language]);
 
-    // ---- Check if voice is locked (ElevenLabs for non-Enterprise) ----
-    const isVoiceLocked = useCallback((voice: VoiceCatalogEntry): boolean => {
-        return voice.provider === 'elevenlabs' && !isEnterprise;
-    }, [isEnterprise]);
+    // ---- Check if voice is locked ----
+    const isVoiceLocked = useCallback((_voice: VoiceCatalogEntry): boolean => {
+        return false;
+    }, []);
 
     // ---- Provider filter buttons ----
     const providerButtons: { value: TTSProvider | null; label: string; icon: string }[] = [
         { value: null, label: 'Hepsi', icon: '🎤' },
-        { value: 'elevenlabs', label: 'ElevenLabs', icon: '⚡' },
         { value: 'cartesia', label: 'Cartesia', icon: '🚀' },
         { value: 'murf', label: 'Murf', icon: '🎯' },
         { value: 'kokoro', label: 'Kokoro', icon: '🔊' },
@@ -242,11 +241,11 @@ export function VoiceSelector({
 
             {/* ---- Voice List by Provider ---- */}
             <div className="space-y-4">
-                {(['elevenlabs', 'cartesia', 'murf', 'kokoro'] as TTSProvider[]).map(provider => {
+                {(['cartesia', 'murf', 'kokoro'] as TTSProvider[]).map(provider => {
                     const providerVoices = grouped[provider];
                     if (providerVoices.length === 0) return null;
 
-                    const isProviderLocked = provider === 'elevenlabs' && !isEnterprise;
+                    const isProviderLocked = false;
 
                     return (
                         <div key={provider}>

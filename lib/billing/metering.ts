@@ -54,8 +54,7 @@ export interface SubscriptionTier {
 
 // Per-call cost formula: C_call = C_Telephony + C_TTS + C_LLM
 // Twilio Native: ~$0.01/min, SIP Trunk: ~$0.003/min
-// Cartesia Sonic-3: ~$0.038/1000 chars (PRIMARY — all plans including Enterprise)
-// ElevenLabs: ~$0.15/1000 chars (optional premium, not used by default)
+// Cartesia Sonic-3: ~$0.038/1000 chars (PRIMARY — all plans)
 // Murf Falcon: ~$0.017/1000 chars (budget EN-only fallback, $0.01/min audio)
 // Kokoro: ~$0.001/1000 chars (near-free, EN only via Together AI)
 // Groq LLM (Llama 3.3 70B): ~$0.002/call ($0.59/$0.79 per M tokens, ~3500 tokens/call)
@@ -65,7 +64,6 @@ export interface SubscriptionTier {
 export const COST_RATES = {
     twilio: { perMinute: 0.01 },           // Twilio Native per-minute rate
     sip_trunk: { perMinute: 0.003 },       // SIP Trunk (Netgsm/Bulutfon) per-minute rate
-    elevenlabs: { per1000Chars: 0.15 },     // ElevenLabs TTS per 1000 chars (optional premium)
     cartesia: { per1000Chars: 0.038 },      // Cartesia Sonic-3 per 1000 chars (PRIMARY all plans)
     murf: { per1000Chars: 0.017 },          // Murf Falcon per 1000 chars ($0.01/min ÷ 600 chars/min)
     kokoro: { per1000Chars: 0.001 },        // Kokoro TTS per 1000 chars (EN only, near-free)
@@ -361,7 +359,7 @@ export function estimateCost(
  * Uses provider-specific voice and TTS rates.
  *
  * @param providerType 'SIP_TRUNK' for cheaper voice rate
- * @param ttsProvider 'cartesia' (default all plans), 'murf' (EN budget), 'kokoro' (EN free), 'elevenlabs' (optional premium)
+ * @param ttsProvider 'cartesia' (default all plans), 'murf' (EN budget), 'kokoro' (EN free)
  */
 export function estimatePerCallCost(
     durationMinutes: number,
@@ -376,8 +374,7 @@ export function estimatePerCallCost(
 
     // TTS cost based on provider
     let ttsRate = COST_RATES.cartesia.per1000Chars; // default: Cartesia
-    if (ttsProvider === 'elevenlabs') ttsRate = COST_RATES.elevenlabs.per1000Chars;
-    else if (ttsProvider === 'murf') ttsRate = COST_RATES.murf.per1000Chars;
+    if (ttsProvider === 'murf') ttsRate = COST_RATES.murf.per1000Chars;
     else if (ttsProvider === 'kokoro') ttsRate = COST_RATES.kokoro.per1000Chars;
 
     const tts = (durationMinutes * avgTtsCharsPerMin / 1000) * ttsRate;

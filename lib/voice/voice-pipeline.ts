@@ -14,7 +14,6 @@
 
 import { EventEmitter } from 'events';
 import { DeepgramSTT, type TranscriptEvent } from './stt-deepgram';
-import { ElevenLabsTTS } from './tts-elevenlabs';
 import { LLMStreaming, type ConversationTurn as LLMTurn, type ToolCallResult } from '../ai/llm-streaming';
 import { detectIntentFast, hasEnoughTokensForIntent, getSafeResponse, shouldShortcut, getShortcutResponse, type IntentResult } from '../ai/intent-fast';
 import { validateResponse, type RAGContext } from '../ai/guardrails';
@@ -28,7 +27,6 @@ import type { TenantConfig, VoiceSessionState, SessionMetrics, ConversationTurn 
 export interface PipelineConfig {
     deepgramApiKey: string;
     openaiApiKey: string;
-    elevenlabsApiKey: string;
 }
 
 export interface PipelineEvents {
@@ -59,7 +57,6 @@ const MAX_CONVERSATION_TURNS = 6; // 3 user + 3 assistant
 
 export class VoicePipeline extends EventEmitter {
     private stt: DeepgramSTT;
-    private tts: ElevenLabsTTS;
     private llm: LLMStreaming;
     private vectorStore: VectorStore;
     private tenant: TenantConfig | null = null;
@@ -82,7 +79,6 @@ export class VoicePipeline extends EventEmitter {
 
         // Initialize providers
         this.stt = new DeepgramSTT({ apiKey: config.deepgramApiKey });
-        this.tts = new ElevenLabsTTS({ apiKey: config.elevenlabsApiKey });
         this.llm = new LLMStreaming({ apiKey: config.openaiApiKey });
         this.vectorStore = new VectorStore({ openaiApiKey: config.openaiApiKey });
 
@@ -292,26 +288,16 @@ export class VoicePipeline extends EventEmitter {
                 }
             });
 
-            // 5. Stream tokens to TTS (parallel) — track TTFT on first audio chunk
+            // 5. Collect full response then synthesize via TTS API
             const ttsStart = Date.now();
-            let ttftRecorded = false;
 
-            for await (const audioChunk of this.tts.streamTokens(ttsTokens, {
-                voiceId: this.tenant.voice.voiceId,
-                language: this.session.language,
-            })) {
-                if (this.isBargingIn) break; // Stop TTS on barge-in
-
-                // Record TTFT on first audio chunk (user input → first spoken byte)
-                if (!ttftRecorded) {
-                    const ttft = Date.now() - llmStart;
-                    this.session.metrics.ttftMs = ttft;
-                    this.emit('latency', { stage: 'ttft', ms: ttft });
-                    ttftRecorded = true;
-                }
-
-                this.emit('audioOut', audioChunk);
+            // Collect all tokens
+            for await (const _token of ttsTokens) {
+                // tokens already processed via onToken callback above
             }
+
+            // Synthesize via TTS API (Cartesia primary)
+            await this.streamResponseToTTS(fullResponse);
 
             this.session.metrics.ttsLatencyMs.push(Date.now() - ttsStart);
 
@@ -380,19 +366,35 @@ export class VoicePipeline extends EventEmitter {
     }
 
     /**
-     * Stream a complete text response through TTS.
-     * Used for safe fallback responses.
+     * Synthesize text via TTS API and emit audio chunks.
+     * Uses /api/voice/tts endpoint (Cartesia primary).
      */
     private async streamResponseToTTS(text: string): Promise<void> {
         if (!this.tenant) return;
 
         try {
-            for await (const chunk of this.tts.streamText(text, {
-                voiceId: this.tenant.voice.voiceId,
-                language: this.session.language,
-            })) {
-                if (this.isBargingIn) break;
-                this.emit('audioOut', chunk);
+            const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/voice/tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text,
+                    language: this.session.language,
+                    voice_id: this.tenant.voice.voiceId,
+                    tenant_id: this.session.tenantId,
+                    session_id: this.session.sessionId,
+                }),
+            });
+
+            if (!res.ok || !res.body) {
+                console.error('[Pipeline] TTS API error:', res.status);
+                return;
+            }
+
+            const reader = res.body.getReader();
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done || this.isBargingIn) break;
+                if (value) this.emit('audioOut', Buffer.from(value));
             }
         } catch (err) {
             console.error('[Pipeline] TTS error:', err);

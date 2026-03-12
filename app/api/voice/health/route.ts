@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { metrics, METRICS } from '@/lib/voice/logging';
 import { gpuManager } from '@/lib/voice/gpu-manager';
-import { gpuCircuitBreaker, openaiCircuitBreaker, ttsCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker } from '@/lib/voice/circuit-breaker';
+import { gpuCircuitBreaker, openaiCircuitBreaker, groqCircuitBreaker, geminiCircuitBreaker, cartesiaCircuitBreaker } from '@/lib/voice/circuit-breaker';
 import { inferCache, ttsCache } from '@/lib/voice/response-cache';
 import { isGroqConfigured } from '@/lib/ai/groq-client';
 import { isGeminiConfigured } from '@/lib/ai/gemini-client';
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
                     openai: openaiCircuitBreaker.getState(),
                     groq: groqCircuitBreaker.getState(),
                     gemini: geminiCircuitBreaker.getState(),
-                    tts: ttsCircuitBreaker.getState(),
+                    cartesia: cartesiaCircuitBreaker.getState(),
                 },
                 cache: {
                     infer: inferCache.getStats(),

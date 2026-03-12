@@ -11,7 +11,7 @@
  *
  * Response: audio stream + latency/provider headers
  *
- * Supported providers: elevenlabs, cartesia, murf, kokoro, openai
+ * Supported providers: cartesia, murf, kokoro, openai
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -21,7 +21,6 @@ import { synthesizeMurfTTS } from '@/lib/voice/tts-murf';
 import { synthesizeKokoroTTS, isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { getVoiceById, PREVIEW_SAMPLES, type TTSProvider } from '@/lib/voice/voice-catalog';
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
 export async function POST(request: NextRequest) {
@@ -64,39 +63,7 @@ export async function POST(request: NextRequest) {
         // ---- Synthesize based on provider ----
         let audioResponse: Response | null = null;
 
-        if (resolvedProvider === 'elevenlabs') {
-            if (!ELEVENLABS_API_KEY) {
-                return NextResponse.json({ error: 'ElevenLabs not configured' }, { status: 503 });
-            }
-
-            const res = await fetch(
-                `https://api.elevenlabs.io/v1/text-to-speech/${resolvedVoiceId}/stream`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'xi-api-key': ELEVENLABS_API_KEY,
-                        'Content-Type': 'application/json',
-                        'Accept': 'audio/mpeg',
-                    },
-                    body: JSON.stringify({
-                        text: sampleText,
-                        model_id: 'eleven_turbo_v2_5',
-                        language_code: resolvedLang,
-                        voice_settings: {
-                            stability: 0.5,
-                            similarity_boost: 0.75,
-                            style: 0.0,
-                            use_speaker_boost: true,
-                        },
-                    }),
-                    signal: AbortSignal.timeout(10000),
-                },
-            );
-
-            if (res.ok && res.body) {
-                audioResponse = res;
-            }
-        } else if (resolvedProvider === 'cartesia') {
+        if (resolvedProvider === 'cartesia') {
             audioResponse = await synthesizeCartesiaTTS(sampleText, resolvedLang, resolvedVoiceId);
         } else if (resolvedProvider === 'murf') {
             audioResponse = await synthesizeMurfTTS(sampleText, resolvedLang, resolvedVoiceId);

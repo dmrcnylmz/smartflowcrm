@@ -196,10 +196,10 @@ export function VoiceCallModal({
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // --- TTS: Server API (ElevenLabs → Google Cloud TTS → OpenAI) ---
+    // --- TTS: Server API (Cartesia → Google Cloud TTS → OpenAI) ---
     // Greeting/Body Strategy:
-    //   greeting=true  → ElevenLabs premium (marka algısı)
-    //   greeting=false → ElevenLabs turbo (hızlı + kaliteli)
+    //   greeting=true  → Cartesia premium (marka algısı)
+    //   greeting=false → Cartesia turbo (hızlı + kaliteli)
     const speakText = useCallback(async (text: string, onEnd?: () => void, isGreeting = false) => {
         isSpeakingRef.current = true;
 
@@ -246,7 +246,7 @@ export function VoiceCallModal({
             }
         }, 10000);
 
-        // Try server-side TTS (ElevenLabs or OpenAI based on greeting flag)
+        // Try server-side TTS (Cartesia or OpenAI based on greeting flag)
         // Use AbortController with 5s timeout to prevent hanging on slow TTS
         const ttsController = new AbortController();
         const ttsTimeout = setTimeout(() => ttsController.abort(), 5000);
@@ -564,7 +564,7 @@ export function VoiceCallModal({
             // Speak greeting with PREMIUM voice, then start Deepgram recording
             await speakText(greeting, () => {
                 // Deepgram recording starts via startListeningRef in speakText's resumeListening
-            }, true); // greeting=true → ElevenLabs premium voice
+            }, true); // greeting=true → Cartesia premium voice
 
         } else {
             // ================================================================
@@ -784,7 +784,7 @@ export function VoiceCallModal({
             await speakText(greeting, () => {
                 // Explicitly start recognition after greeting
                 safeStartRecognition();
-            }, true); // greeting=true → ElevenLabs premium voice
+            }, true); // greeting=true → Cartesia premium voice
         }
     }, [language, persona, speakText, authFetch]);
 

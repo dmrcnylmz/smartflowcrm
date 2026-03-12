@@ -224,7 +224,7 @@ export default function LatencyBreakdownChart({ days = 7 }: LatencyBreakdownChar
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <ComponentStat label="STT (Deepgram)" value={stats.avgSttMs} color={COLORS.stt} />
                         <ComponentStat label="LLM (Groq/OpenAI)" value={stats.avgLlmMs} color={COLORS.llm} />
-                        <ComponentStat label="TTS (ElevenLabs)" value={stats.avgTtsMs} color={COLORS.tts} />
+                        <ComponentStat label="TTS (Cartesia)" value={stats.avgTtsMs} color={COLORS.tts} />
                         <ComponentStat label="RAG Retrieval" value={stats.avgRagMs} color={COLORS.rag} />
                     </div>
                 </CardContent>

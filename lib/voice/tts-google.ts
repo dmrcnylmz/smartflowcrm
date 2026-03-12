@@ -1,7 +1,7 @@
 /**
  * Google Cloud TTS Provider — Service Account Auth
  *
- * ElevenLabs'ın ilk fallback'i. OpenAI TTS'den (~4232ms) çok daha hızlı (~200ms).
+ * Cartesia'nın ilk fallback'i. OpenAI TTS'den (~4232ms) çok daha hızlı (~200ms).
  *
  * Auth: Service Account JSON → JWT → OAuth2 Access Token (1 saat cache)
  * Voices: tr-TR-Wavenet-D (Türkçe kadın), en-US-Neural2-F (İngilizce kadın)

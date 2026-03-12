@@ -152,8 +152,8 @@ export default function EmergencyModeCard({
                             <div className="text-xs text-red-300">
                                 <p className="font-medium mb-1">Acil Durum Modu Aktif</p>
                                 <p className="text-red-400/80">
-                                    Body TTS: OpenAI (dusuk maliyet) kullaniliyor.
-                                    Karsilama TTS: ElevenLabs (kaliteli) korunuyor.
+                                    TTS: Maliyet-optimized zincir kullaniliyor.
+                                    Kokoro (EN) / Cartesia (TR) → Murf → OpenAI.
                                 </p>
                             </div>
                         </div>

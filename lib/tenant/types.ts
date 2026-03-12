@@ -114,10 +114,10 @@ export interface BusinessInfo {
 // --- Voice Config ---
 
 export interface VoiceConfig {
-    /** ElevenLabs voice ID */
+    /** Cartesia voice ID */
     voiceId: string;
 
-    /** TTS model (default: eleven_flash_v2_5) */
+    /** TTS model */
     ttsModel?: string;
 
     /** STT language code (default: tr) */
@@ -271,8 +271,8 @@ export const DEFAULT_TENANT: TenantConfig = {
         website: 'https://callception.com',
     },
     voice: {
-        voiceId: 'EXAVITQu4vr4xnSDxMaL', // Sarah - professional female
-        ttsModel: 'eleven_flash_v2_5',
+        voiceId: 'a0e99841-438c-4a64-b679-ae501e7d6091', // Cartesia default female
+        ttsModel: 'sonic',
         sttLanguage: 'tr',
         stability: 0.5,
         similarityBoost: 0.75,

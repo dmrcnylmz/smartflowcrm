@@ -48,7 +48,7 @@ const envSchema = z.object({
 
   // ─── Optional: Voice Processing (STT/TTS) ─────────────────────────
   DEEPGRAM_API_KEY: z.string().optional(),
-  ELEVENLABS_API_KEY: z.string().optional(),
+  CARTESIA_API_KEY: z.string().optional(),
 
   // ─── Optional: Local LLM ──────────────────────────────────────────
   OLLAMA_BASE_URL: z.string().optional(),
@@ -140,7 +140,7 @@ export function warnMissingOptionalKeys(): string[] {
     { key: 'GOOGLE_AI_API_KEY', label: 'Google Gemini (LLM — ücretsiz)' },
     // Voice
     { key: 'DEEPGRAM_API_KEY', label: 'Deepgram (STT)' },
-    { key: 'ELEVENLABS_API_KEY', label: 'ElevenLabs (TTS)' },
+    { key: 'CARTESIA_API_KEY', label: 'Cartesia (TTS)' },
     { key: 'PERSONAPLEX_API_KEY', label: 'Personaplex (Voice AI)' },
     // Billing
     { key: 'LEMONSQUEEZY_API_KEY', label: 'LemonSqueezy (faturalandırma)' },

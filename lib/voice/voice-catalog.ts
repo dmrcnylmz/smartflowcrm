@@ -1,7 +1,7 @@
 /**
  * Voice Catalog — Tüm TTS Provider Sesleri Merkezi Kayıt
  *
- * ElevenLabs, Cartesia Sonic-3, Murf Falcon ve Kokoro seslerini tek bir katalogda toplar.
+ * Cartesia Sonic-3, Murf Falcon ve Kokoro seslerini tek bir katalogda toplar.
  * Provider/dil/cinsiyet bazında filtreleme ve ses önizleme desteği sağlar.
  */
 
@@ -9,7 +9,7 @@
 // Types
 // =============================================
 
-export type TTSProvider = 'elevenlabs' | 'google' | 'openai' | 'kokoro' | 'cartesia' | 'murf';
+export type TTSProvider = 'google' | 'openai' | 'kokoro' | 'cartesia' | 'murf';
 export type VoiceGender = 'female' | 'male';
 export type VoiceLanguage = 'tr' | 'en' | 'multi';
 export type VoiceTier = 'premium' | 'standard' | 'free';
@@ -53,72 +53,6 @@ export const PREVIEW_SAMPLES = {
 // =============================================
 
 export const VOICE_CATALOG: VoiceCatalogEntry[] = [
-    // ─────────────────────────────────────────
-    // ElevenLabs (Premium — ~474ms body, ~1876ms greeting)
-    // ─────────────────────────────────────────
-    {
-        id: 'el-yildiz',
-        provider: 'elevenlabs',
-        voiceId: 'pFZP5JQG7iQjIQuC4Bku',
-        name: 'Yıldız',
-        gender: 'female',
-        language: 'tr',
-        tone: 'Sıcak & Profesyonel',
-        model: 'eleven_turbo_v2_5',
-        tier: 'premium',
-        avgLatencyMs: 474,
-        recommended: true,
-    },
-    {
-        id: 'el-sarah',
-        provider: 'elevenlabs',
-        voiceId: 'EXAVITQu4vr4xnSDxMaL',
-        name: 'Sarah',
-        gender: 'female',
-        language: 'en',
-        tone: 'Profesyonel',
-        model: 'eleven_turbo_v2_5',
-        tier: 'premium',
-        avgLatencyMs: 474,
-        recommended: true,
-    },
-    {
-        id: 'el-rachel',
-        provider: 'elevenlabs',
-        voiceId: '21m00Tcm4TlvDq8ikWAM',
-        name: 'Rachel',
-        gender: 'female',
-        language: 'en',
-        tone: 'Sakin & Güven Veren',
-        model: 'eleven_turbo_v2_5',
-        tier: 'premium',
-        avgLatencyMs: 474,
-    },
-    {
-        id: 'el-antoni',
-        provider: 'elevenlabs',
-        voiceId: 'ErXwobaYiN019PkySvjV',
-        name: 'Antoni',
-        gender: 'male',
-        language: 'en',
-        tone: 'Profesyonel & Kararlı',
-        model: 'eleven_turbo_v2_5',
-        tier: 'premium',
-        avgLatencyMs: 474,
-    },
-    {
-        id: 'el-arnold',
-        provider: 'elevenlabs',
-        voiceId: 'VR6AewLTigWG4xSOukaG',
-        name: 'Arnold',
-        gender: 'male',
-        language: 'en',
-        tone: 'Güçlü & Otoriter',
-        model: 'eleven_turbo_v2_5',
-        tier: 'premium',
-        avgLatencyMs: 474,
-    },
-
     // ─────────────────────────────────────────
     // Cartesia Sonic-3 — Ultra-low latency (~40ms TTFB)
     // 42+ dil. Türkçe native sesler + EN multilingual sesler.
@@ -427,7 +361,6 @@ export function getRecommendedVoices(): VoiceCatalogEntry[] {
 /** Provider display name */
 export function getProviderDisplayName(provider: TTSProvider): string {
     switch (provider) {
-        case 'elevenlabs': return 'ElevenLabs';
         case 'google': return 'Google Cloud';
         case 'openai': return 'OpenAI';
         case 'kokoro': return 'Kokoro';

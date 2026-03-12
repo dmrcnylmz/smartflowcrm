@@ -163,7 +163,7 @@ function createSpeechRecognition(): SpeechRecognitionInstance | null {
 }
 
 // ============================================
-// Text-to-Speech (TTS) Helper — ElevenLabs via API proxy
+// Text-to-Speech (TTS) Helper — Cartesia via API proxy
 // ============================================
 
 // Voice configuration — language-aware TTS
@@ -171,8 +171,8 @@ const TTS_API_URL = '/api/voice/tts';
 
 async function speak(text: string, onEnd?: () => void, language: string = 'tr'): Promise<void> {
     try {
-        // Try ElevenLabs first via server-side proxy (with language for correct voice)
-        logger.debug('[TTS] Requesting ElevenLabs audio...');
+        // TTS via server-side proxy (with language for correct voice)
+        logger.debug('[TTS] Requesting TTS audio...');
         const response = await fetch(TTS_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -192,7 +192,7 @@ async function speak(text: string, onEnd?: () => void, language: string = 'tr'):
 
         audio.onended = () => {
             URL.revokeObjectURL(audioUrl);
-            logger.debug('[TTS] ElevenLabs playback complete');
+            logger.debug('[TTS] Playback complete');
             onEnd?.();
         };
 
@@ -203,7 +203,7 @@ async function speak(text: string, onEnd?: () => void, language: string = 'tr'):
         };
 
         await audio.play();
-        logger.debug('[TTS] ElevenLabs playing audio');
+        logger.debug('[TTS] Playing audio');
 
     } catch (error) {
         console.warn('[TTS] Server TTS failed:', error);

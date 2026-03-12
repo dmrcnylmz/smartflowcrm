@@ -270,7 +270,7 @@ export function VoiceAIStatus() {
                         <span className="text-muted-foreground">LLM</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                        {pipeline?.pipeline?.providers?.tts?.includes('elevenlabs') ? (
+                        {pipeline?.pipeline?.providers?.tts?.includes('cartesia') ? (
                             <Wifi className="h-3.5 w-3.5 text-emerald-400" />
                         ) : isTextOnly ? (
                             <Wifi className="h-3.5 w-3.5 text-amber-400" />

@@ -274,14 +274,6 @@ export const openaiCircuitBreaker = new CircuitBreaker({
     failureWindowMs: 120_000,
 });
 
-/** Circuit breaker for ElevenLabs TTS calls */
-export const ttsCircuitBreaker = new CircuitBreaker({
-    name: 'elevenlabs-tts',
-    failureThreshold: 3,
-    resetTimeout: 20_000,
-    failureWindowMs: 60_000,
-});
-
 /** Circuit breaker for Groq API calls (free LLM fallback) */
 export const groqCircuitBreaker = new CircuitBreaker({
     name: 'groq-api',

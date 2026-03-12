@@ -762,11 +762,6 @@ export default function AdminPage() {
                                     detail={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
                                 />
                                 <ServiceStatus
-                                    name="ElevenLabs (TTS)"
-                                    status={(healthData as Record<string, Record<string, string>>)?.config?.elevenlabs === 'configured' ? 'ok' : 'warning'}
-                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.elevenlabs === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
-                                />
-                                <ServiceStatus
                                     name="Resend (E-posta)"
                                     status={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'ok' : 'warning'}
                                     detail={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
