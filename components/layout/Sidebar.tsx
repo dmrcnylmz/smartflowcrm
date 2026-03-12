@@ -68,8 +68,14 @@ const baseNavSections: NavSection[] = [
   },
 ];
 
+const SUPER_ADMIN_EMAILS = [
+  'dmrcnylmz@gmail.com',
+];
+
 function getNavSections(email?: string | null): NavSection[] {
-  const isSuperAdmin = email?.endsWith('@callception.com') === true;
+  const isSuperAdmin =
+    email?.endsWith('@callception.com') === true ||
+    SUPER_ADMIN_EMAILS.includes(email ?? '');
   if (!isSuperAdmin) return baseNavSections;
 
   return [
