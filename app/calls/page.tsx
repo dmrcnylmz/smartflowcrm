@@ -350,10 +350,10 @@ function CallsPageContent() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
             <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
               <Phone className="h-5 w-5 text-emerald-500" />
             </div>
@@ -389,7 +389,7 @@ function CallsPageContent() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
         <div className="rounded-2xl border border-slate-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-white/40 font-medium">Toplam Gelen-Giden</span>
@@ -619,7 +619,7 @@ function CallsPageContent() {
 
       {/* Call Details Drawer-like Modal */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 gap-0 overflow-hidden bg-background rounded-2xl shadow-2xl">
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-4xl p-0 gap-0 overflow-hidden bg-background rounded-2xl shadow-2xl">
           <DialogHeader className="p-6 pb-0">
             <div className="flex justify-between items-start pb-4 border-b border-border/40">
               <div>
@@ -636,7 +636,7 @@ function CallsPageContent() {
           </DialogHeader>
 
           {selectedCall && (
-            <div className="flex flex-col md:flex-row h-full max-h-[75vh] min-h-[500px] overflow-hidden">
+            <div className="flex flex-col md:flex-row h-full max-h-[80vh] sm:max-h-[75vh] min-h-0 sm:min-h-[400px] overflow-hidden">
               {/* Left Side: Attributes */}
               <div className="w-full md:w-1/3 bg-muted/10 p-6 overflow-y-auto border-r border-border/40 space-y-6">
                 <div>

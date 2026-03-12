@@ -113,11 +113,11 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="animate-fade-in-down flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
             <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center">
               <BarChart3 className="h-5 w-5 text-indigo-400" />
             </div>
@@ -173,7 +173,7 @@ export default function ReportsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
 
             {/* Çağrı Karnesi */}
             <Card className="rounded-2xl border border-indigo-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '0ms' }}>

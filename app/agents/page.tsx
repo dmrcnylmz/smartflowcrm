@@ -470,12 +470,12 @@ export default function AgentsPage() {
     // ─────────────────────────────────────────────
 
     return (
-        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+        <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6">
             {/* Header */}
             <div className="animate-fade-in-down">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+                        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
                             <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center">
                                 <Bot className="h-5 w-5 text-violet-400" />
                             </div>
@@ -977,7 +977,7 @@ export default function AgentsPage() {
                                         <div className="h-px flex-1 bg-border" />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-2 gap-3 sm:gap-6">
                                         <div>
                                             <Label>Konuşma Stili</Label>
                                             <Select

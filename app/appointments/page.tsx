@@ -357,7 +357,7 @@ function AppointmentsPageContent() {
   const cancelledCount = allAppointments.filter(a => a.status === 'cancelled').length;
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+    <div className="p-3 sm:p-4 md:p-8 max-w-[1600px] mx-auto space-y-5 sm:space-y-8">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
@@ -464,7 +464,7 @@ function AppointmentsPageContent() {
       </div>
 
       {/* KPI Stats Cards - Glassmorphism */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <div className="relative overflow-hidden rounded-2xl border border-indigo-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-muted-foreground font-medium flex items-center gap-2">

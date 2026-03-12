@@ -258,6 +258,14 @@
 /* ── Smooth Scroll ── */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* ── Mobile Viewport Fix ── */
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
 }
 
 /* ── Scrollbar — Theme-aware ── */

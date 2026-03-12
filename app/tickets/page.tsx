@@ -442,7 +442,7 @@ function TicketsPageContent() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+      <div className="p-3 sm:p-4 md:p-8 max-w-[1600px] mx-auto space-y-5 sm:space-y-8">
         {/* Header skeleton */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -453,7 +453,7 @@ function TicketsPageContent() {
         </div>
 
         {/* KPI skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-sm space-y-4">
               <div className="flex items-center justify-between">
@@ -502,7 +502,7 @@ function TicketsPageContent() {
   // -----------------------------------------------------------------------
 
   return (
-    <div className="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+    <div className="p-3 sm:p-4 md:p-8 max-w-[1600px] mx-auto space-y-5 sm:space-y-8">
       {/* Demo mode banner */}
       {demoMode && (
         <div className="animate-fade-in-down flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-sm text-amber-600 dark:text-amber-400">
@@ -552,7 +552,7 @@ function TicketsPageContent() {
       </div>
 
       {/* ---- KPI Stats Cards ---- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {/* Total */}
         <div
           className="relative overflow-hidden rounded-2xl border border-indigo-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up"
@@ -806,7 +806,7 @@ function TicketsPageContent() {
       {/*  DETAIL DIALOG                                                    */}
       {/* ================================================================= */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl sm:rounded-2xl">
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-4xl p-0 overflow-hidden border-white/[0.08] shadow-xl bg-card/95 backdrop-blur-xl rounded-xl sm:rounded-2xl">
           {selectedTicket && (() => {
             const statusCfg = STATUS_CONFIG[selectedTicket.status];
             const priorityCfg = PRIORITY_CONFIG[selectedTicket.priority];
@@ -815,7 +815,7 @@ function TicketsPageContent() {
             const nextStatuses = STATUS_WORKFLOW[selectedTicket.status];
 
             return (
-              <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
+              <div className="flex flex-col md:flex-row h-full max-h-[80vh] sm:max-h-[85vh]">
                 {/* Left panel */}
                 <div className="w-full md:w-5/12 border-r border-white/[0.06] bg-white/[0.02] p-8 flex flex-col overflow-y-auto">
                   <div className="flex items-center gap-3 mb-8">

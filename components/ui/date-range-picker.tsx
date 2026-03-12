@@ -161,7 +161,7 @@ export function DateRangePicker({
               type="button"
               variant="outline"
               className={cn(
-                "justify-start text-left font-normal min-w-[260px]",
+                "justify-start text-left font-normal w-full sm:min-w-[260px]",
                 !startDate && !endDate && "text-muted-foreground"
               )}
               disabled={disabled}

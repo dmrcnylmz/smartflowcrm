@@ -428,7 +428,7 @@ function BillingPageContent() {
     }
 
     return (
-        <div className="min-h-screen bg-background p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+        <div className="min-h-screen bg-background p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-5 sm:space-y-8">
             {/* Payment result banners */}
             {paymentResult === 'success' && (
                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
@@ -1422,7 +1422,7 @@ function StrategyCard({ step, title, description, color }: {
 
 function BillingPageSkeleton() {
     return (
-        <div className="min-h-screen bg-background p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+        <div className="min-h-screen bg-background p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-5 sm:space-y-8">
             <div className="space-y-2">
                 <div className="h-9 w-72 rounded-lg bg-foreground/[0.04] animate-pulse" />
                 <div className="h-5 w-96 rounded-lg bg-foreground/[0.03] animate-pulse" />

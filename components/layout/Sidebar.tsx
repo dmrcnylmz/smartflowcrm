@@ -304,7 +304,7 @@ export const Sidebar = memo(function Sidebar() {
         aria-modal={mobileOpen}
         aria-label="Mobil navigasyon menüsü"
         className={cn(
-          "lg:hidden fixed top-0 left-0 z-50 h-full w-72 bg-sidebar border-r border-sidebar-border flex flex-col shadow-2xl transition-transform duration-300 ease-out",
+          "lg:hidden fixed top-0 left-0 z-50 h-full w-[85vw] max-w-[288px] bg-sidebar border-r border-sidebar-border flex flex-col shadow-2xl transition-transform duration-300 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >

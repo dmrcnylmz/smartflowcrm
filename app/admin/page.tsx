@@ -237,7 +237,7 @@ export default function AdminPage() {
     // ─── Loading ───
     if (loading) {
         return (
-            <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
+            <div className="p-3 sm:p-4 md:p-8 max-w-5xl mx-auto space-y-4 sm:space-y-6">
                 <div className="animate-fade-in-down space-y-2">
                     <Skeleton className="h-10 w-64 rounded-lg" />
                     <Skeleton className="h-4 w-96 rounded-lg" />
@@ -262,7 +262,7 @@ export default function AdminPage() {
     // ─── Error ───
     if (error) {
         return (
-            <div className="p-4 md:p-8 max-w-5xl mx-auto">
+            <div className="p-3 sm:p-4 md:p-8 max-w-5xl mx-auto">
                 <Card className="rounded-2xl border-amber-500/30">
                     <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
                         <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
@@ -296,7 +296,7 @@ export default function AdminPage() {
     ];
 
     return (
-        <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
+        <div className="p-3 sm:p-4 md:p-8 max-w-5xl mx-auto space-y-5 sm:space-y-8">
             {/* Header */}
             <div className="animate-fade-in-down flex items-center justify-between">
                 <div>

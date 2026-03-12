@@ -85,7 +85,7 @@ const Toast: React.FC<ToastProps> = ({
       aria-live="polite"
       className={cn(
         'rounded-xl border p-4 shadow-lg',
-        'min-w-[300px] max-w-[420px]',
+        'w-full sm:min-w-[300px] max-w-[420px]',
         'transition-all duration-300 ease-out',
         state === 'entering' && 'translate-x-full opacity-0',
         state === 'visible' && 'translate-x-0 opacity-100',

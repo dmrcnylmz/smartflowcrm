@@ -66,7 +66,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             ) : (
                 <div className="flex min-h-screen">
                     <Sidebar />
-                    <main id="main-content" className="flex-1 overflow-auto bg-background pt-16 lg:pt-0">
+                    <main id="main-content" className="flex-1 overflow-x-hidden overflow-y-auto bg-background pt-14 lg:pt-0">
                         <div className="page-transition">
                             {children}
                         </div>

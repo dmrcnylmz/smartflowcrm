@@ -468,7 +468,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6">
       {/* Demo mode banner */}
       {isDemoMode && (
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-950/20 px-4 py-3 text-sm text-amber-300 animate-fade-in-down">
@@ -482,7 +482,7 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
             <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-inception-red" />
             </div>
@@ -556,7 +556,7 @@ export default function DashboardPage() {
       )}
 
       {/* KPI Cards */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${kpiCards.length > 4 ? 'xl:grid-cols-6' : 'xl:grid-cols-4'} gap-6`}>
+      <div className={`grid grid-cols-2 md:grid-cols-2 ${kpiCards.length > 4 ? 'xl:grid-cols-6' : 'xl:grid-cols-4'} gap-3 sm:gap-6`}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-[120px] rounded-2xl" />

@@ -265,7 +265,7 @@ function KnowledgePageContent() {
     // ─── Render ──────────────────────────────────────────────
 
     return (
-        <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6">
+        <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto space-y-4 sm:space-y-6">
 
             {/* Setup Welcome Banner */}
             {isSetup && (
@@ -315,7 +315,7 @@ function KnowledgePageContent() {
             {/* Header */}
             <div className="animate-fade-in-down flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
+                    <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3 font-display tracking-wide">
                         <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
                             <Database className="h-5 w-5 text-inception-red" />
                         </div>
@@ -763,7 +763,7 @@ function KnowledgePageContent() {
 
 function KnowledgePageSkeleton() {
     return (
-        <div className="p-4 md:p-8 max-w-6xl mx-auto animate-pulse space-y-6">
+        <div className="p-3 sm:p-4 md:p-8 max-w-6xl mx-auto animate-pulse space-y-4 sm:space-y-6">
             <div className="flex items-center justify-between">
                 <div className="space-y-2">
                     <div className="h-8 w-52 rounded-xl bg-white/[0.05]" />
