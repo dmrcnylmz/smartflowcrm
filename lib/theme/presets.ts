@@ -1,7 +1,7 @@
 // =============================================
 // Enterprise Theme Presets — Callception
 // =============================================
-// 3 profesyonel kurumsal tema: Midnight Professional, Corporate Light, Executive Dark
+// 4 tema: Midnight Professional, Corporate Light, Executive Dark, Inception Dark
 // Her preset tüm CSS custom property override'larını içerir.
 
 export interface ThemePreset {
@@ -226,11 +226,77 @@ export const executiveDark: ThemePreset = {
   scrollbarColor: 'rgba(234, 179, 8, 0.2)',
 };
 
+// ── 4. Inception Dark ──
+// Orijinal Callception teması — koyu lacivert + kırmızı
+// Teknoloji, güç, cesaret — onboarding ve landing page için ideal
+export const inceptionDark: ThemePreset = {
+  id: 'inception-dark',
+  name: 'Inception Dark',
+  description: 'Orijinal Callception teması. Koyu lacivert + kırmızı vurgular. Cesur ve teknolojik.',
+  mode: 'dark',
+  preview: {
+    bgColor: '#0a0a14',
+    primaryColor: '#dc2626',
+    accentColor: '#0D9488',
+    textColor: '#F2F2F2',
+    cardColor: '#101018',
+  },
+  variables: {
+    '--background': '240 20% 4%',
+    '--foreground': '0 0% 95%',
+    '--card': '240 15% 7%',
+    '--card-foreground': '0 0% 95%',
+    '--popover': '240 15% 7%',
+    '--popover-foreground': '0 0% 95%',
+    '--primary': '0 72% 51%',
+    '--primary-foreground': '0 0% 100%',
+    '--secondary': '240 10% 12%',
+    '--secondary-foreground': '0 0% 95%',
+    '--muted': '240 10% 10%',
+    '--muted-foreground': '215 14% 50%',
+    '--accent': '240 10% 14%',
+    '--accent-foreground': '0 0% 95%',
+    '--destructive': '0 84% 60%',
+    '--destructive-foreground': '0 0% 100%',
+    '--border': '240 10% 14%',
+    '--input': '240 10% 14%',
+    '--ring': '0 72% 51%',
+    // Charts
+    '--chart-1': '0 72% 51%',
+    '--chart-2': '174 60% 41%',
+    '--chart-3': '280 60% 55%',
+    '--chart-4': '38 92% 50%',
+    '--chart-5': '160 60% 45%',
+    // Sidebar
+    '--sidebar-background': '240 20% 3%',
+    '--sidebar-foreground': '210 20% 85%',
+    '--sidebar-primary': '0 72% 51%',
+    '--sidebar-primary-foreground': '0 0% 100%',
+    '--sidebar-accent': '240 10% 10%',
+    '--sidebar-accent-foreground': '0 0% 95%',
+    '--sidebar-border': '240 10% 12%',
+    '--sidebar-ring': '0 72% 51%',
+  },
+  glassConfig: {
+    bg: 'rgba(10, 10, 20, 0.7)',
+    border: 'rgba(220, 38, 38, 0.08)',
+    hoverBorder: 'rgba(220, 38, 38, 0.18)',
+    shadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+    hoverShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(220, 38, 38, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+  },
+  gradientConfig: {
+    primary: 'linear-gradient(135deg, #dc2626 0%, #ef4444 40%, #f87171 100%)',
+    secondary: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%)',
+  },
+  scrollbarColor: 'rgba(220, 38, 38, 0.2)',
+};
+
 // ── All presets ──
 export const THEME_PRESETS: ThemePreset[] = [
   midnightProfessional,
   corporateLight,
   executiveDark,
+  inceptionDark,
 ];
 
 export const DEFAULT_THEME_ID = 'midnight-professional';

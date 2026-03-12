@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Palette, Moon, Sun, Crown } from 'lucide-react';
+import { Check, Palette, Moon, Sun, Crown, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import type { ThemePreset } from '@/lib/theme/presets';
@@ -130,6 +130,7 @@ function ThemePreview({ preset, isActive }: { preset: ThemePreset; isActive: boo
 // =============================================
 
 function ThemeIcon({ preset }: { preset: ThemePreset }) {
+  if (preset.id === 'inception-dark') return <Flame className="h-4 w-4" />;
   if (preset.id === 'executive-dark') return <Crown className="h-4 w-4" />;
   if (preset.mode === 'light') return <Sun className="h-4 w-4" />;
   return <Moon className="h-4 w-4" />;
@@ -194,7 +195,7 @@ export default function ThemeSettingsTab() {
       </div>
 
       {/* Theme Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {presets.map((preset) => {
           const isActive = preset.id === activeTheme.id;
           const isApplying = applying === preset.id;
