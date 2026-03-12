@@ -61,22 +61,11 @@ describe('Live Provider Connectivity', () => {
         }, 10000);
     });
 
-    describe('ElevenLabs', () => {
-        it('streams TTS audio for Turkish text', async () => {
-            if (!ELEVENLABS_KEY) return;
-
-            const { ElevenLabsTTS } = await import('@/lib/voice/tts-elevenlabs');
-            const tts = new ElevenLabsTTS({ apiKey: ELEVENLABS_KEY });
-
-            const chunks: Buffer[] = [];
-            for await (const chunk of tts.streamText('Merhaba, size nasıl yardımcı olabilirim?')) {
-                chunks.push(chunk);
-            }
-
-            const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
-            expect(totalBytes).toBeGreaterThan(0);
-            console.log('[ElevenLabs] Audio bytes:', totalBytes, 'chunks:', chunks.length);
-        }, 15000);
+    describe('ElevenLabs (REMOVED)', () => {
+        it.skip('ElevenLabs has been removed from the platform — Cartesia is primary TTS', () => {
+            // ElevenLabs was fully removed in commit 49e9195
+            // Cartesia Sonic-3 is now the sole TTS provider
+        });
     });
 
     describe('Deepgram', () => {

@@ -124,8 +124,19 @@ const PLAN_ORDER: Record<string, number> = { starter: 1, professional: 2, enterp
 // Billing Page
 // =============================================
 
+// Super admin emails — only they see cost breakdowns
+const SUPER_ADMIN_EMAILS = ['dmrcnylmz@gmail.com'];
+const SUPER_ADMIN_DOMAIN = 'callception.com';
+
+function isSuperAdminUser(email?: string | null): boolean {
+    if (!email) return false;
+    const e = email.toLowerCase();
+    return e.endsWith(`@${SUPER_ADMIN_DOMAIN}`) || SUPER_ADMIN_EMAILS.includes(e);
+}
+
 function BillingPageContent() {
     const { user, role } = useAuth();
+    const isSuperAdmin = isSuperAdminUser(user?.email);
     const searchParams = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -505,7 +516,7 @@ function BillingPageContent() {
                         { id: 'plans' as const, label: 'Planlar', icon: CreditCard },
                         { id: 'usage' as const, label: 'Kullanim', icon: BarChart3 },
                         { id: 'invoices' as const, label: 'Faturalar', icon: Wallet },
-                        ...(role === 'owner' || role === 'admin' ? [
+                        ...(isSuperAdmin ? [
                             { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
                             { id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator },
                         ] : []),
@@ -688,7 +699,7 @@ function BillingPageContent() {
                     </div>
 
                     {/* Per-call cost info banner — admin/owner only */}
-                    {(role === 'owner' || role === 'admin') && (
+                    {isSuperAdmin && (
                     <div className="bg-gradient-to-r from-primary/10 via-chart-3/10 to-chart-1/10 border border-border rounded-2xl p-5">
                         <div className="flex items-start gap-3">
                             <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
@@ -896,7 +907,7 @@ function BillingPageContent() {
                             </div>
 
                             {/* Cost breakdown — admin/owner only */}
-                            {cost && (role === 'owner' || role === 'admin') && (
+                            {cost && isSuperAdmin && (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     {/* Per-call breakdown */}
                                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
@@ -1169,7 +1180,7 @@ function BillingPageContent() {
             )}
 
             {/* ===================== CALCULATOR TAB (Admin Only) ===================== */}
-            {activeTab === 'calculator' && (role === 'owner' || role === 'admin') && (
+            {activeTab === 'calculator' && isSuperAdmin && (
                 <div className="space-y-6 animate-fade-in">
                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
                         <h3 className="text-lg font-bold text-foreground mb-1">Ölçeklendirme Hesaplayıcı</h3>

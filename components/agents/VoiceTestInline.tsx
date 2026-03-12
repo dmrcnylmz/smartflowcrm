@@ -3,14 +3,15 @@
 /**
  * VoiceTestInline — Inline voice test component for Agent Test Panel
  *
- * Lighter version of VoiceCallModal that renders inline (no dialog).
- * Uses PersonaplexClient for real voice calls or text-only fallback.
+ * Uses PersonaplexClient for full GPU-mode voice calls.
+ * When GPU is not available, uses Cartesia TTS (high-quality) + Browser STT fallback.
+ * No low-quality browser TTS (Web Speech Synthesis) is ever used.
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
     Mic, MicOff, Phone, PhoneOff, Bot, User, Loader2,
-    AlertCircle, Volume2, Clock,
+    AlertCircle, Volume2, Clock, Wifi, WifiOff,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { AudioWaveform } from '@/components/voice/AudioWaveform';
@@ -19,7 +20,7 @@ import { AudioVisualizer } from '@/lib/voice/audio-stream';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import type { AgentVoiceConfig } from '@/lib/agents/types';
 
-// Web Speech API type declarations
+// Web Speech API type declarations (for STT only — NOT used for TTS)
 interface SpeechRecognitionEvent extends Event {
     results: SpeechRecognitionResultList;
 }
@@ -67,6 +68,7 @@ interface VoiceTestInlineProps {
 }
 
 type CallState = 'idle' | 'connecting' | 'connected' | 'ending' | 'error';
+type VoiceMode = 'gpu' | 'cartesia-fallback';
 
 // =============================================
 // Component
@@ -80,12 +82,14 @@ export function VoiceTestInline({
 }: VoiceTestInlineProps) {
     const authFetch = useAuthFetch();
     const [callState, setCallState] = useState<CallState>('idle');
+    const [voiceMode, setVoiceMode] = useState<VoiceMode>('gpu');
     const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
     const [audioData, setAudioData] = useState<number[]>([]);
     const [volume, setVolume] = useState(0);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const clientRef = useRef<PersonaplexClient | null>(null);
     const visualizerRef = useRef<AudioVisualizer | null>(null);
@@ -93,8 +97,15 @@ export function VoiceTestInline({
     const durationRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const isSpeakingRef = useRef(false);
     const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const callStateRef = useRef<CallState>('idle');
 
     const language = voiceConfig?.language || 'tr';
+
+    // Keep callState ref in sync
+    useEffect(() => {
+        callStateRef.current = callState;
+    }, [callState]);
 
     // Auto-scroll transcript
     useEffect(() => {
@@ -108,6 +119,7 @@ export function VoiceTestInline({
             visualizerRef.current?.stop();
             recognitionRef.current?.abort();
             clientRef.current?.disconnect();
+            audioContextRef.current?.close().catch(() => {});
         };
     }, []);
 
@@ -118,13 +130,52 @@ export function VoiceTestInline({
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
     };
 
-    // ── Text-only fallback (browser STT → LLM → browser TTS) ──
-    const startTextOnlyMode = useCallback(async () => {
+    // ── Play Cartesia TTS audio ──
+    const playCartesiaTTS = useCallback(async (text: string): Promise<void> => {
+        try {
+            const res = await authFetch('/api/voice/tts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text,
+                    language,
+                    provider: 'cartesia',
+                }),
+            });
+
+            if (!res.ok) {
+                console.warn('[VoiceTest] Cartesia TTS failed, status:', res.status);
+                return;
+            }
+
+            const audioBlob = await res.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+
+            return new Promise<void>((resolve) => {
+                const audio = new Audio(audioUrl);
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                };
+                audio.onerror = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    resolve();
+                };
+                audio.play().catch(() => resolve());
+            });
+        } catch (err) {
+            console.warn('[VoiceTest] Cartesia TTS error:', err);
+        }
+    }, [authFetch, language]);
+
+    // ── Cartesia Fallback Mode (Browser STT → LLM → Cartesia TTS) ──
+    const startCartesiaFallbackMode = useCallback(async () => {
         setCallState('connected');
+        setVoiceMode('cartesia-fallback');
         setCallDuration(0);
         durationRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
 
-        // Start browser STT
+        // Start browser STT (only for speech recognition — NOT for TTS)
         const SpeechRecognition = (
             (window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor }).SpeechRecognition ||
             (window as unknown as { webkitSpeechRecognition?: SpeechRecognitionConstructor }).webkitSpeechRecognition
@@ -153,7 +204,11 @@ export function VoiceTestInline({
             if (!finalText || isSpeakingRef.current) return;
 
             isSpeakingRef.current = true;
+            setIsProcessing(true);
             setTranscript(prev => [...prev, { speaker: 'user', text: finalText }]);
+
+            // Pause recognition during TTS playback to prevent echo
+            try { recognition.stop(); } catch { /* ignore */ }
 
             try {
                 const res = await authFetch('/api/voice/pipeline', {
@@ -170,29 +225,34 @@ export function VoiceTestInline({
                 const data = await res.json();
                 if (data.success && data.response) {
                     setTranscript(prev => [...prev, { speaker: 'assistant', text: data.response }]);
-                    // TTS
-                    const utterance = new SpeechSynthesisUtterance(data.response);
-                    utterance.lang = language === 'en' ? 'en-US' : 'tr-TR';
-                    utterance.rate = 1.0;
-                    utterance.onend = () => { isSpeakingRef.current = false; };
-                    window.speechSynthesis.speak(utterance);
+                    setIsProcessing(false);
+
+                    // Play via Cartesia TTS — high quality, no browser garbage voices
+                    await playCartesiaTTS(data.response);
                 } else {
-                    isSpeakingRef.current = false;
+                    setIsProcessing(false);
                 }
             } catch {
-                isSpeakingRef.current = false;
+                setIsProcessing(false);
+            }
+
+            isSpeakingRef.current = false;
+
+            // Resume recognition after TTS playback
+            if (callStateRef.current === 'connected') {
+                try { recognition.start(); } catch { /* ignore */ }
             }
         };
 
         recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-            if (event.error !== 'no-speech') {
+            if (event.error !== 'no-speech' && event.error !== 'aborted') {
                 console.error('STT error:', event.error);
             }
         };
 
         recognition.onend = () => {
-            // Auto restart if still connected
-            if (callState === 'connected') {
+            // Auto restart if still connected and not speaking
+            if (callStateRef.current === 'connected' && !isSpeakingRef.current) {
                 try { recognition.start(); } catch { /* ignore */ }
             }
         };
@@ -203,7 +263,7 @@ export function VoiceTestInline({
             setError('Mikrofon erişimi sağlanamadı');
             setCallState('error');
         }
-    }, [authFetch, systemPrompt, language, callState]);
+    }, [authFetch, systemPrompt, language, playCartesiaTTS]);
 
     // ── Start Call ──
     const startCall = useCallback(async () => {
@@ -222,14 +282,16 @@ export function VoiceTestInline({
                 throw new Error('AI ses servisi şu anda erişilemez durumda');
             }
 
-            const mode = status.mode === 'live' ? 'gpu' : 'text-only';
+            const mode = status.mode === 'live' ? 'gpu' : 'cartesia-fallback';
 
             if (mode !== 'gpu') {
-                await startTextOnlyMode();
+                // Fallback: Browser STT + Cartesia TTS (high-quality)
+                await startCartesiaFallbackMode();
                 return;
             }
 
             // GPU mode — full Personaplex
+            setVoiceMode('gpu');
             const persona = voiceConfig?.voiceCatalogId || 'ct-leyla';
             const effectivePersona = language === 'en' && !persona.endsWith('_en')
                 ? `${persona}_en` : persona;
@@ -296,7 +358,7 @@ export function VoiceTestInline({
             setError(err instanceof Error ? err.message : 'Bağlantı hatası');
             setCallState('error');
         }
-    }, [authFetch, voiceConfig, language, startTextOnlyMode]);
+    }, [authFetch, voiceConfig, language, startCartesiaFallbackMode]);
 
     // ── End Call ──
     const endCall = useCallback(() => {
@@ -311,7 +373,7 @@ export function VoiceTestInline({
         recognitionRef.current?.abort();
         recognitionRef.current = null;
 
-        window.speechSynthesis.cancel();
+        // Do NOT call window.speechSynthesis — we never use browser TTS
 
         visualizerRef.current?.stop();
         visualizerRef.current = null;
@@ -321,6 +383,7 @@ export function VoiceTestInline({
         clientRef.current = null;
 
         setCallState('idle');
+        setIsProcessing(false);
     }, []);
 
     // ── Toggle Mute ──
@@ -354,12 +417,27 @@ export function VoiceTestInline({
                         {callState === 'error' && 'Hata'}
                     </span>
                 </div>
-                {callState === 'connected' && (
-                    <div className="flex items-center gap-2 text-xs text-white/30">
-                        <Clock className="h-3 w-3" />
-                        {formatDuration(callDuration)}
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {callState === 'connected' && (
+                        <>
+                            <Badge variant="outline" className={`text-[9px] border-0 py-0.5 ${
+                                voiceMode === 'gpu'
+                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                    : 'bg-blue-500/10 text-blue-400'
+                            }`}>
+                                {voiceMode === 'gpu' ? (
+                                    <><Wifi className="h-2.5 w-2.5 mr-1" /> GPU</>
+                                ) : (
+                                    <><WifiOff className="h-2.5 w-2.5 mr-1" /> Cartesia</>
+                                )}
+                            </Badge>
+                            <div className="flex items-center gap-1 text-xs text-white/30">
+                                <Clock className="h-3 w-3" />
+                                {formatDuration(callDuration)}
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Main Area */}
@@ -372,7 +450,7 @@ export function VoiceTestInline({
                         <h3 className="text-sm font-semibold text-white/80 mb-1">Sesli Test Çağrısı</h3>
                         <p className="text-xs text-white/30 max-w-xs mb-6 leading-relaxed">
                             Mikrofon izni vererek <span className="text-white/60">{agentName}</span> ile gerçek bir sesli görüşme başlatın.
-                            Asistanınızın sesli yanıtlarını test edin.
+                            Cartesia Sonic-3 ses kalitesiyle test edin.
                         </p>
                         <button
                             onClick={startCall}
@@ -399,6 +477,12 @@ export function VoiceTestInline({
                             <div className="flex items-center gap-2 mb-2">
                                 <Volume2 className="h-3 w-3 text-white/30" />
                                 <span className="text-[10px] text-white/30 uppercase tracking-widest">Ses Sinyali</span>
+                                {isProcessing && (
+                                    <span className="text-[10px] text-amber-400 flex items-center gap-1">
+                                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                        Yanıt oluşturuluyor...
+                                    </span>
+                                )}
                             </div>
                             <AudioWaveform
                                 audioData={audioData}

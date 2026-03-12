@@ -17,12 +17,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockAssignFromPool = vi.fn();
 const mockReturnToPool = vi.fn();
+const mockIsPoolAvailable = vi.fn();
 const mockPurchaseFromTwilio = vi.fn();
 const mockReleaseTwilioNumber = vi.fn();
 
 vi.mock('@/lib/phone/number-pool', () => ({
     assignFromPool: (...args: unknown[]) => mockAssignFromPool(...args),
     returnToPool: (...args: unknown[]) => mockReturnToPool(...args),
+    isPoolAvailable: (...args: unknown[]) => mockIsPoolAvailable(...args),
 }));
 
 vi.mock('@/lib/phone/twilio-native', () => ({
@@ -90,6 +92,8 @@ function createMockDb(overrides: {
 describe('Phone Gateway', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // Default: pool is available for TR tests
+        mockIsPoolAvailable.mockResolvedValue({ available: true, count: 5 });
     });
 
     // ─── provisionNumber ───

@@ -4,8 +4,11 @@
  * POST /api/onboarding/provision-phone
  *
  * Provisions a phone number for a newly onboarded tenant.
- * Simplified version of /api/phone/provision without subscription guard
- * (new tenants may not have an active subscription yet).
+ *
+ * Cost-aware provisioning:
+ * - Turkey (TR) → SIP Pool: allowed during onboarding (pre-purchased, no extra cost)
+ * - Global (US, GB, etc.) → Twilio Native: REQUIRES active paid subscription
+ *   because each number purchase charges ~$1/month to master Twilio account
  *
  * Body: { country: string, areaCode?: string, carrier?: string }
  */
@@ -15,6 +18,8 @@ import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { provisionNumber } from '@/lib/phone/gateway';
+import { getProviderForCountry } from '@/lib/phone/types';
+import { checkSubscriptionActive } from '@/lib/billing/subscription-guard';
 import { handleApiError } from '@/lib/utils/error-handler';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +48,27 @@ export async function POST(request: NextRequest) {
         }
 
         const countryUpper = country.toUpperCase();
+        const providerType = getProviderForCountry(countryUpper);
+
+        // ─── Cost Guard: Twilio Native purchases cost real money ───
+        // For non-TR countries, Twilio charges ~$1/month per number to our master account.
+        // Only allow this for tenants with an active PAID subscription.
+        if (providerType === 'TWILIO_NATIVE') {
+            const subGuard = await checkSubscriptionActive(getDb(), auth.tenantId);
+
+            // Reject free trial or inactive subscriptions for Twilio Native
+            if (!subGuard.active || subGuard.planId === 'free_trial') {
+                return NextResponse.json(
+                    {
+                        error: 'Uluslararası numara almak için aktif bir ödeme planına sahip olmanız gerekir. Lütfen önce bir plan seçin.',
+                        code: 'SUBSCRIPTION_REQUIRED',
+                        requiresSubscription: true,
+                        canSkip: true,
+                    },
+                    { status: 402 },
+                );
+            }
+        }
 
         // Provision number via gateway (routes TR→pool, others→Twilio)
         const result = await provisionNumber(

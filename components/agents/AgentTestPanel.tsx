@@ -360,6 +360,7 @@ export function AgentTestPanel({
 
                 {activeTab === 'knowledge' && (
                     <KBQuickAdd
+                        agentId={agentId}
                         agentName={agentName}
                         onSwitchToChat={() => setActiveTab('chat')}
                     />

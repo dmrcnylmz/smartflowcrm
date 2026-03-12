@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/toast';
 // =============================================
 
 interface KBQuickAddProps {
+    agentId?: string;
     agentName?: string;
     onDocumentAdded?: () => void;
     onSwitchToChat?: () => void;
@@ -32,7 +33,7 @@ interface KBQuickAddProps {
 // Component
 // =============================================
 
-export function KBQuickAdd({ agentName, onDocumentAdded, onSwitchToChat }: KBQuickAddProps) {
+export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat }: KBQuickAddProps) {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
     const [textContent, setTextContent] = useState('');
@@ -55,6 +56,7 @@ export function KBQuickAdd({ agentName, onDocumentAdded, onSwitchToChat }: KBQui
                     title: agentName ? `${agentName} - Metin` : 'Hızlı Metin Ekleme',
                     sourceType: 'text',
                     content: textContent.trim(),
+                    ...(agentId ? { agentId } : {}),
                 }),
             });
             if (!res.ok) throw new Error('Yükleme başarısız');
@@ -88,6 +90,7 @@ export function KBQuickAdd({ agentName, onDocumentAdded, onSwitchToChat }: KBQui
                     title: agentName ? `${agentName} - Web` : 'Web Kaynağı',
                     sourceType: 'url',
                     source: urlInput.trim(),
+                    ...(agentId ? { agentId } : {}),
                 }),
             });
             if (!res.ok) throw new Error('URL tarama başarısız');

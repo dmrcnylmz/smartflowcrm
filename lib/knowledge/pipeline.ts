@@ -32,6 +32,7 @@ import { logger } from '@/lib/utils/logger';
 export interface KBDocument {
     id: string;
     tenantId: string;
+    agentId?: string;  // Agent-specific KB — when set, document belongs to a specific agent
     title: string;
     sourceType: DocumentSource['type'];
     source: string;
@@ -48,6 +49,7 @@ export interface KBDocument {
 export interface KBChunk {
     id: string;
     documentId: string;
+    agentId?: string;  // Inherited from parent document for faster filtered queries
     index: number;
     content: string;
     vector: number[];
@@ -109,6 +111,7 @@ function tenantKbChunks(tenantId: string) {
 export async function ingestDocument(
     tenantId: string,
     source: DocumentSource,
+    agentId?: string,
 ): Promise<IngestResult> {
     const firestore = getDb();
 
@@ -118,6 +121,7 @@ export async function ingestDocument(
 
     await docRef.set({
         tenantId,
+        ...(agentId ? { agentId } : {}),
         sourceType: source.type,
         source: source.type === 'url' ? source.content : (source.filename || 'direct-input'),
         status: 'processing',
@@ -159,6 +163,7 @@ export async function ingestDocument(
 
                 batch.set(chunkRef, {
                     documentId,
+                    ...(agentId ? { agentId } : {}),
                     index: chunk.index,
                     content: chunk.content,
                     vector: embedding.vector,
@@ -241,12 +246,20 @@ export async function queryKnowledgeBase(
     query: string,
     topK: number = 5,
     minScore: number = 0.20,
+    agentId?: string,
 ): Promise<RetrievalResult[]> {
     // 1. Generate query embedding (cached for repeated queries)
     const queryEmbedding = await generateEmbedding(query);
 
-    // 2. Load all chunk vectors for this tenant
-    const chunksSnap = await tenantKbChunks(tenantId).get();
+    // 2. Load chunk vectors for this tenant
+    // If agentId is provided, load both agent-specific AND global (no agentId) chunks
+    // This gives agent-specific KB priority while still using shared knowledge
+    let chunksQuery: FirebaseFirestore.Query = tenantKbChunks(tenantId);
+    if (agentId) {
+        // We'll filter in-memory to include both agent-specific and global chunks
+        // Firestore doesn't support OR queries on optional fields efficiently
+    }
+    const chunksSnap = await chunksQuery.get();
 
     if (chunksSnap.empty) {
         return [];
@@ -273,6 +286,9 @@ export async function queryKnowledgeBase(
         const data = doc.data();
         if (!data.vector || !Array.isArray(data.vector)) continue;
 
+        // Agent-specific filtering: skip chunks belonging to OTHER agents
+        if (agentId && data.agentId && data.agentId !== agentId) continue;
+
         // Semantic score
         const semanticScore = cosineSimilarity(queryEmbedding.vector, data.vector);
 
@@ -280,7 +296,12 @@ export async function queryKnowledgeBase(
         const keywordScore = computeKeywordScore(data.content, queryTokens);
 
         // Fused score: 70% semantic + 30% keyword
-        const fusedScore = (semanticScore * 0.7) + (keywordScore * 0.3);
+        let fusedScore = (semanticScore * 0.7) + (keywordScore * 0.3);
+
+        // Boost agent-specific chunks when querying with agentId
+        if (agentId && data.agentId === agentId) {
+            fusedScore = Math.min(fusedScore + 0.05, 1.0);
+        }
 
         if (fusedScore >= minScore) {
             scoredChunks.push({
@@ -387,8 +408,9 @@ export async function getRAGContext(
     userQuery: string,
     maxChunks: number = 3,
     maxContextLength: number = 2400, // ~600 tokens — optimal for voice AI
+    agentId?: string,
 ): Promise<string> {
-    const results = await queryKnowledgeBase(tenantId, userQuery, maxChunks + 2);
+    const results = await queryKnowledgeBase(tenantId, userQuery, maxChunks + 2, 0.20, agentId);
 
     if (results.length === 0) {
         return '';
@@ -550,10 +572,18 @@ const TURKISH_STOP_WORDS = new Set([
 /**
  * List all KB documents for a tenant.
  */
-export async function listKBDocuments(tenantId: string): Promise<KBDocument[]> {
-    const snap = await tenantKbDocs(tenantId)
-        .orderBy('createdAt', 'desc')
-        .get();
+export async function listKBDocuments(tenantId: string, agentId?: string): Promise<KBDocument[]> {
+    let query: FirebaseFirestore.Query = tenantKbDocs(tenantId)
+        .orderBy('createdAt', 'desc');
+
+    // If agentId is provided, filter for agent-specific docs only
+    if (agentId) {
+        query = tenantKbDocs(tenantId)
+            .where('agentId', '==', agentId)
+            .orderBy('createdAt', 'desc');
+    }
+
+    const snap = await query.get();
 
     return snap.docs.map(d => ({
         id: d.id,

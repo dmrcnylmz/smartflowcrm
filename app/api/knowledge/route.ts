@@ -51,9 +51,14 @@ export async function POST(request: NextRequest) {
         const contentType = request.headers.get('content-type') || '';
         let source: DocumentSource;
 
+        let agentId: string | undefined;
+
         if (contentType.includes('multipart/form-data')) {
             // ─── File Upload (multipart/form-data) ───
             source = await parseMultipartUpload(request);
+            // agentId from form data
+            const formData = await request.formData().catch(() => null);
+            agentId = formData?.get('agentId') as string | undefined || undefined;
         } else {
             // ─── JSON body (text or URL) ───
             const body = await request.json();
@@ -65,9 +70,10 @@ export async function POST(request: NextRequest) {
                 content: body.content,
                 filename: body.filename,
             };
+            agentId = body.agentId || undefined;
         }
 
-        const result = await ingestDocument(auth.tenantId, source);
+        const result = await ingestDocument(auth.tenantId, source, agentId);
 
         return NextResponse.json(result, {
             status: result.status === 'error' ? 500 : 201,
@@ -89,10 +95,11 @@ export async function GET(request: NextRequest) {
 
         const query = request.nextUrl.searchParams.get('query');
         const action = request.nextUrl.searchParams.get('action');
+        const agentId = request.nextUrl.searchParams.get('agentId') || undefined;
 
         if (query) {
             const topK = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get('topK') || '5') || 5, 1), 50);
-            const results = await queryKnowledgeBase(auth.tenantId, query, topK);
+            const results = await queryKnowledgeBase(auth.tenantId, query, topK, 0.20, agentId);
 
             // Fire-and-forget: meter KB query
             initAdmin();
@@ -110,7 +117,7 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const documents = await listKBDocuments(auth.tenantId);
+        const documents = await listKBDocuments(auth.tenantId, agentId);
         return NextResponse.json({ documents, count: documents.length }, {
             headers: cacheHeaders('MEDIUM'),
         });
