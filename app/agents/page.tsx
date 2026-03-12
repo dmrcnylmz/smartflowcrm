@@ -389,19 +389,23 @@ export default function AgentsPage() {
                 body: JSON.stringify({ id: agentId }),
             });
 
-            if (!res.ok) throw new Error('Asistan silinemedi');
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.error || 'Asistan silinemedi');
+            }
 
             toast({
                 title: 'Silindi',
-                description: 'Agent başarıyla silindi',
+                description: 'Asistan başarıyla silindi',
                 variant: 'success',
             });
 
             await fetchAgents();
         } catch (err) {
+            const message = err instanceof Error ? err.message : 'Asistan silinirken bir hata oluştu';
             toast({
                 title: 'Hata',
-                description: 'Agent silinirken bir hata oluştu',
+                description: message,
                 variant: 'error',
             });
         } finally {
@@ -699,16 +703,26 @@ export default function AgentsPage() {
                                             <Edit3 className="h-3 w-3" />
                                             Duzenle
                                         </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-red-400 hover:text-red-500 hover:bg-red-500/10 gap-1 h-7 px-2"
-                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirmId(agent.id); }}
-                                            disabled={deletingId === agent.id}
-                                            aria-label="Sil"
-                                        >
-                                            {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                                        </Button>
+                                        <div className="relative group/del">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className={`gap-1 h-7 px-2 ${agent.isActive
+                                                    ? 'text-muted-foreground/40 cursor-not-allowed'
+                                                    : 'text-red-400 hover:text-red-500 hover:bg-red-500/10'
+                                                }`}
+                                                onClick={(e) => { e.stopPropagation(); if (!agent.isActive) setDeleteConfirmId(agent.id); }}
+                                                disabled={deletingId === agent.id || agent.isActive}
+                                                aria-label={agent.isActive ? 'Aktif asistan silinemez' : 'Sil'}
+                                            >
+                                                {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                                            </Button>
+                                            {agent.isActive && (
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border rounded-md shadow-md text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/del:opacity-100 transition-opacity pointer-events-none z-50">
+                                                    Silmek için önce pasif yapın
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1201,7 +1215,7 @@ export default function AgentsPage() {
                             Asistanı Sil
                         </DialogTitle>
                         <DialogDescription>
-                            Bu asistanı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                            Bu asistan pasif durumda. Silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-end gap-3 pt-4">

@@ -203,6 +203,22 @@ export async function DELETE(request: NextRequest) {
         const validation = requireFields(body, ['id']);
         if (validation) return errorResponse(validation);
 
+        // Guard: prevent deleting active agents
+        const agentDoc = await tenantAgents(auth.tenantId).doc(body.id).get();
+        if (!agentDoc.exists) {
+            return NextResponse.json(
+                { error: 'Asistan bulunamadı' },
+                { status: 404 },
+            );
+        }
+        const agentData = agentDoc.data();
+        if (agentData?.isActive === true) {
+            return NextResponse.json(
+                { error: 'Aktif asistan silinemez. Silmeden önce asistanı pasif yapın.' },
+                { status: 403 },
+            );
+        }
+
         await tenantAgents(auth.tenantId).doc(body.id).delete();
 
         return NextResponse.json({ message: `Agent ${body.id} deleted` });

@@ -13,12 +13,13 @@
  */
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronRight, ChevronLeft, Check, Loader2, X, Sparkles,
     HeartPulse, ShoppingBag, Briefcase, Headphones, GraduationCap,
     Utensils, Home as HomeIcon, Car, Scale, Shield,
     Bot, Wand2, Globe, Volume2, AlertTriangle, ChevronDown, ChevronUp,
-    Code2, Eye, CheckCircle, Plus, MessageCircle,
+    Code2, Eye, CheckCircle, Plus, MessageCircle, BookOpen,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,8 +56,64 @@ const WIZARD_STEPS = [
     { id: 'template', label: 'Şablon Seçimi', icon: Sparkles, description: 'Sektörünüze uygun şablonu seçin' },
     { id: 'identity', label: 'Kimlik', icon: Bot, description: 'Asistanın adı, rolü ve dili' },
     { id: 'customize', label: 'Özelleştir', icon: Wand2, description: 'Değişkenleri doldurun ve prompt\'u önizleyin' },
+    { id: 'knowledge', label: 'Bilgi Bankası', icon: BookOpen, description: 'Asistanınıza bilgi kaynakları ekleyin' },
     { id: 'review', label: 'İnceleme', icon: Eye, description: 'Son kontrol ve oluşturma' },
 ];
+
+// =============================================
+// Framer Motion Variants
+// =============================================
+
+const stepTransitionVariants = {
+    enter: (direction: number) => ({
+        x: direction > 0 ? 60 : -60,
+        opacity: 0,
+    }),
+    center: {
+        x: 0,
+        opacity: 1,
+    },
+    exit: (direction: number) => ({
+        x: direction > 0 ? -60 : 60,
+        opacity: 0,
+    }),
+};
+
+const staggerContainerVariants = {
+    hidden: { opacity: 1 },
+    visible: {
+        opacity: 1,
+        transition: { staggerChildren: 0.06 },
+    },
+};
+
+const staggerCardVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: { duration: 0.3, ease: 'easeOut' },
+    },
+};
+
+const successCheckVariants = {
+    hidden: { scale: 0, opacity: 0 },
+    visible: {
+        scale: 1,
+        opacity: 1,
+        transition: { type: 'spring', stiffness: 200, damping: 12, delay: 0.1 },
+    },
+};
+
+const fadeUpVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: (delay: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.4, ease: 'easeOut', delay },
+    }),
+};
 
 // =============================================
 // Props
@@ -152,23 +209,33 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
         return prompt;
     }, [systemPrompt, variables]);
 
+    // Track step direction for animation
+    const [stepDirection, setStepDirection] = useState(0);
+
     // Can proceed validation
     const canProceed = useCallback((): boolean => {
         switch (currentStep) {
             case 0: return selectedTemplateId !== null; // template selected (null for scratch is allowed via separate button)
             case 1: return !!agentName.trim();
             case 2: return !!systemPrompt.trim();
-            case 3: return true;
+            case 3: return true; // Knowledge Base is optional (can skip)
+            case 4: return true;
             default: return false;
         }
     }, [currentStep, selectedTemplateId, agentName, systemPrompt]);
 
     // Navigation
     const nextStep = () => {
-        if (currentStep < WIZARD_STEPS.length - 1) setCurrentStep(prev => prev + 1);
+        if (currentStep < WIZARD_STEPS.length - 1) {
+            setStepDirection(1);
+            setCurrentStep(prev => prev + 1);
+        }
     };
     const prevStep = () => {
-        if (currentStep > 0) setCurrentStep(prev => prev - 1);
+        if (currentStep > 0) {
+            setStepDirection(-1);
+            setCurrentStep(prev => prev - 1);
+        }
     };
 
     // Submit — create agent
@@ -262,11 +329,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                         </button>
                     </div>
                 </div>
-                {/* Progress */}
-                <div className="h-[1px] bg-white/[0.04]">
-                    <div
-                        className="h-full bg-inception-red transition-all duration-500"
-                        style={{ width: `${((currentStep + 1) / WIZARD_STEPS.length) * 100}%` }}
+                {/* Animated Progress Bar */}
+                <div className="h-[2px] bg-white/[0.04]">
+                    <motion.div
+                        className="h-full bg-inception-red"
+                        animate={{ width: `${((currentStep + 1) / WIZARD_STEPS.length) * 100}%` }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
                     />
                 </div>
             </div>
@@ -310,84 +378,154 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
             {/* Content */}
             <div className="relative flex-1 overflow-y-auto">
                 <div className="max-w-5xl mx-auto px-6 py-6">
-                    <div key={currentStep} className="animate-fade-in-up">
-                        {/* Step Title */}
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold text-white font-display tracking-wide">{WIZARD_STEPS[currentStep].label}</h2>
-                            <p className="text-white/40 mt-1 text-sm">{WIZARD_STEPS[currentStep].description}</p>
-                        </div>
-
-                        {/* Error */}
-                        {error && (
-                            <div className="mb-5 p-4 bg-inception-red/10 border border-inception-red/30 rounded-xl flex items-start gap-3">
-                                <AlertTriangle className="h-4 w-4 text-inception-red flex-shrink-0 mt-0.5" />
-                                <p className="text-inception-red text-sm">{error}</p>
-                            </div>
-                        )}
-
-                        {/* Step Content */}
-                        {currentStep === 0 && (
-                            <StepTemplateSelection
-                                selectedId={selectedTemplateId}
-                                onSelect={handleSelectTemplate}
-                            />
-                        )}
-                        {currentStep === 1 && (
-                            <StepIdentity
-                                agentName={agentName}
-                                setAgentName={setAgentName}
-                                agentRole={agentRole}
-                                setAgentRole={setAgentRole}
-                                language={language}
-                                setLanguage={setLanguage}
-                                selectedTemplateId={selectedTemplateId}
-                            />
-                        )}
-                        {currentStep === 2 && (
-                            <StepCustomize
-                                variables={variables}
-                                setVariables={setVariables}
-                                systemPrompt={systemPrompt}
-                                setSystemPrompt={setSystemPrompt}
-                                resolvedPrompt={resolvedPrompt}
-                                voiceConfig={voiceConfig}
-                                setVoiceConfig={setVoiceConfig}
-                                fallbackRules={fallbackRules}
-                                setFallbackRules={setFallbackRules}
-                                showAdvanced={showAdvanced}
-                                setShowAdvanced={setShowAdvanced}
-                                isSmartVariable={isSmartVariable}
-                                getSmartValue={getSmartValue}
-                                language={language}
-                                authFetch={authFetch}
-                                isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
-                            />
-                        )}
-                        {currentStep === 3 && !createdAgentId && (
-                            <StepReview
-                                agentName={agentName}
-                                agentRole={agentRole}
-                                language={language}
-                                selectedTemplateId={selectedTemplateId}
-                                variables={variables}
-                                voiceConfig={voiceConfig}
-                                fallbackRules={fallbackRules}
-                                resolvedPrompt={resolvedPrompt}
-                            />
-                        )}
-
-                        {/* Success Screen (after creation) */}
-                        {createdAgentId && !showTestPanel && (
-                            <div className="text-center py-8 animate-fade-in-up">
-                                <div className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-6">
-                                    <Check className="h-10 w-10 text-emerald-400" />
+                    <AnimatePresence mode="wait" custom={stepDirection}>
+                        {!createdAgentId ? (
+                            <motion.div
+                                key={currentStep}
+                                custom={stepDirection}
+                                variants={stepTransitionVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                            >
+                                {/* Step Title */}
+                                <div className="mb-6">
+                                    <h2 className="text-xl font-bold text-white font-display tracking-wide">{WIZARD_STEPS[currentStep].label}</h2>
+                                    <p className="text-white/40 mt-1 text-sm">{WIZARD_STEPS[currentStep].description}</p>
                                 </div>
-                                <h2 className="text-2xl font-bold text-white font-display tracking-wide mb-2">Tebrikler!</h2>
-                                <p className="text-white/50 max-w-md mx-auto mb-8">
+
+                                {/* Error */}
+                                {error && (
+                                    <div className="mb-5 p-4 bg-inception-red/10 border border-inception-red/30 rounded-xl flex items-start gap-3">
+                                        <AlertTriangle className="h-4 w-4 text-inception-red flex-shrink-0 mt-0.5" />
+                                        <p className="text-inception-red text-sm">{error}</p>
+                                    </div>
+                                )}
+
+                                {/* Step Content */}
+                                {currentStep === 0 && (
+                                    <StepTemplateSelection
+                                        selectedId={selectedTemplateId}
+                                        onSelect={handleSelectTemplate}
+                                    />
+                                )}
+                                {currentStep === 1 && (
+                                    <StepIdentity
+                                        agentName={agentName}
+                                        setAgentName={setAgentName}
+                                        agentRole={agentRole}
+                                        setAgentRole={setAgentRole}
+                                        language={language}
+                                        setLanguage={setLanguage}
+                                        selectedTemplateId={selectedTemplateId}
+                                    />
+                                )}
+                                {currentStep === 2 && (
+                                    <StepCustomize
+                                        variables={variables}
+                                        setVariables={setVariables}
+                                        systemPrompt={systemPrompt}
+                                        setSystemPrompt={setSystemPrompt}
+                                        resolvedPrompt={resolvedPrompt}
+                                        voiceConfig={voiceConfig}
+                                        setVoiceConfig={setVoiceConfig}
+                                        fallbackRules={fallbackRules}
+                                        setFallbackRules={setFallbackRules}
+                                        showAdvanced={showAdvanced}
+                                        setShowAdvanced={setShowAdvanced}
+                                        isSmartVariable={isSmartVariable}
+                                        getSmartValue={getSmartValue}
+                                        language={language}
+                                        authFetch={authFetch}
+                                        isEnterprise={tenantSettings?.subscriptionPlan === 'enterprise'}
+                                    />
+                                )}
+                                {currentStep === 3 && (
+                                    <StepKnowledgeBase
+                                        agentName={agentName}
+                                        authFetch={authFetch}
+                                    />
+                                )}
+                                {currentStep === 4 && (
+                                    <StepReview
+                                        agentName={agentName}
+                                        agentRole={agentRole}
+                                        language={language}
+                                        selectedTemplateId={selectedTemplateId}
+                                        variables={variables}
+                                        voiceConfig={voiceConfig}
+                                        fallbackRules={fallbackRules}
+                                        resolvedPrompt={resolvedPrompt}
+                                    />
+                                )}
+                            </motion.div>
+                        ) : !showTestPanel ? (
+                            /* Success Screen (after creation) */
+                            <motion.div
+                                key="success"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="text-center py-8"
+                            >
+                                {/* Confetti particles */}
+                                <div className="relative inline-block">
+                                    <div className="absolute -inset-8 pointer-events-none">
+                                        {[...Array(12)].map((_, i) => (
+                                            <motion.div
+                                                key={i}
+                                                className="absolute w-2 h-2 rounded-full"
+                                                style={{
+                                                    background: ['#dc2626', '#10b981', '#6366f1', '#f59e0b', '#ec4899'][i % 5],
+                                                    left: '50%',
+                                                    top: '50%',
+                                                }}
+                                                initial={{ scale: 0, x: 0, y: 0, opacity: 1 }}
+                                                animate={{
+                                                    scale: [0, 1, 0.5],
+                                                    x: Math.cos((i / 12) * Math.PI * 2) * 80,
+                                                    y: Math.sin((i / 12) * Math.PI * 2) * 80,
+                                                    opacity: [0, 1, 0],
+                                                }}
+                                                transition={{ duration: 1, delay: 0.2, ease: 'easeOut' }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <motion.div
+                                        variants={successCheckVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                        className="inline-flex items-center justify-center h-20 w-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-6"
+                                    >
+                                        <Check className="h-10 w-10 text-emerald-400" />
+                                    </motion.div>
+                                </div>
+                                <motion.h2
+                                    variants={fadeUpVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    custom={0.3}
+                                    className="text-2xl font-bold text-white font-display tracking-wide mb-2"
+                                >
+                                    Tebrikler!
+                                </motion.h2>
+                                <motion.p
+                                    variants={fadeUpVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    custom={0.4}
+                                    className="text-white/50 max-w-md mx-auto mb-8"
+                                >
                                     <span className="text-white font-medium">{agentName}</span> başarıyla oluşturuldu.
                                     Şimdi test ederek doğru çalıştığını doğrulayabilirsiniz.
-                                </p>
-                                <div className="flex items-center justify-center gap-4">
+                                </motion.p>
+                                <motion.div
+                                    variants={fadeUpVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    custom={0.5}
+                                    className="flex items-center justify-center gap-4"
+                                >
                                     <button
                                         onClick={() => setShowTestPanel(true)}
                                         className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
@@ -402,13 +540,17 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                         Asistanlar Sayfasına Dön
                                         <ChevronRight className="h-4 w-4" />
                                     </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Test Panel (inline after creation) */}
-                        {createdAgentId && showTestPanel && (
-                            <div className="space-y-4">
+                                </motion.div>
+                            </motion.div>
+                        ) : (
+                            /* Test Panel (inline after creation) */
+                            <motion.div
+                                key="test-panel"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-4"
+                            >
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-medium text-white/70">
                                         {agentName} Test Paneli
@@ -426,11 +568,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                     agentName={agentName}
                                     templateId={selectedTemplateId || undefined}
                                     systemPrompt={resolvedPrompt}
+                                    voiceConfig={{ ...voiceConfig, language }}
                                     inline
                                 />
-                            </div>
+                            </motion.div>
                         )}
-                    </div>
+                    </AnimatePresence>
                 </div>
             </div>
 
@@ -534,26 +677,37 @@ function StepTemplateSelection({
                 <div className="h-px flex-1 bg-white/[0.06]" />
             </div>
 
-            {/* Template Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {AGENT_TEMPLATES.map((template, idx) => {
+            {/* Template Grid — Staggered Animation */}
+            <motion.div
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"
+                variants={staggerContainerVariants}
+                initial="hidden"
+                animate="visible"
+            >
+                {AGENT_TEMPLATES.map((template) => {
                     const Icon = getIcon(template.icon);
                     const isSelected = selectedId === template.id;
                     return (
-                        <button
+                        <motion.button
                             key={template.id}
+                            variants={staggerCardVariants}
                             onClick={() => onSelect(template.id)}
-                            style={{ animationDelay: `${idx * 50}ms` }}
-                            className={`relative group p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up
+                            whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                            whileTap={{ scale: 0.98 }}
+                            className={`relative group p-4 rounded-xl border text-left transition-colors duration-300
                                 ${isSelected
                                     ? `${template.borderColor} bg-white/[0.04] shadow-lg ${template.glowColor}`
                                     : 'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.10] hover:bg-white/[0.04]'
                                 }`}
                         >
                             {isSelected && (
-                                <div className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-inception-red rounded-full flex items-center justify-center shadow-md shadow-inception-red/30">
+                                <motion.div
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 bg-inception-red rounded-full flex items-center justify-center shadow-md shadow-inception-red/30"
+                                >
                                     <Check className="h-3 w-3 text-white" />
-                                </div>
+                                </motion.div>
                             )}
                             <div className={`h-10 w-10 rounded-lg bg-gradient-to-r ${template.color} flex items-center justify-center mb-3 shadow-sm`}>
                                 <Icon className="h-5 w-5 text-white" />
@@ -566,10 +720,10 @@ function StepTemplateSelection({
                                     <span key={f} className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30">{f}</span>
                                 ))}
                             </div>
-                        </button>
+                        </motion.button>
                     );
                 })}
-            </div>
+            </motion.div>
         </div>
     );
 }
@@ -1050,7 +1204,200 @@ function StepCustomize({
 }
 
 // =============================================
-// Step 3: Review
+// Step 3: Knowledge Base
+// =============================================
+
+function StepKnowledgeBase({
+    agentName,
+    authFetch,
+}: {
+    agentName: string;
+    authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+}) {
+    const { toast } = useToast();
+    const [textContent, setTextContent] = useState('');
+    const [urlInput, setUrlInput] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [addedDocs, setAddedDocs] = useState<{ title: string; type: string }[]>([]);
+
+    const handleAddText = async () => {
+        if (!textContent.trim() || textContent.trim().length < 20) {
+            toast({ title: 'Yetersiz içerik', description: 'En az 20 karakter gerekli.', variant: 'error' });
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const res = await authFetch('/api/knowledge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: `${agentName} - Metin Bilgisi`,
+                    sourceType: 'text',
+                    content: textContent.trim(),
+                }),
+            });
+            if (!res.ok) throw new Error('Yükleme başarısız');
+            setAddedDocs(prev => [...prev, { title: `Metin: ${textContent.slice(0, 40)}...`, type: 'text' }]);
+            setTextContent('');
+            toast({ title: 'Eklendi', description: 'Metin bilgisi başarıyla eklendi.' });
+        } catch {
+            toast({ title: 'Hata', description: 'Metin eklenirken hata oluştu.', variant: 'error' });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleAddUrl = async () => {
+        if (!urlInput.trim()) return;
+        try {
+            new URL(urlInput.trim());
+        } catch {
+            toast({ title: 'Geçersiz URL', description: 'Lütfen geçerli bir URL girin.', variant: 'error' });
+            return;
+        }
+        setIsUploading(true);
+        try {
+            const res = await authFetch('/api/knowledge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: `${agentName} - Web Kaynağı`,
+                    sourceType: 'url',
+                    source: urlInput.trim(),
+                }),
+            });
+            if (!res.ok) throw new Error('URL tarama başarısız');
+            setAddedDocs(prev => [...prev, { title: urlInput.trim(), type: 'url' }]);
+            setUrlInput('');
+            toast({ title: 'Eklendi', description: 'Web kaynağı başarıyla tarandı.' });
+        } catch {
+            toast({ title: 'Hata', description: 'URL taranırken hata oluştu.', variant: 'error' });
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Info Banner */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 rounded-xl bg-inception-teal/5 border border-inception-teal/20"
+            >
+                <div className="flex items-start gap-3">
+                    <BookOpen className="h-5 w-5 text-inception-teal flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="text-sm font-semibold text-white/90">Bilgi Bankası (İsteğe Bağlı)</h4>
+                        <p className="text-xs text-white/40 mt-1 leading-relaxed">
+                            Asistanınıza şirketinize özel bilgi kaynakları ekleyerek daha doğru yanıtlar vermesini sağlayın.
+                            SSS, ürün bilgileri veya web sitesi içeriği ekleyebilirsiniz. Bu adımı atlayıp sonra da ekleyebilirsiniz.
+                        </p>
+                    </div>
+                </div>
+            </motion.div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+                {/* Text Input */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-3"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                            <MessageCircle className="h-4 w-4 text-violet-400" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-white text-sm">Metin Yapıştır</h3>
+                            <p className="text-[10px] text-white/30">SSS, ürün bilgisi vb.</p>
+                        </div>
+                    </div>
+                    <Textarea
+                        value={textContent}
+                        onChange={(e) => setTextContent(e.target.value)}
+                        placeholder="Şirketinizin SSS sayfasındaki bilgileri veya ürün açıklamalarını buraya yapıştırın..."
+                        rows={6}
+                        maxLength={5000}
+                        className="rounded-lg resize-none bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-violet-500/50 text-sm"
+                    />
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-white/20">{textContent.length}/5000</span>
+                        <button
+                            onClick={handleAddText}
+                            disabled={isUploading || textContent.trim().length < 20}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-violet-600/80 hover:bg-violet-600 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                            Ekle
+                        </button>
+                    </div>
+                </motion.div>
+
+                {/* URL Input */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-3"
+                >
+                    <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-inception-teal/10 border border-inception-teal/20 flex items-center justify-center">
+                            <Globe className="h-4 w-4 text-inception-teal" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-white text-sm">Web Sitesi Tara</h3>
+                            <p className="text-[10px] text-white/30">URL girin, içerik otomatik taranır</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <Input
+                            value={urlInput}
+                            onChange={(e) => setUrlInput(e.target.value)}
+                            placeholder="https://example.com/sss"
+                            className="h-10 rounded-lg bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-teal/50 text-sm flex-1"
+                        />
+                        <button
+                            onClick={handleAddUrl}
+                            disabled={isUploading || !urlInput.trim()}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-inception-teal/20 hover:bg-inception-teal/30 text-inception-teal border border-inception-teal/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                            {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                            Tara
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-white/20">Web sitenizin URL'sini girin, içerik otomatik olarak taranır ve bilgi bankasına eklenir</p>
+                </motion.div>
+            </div>
+
+            {/* Added Documents */}
+            {addedDocs.length > 0 && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="bg-emerald-500/5 rounded-xl border border-emerald-500/20 p-4"
+                >
+                    <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle className="h-4 w-4 text-emerald-400" />
+                        <span className="text-sm text-emerald-300 font-medium">{addedDocs.length} belge eklendi</span>
+                    </div>
+                    <div className="space-y-1.5">
+                        {addedDocs.map((doc, i) => (
+                            <div key={i} className="flex items-center gap-2 text-xs text-white/50">
+                                {doc.type === 'text' ? <MessageCircle className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+                                <span className="truncate">{doc.title}</span>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
+            )}
+        </div>
+    );
+}
+
+// =============================================
+// Step 4: Review
 // =============================================
 
 function StepReview({
@@ -1090,7 +1437,7 @@ function StepReview({
                     </div>
                     <div>
                         <h3 className="font-semibold text-white text-sm">Asistan Kimliği</h3>
-                        <p className="text-xs text-white/30">Adım 1-2</p>
+                        <p className="text-xs text-white/30">Adım 1-3</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">

@@ -1,35 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { detectIntentFast } from '@/lib/ai/intent-fast';
+import { routeIntent } from '@/lib/ai/router';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text } = body;
+    const { text, useLLM = false, provider = 'local' } = body;
 
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    if (!text || typeof text !== 'string') {
       return NextResponse.json(
-        { error: 'Text field is required and must be a non-empty string' },
+        { error: 'Missing or invalid text parameter' },
         { status: 400 }
       );
     }
 
-    if (text.length > 2000) {
-      return NextResponse.json(
-        { error: 'Text exceeds maximum length of 2000 characters' },
-        { status: 400 }
-      );
-    }
+    const intentResult = await routeIntent(text, useLLM, provider);
 
-    const result = detectIntentFast(text.trim());
-
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
-  } catch {
+    return NextResponse.json(intentResult);
+  } catch (error: unknown) {
+    console.error('Intent detection error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
-      { error: 'Intent detection failed' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
 }
+
