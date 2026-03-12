@@ -728,6 +728,8 @@ function CallsPageContent() {
             description: `${Math.round(summary.duration_seconds)}s sürdü, ${summary.metrics.turn_count} konuşma dönüşü`,
             variant: 'success',
           });
+          // Çağrı kaydı Firestore'a yazıldıktan sonra listeyi yenile
+          setTimeout(() => refetchCalls(), 1500);
         }}
       />
     </div>

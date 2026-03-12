@@ -20,6 +20,7 @@ export type IntentCategory =
     | 'farewell'
     | 'escalation'
     | 'thanks'
+    | 'out_of_scope'
     | 'unknown';
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
@@ -112,6 +113,21 @@ const TURKISH_RULES: KeywordRule[] = [
         phrases: ['teşekkür ederim', 'sağ olun', 'çok teşekkürler', 'teşekkürler'],
         confidence: 'high',
     },
+    // Out of Scope — kapsam dışı istekler (yüksek öncelik)
+    {
+        intent: 'out_of_scope',
+        roots: ['taksi', 'otel', 'uçak', 'bilet', 'restoran', 'yemek', 'pizza', 'kargo', 'hava'],
+        phrases: [
+            'taksi çağır', 'taksi istiyorum', 'taksi lazım', 'taksi ayarla',
+            'otel bul', 'otel ayırt', 'uçak bileti', 'uçuş bilgisi',
+            'yemek sipariş', 'pizza sipariş', 'kargo takip', 'kargo gönder',
+            'hava durumu', 'hava nasıl', 'yol tarifi', 'navigasyon',
+            'futbol', 'maç skoru', 'film öner', 'şarkı çal', 'müzik aç',
+            'matematik', 'hesapla', 'çeviri yap', 'tercüme et',
+            'kahve sipariş', 'market sipariş',
+        ],
+        confidence: 'high',
+    },
     // Info (broad — lowest priority)
     {
         intent: 'info',
@@ -168,6 +184,28 @@ const ENGLISH_RULES: KeywordRule[] = [
         intent: 'thanks',
         roots: ['thank'],
         phrases: ['thank you', 'thanks', 'appreciate it'],
+        confidence: 'high',
+    },
+    // Out of Scope — irrelevant requests (high priority)
+    {
+        intent: 'out_of_scope',
+        roots: ['taxi', 'hotel', 'flight', 'pizza', 'uber', 'lyft', 'weather', 'recipe', 'movie', 'music', 'game', 'sport'],
+        phrases: [
+            'book a taxi', 'call a taxi', 'need a taxi', 'get a taxi', 'order a taxi',
+            'need a ride', 'call an uber', 'uber me', 'get me a ride',
+            'book a hotel', 'find a hotel', 'hotel room', 'hotel reservation',
+            'book a flight', 'flight ticket', 'airline ticket', 'plane ticket',
+            'order food', 'order pizza', 'food delivery', 'restaurant near',
+            'weather forecast', 'what is the weather', 'is it going to rain',
+            'play music', 'play a song', 'song lyrics',
+            'tell me a joke', 'tell me a story',
+            'translate this', 'calculate', 'math problem',
+            'sports score', 'football score', 'game score',
+            'movie recommendation', 'what to watch',
+            'track my package', 'shipping status', 'cargo tracking',
+            'navigate to', 'directions to', 'how to get to',
+            'going to albania', 'going to turkey', 'travel to',
+        ],
         confidence: 'high',
     },
     {
@@ -279,6 +317,7 @@ export function getSafeResponse(intent: IntentCategory, language: 'tr' | 'en'): 
             farewell: 'İyi günler, tekrar arayabilirsiniz.',
             escalation: 'Sizi hemen yetkili birime bağlıyorum.',
             thanks: 'Rica ederim, başka bir konuda yardımcı olabilir miyim?',
+            out_of_scope: 'Üzgünüm, bu konuda yardımcı olamıyorum. Ben yalnızca şirketimizin hizmetleri hakkında destek verebilirim. Size başka bir konuda yardımcı olabilir miyim?',
             unknown: 'Anlıyorum. Size en iyi şekilde yardımcı olmak için sizi yetkili birime bağlıyorum.',
         },
         en: {
@@ -291,6 +330,7 @@ export function getSafeResponse(intent: IntentCategory, language: 'tr' | 'en'): 
             farewell: 'Thank you for calling, have a great day.',
             escalation: 'Let me connect you with a supervisor right away.',
             thanks: 'You\'re welcome. Is there anything else I can help you with?',
+            out_of_scope: 'I\'m sorry, I can\'t help with that. I can only assist with our company\'s services. Is there anything else related to our business I can help you with?',
             unknown: 'I understand. Let me connect you with someone who can best assist you.',
         },
     };
@@ -309,6 +349,7 @@ export const SHORTCUTTABLE_INTENTS: ReadonlySet<IntentCategory> = new Set([
     'farewell',
     'thanks',
     'escalation',
+    'out_of_scope',
 ]);
 
 /**
@@ -339,6 +380,7 @@ export function getShortcutResponse(
             farewell: `İyi günler dilerim! Tekrar ihtiyacınız olursa bizi arayabilirsiniz.`,
             thanks: `Rica ederim! Başka bir konuda yardımcı olabilir miyim?`,
             escalation: `Sizi hemen yetkili bir temsilciye bağlıyorum. Lütfen hatta kalın.`,
+            out_of_scope: `Üzgünüm, bu konuda yardımcı olamıyorum. Yalnızca şirketimizin hizmetleriyle ilgili sorularda destek verebilirim.`,
             // Below should never be called via shortcut, but included for completeness
             appointment: '', complaint: '', pricing: '', info: '',
             cancellation: '', unknown: '',
@@ -348,6 +390,7 @@ export function getShortcutResponse(
             farewell: `Have a great day! Feel free to call us again anytime.`,
             thanks: `You're welcome! Is there anything else I can help you with?`,
             escalation: `Let me connect you with a supervisor right away. Please hold.`,
+            out_of_scope: `I'm sorry, that's outside the scope of our services. I can only help with our company's offerings. Is there anything else I can assist you with?`,
             appointment: '', complaint: '', pricing: '', info: '',
             cancellation: '', unknown: '',
         },

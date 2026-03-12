@@ -221,7 +221,7 @@ export function validateResponse(
         ? groundedWords.length / responseWords.length
         : 0;
 
-    if (groundingRatio < 0.15 && responseWords.length > 5) {
+    if (groundingRatio < 0.30 && responseWords.length > 5) {
         violations.push(`Low grounding ratio (${(groundingRatio * 100).toFixed(0)}%) — possible hallucination`);
         return {
             approved: false,

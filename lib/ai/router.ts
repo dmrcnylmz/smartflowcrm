@@ -45,6 +45,15 @@ export function routeIntent(intentResult: IntentResult): RouteResult {
   const { intent, confidence } = intentResult;
   
   // High-confidence simple intents -> shortcut response
+  // Out-of-scope intents -> immediate shortcut (never send to LLM)
+  if (intent === 'out_of_scope') {
+    return {
+      intent,
+      handler: 'shortcut',
+      confidence,
+    };
+  }
+
   const shortcutIntents: IntentCategory[] = ['greeting', 'farewell', 'thanks', 'escalation'];
   if (confidence === 'high' && shortcutIntents.includes(intent)) {
     return {

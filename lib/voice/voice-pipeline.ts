@@ -247,7 +247,7 @@ export class VoicePipeline extends EventEmitter {
                 ? Math.max(...ragContexts.map(c => c.score))
                 : 0;
 
-            if (ragContexts.length === 0 || maxRagScore < 0.75) {
+            if (ragContexts.length === 0 || maxRagScore < 0.80) {
                 // No grounded answer possible — use safe fallback
                 const safeResponse = getSafeResponse(intent.intent, this.session.language);
                 this.emit('responseText', { text: safeResponse, done: true });
