@@ -69,6 +69,8 @@ export interface ResolvedTenant {
     providerType?: ProviderType;
     sipCarrier?: SipCarrier;
     country?: string;
+    /** Agent ID bound to this phone number (direct routing) */
+    agentId?: string;
 }
 
 // =============================================
@@ -217,6 +219,7 @@ export async function resolveTenantFromPhone(
             providerType: data.providerType || 'TWILIO_NATIVE',
             sipCarrier: data.sipCarrier || undefined,
             country: data.country || undefined,
+            agentId: data.agentId || undefined,
         };
     }
     return null;

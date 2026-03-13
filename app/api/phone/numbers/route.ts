@@ -32,7 +32,13 @@ export async function GET(request: NextRequest) {
         const auth = await requireStrictAuth(request);
         if (auth.error) return auth.error;
 
-        const numbers = await listTenantNumbers(getDb(), auth.tenantId);
+        let numbers = await listTenantNumbers(getDb(), auth.tenantId);
+
+        // Filter to unassigned numbers (no agentId) if requested
+        const unassignedOnly = request.nextUrl.searchParams.get('unassigned') === 'true';
+        if (unassignedOnly) {
+            numbers = numbers.filter(n => !n.agentId);
+        }
 
         return NextResponse.json({
             numbers,

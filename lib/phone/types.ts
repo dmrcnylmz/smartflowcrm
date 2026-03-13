@@ -71,6 +71,9 @@ export interface PhoneNumberRecord {
 
     /** Legacy: timestamp from registerPhoneNumber() — kept for backward compat */
     registeredAt?: number;
+
+    /** Agent ID this number is assigned to (1:1 number→agent binding) */
+    agentId?: string;
 }
 
 /**

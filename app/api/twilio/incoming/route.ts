@@ -117,28 +117,50 @@ export async function POST(request: NextRequest) {
         const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
         const tenantData = tenantSnap.data();
 
-        // Load active agent from agents collection (if any)
+        // Load agent: prefer direct agentId binding, fallback to first active agent
+        const boundAgentId = resolved?.agentId;
         let activeAgentGreeting: string | null = null;
         let activeAgentLanguage: string | null = null;
+        let resolvedAgentId: string | null = boundAgentId || null;
         try {
-            const agentsSnap = await getDb()
-                .collection('tenants').doc(tenantId)
-                .collection('agents')
-                .where('isActive', '==', true)
-                .limit(1)
-                .get();
-            if (!agentsSnap.empty) {
-                const agentData = agentsSnap.docs[0].data();
-                // Use agent's configured language
-                activeAgentLanguage = agentData?.voiceConfig?.language || null;
-                // Extract greeting from agent's variables (company_name) and system prompt
-                const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
-                const agentName = agentData?.name || '';
-                if (companyName || agentName) {
-                    const lang = activeAgentLanguage || 'tr';
-                    activeAgentGreeting = lang === 'en'
-                        ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
-                        : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+            if (boundAgentId) {
+                // Direct: phone number is bound to a specific agent
+                const agentDoc = await getDb()
+                    .collection('tenants').doc(tenantId)
+                    .collection('agents').doc(boundAgentId)
+                    .get();
+                if (agentDoc.exists) {
+                    const agentData = agentDoc.data()!;
+                    activeAgentLanguage = agentData?.voiceConfig?.language || null;
+                    const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
+                    const agentName = agentData?.name || '';
+                    if (companyName || agentName) {
+                        const lang = activeAgentLanguage || 'tr';
+                        activeAgentGreeting = lang === 'en'
+                            ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
+                            : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+                    }
+                }
+            } else {
+                // Legacy fallback: find first active agent
+                const agentsSnap = await getDb()
+                    .collection('tenants').doc(tenantId)
+                    .collection('agents')
+                    .where('isActive', '==', true)
+                    .limit(1)
+                    .get();
+                if (!agentsSnap.empty) {
+                    const agentData = agentsSnap.docs[0].data();
+                    resolvedAgentId = agentsSnap.docs[0].id;
+                    activeAgentLanguage = agentData?.voiceConfig?.language || null;
+                    const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
+                    const agentName = agentData?.name || '';
+                    if (companyName || agentName) {
+                        const lang = activeAgentLanguage || 'tr';
+                        activeAgentGreeting = lang === 'en'
+                            ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
+                            : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+                    }
                 }
             }
         } catch {
@@ -174,7 +196,7 @@ export async function POST(request: NextRequest) {
         const host = request.headers.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
-        const gatherUrl = `${baseUrl}/api/twilio/gather?tenantId=${tenantId}&callSid=${callEvent.CallSid}`;
+        const gatherUrl = `${baseUrl}/api/twilio/gather?tenantId=${tenantId}&callSid=${callEvent.CallSid}${resolvedAgentId ? `&agentId=${resolvedAgentId}` : ''}`;
         const statusUrl = `${baseUrl}/api/twilio/status`;
         const recordingUrl = `${baseUrl}/api/twilio/recording`;
         const voicemailUrl = `${baseUrl}/api/twilio/voicemail?tenantId=${tenantId}&callSid=${callEvent.CallSid}`;

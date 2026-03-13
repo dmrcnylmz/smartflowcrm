@@ -1,4 +1,13 @@
 /**
+ * @deprecated Phone provisioning has moved to per-agent activation flow.
+ * Use POST /api/agents/activate instead — it handles subscription checks,
+ * agent-to-number binding, and tenant activation in a single step.
+ *
+ * This route is kept temporarily for backward compatibility with any
+ * in-flight onboarding sessions. It will be removed in a future release.
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ *
  * Onboarding Phone Provision API
  *
  * POST /api/onboarding/provision-phone

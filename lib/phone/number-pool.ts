@@ -61,6 +61,7 @@ export async function isPoolAvailable(
  * @param db       Firestore instance
  * @param tenantId Tenant to assign to
  * @param carrier  Optional carrier preference (defaults to any available)
+ * @param agentId  Optional agent to bind this number to
  * @returns        The assigned PhoneNumberRecord
  * @throws         If no numbers are available in the pool
  */
@@ -68,6 +69,7 @@ export async function assignFromPool(
     db: FirebaseFirestore.Firestore,
     tenantId: string,
     carrier?: SipCarrier,
+    agentId?: string,
 ): Promise<PhoneNumberRecord> {
     return db.runTransaction(async (transaction) => {
         // Find an available number (optionally filtered by carrier)
@@ -117,6 +119,7 @@ export async function assignFromPool(
             isActive: true,
             poolEntryId: poolDoc.id,
             monthlyRate: poolData.monthlyRate,
+            ...(agentId ? { agentId } : {}),
         };
 
         transaction.set(

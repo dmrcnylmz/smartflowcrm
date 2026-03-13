@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         // Get query params
         const tenantId = request.nextUrl.searchParams.get('tenantId');
         const callSid = request.nextUrl.searchParams.get('callSid');
+        const agentIdParam = request.nextUrl.searchParams.get('agentId');
 
         if (!tenantId || !callSid) {
             return new NextResponse(
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
             // No speech detected, ask again
             const host = request.headers.get('host') || 'localhost:3000';
             const protocol = host.includes('localhost') ? 'http' : 'https';
-            const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}`;
+            const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}${agentIdParam ? `&agentId=${agentIdParam}` : ''}`;
 
             const twiml = generateResponseAndGatherTwiML({
                 gatherUrl,
@@ -131,17 +132,30 @@ export async function POST(request: NextRequest) {
         const tenantData = tenantSnap.data();
         const language = tenantData?.language === 'en' ? 'en' : 'tr';
 
-        // Load active agent config from Firestore (if any)
+        // Load agent config: prefer agentId param, fallback to first active agent
         let activeAgent: FirebaseFirestore.DocumentData | null = null;
         try {
-            const agentsSnap = await getDb()
-                .collection('tenants').doc(tenantId)
-                .collection('agents')
-                .where('isActive', '==', true)
-                .limit(1)
-                .get();
-            if (!agentsSnap.empty) {
-                activeAgent = agentsSnap.docs[0].data();
+            if (agentIdParam) {
+                // Direct: specific agent bound to this call
+                const agentDoc = await getDb()
+                    .collection('tenants').doc(tenantId)
+                    .collection('agents').doc(agentIdParam)
+                    .get();
+                if (agentDoc.exists) {
+                    activeAgent = agentDoc.data() || null;
+                }
+            }
+            if (!activeAgent) {
+                // Legacy fallback: find first active agent
+                const agentsSnap = await getDb()
+                    .collection('tenants').doc(tenantId)
+                    .collection('agents')
+                    .where('isActive', '==', true)
+                    .limit(1)
+                    .get();
+                if (!agentsSnap.empty) {
+                    activeAgent = agentsSnap.docs[0].data();
+                }
             }
         } catch {
             // Fallback to tenant-level config if agents query fails
@@ -197,7 +211,7 @@ export async function POST(request: NextRequest) {
         // 6. Build TwiML response
         const host = request.headers.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
-        const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}`;
+        const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}${agentIdParam ? `&agentId=${agentIdParam}` : ''}`;
 
         const twiml = generateResponseAndGatherTwiML({
             gatherUrl,

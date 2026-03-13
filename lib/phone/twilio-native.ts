@@ -80,6 +80,7 @@ async function twilioRequest<T>(
  * @param tenantId  Tenant to assign the number to
  * @param country   ISO country code (e.g., "US", "GB")
  * @param areaCode  Optional area code preference
+ * @param agentId   Optional agent to bind this number to
  * @returns         The purchased PhoneNumberRecord
  */
 export async function purchaseFromTwilio(
@@ -87,6 +88,7 @@ export async function purchaseFromTwilio(
     tenantId: string,
     country: string,
     areaCode?: string,
+    agentId?: string,
 ): Promise<PhoneNumberRecord> {
     const { accountSid } = getMasterCredentials();
     const countryUpper = country.toUpperCase();
@@ -158,6 +160,7 @@ export async function purchaseFromTwilio(
         isActive: true,
         twilioSid: purchasedData.sid,
         monthlyRate: 1.00,
+        ...(agentId ? { agentId } : {}),
     };
 
     await db.collection(TENANT_NUMBERS_COLLECTION).doc(normalized).set(phoneRecord);

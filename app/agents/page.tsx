@@ -19,6 +19,11 @@ const AgentCreationWizard = dynamic(
     () => import('@/components/agents/AgentCreationWizard').then(m => m.AgentCreationWizard),
     { ssr: false, loading: () => <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-white/30" /></div> }
 );
+
+const AgentActivationFlow = dynamic(
+    () => import('@/components/agents/AgentActivationFlow').then(m => m.AgentActivationFlow),
+    { ssr: false }
+);
 import {
     Bot,
     Plus,
@@ -203,6 +208,9 @@ export default function AgentsPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [testingAgent, setTestingAgent] = useState<Agent | null>(null);
 
+    // Activation flow state
+    const [activatingAgent, setActivatingAgent] = useState<Agent | null>(null);
+
     // ─────────────────────────────────────────────
     // Data fetching
     // ─────────────────────────────────────────────
@@ -270,29 +278,36 @@ export default function AgentsPage() {
     }
 
     async function handleToggleActive(agent: Agent) {
+        if (!agent.isActive) {
+            // Activate: open the activation flow (subscription check → number selection → confirm)
+            setActivatingAgent(agent);
+            return;
+        }
+
+        // Deactivate: call deactivate API
         try {
-            const res = await authFetch('/api/agents', {
+            const res = await authFetch('/api/agents/deactivate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: agent.id,
-                    name: agent.name,
-                    systemPrompt: agent.systemPrompt,
-                    isActive: !agent.isActive,
-                }),
+                body: JSON.stringify({ agentId: agent.id }),
             });
-            if (!res.ok) throw new Error('Durum degistirilemedi');
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.message || 'Deaktivasyon başarısız');
+            }
 
             // Optimistic update
             setAgents(prev => prev.map(a =>
-                a.id === agent.id ? { ...a, isActive: !a.isActive } : a
+                a.id === agent.id ? { ...a, isActive: false } : a
             ));
             toast({
-                title: agent.isActive ? 'Pasif yapildi' : 'Aktif yapildi',
-                description: `"${agent.name}" ${agent.isActive ? 'pasif' : 'aktif'} duruma getirildi.`,
+                title: 'Devre Dışı',
+                description: `"${agent.name}" pasif duruma getirildi.`,
             });
-        } catch {
-            toast({ title: 'Hata', description: 'Durum degistirilemedi.', variant: 'error' });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Durum degistirilemedi.';
+            toast({ title: 'Hata', description: msg, variant: 'error' });
         }
     }
 
@@ -644,14 +659,17 @@ export default function AgentsPage() {
                                             </Badge>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleToggleActive(agent); }}
-                                                className="transition-colors"
-                                                title={agent.isActive ? 'Pasif yap' : 'Aktif yap'}
-                                                aria-label={agent.isActive ? 'Pasif yap' : 'Aktif yap'}
+                                                className={`transition-colors ${!agent.isActive ? 'flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600/10 hover:bg-violet-600/20 border border-violet-600/30' : ''}`}
+                                                title={agent.isActive ? 'Devre Dışı Bırak' : 'Canlıya Al'}
+                                                aria-label={agent.isActive ? 'Devre Dışı Bırak' : 'Canlıya Al'}
                                             >
                                                 {agent.isActive ? (
                                                     <ToggleRight className="h-6 w-6 text-emerald-500" />
                                                 ) : (
-                                                    <ToggleLeft className="h-6 w-6 text-muted-foreground" />
+                                                    <>
+                                                        <Zap className="h-3 w-3 text-violet-500" />
+                                                        <span className="text-[10px] font-semibold text-violet-500">Canlıya Al</span>
+                                                    </>
                                                 )}
                                             </button>
                                         </div>
@@ -1210,6 +1228,19 @@ export default function AgentsPage() {
                 tenantId="default"
                 agentName={testingAgent?.name || 'Callception AI'}
             />
+
+            {/* Agent Activation Flow */}
+            {activatingAgent && (
+                <AgentActivationFlow
+                    agent={{ id: activatingAgent.id, name: activatingAgent.name }}
+                    open={!!activatingAgent}
+                    onOpenChange={(open) => { if (!open) setActivatingAgent(null); }}
+                    onActivated={() => {
+                        setActivatingAgent(null);
+                        fetchAgents(); // Refresh agents list
+                    }}
+                />
+            )}
 
             {/* Delete Confirmation Dialog */}
             <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>

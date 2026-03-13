@@ -27,12 +27,14 @@ import { purchaseFromTwilio, releaseTwilioNumber } from './twilio-native';
  * @param tenantId Tenant to assign the number to
  * @param country  ISO 3166-1 alpha-2 country code (e.g., "TR", "US")
  * @param options  Optional: areaCode (Twilio), carrier preference (SIP), etc.
+ * @param agentId  Optional: Agent to bind this number to (1:1 mapping)
  */
 export async function provisionNumber(
     db: FirebaseFirestore.Firestore,
     tenantId: string,
     country: string,
     options?: ProvisionOptions,
+    agentId?: string,
 ): Promise<ProvisionResult> {
     const providerType = getProviderForCountry(country);
 
@@ -51,7 +53,7 @@ export async function provisionNumber(
             }
 
             // Turkey: Assign from pre-purchased number pool
-            phoneNumber = await assignFromPool(db, tenantId, options?.carrier);
+            phoneNumber = await assignFromPool(db, tenantId, options?.carrier, agentId);
         } else {
             // Global: Purchase via Twilio API
             phoneNumber = await purchaseFromTwilio(
@@ -59,6 +61,7 @@ export async function provisionNumber(
                 tenantId,
                 country,
                 options?.areaCode,
+                agentId,
             );
         }
 
@@ -67,6 +70,82 @@ export async function provisionNumber(
         const message = error instanceof Error ? error.message : 'Numara tahsisi başarısız';
         return { success: false, error: message };
     }
+}
+
+// =============================================
+// Agent ↔ Number Binding
+// =============================================
+
+/**
+ * Bind an existing phone number to an agent (1:1 mapping).
+ * The number must belong to the tenant.
+ *
+ * @param db          Firestore instance
+ * @param tenantId    Owning tenant ID
+ * @param phoneNumber E.164 phone number
+ * @param agentId     Agent ID to bind
+ */
+export async function assignNumberToAgent(
+    db: FirebaseFirestore.Firestore,
+    tenantId: string,
+    phoneNumber: string,
+    agentId: string,
+): Promise<void> {
+    const normalized = phoneNumber.replace(/[\s\-()]/g, '');
+    const doc = await db.collection('tenant_phone_numbers').doc(normalized).get();
+
+    if (!doc.exists) {
+        throw new Error(`Numara bulunamadı: ${phoneNumber}`);
+    }
+
+    const data = doc.data()!;
+
+    // Verify ownership
+    if (data.tenantId !== tenantId) {
+        throw new Error('Bu numara size ait değil');
+    }
+
+    // Check if already assigned to another agent
+    if (data.agentId && data.agentId !== agentId) {
+        throw new Error(`Bu numara zaten başka bir asistana (${data.agentId}) atanmış`);
+    }
+
+    await db.collection('tenant_phone_numbers').doc(normalized).update({
+        agentId,
+    });
+}
+
+/**
+ * Remove agent binding from a phone number.
+ * The number remains assigned to the tenant.
+ *
+ * @param db          Firestore instance
+ * @param tenantId    Owning tenant ID
+ * @param phoneNumber E.164 phone number
+ */
+export async function unassignNumberFromAgent(
+    db: FirebaseFirestore.Firestore,
+    tenantId: string,
+    phoneNumber: string,
+): Promise<void> {
+    const { FieldValue } = await import('firebase-admin/firestore');
+    const normalized = phoneNumber.replace(/[\s\-()]/g, '');
+    const doc = await db.collection('tenant_phone_numbers').doc(normalized).get();
+
+    if (!doc.exists) {
+        throw new Error(`Numara bulunamadı: ${phoneNumber}`);
+    }
+
+    const data = doc.data()!;
+
+    // Verify ownership
+    if (data.tenantId !== tenantId) {
+        throw new Error('Bu numara size ait değil');
+    }
+
+    await db.collection('tenant_phone_numbers').doc(normalized).update({
+        agentId: FieldValue.delete(),
+    });
 }
 
 // =============================================

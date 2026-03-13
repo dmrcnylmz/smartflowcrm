@@ -219,6 +219,20 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // Clean up phone number binding if agent had one
+        if (agentData?.phoneNumber) {
+            try {
+                const phoneDoc = await getDb().collection('tenant_phone_numbers')
+                    .doc(agentData.phoneNumber.replace(/[\s\-()]/g, '')).get();
+                if (phoneDoc.exists && phoneDoc.data()?.agentId === body.id) {
+                    await phoneDoc.ref.update({ agentId: FieldValue.delete() });
+                }
+            } catch {
+                // Non-critical: log and continue
+                console.warn(`[agents/DELETE] Failed to cleanup phone binding for agent ${body.id}`);
+            }
+        }
+
         await tenantAgents(auth.tenantId).doc(body.id).delete();
 
         return NextResponse.json({ message: `Agent ${body.id} deleted` });

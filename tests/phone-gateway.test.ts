@@ -120,7 +120,7 @@ describe('Phone Gateway', () => {
 
             expect(result.success).toBe(true);
             expect(result.phoneNumber).toEqual(mockRecord);
-            expect(mockAssignFromPool).toHaveBeenCalledWith(db, 'tenant-1', undefined);
+            expect(mockAssignFromPool).toHaveBeenCalledWith(db, 'tenant-1', undefined, undefined);
             expect(mockPurchaseFromTwilio).not.toHaveBeenCalled();
         });
 
@@ -135,7 +135,7 @@ describe('Phone Gateway', () => {
                 { carrier: 'bulutfon' },
             );
 
-            expect(mockAssignFromPool).toHaveBeenCalledWith(db, 'tenant-1', 'bulutfon');
+            expect(mockAssignFromPool).toHaveBeenCalledWith(db, 'tenant-1', 'bulutfon', undefined);
         });
 
         it('should route US to purchaseFromTwilio', async () => {
@@ -158,7 +158,7 @@ describe('Phone Gateway', () => {
 
             expect(result.success).toBe(true);
             expect(result.phoneNumber).toEqual(mockRecord);
-            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'US', undefined);
+            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'US', undefined, undefined);
             expect(mockAssignFromPool).not.toHaveBeenCalled();
         });
 
@@ -172,7 +172,7 @@ describe('Phone Gateway', () => {
                 'GB',
             );
 
-            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'GB', undefined);
+            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'GB', undefined, undefined);
         });
 
         it('should pass areaCode for Twilio native', async () => {
@@ -186,7 +186,7 @@ describe('Phone Gateway', () => {
                 { areaCode: '212' },
             );
 
-            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'US', '212');
+            expect(mockPurchaseFromTwilio).toHaveBeenCalledWith(db, 'tenant-1', 'US', '212', undefined);
         });
 
         it('should return error result when pool throws', async () => {
