@@ -30,6 +30,9 @@ import {
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
 import { gpuManager } from '@/lib/voice/gpu-manager';
+import { createLogger } from '@/lib/utils/logger';
+
+const log = createLogger('twilio:incoming');
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +82,15 @@ export async function POST(request: NextRequest) {
         const tenantId = resolved?.tenantId || null;
         const providerType = resolved?.providerType || 'TWILIO_NATIVE';
         const sipCarrier = resolved?.sipCarrier;
+
+        log.info('call:incoming', {
+            callSid: callEvent.CallSid,
+            from: callerNumber,
+            to: calledNumber,
+            tenantId,
+            providerType,
+            agentId: resolved?.agentId || null,
+        });
 
         if (!tenantId) {
             const twiml = generateUnavailableTwiML({

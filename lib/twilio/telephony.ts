@@ -282,7 +282,7 @@ export function generateGatherTwiML(options: {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   ${recordDirective}<Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(message)}</Say>
-  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}" enhanced="true">
+  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}">
     <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Dinliyorum...</Say>
   </Gather>
   <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Ses algılanamadı. Aradığınız için teşekkür ederiz. İyi günler.</Say>
@@ -324,7 +324,7 @@ export function generateResponseAndGatherTwiML(options: {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(aiResponse)}</Say>
-  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}" enhanced="true"/>
+  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}"/>
   <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.</Say>
   <Hangup/>
 </Response>`;
