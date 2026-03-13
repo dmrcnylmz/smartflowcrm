@@ -63,13 +63,15 @@ const PIE_COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#06b
 
 // ─── Custom Tooltip ──────────────────────────────────────────────────────────
 
-function CustomTooltip({ active, payload, label }: any) {
+interface TooltipEntry { name: string; value: number | string; color: string }
+
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipEntry[]; label?: string }) {
     if (!active || !payload?.length) return null;
 
     return (
         <div className="rounded-xl border border-white/10 bg-black/80 px-4 py-3 backdrop-blur-xl shadow-xl">
             <p className="text-xs text-white/60 mb-2">{label}</p>
-            {payload.map((entry: any, i: number) => (
+            {payload.map((entry: TooltipEntry, i: number) => (
                 <p key={i} className="text-sm" style={{ color: entry.color }}>
                     {entry.name}: <span className="font-semibold">{
                         typeof entry.value === 'number'

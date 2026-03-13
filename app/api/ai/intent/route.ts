@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { routeIntent } from '@/lib/ai/router';
+import { detectIntent, detectIntentWithLLM, routeIntent } from '@/lib/ai/router';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { text, useLLM = false, provider = 'local' } = body;
+    const { text, useLLM = false } = body;
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json(
@@ -13,12 +13,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const intentResult = await routeIntent(text, useLLM, provider);
+    // Detect intent (fast or LLM-based)
+    const intentResult = useLLM
+      ? await detectIntentWithLLM(text)
+      : detectIntent(text);
 
-    return NextResponse.json(intentResult);
+    // Route to appropriate handler
+    const routeResult = routeIntent(intentResult);
+
+    return NextResponse.json({ ...intentResult, route: routeResult });
   } catch (error: unknown) {
-    console.error('Intent detection error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    console.warn('[Intent API] Error:', errorMessage);
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

@@ -87,7 +87,7 @@ export function VoiceTestInline({
     const [error, setError] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(false);
     const [callDuration, setCallDuration] = useState(0);
-    const [audioData, setAudioData] = useState<number[]>([]);
+    const [audioData, setAudioData] = useState<Float32Array>(new Float32Array(0));
     const [volume, setVolume] = useState(0);
     const [isProcessing, setIsProcessing] = useState(false);
 
@@ -205,7 +205,7 @@ export function VoiceTestInline({
 
             isSpeakingRef.current = true;
             setIsProcessing(true);
-            setTranscript(prev => [...prev, { speaker: 'user', text: finalText }]);
+            setTranscript(prev => [...prev, { speaker: 'user' as const, text: finalText, timestamp: new Date().toISOString() }]);
 
             // Pause recognition during TTS playback to prevent echo
             try { recognition.stop(); } catch { /* ignore */ }
@@ -224,7 +224,7 @@ export function VoiceTestInline({
                 });
                 const data = await res.json();
                 if (data.success && data.response) {
-                    setTranscript(prev => [...prev, { speaker: 'assistant', text: data.response }]);
+                    setTranscript(prev => [...prev, { speaker: 'assistant' as const, text: data.response, timestamp: new Date().toISOString() }]);
                     setIsProcessing(false);
 
                     // Play via Cartesia TTS — high quality, no browser garbage voices
@@ -489,7 +489,7 @@ export function VoiceTestInline({
                                 volume={volume}
                                 isActive={!isMuted}
                                 color="#dc2626"
-                                height={40}
+                                className="h-10"
                             />
                         </div>
 

@@ -1,244 +1,102 @@
-// Voice API Logging & Metrics
-// Structured logging for production observability
+/**
+ * Voice Pipeline Logging & Metrics
+ *
+ * Provides structured logging and metrics tracking for voice API routes.
+ */
+
+// ─── Metric Names ───
+
+export const METRICS = {
+    API_REQUESTS: 'voice.api.requests',
+    API_ERRORS: 'voice.api.errors',
+    API_LATENCY: 'voice.api.latency_ms',
+    SESSIONS_CREATED: 'voice.sessions.created',
+    SESSIONS_ENDED: 'voice.sessions.ended',
+    SESSIONS_ACTIVE: 'voice.sessions.active',
+    RATE_LIMIT_EXCEEDED: 'voice.rate_limit.exceeded',
+    STT_REQUESTS: 'voice.stt.requests',
+    TTS_REQUESTS: 'voice.tts.requests',
+    PIPELINE_REQUESTS: 'voice.pipeline.requests',
+    LATENCY_MS: 'voice.latency_ms',
+} as const;
+
+// ─── In-memory Metrics Counter ───
+
+const counters: Record<string, number> = {};
+
+export const metrics = {
+    increment(name: string, value = 1, tags?: Record<string, string>) {
+        const key = tags ? `${name}:${Object.entries(tags).map(([k, v]) => `${k}=${v}`).join(',')}` : name;
+        counters[key] = (counters[key] || 0) + value;
+    },
+
+    /** Set a gauge value (latest value wins) */
+    set(name: string, value: number) {
+        counters[name] = value;
+    },
+
+    /** Observe a value (histogram-like — stores latest for simplicity) */
+    observe(name: string, value: number, tags?: Record<string, string>) {
+        const key = tags ? `${name}:${Object.entries(tags).map(([k, v]) => `${k}=${v}`).join(',')}` : name;
+        counters[key] = value;
+    },
+
+    get(name: string): number {
+        return counters[name] || 0;
+    },
+
+    getAll(): Record<string, number> {
+        return { ...counters };
+    },
+
+    reset() {
+        Object.keys(counters).forEach(k => delete counters[k]);
+    },
+};
+
+// ─── Structured Logger ───
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-interface LogEntry {
-    timestamp: string;
-    level: LogLevel;
-    service: string;
-    action: string;
-    sessionId?: string;
-    userId?: string;
-    duration_ms?: number;
-    metadata?: Record<string, unknown>;
-    error?: string;
+function formatLog(level: LogLevel, event: string, data?: unknown) {
+    const entry = {
+        level,
+        event,
+        timestamp: new Date().toISOString(),
+        ...(data && typeof data === 'object' && !(data instanceof Error) ? data : { detail: data instanceof Error ? data.message : data }),
+    };
+    return entry;
 }
 
-// Structured logger
-class VoiceLogger {
-    private service: string;
-    private enabled: boolean;
-
-    constructor(service: string) {
-        this.service = service;
-        this.enabled = process.env.NODE_ENV !== 'test';
-    }
-
-    private log(level: LogLevel, action: string, data?: Partial<LogEntry>) {
-        if (!this.enabled) return;
-
-        const entry: LogEntry = {
-            timestamp: new Date().toISOString(),
-            level,
-            service: this.service,
-            action,
-            ...data,
-        };
-
-        // JSON format for production log aggregation
-        const output = JSON.stringify(entry);
-
-        switch (level) {
-            case 'debug':
-                if (process.env.NODE_ENV === 'development') {
-                    console.debug(output);
-                }
-                break;
-            case 'info':
-                console.info(output);
-                break;
-            case 'warn':
-                console.warn(output);
-                break;
-            case 'error':
-                console.error(output);
-                break;
+export const voiceLogger = {
+    debug(event: string, data?: unknown) {
+        if (process.env.NODE_ENV === 'development') {
+            console.debug('[Voice]', formatLog('debug', event, data));
         }
-    }
+    },
 
-    debug(action: string, data?: Partial<LogEntry>) {
-        this.log('debug', action, data);
-    }
+    info(event: string, data?: unknown) {
+        console.log('[Voice]', formatLog('info', event, data));
+    },
 
-    info(action: string, data?: Partial<LogEntry>) {
-        this.log('info', action, data);
-    }
+    warn(event: string, data?: unknown) {
+        console.warn('[Voice]', formatLog('warn', event, data));
+    },
 
-    warn(action: string, data?: Partial<LogEntry>) {
-        this.log('warn', action, data);
-    }
-
-    error(action: string, error: Error | string, data?: Partial<LogEntry>) {
-        this.log('error', action, {
-            ...data,
-            error: error instanceof Error ? error.message : error,
-        });
-    }
-}
-
-// Pre-configured loggers
-export const voiceLogger = new VoiceLogger('voice-api');
-export const sessionLogger = new VoiceLogger('voice-session');
-export const inferenceLogger = new VoiceLogger('voice-inference');
-
-// Metrics collector (in-memory, export to Prometheus/Datadog in production)
-interface MetricPoint {
-    value: number;
-    timestamp: number;
-    labels?: Record<string, string>;
-}
-
-class MetricsCollector {
-    private counters: Map<string, number> = new Map();
-    private gauges: Map<string, number> = new Map();
-    private histograms: Map<string, number[]> = new Map();
-
-    // Counter: monotonically increasing value
-    increment(name: string, value: number = 1, labels?: Record<string, string>) {
-        const key = this.buildKey(name, labels);
-        this.counters.set(key, (this.counters.get(key) || 0) + value);
-    }
-
-    // Gauge: current value that can go up or down
-    set(name: string, value: number, labels?: Record<string, string>) {
-        const key = this.buildKey(name, labels);
-        this.gauges.set(key, value);
-    }
-
-    // Histogram: distribution of values
-    observe(name: string, value: number, labels?: Record<string, string>) {
-        const key = this.buildKey(name, labels);
-        const values = this.histograms.get(key) || [];
-        values.push(value);
-
-        // Keep last 1000 observations
-        if (values.length > 1000) {
-            values.shift();
-        }
-
-        this.histograms.set(key, values);
-    }
-
-    private buildKey(name: string, labels?: Record<string, string>): string {
-        if (!labels) return name;
-        const labelStr = Object.entries(labels)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, v]) => `${k}="${v}"`)
-            .join(',');
-        return `${name}{${labelStr}}`;
-    }
-
-    // Get all metrics in Prometheus format
-    getPrometheusMetrics(): string {
-        const lines: string[] = [];
-
-        // Counters
-        for (const [key, value] of this.counters.entries()) {
-            lines.push(`# TYPE ${key.split('{')[0]} counter`);
-            lines.push(`${key} ${value}`);
-        }
-
-        // Gauges
-        for (const [key, value] of this.gauges.entries()) {
-            lines.push(`# TYPE ${key.split('{')[0]} gauge`);
-            lines.push(`${key} ${value}`);
-        }
-
-        // Histograms (simplified as summary)
-        for (const [key, values] of this.histograms.entries()) {
-            const baseName = key.split('{')[0];
-            const labels = key.includes('{') ? key.slice(key.indexOf('{')) : '';
-
-            if (values.length === 0) continue;
-
-            const sorted = [...values].sort((a, b) => a - b);
-            const sum = values.reduce((a, b) => a + b, 0);
-            const count = values.length;
-
-            lines.push(`# TYPE ${baseName} summary`);
-            lines.push(`${baseName}_sum${labels} ${sum}`);
-            lines.push(`${baseName}_count${labels} ${count}`);
-            lines.push(`${baseName}{quantile="0.5"${labels.slice(1) || '}'} ${sorted[Math.floor(count * 0.5)]}`);
-            lines.push(`${baseName}{quantile="0.95"${labels.slice(1) || '}'} ${sorted[Math.floor(count * 0.95)]}`);
-            lines.push(`${baseName}{quantile="0.99"${labels.slice(1) || '}'} ${sorted[Math.floor(count * 0.99)]}`);
-        }
-
-        return lines.join('\n');
-    }
-
-    // Get metrics as JSON
-    getMetrics(): {
-        counters: Record<string, number>;
-        gauges: Record<string, number>;
-        histograms: Record<string, { count: number; sum: number; p50: number; p95: number; p99: number }>;
-    } {
-        const histogramStats: Record<string, { count: number; sum: number; p50: number; p95: number; p99: number }> = {};
-
-        for (const [key, values] of this.histograms.entries()) {
-            if (values.length === 0) continue;
-
-            const sorted = [...values].sort((a, b) => a - b);
-            const count = values.length;
-
-            histogramStats[key] = {
-                count,
-                sum: values.reduce((a, b) => a + b, 0),
-                p50: sorted[Math.floor(count * 0.5)] || 0,
-                p95: sorted[Math.floor(count * 0.95)] || 0,
-                p99: sorted[Math.floor(count * 0.99)] || 0,
-            };
-        }
-
-        return {
-            counters: Object.fromEntries(this.counters),
-            gauges: Object.fromEntries(this.gauges),
-            histograms: histogramStats,
-        };
-    }
-}
-
-// Singleton metrics collector
-export const metrics = new MetricsCollector();
-
-// Common metric names
-export const METRICS = {
-    // Session metrics
-    SESSIONS_CREATED: 'voice_sessions_created_total',
-    SESSIONS_ENDED: 'voice_sessions_ended_total',
-    SESSIONS_ACTIVE: 'voice_sessions_active',
-    SESSION_DURATION: 'voice_session_duration_seconds',
-
-    // Audio metrics
-    AUDIO_CHUNKS_RECEIVED: 'voice_audio_chunks_received_total',
-    AUDIO_CHUNKS_SENT: 'voice_audio_chunks_sent_total',
-    AUDIO_LATENCY: 'voice_audio_latency_ms',
-
-    // Inference metrics
-    INFER_REQUESTS: 'voice_infer_requests_total',
-    INFER_LATENCY: 'voice_infer_latency_ms',
-    INFER_ERRORS: 'voice_infer_errors_total',
-
-    // API metrics
-    API_REQUESTS: 'voice_api_requests_total',
-    API_LATENCY: 'voice_api_latency_ms',
-    API_ERRORS: 'voice_api_errors_total',
-
-    // Rate limiting
-    RATE_LIMIT_EXCEEDED: 'voice_rate_limit_exceeded_total',
+    error(event: string, data?: unknown) {
+        console.error('[Voice]', formatLog('error', event, data));
+    },
 };
 
-// Helper to time async operations
-export async function withTiming<T>(
-    metricName: string,
-    fn: () => Promise<T>,
-    labels?: Record<string, string>
-): Promise<T> {
+// ─── Timing Helper ───
+
+export function withTiming<T>(name: string, fn: () => Promise<T>): Promise<T> {
     const start = performance.now();
-    try {
-        return await fn();
-    } finally {
-        const duration = performance.now() - start;
-        metrics.observe(metricName, duration, labels);
-    }
+    return fn().finally(() => {
+        const duration = Math.round(performance.now() - start);
+        metrics.increment(METRICS.LATENCY_MS, duration, { operation: name });
+        if (duration > 3000) {
+            voiceLogger.warn('slow_operation', { name, durationMs: duration });
+        }
+    });
 }

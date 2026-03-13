@@ -18,6 +18,7 @@ import {
     getDailyMetrics,
     getPipelineSummary,
 } from '@/lib/billing/analytics';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 let _db: FirebaseFirestore.Firestore | null = null;
 function getDb() {
@@ -43,23 +44,23 @@ export async function GET(request: NextRequest) {
         switch (type) {
             case 'latency': {
                 const stats = await getLatencyStats(db, tenantId, days);
-                return NextResponse.json(stats);
+                return NextResponse.json(stats, { headers: cacheHeaders('SHORT') });
             }
 
             case 'cost': {
                 const months = Math.max(1, Math.ceil(days / 30));
                 const trend = await getCostTrend(db, tenantId, months);
-                return NextResponse.json(trend);
+                return NextResponse.json(trend, { headers: cacheHeaders('SHORT') });
             }
 
             case 'providers': {
                 const breakdown = await getProviderBreakdown(db, tenantId, days);
-                return NextResponse.json(breakdown);
+                return NextResponse.json(breakdown, { headers: cacheHeaders('SHORT') });
             }
 
             case 'daily': {
                 const metrics = await getDailyMetrics(db, tenantId, days);
-                return NextResponse.json({ metrics, range, days });
+                return NextResponse.json({ metrics, range, days }, { headers: cacheHeaders('SHORT') });
             }
 
             case 'summary':
@@ -79,11 +80,12 @@ export async function GET(request: NextRequest) {
                     costTrend,
                     range,
                     days,
-                });
+                }, { headers: cacheHeaders('SHORT') });
             }
         }
     } catch (error) {
-        console.error('[Analytics API] Error:', error);
+        const message = error instanceof Error ? error.message : 'Failed to fetch analytics';
+        console.warn('[Analytics API] Error:', message);
         return NextResponse.json(
             { error: 'Failed to fetch analytics' },
             { status: 500 },

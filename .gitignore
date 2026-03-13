@@ -73,3 +73,11 @@ _call-center-platform-bak/
 test-n8n-e2e.js
 test-whatsapp.js
 card_backup.txt
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+
+# Firestore backups
+/backups/

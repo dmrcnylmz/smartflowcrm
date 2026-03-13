@@ -118,7 +118,7 @@ export async function synthesizeCartesiaTTS(
         const pcmBuffer = Buffer.from(await response.arrayBuffer());
         const wavBuffer = pcmToWav(pcmBuffer, 24000);
 
-        return new Response(wavBuffer, {
+        return new Response(new Uint8Array(wavBuffer), {
             headers: {
                 'Content-Type': 'audio/wav',
                 'Content-Length': String(wavBuffer.length),

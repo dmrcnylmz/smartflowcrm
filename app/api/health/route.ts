@@ -15,6 +15,16 @@
 import { NextResponse } from 'next/server';
 import { warnMissingOptionalKeys } from '@/lib/env';
 import { cacheHeaders } from '@/lib/utils/cache-headers';
+import {
+    gpuCircuitBreaker,
+    openaiCircuitBreaker,
+    groqCircuitBreaker,
+    cartesiaCircuitBreaker,
+    deepgramCircuitBreaker,
+    murfCircuitBreaker,
+    kokoroCircuitBreaker,
+} from '@/lib/voice/circuit-breaker';
+import { getServiceHealth } from '@/lib/monitoring/upstream-monitor';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +140,20 @@ export async function GET() {
         overallStatus = 'unhealthy';
     }
 
+    // Circuit breaker states — shows which providers are currently tripped
+    const circuitBreakers = {
+        gpu: gpuCircuitBreaker.getState(),
+        openai: openaiCircuitBreaker.getState(),
+        groq: groqCircuitBreaker.getState(),
+        cartesia: cartesiaCircuitBreaker.getState(),
+        deepgram: deepgramCircuitBreaker.getState(),
+        murf: murfCircuitBreaker.getState(),
+        kokoro: kokoroCircuitBreaker.getState(),
+    };
+
+    // Upstream service health (last 5 minutes)
+    const upstreamHealth = getServiceHealth(5 * 60 * 1000);
+
     const response = {
         status: overallStatus,
         version: process.env.npm_package_version || '1.0.0',
@@ -144,6 +168,16 @@ export async function GET() {
         config: Object.fromEntries(
             configChecks.map(s => [s.name, s.status])
         ),
+        circuitBreakers,
+        upstreamServices: upstreamHealth.length > 0
+            ? Object.fromEntries(upstreamHealth.map(s => [s.service, {
+                successRate: s.successRate,
+                avgLatencyMs: s.avgLatencyMs,
+                p95LatencyMs: s.p95LatencyMs,
+                totalCalls: s.totalCalls,
+                errors: s.errorCount,
+            }]))
+            : undefined,
     };
 
     return NextResponse.json(response, {

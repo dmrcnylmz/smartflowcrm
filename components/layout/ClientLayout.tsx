@@ -9,9 +9,13 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { initClientErrorReporting } from '@/lib/monitoring/client-reporter';
 import { usePageViewTracker } from '@/lib/hooks/useActivityTracker';
+import { CookieConsent } from '@/components/layout/CookieConsent';
+import { GoogleAnalytics } from '@/components/layout/GoogleAnalytics';
+import { EmailVerificationBanner } from '@/components/layout/EmailVerificationBanner';
+import { SupportChatWidget } from '@/components/chat/SupportChatWidget';
 
 /** Pages that should NOT show the sidebar (public pages) */
-const PUBLIC_PAGES = ['/login', '/onboarding', '/privacy', '/landing'];
+const PUBLIC_PAGES = ['/login', '/onboarding', '/privacy', '/terms', '/changelog', '/landing'];
 
 function LayoutInner({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -64,15 +68,28 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
             {isPublicPage ? (
                 <main id="main-content" className="min-h-screen">{children}</main>
             ) : (
-                <div className="flex min-h-screen">
-                    <Sidebar />
-                    <main id="main-content" className="flex-1 overflow-x-hidden overflow-y-auto bg-background pt-14 lg:pt-0">
-                        <div className="page-transition">
-                            {children}
-                        </div>
-                    </main>
+                <div className="flex flex-col min-h-screen">
+                    {/* Email dogrulama banneri — yalnizca auth'lu sayfalarda */}
+                    <EmailVerificationBanner />
+                    <div className="flex flex-1">
+                        <Sidebar />
+                        <main id="main-content" className="flex-1 overflow-x-hidden overflow-y-auto bg-background pt-14 lg:pt-0">
+                            <div className="page-transition">
+                                {children}
+                            </div>
+                        </main>
+                    </div>
                 </div>
             )}
+
+            {/* Canli Destek Widget — yalnizca landing sayfasinda */}
+            {pathname === '/landing' && <SupportChatWidget />}
+
+            {/* KVKK Cerez Onay Banneri */}
+            <CookieConsent />
+
+            {/* Google Analytics — cookie consent'e bagli */}
+            <GoogleAnalytics />
         </>
     );
 }

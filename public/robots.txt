@@ -1,2 +1,26 @@
+# Callception - AI Destekli Cagri Yonetimi
+# Izin verilen: Genel sayfalar
+# Engellenen: Dashboard, API, admin alanlari
+
 User-agent: *
-Disallow: /
+Allow: /landing
+Allow: /privacy
+Allow: /terms
+Allow: /changelog
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /agents
+Disallow: /calls
+Disallow: /contacts
+Disallow: /appointments
+Disallow: /campaigns
+Disallow: /analytics
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /login
+Disallow: /billing
+Disallow: /webhooks
+Disallow: /knowledge
+Disallow: /voicemail
+
+Sitemap: https://callception.com/sitemap.xml

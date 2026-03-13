@@ -47,8 +47,11 @@ export class ErrorBoundary extends Component<Props, State> {
                     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
                 }),
             });
-        } catch {
-            // Silently fail — don't crash the error boundary itself
+        } catch (reportErr) {
+            // Don't crash the error boundary itself, but log for debugging
+            if (typeof console !== 'undefined') {
+                console.warn('[ErrorBoundary] Failed to report error:', reportErr);
+            }
         }
     }
 

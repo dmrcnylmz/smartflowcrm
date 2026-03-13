@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats, linkKBDocumentsToAgent } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
-import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, errorResponse, createApiError } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { meterKbQuery } from '@/lib/billing/metering';
 import { initAdmin } from '@/lib/auth/firebase-admin';
@@ -162,10 +162,10 @@ export async function PATCH(request: NextRequest) {
         const { documentIds, agentId } = body;
 
         if (!agentId || typeof agentId !== 'string') {
-            return errorResponse('agentId is required');
+            return errorResponse(createApiError('VALIDATION_ERROR', 'agentId is required'));
         }
         if (!Array.isArray(documentIds) || documentIds.length === 0) {
-            return errorResponse('documentIds must be a non-empty array');
+            return errorResponse(createApiError('VALIDATION_ERROR', 'documentIds must be a non-empty array'));
         }
 
         const result = await linkKBDocumentsToAgent(auth.tenantId, documentIds, agentId);

@@ -129,8 +129,19 @@ export async function POST(request: NextRequest) {
         const startMs = performance.now();
 
         // Send to Deepgram (wrapped with circuit breaker)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let data: any;
+        // Deepgram Nova-2 response shape
+        // Deepgram Nova-2 response shape
+        interface DeepgramWord { word: string; start: number; end: number; confidence: number }
+        interface DeepgramAlternative { transcript?: string; confidence?: number; words?: DeepgramWord[] }
+        interface DeepgramUtterance { transcript: string; confidence: number; start: number; end: number }
+        interface DeepgramChannel { alternatives?: DeepgramAlternative[]; detected_language?: string }
+        interface DeepgramResponse {
+            results?: {
+                channels?: DeepgramChannel[];
+                utterances?: DeepgramUtterance[];
+            };
+        }
+        let data: DeepgramResponse;
         try {
             data = await deepgramCircuitBreaker.execute(async () => {
                 const response = await fetch(`${DEEPGRAM_STT_URL}?${params.toString()}`, {

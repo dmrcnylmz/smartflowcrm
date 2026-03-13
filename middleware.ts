@@ -25,6 +25,10 @@ const PUBLIC_API_PATHS = [
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
     '/api/cron/gpu-shutdown',
+    '/api/cron/webhook-retry',
+    '/api/chat/support',
+    '/api/chat/support/tts',
+    '/api/leads',
     // Security: test & diagnostic endpoints moved behind auth
     // '/api/voice/test-e2e', '/api/twilio/test', '/api/billing/alert-test', '/api/system/go-live-check'
 ];
@@ -62,8 +66,8 @@ const ALLOWED_ORIGINS = [
 /** Security headers applied to all responses */
 const isDev = process.env.NODE_ENV === 'development';
 const scriptSrc = isDev
-    ? "'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com"
-    : "'self' 'unsafe-inline' https://apis.google.com";
+    ? "'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.googletagmanager.com"
+    : "'self' 'unsafe-inline' https://apis.google.com https://www.googletagmanager.com";
 
 const SECURITY_HEADERS: Record<string, string> = {
     'X-Content-Type-Options': 'nosniff',
@@ -78,9 +82,10 @@ const SECURITY_HEADERS: Record<string, string> = {
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https:",
-        "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://*.google.com",
+        "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://*.google.com https://*.sentry.io https://www.google-analytics.com https://www.googletagmanager.com",
         "frame-src 'self' https://accounts.google.com https://*.firebaseapp.com",
         "frame-ancestors 'none'",
+        "media-src 'self' blob:",
         "object-src 'none'",
         "base-uri 'self'",
     ].join('; '),

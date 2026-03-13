@@ -1,21 +1,23 @@
 /**
  * Monitoring & Error Tracking Utility
- * 
+ *
  * Provides a unified interface for error tracking, performance monitoring,
- * and alerting. Supports Sentry integration when configured, falls back
- * to console logging.
- * 
+ * and alerting. Integrates with @sentry/nextjs when DSN is configured,
+ * falls back to console logging.
+ *
  * Usage:
  *   import { monitor } from '@/lib/utils/monitoring';
- *   
+ *
  *   // Track an error
  *   monitor.captureError(error, { context: 'API', route: '/api/customers' });
- *   
+ *
  *   // Track performance
  *   const end = monitor.startTimer('api.customers.get');
- *   ... 
+ *   ...
  *   end(); // logs duration
  */
+
+import * as Sentry from '@sentry/nextjs';
 
 type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
 
@@ -33,25 +35,32 @@ interface PerformanceMetric {
     timestamp: string;
 }
 
+// Severity → Sentry level mapping
+const SEVERITY_MAP: Record<ErrorSeverity, Sentry.SeverityLevel> = {
+    low: 'info',
+    medium: 'warning',
+    high: 'error',
+    critical: 'fatal',
+};
+
 // ─── In-memory metrics buffer ───
 
 const metricsBuffer: PerformanceMetric[] = [];
 const MAX_BUFFER_SIZE = 100;
 const errorCounts: Record<string, number> = {};
 
-// ─── Sentry-like Interface ───
+// ─── Monitor Class ───
 
 class Monitor {
     private initialized = false;
-    private dsn: string | null = null;
+    private hasSentry = false;
 
     init() {
-        this.dsn = process.env.SENTRY_DSN || null;
+        this.hasSentry = !!process.env.NEXT_PUBLIC_SENTRY_DSN;
         this.initialized = true;
 
-        if (this.dsn) {
-            if (process.env.NODE_ENV !== 'production') console.debug('[Monitor] Sentry DSN configured — errors will be reported');
-            // In production, you'd call Sentry.init({ dsn: this.dsn }) here
+        if (this.hasSentry) {
+            if (process.env.NODE_ENV !== 'production') console.debug('[Monitor] Sentry configured — errors will be reported');
         } else {
             if (process.env.NODE_ENV !== 'production') console.debug('[Monitor] No Sentry DSN — using console logging');
         }
@@ -70,29 +79,30 @@ class Monitor {
         const errorKey = context?.route || context?.context || 'unknown';
         errorCounts[errorKey] = (errorCounts[errorKey] || 0) + 1;
 
-        const errorInfo = {
-            message: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            severity,
-            ...context,
-            timestamp: new Date().toISOString(),
-            count: errorCounts[errorKey],
-        };
-
-        // Log based on severity
+        // Console log
+        const message = error instanceof Error ? error.message : String(error);
         if (severity === 'critical' || severity === 'high') {
-            console.error(`[Monitor:${severity.toUpperCase()}]`, errorInfo);
+            console.error(`[Monitor:${severity.toUpperCase()}]`, message, context?.route || '');
         } else {
-            console.warn(`[Monitor:${severity}]`, errorInfo.message, context?.route || '');
+            console.warn(`[Monitor:${severity}]`, message, context?.route || '');
         }
 
-        // If Sentry is configured, send the error
-        if (this.dsn) {
-            // Sentry.captureException(error, { extra: context });
-            // For now, we log the intent
-            if (process.env.NODE_ENV === 'development') {
-                console.debug('[Monitor] Would send to Sentry:', errorInfo.message);
-            }
+        // Send to Sentry
+        if (this.hasSentry) {
+            Sentry.withScope((scope) => {
+                scope.setLevel(SEVERITY_MAP[severity]);
+                if (context?.route) scope.setTag('route', context.route);
+                if (context?.context) scope.setTag('context', context.context);
+                if (context?.userId) scope.setUser({ id: context.userId });
+                if (context?.tenantId) scope.setTag('tenantId', context.tenantId);
+                if (context?.extra) scope.setExtras(context.extra);
+
+                if (error instanceof Error) {
+                    Sentry.captureException(error);
+                } else {
+                    Sentry.captureMessage(String(error));
+                }
+            });
         }
     }
 
@@ -133,6 +143,16 @@ class Monitor {
 
         if (process.env.NODE_ENV === 'development') {
             console.debug(`[Monitor:Event] ${name}`, data || '');
+        }
+
+        // Send breadcrumb to Sentry
+        if (this.hasSentry) {
+            Sentry.addBreadcrumb({
+                category: 'custom',
+                message: name,
+                data,
+                level: 'info',
+            });
         }
     }
 

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from 'next-intl/plugin';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const withNextIntl = createNextIntlPlugin('./lib/i18n/request.ts');
 
@@ -14,8 +15,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
 
   typescript: {
-    // Firebase client SDK types issue — builds fine on Vercel with proper node_modules
-    ignoreBuildErrors: true,
+    // Strict type checking enabled — all type errors must be resolved
+    ignoreBuildErrors: false,
   },
 
   images: {
@@ -35,4 +36,23 @@ const nextConfig: NextConfig = {
   typedRoutes: false,
 };
 
-export default withNextIntl(nextConfig);
+export default withSentryConfig(withNextIntl(nextConfig), {
+  // Sentry build options
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Suppress source map upload warnings when no auth token
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  // Source maps — only upload when auth token is available
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+
+  // Tree-shake Sentry debug logs in production
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+  },
+});

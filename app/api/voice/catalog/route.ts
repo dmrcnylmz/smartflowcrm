@@ -19,6 +19,7 @@ import {
 } from '@/lib/voice/voice-catalog';
 import { getServiceAccountKey } from '@/lib/voice/tts-google';
 import { isKokoroConfigured } from '@/lib/voice/tts-kokoro';
+import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -64,5 +65,7 @@ export async function GET(request: NextRequest) {
         previewSamples: PREVIEW_SAMPLES,
         total: voices.length,
         totalCatalog: VOICE_CATALOG.length,
+    }, {
+        headers: cacheHeaders('LONG'), // Voice catalog is mostly static
     });
 }

@@ -8,6 +8,7 @@
  */
 
 import { useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 export default function GlobalError({
     error,
@@ -18,6 +19,7 @@ export default function GlobalError({
 }) {
     useEffect(() => {
         console.error('Global error:', error);
+        Sentry.captureException(error);
     }, [error]);
 
     return (

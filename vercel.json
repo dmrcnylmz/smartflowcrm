@@ -88,6 +88,10 @@
         {
             "path": "/api/cron/gpu-shutdown",
             "schedule": "0 3 * * *"
+        },
+        {
+            "path": "/api/cron/webhook-retry",
+            "schedule": "*/5 * * * *"
         }
     ]
 }

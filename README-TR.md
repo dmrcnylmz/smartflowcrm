@@ -1,4 +1,4 @@
-# 🚀 Callception - Akıllı Müşteri İlişkileri Yönetim Sistemi
+# 🚀 SmartFlow CRM - Akıllı Müşteri İlişkileri Yönetim Sistemi
 
 ## 📋 İçindekiler
 - [Genel Bakış](#genel-bakış)
@@ -14,7 +14,7 @@
 
 ## 🎯 Genel Bakış
 
-Callception, yapay zeka destekli müşteri ilişkileri yönetim sistemidir. Telefon çağrılarını otomatik işler, müşteri niyetlerini analiz eder ve uygun iş akışlarını tetikler.
+SmartFlow CRM, yapay zeka destekli müşteri ilişkileri yönetim sistemidir. Telefon çağrılarını otomatik işler, müşteri niyetlerini analiz eder ve uygun iş akışlarını tetikler.
 
 ### Ana Özellikler:
 - 📞 **Otomatik Çağrı İşleme**: AI ile çağrı analizi ve intent tespiti
@@ -109,7 +109,7 @@ Firebase hesabı
 ### 2. Projeyi Klonlayın
 ```bash
 git clone <repo-url>
-cd callception
+cd smartflow-crm
 ```
 
 ### 3. Bağımlılıkları Yükleyin
@@ -324,7 +324,7 @@ docker-compose up -d n8n
 ## 📁 Proje Yapısı
 
 ```
-callception/
+smartflow-crm/
 ├── app/                          # Next.js pages
 │   ├── page.tsx                 # Dashboard
 │   ├── calls/                   # Çağrılar sayfası
@@ -492,10 +492,10 @@ firebase deploy
 ### Docker Deployment
 ```bash
 # Build
-docker build -t callception .
+docker build -t smartflow-crm .
 
 # Run
-docker run -p 3000:3000 callception
+docker run -p 3000:3000 smartflow-crm
 ```
 
 ---

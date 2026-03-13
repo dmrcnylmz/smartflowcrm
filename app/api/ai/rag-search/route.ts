@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ results });
   } catch (error: unknown) {
-    console.error('RAG search error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    console.warn('[RAG Search] Error:', errorMessage);
     return NextResponse.json(
       { error: errorMessage },
       { status: 500 }

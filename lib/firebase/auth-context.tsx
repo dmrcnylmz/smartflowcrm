@@ -16,17 +16,24 @@ import {
 } from 'firebase/auth';
 import { auth } from './config';
 
+// sendEmailVerification — type-safe import (Firebase v11 export issue workaround)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const firebaseAuth = require('firebase/auth') as { sendEmailVerification: (user: User) => Promise<void> };
+const sendEmailVerification = firebaseAuth.sendEmailVerification;
+
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     error: string | null;
     tenantId: string | null;
     role: string | null;
+    isEmailVerified: boolean;
     signIn: (email: string, password: string) => Promise<void>;
     signInWithGoogle: () => Promise<void>;
     signUp: (email: string, password: string, displayName?: string) => Promise<void>;
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
+    resendVerificationEmail: () => Promise<void>;
     refreshClaims: () => Promise<void>;
     clearError: () => void;
 }
@@ -113,10 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             setError(null);
             setLoading(true);
-            const { user } = await createUserWithEmailAndPassword(auth, email, password);
+            const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
             if (displayName) {
-                await updateProfile(user, { displayName });
+                await updateProfile(newUser, { displayName });
             }
+            // Send email verification
+            await sendEmailVerification(newUser).catch(() => {
+                // Non-blocking — user can still use the app
+                console.warn('[Auth] Email verification send failed');
+            });
         } catch (err: unknown) {
             const errorMessage = getErrorMessage(err);
             setError(errorMessage);
@@ -160,7 +172,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const resendVerificationEmail = async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        if (currentUser.emailVerified) return;
+        try {
+            await sendEmailVerification(currentUser);
+        } catch (err: unknown) {
+            const errorMessage = getErrorMessage(err);
+            setError(errorMessage);
+            throw new Error(errorMessage);
+        }
+    };
+
     const clearError = () => setError(null);
+
+    // Compute isEmailVerified — Google/OAuth users are always verified
+    // emailVerified is true for Google OAuth, email/pass needs verification
+    const isEmailVerified = user ? !!user.emailVerified : true;
 
     return (
         <AuthContext.Provider
@@ -170,11 +199,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 error,
                 tenantId,
                 role,
+                isEmailVerified,
                 signIn,
                 signInWithGoogle,
                 signUp,
                 signOut,
                 resetPassword,
+                resendVerificationEmail,
                 refreshClaims,
                 clearError,
             }}

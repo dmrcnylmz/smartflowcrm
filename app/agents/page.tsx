@@ -13,7 +13,12 @@ import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useTenantSettings } from '@/lib/hooks/useTenantSettings';
 import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
-import { AgentCreationWizard } from '@/components/agents/AgentCreationWizard';
+import dynamic from 'next/dynamic';
+
+const AgentCreationWizard = dynamic(
+    () => import('@/components/agents/AgentCreationWizard').then(m => m.AgentCreationWizard),
+    { ssr: false, loading: () => <div className="flex items-center justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-white/30" /></div> }
+);
 import {
     Bot,
     Plus,

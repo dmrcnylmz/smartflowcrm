@@ -45,6 +45,70 @@ function AnimateOnScroll({ children, className = '', delay = 0 }: { children: Re
 }
 
 // =============================================
+// Lead Capture Form
+// =============================================
+
+function LeadCaptureForm() {
+    const [email, setEmail] = useState('');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email.trim()) return;
+
+        setStatus('loading');
+        try {
+            const res = await fetch('/api/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim(), source: 'landing_cta' }),
+            });
+
+            if (res.ok) {
+                setStatus('success');
+                setEmail('');
+            } else {
+                setStatus('error');
+            }
+        } catch {
+            setStatus('error');
+        }
+    };
+
+    if (status === 'success') {
+        return (
+            <div className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 max-w-md mx-auto">
+                <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm font-medium">Teşekkürler! En kısa sürede sizinle iletişime geçeceğiz.</span>
+            </div>
+        );
+    }
+
+    return (
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto mb-4">
+            <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="E-posta adresiniz"
+                required
+                className="w-full sm:flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-sm"
+            />
+            <Button
+                type="submit"
+                disabled={status === 'loading'}
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 px-6 py-3 rounded-xl whitespace-nowrap"
+            >
+                {status === 'loading' ? 'Gönderiliyor...' : 'Demo Talep Et'}
+            </Button>
+            {status === 'error' && (
+                <p className="text-xs text-red-400 w-full text-center sm:text-left">Bir hata oluştu, tekrar deneyin.</p>
+            )}
+        </form>
+    );
+}
+
+// =============================================
 // Landing Page
 // =============================================
 
@@ -393,7 +457,7 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* CTA Section */}
+            {/* CTA Section — Lead Capture */}
             <section className="py-24 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-4xl mx-auto text-center">
                     <div className="bg-gradient-to-br from-blue-500/10 via-indigo-500/10 to-purple-500/10 rounded-3xl p-12 sm:p-16 border border-white/5 relative overflow-hidden">
@@ -406,7 +470,11 @@ export default function LandingPage() {
                                 14 gün ücretsiz deneyin. Kurulum 10 dakikadan az sürer.
                                 Kredi kartı gerekmez, istediğiniz zaman iptal edin.
                             </p>
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+
+                            {/* Lead Capture Form */}
+                            <LeadCaptureForm />
+
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
                                 <Link href="/onboarding">
                                     <Button size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 text-lg px-8 py-6 rounded-xl">
                                         Hemen Başlat
@@ -447,6 +515,7 @@ export default function LandingPage() {
                                 <a href="#pricing" className="block hover:text-white transition-colors">Fiyatlandırma</a>
                                 <a href="#how-it-works" className="block hover:text-white transition-colors">Nasıl Çalışır</a>
                                 <a href="#faq" className="block hover:text-white transition-colors">SSS</a>
+                                <Link href="/changelog" className="block hover:text-white transition-colors">Değişiklik Günlüğü</Link>
                             </div>
                         </div>
 
@@ -464,7 +533,7 @@ export default function LandingPage() {
                             <h4 className="font-semibold mb-4 text-sm">Yasal</h4>
                             <div className="space-y-2 text-sm text-slate-500">
                                 <Link href="/privacy" className="block hover:text-white transition-colors">Gizlilik Politikası</Link>
-                                <Link href="/privacy" className="block hover:text-white transition-colors">Kullanım Şartları</Link>
+                                <Link href="/terms" className="block hover:text-white transition-colors">Kullanım Şartları</Link>
                                 <Link href="/privacy" className="block hover:text-white transition-colors">KVKK Aydınlatma</Link>
                             </div>
                         </div>

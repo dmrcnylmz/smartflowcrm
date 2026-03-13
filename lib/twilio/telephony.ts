@@ -182,7 +182,8 @@ export function validateTwilioSignature(
         const expBuf = Buffer.from(expectedSignature, 'utf-8');
         if (sigBuf.length !== expBuf.length) return false;
         return crypto.timingSafeEqual(sigBuf, expBuf);
-    } catch {
+    } catch (err) {
+        console.warn('[Twilio:Telephony] Signature comparison failed:', err instanceof Error ? err.message : err);
         return false;
     }
 }

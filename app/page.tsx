@@ -222,7 +222,8 @@ export default function DashboardPage() {
       setLastUpdated(new Date());
       setIsLive(true);
       return true;
-    } catch {
+    } catch (err) {
+      console.warn('[Dashboard] Failed to load server data:', err instanceof Error ? err.message : err);
       return false;
     }
   }, [authFetch]);
@@ -562,7 +563,7 @@ export default function DashboardPage() {
             <Skeleton key={i} className="h-[120px] rounded-2xl" />
           ))
         ) : (
-          kpiCards.map((card: any, idx: number) => {
+          kpiCards.map((card: { title: string; value: number | string; icon: React.ComponentType<{ className?: string }>; borderColor: string; iconColor: string; trend?: number | null; trendUp?: boolean; suffix?: string }, idx: number) => {
             const Icon = card.icon;
             return (
               <div

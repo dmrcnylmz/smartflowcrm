@@ -28,8 +28,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "setup:firestore": "node scripts/setupFirestore.mjs",
     "seed": "tsx scripts/seed-data.ts",
+    "backup": "tsx scripts/backup-firestore.ts",
     "remotion:studio": "npx remotion studio remotion/index.ts",
     "remotion:render": "npx remotion render remotion/index.ts product-demo out/product-demo.mp4",
     "remotion:render:pricing": "npx remotion render remotion/index.ts pricing-overview out/pricing-overview.mp4",
@@ -55,6 +58,7 @@
     "@remotion/player": "^4.0.432",
     "@remotion/renderer": "^4.0.432",
     "@remotion/studio": "^4.0.432",
+    "@sentry/nextjs": "^10.43.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.3",
     "autoprefixer": "^10.4.27",
@@ -92,6 +96,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

@@ -23,7 +23,7 @@ const PAGE_VIEW_DEBOUNCE_MS = 5000;
 
 export function usePageViewTracker() {
     const pathname = usePathname();
-    const { user, getIdToken } = useAuth();
+    const { user } = useAuth();
     const lastTracked = useRef<string>('');
     const lastTime = useRef<number>(0);
 
@@ -43,7 +43,7 @@ export function usePageViewTracker() {
         // Fire-and-forget
         (async () => {
             try {
-                const token = await getIdToken();
+                const token = await user.getIdToken();
                 if (!token) return;
                 fetch(TRACK_ENDPOINT, {
                     method: 'POST',
@@ -57,11 +57,11 @@ export function usePageViewTracker() {
                 // Never break the app for tracking
             }
         })();
-    }, [pathname, user, getIdToken]);
+    }, [pathname, user]);
 }
 
 export function useTrackEvent() {
-    const { user, getIdToken } = useAuth();
+    const { user } = useAuth();
 
     const trackEvent = useCallback(async (
         type: 'login' | 'feature_use' | 'logout',
@@ -69,7 +69,7 @@ export function useTrackEvent() {
     ) => {
         if (!user) return;
         try {
-            const token = await getIdToken();
+            const token = await user.getIdToken();
             if (!token) return;
             fetch(TRACK_ENDPOINT, {
                 method: 'POST',
@@ -82,7 +82,7 @@ export function useTrackEvent() {
         } catch {
             // Silent fail
         }
-    }, [user, getIdToken]);
+    }, [user]);
 
     return trackEvent;
 }

@@ -1,4 +1,4 @@
-# 🚀 Callception - Hızlı Kurulum Kılavuzu
+# 🚀 SmartFlow CRM - Hızlı Kurulum Kılavuzu
 
 ## ⚡ Hızlı Başlangıç
 
@@ -61,7 +61,7 @@ docker-compose up -d ollama
 
 Model indirme:
 ```bash
-docker exec -it callception-ollama-1 ollama pull llama3.2
+docker exec -it smartflow-crm-ollama-1 ollama pull llama3.2
 ```
 
 ## 📋 Firebase Firestore Setup

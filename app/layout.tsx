@@ -10,11 +10,20 @@ export const metadata: Metadata = {
         template: '%s | Callception',
     },
     description: 'Callception - Yapay zeka destekli sesli asistan ve müşteri hizmetleri platformu. Çağrılarınızı otomatikleştirin, müşterilerinizi yönetin.',
-    keywords: ['CRM', 'AI', 'sesli asistan', 'müşteri hizmetleri', 'çağrı merkezi', 'Callception'],
+    keywords: ['CRM', 'AI', 'sesli asistan', 'müşteri hizmetleri', 'çağrı merkezi', 'Callception', 'yapay zeka', 'çağrı merkezi yazılımı'],
     authors: [{ name: 'Callception' }],
-    robots: 'noindex, nofollow',
-    icons: {
-        icon: '/favicon.ico',
+    metadataBase: new URL(process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://callception.com'),
+    openGraph: {
+        type: 'website',
+        locale: 'tr_TR',
+        siteName: 'Callception',
+        title: 'Callception - AI Destekli Çağrı Yönetimi',
+        description: 'Yapay zeka destekli sesli asistan ile çağrılarınızı otomatikleştirin. 7/24 müşteri hizmetleri, randevu yönetimi ve çağrı analizi.',
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'Callception - AI Destekli Çağrı Yönetimi',
+        description: 'Yapay zeka destekli sesli asistan ile çağrılarınızı otomatikleştirin.',
     },
 };
 
