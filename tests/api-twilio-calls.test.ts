@@ -109,6 +109,14 @@ vi.mock('@/lib/ai/llm-fallback-chain', () => ({
     generateWithFallback: (...args: unknown[]) => mockGenerateWithFallback(...args),
 }));
 
+// ── GPU manager mock ──
+vi.mock('@/lib/voice/gpu-manager', () => ({
+    gpuManager: {
+        isPodConfigured: vi.fn().mockReturnValue(false),
+        ensureReady: vi.fn().mockResolvedValue(true),
+    },
+}));
+
 // ── n8n mock ──
 const mockSendWebhook = vi.fn().mockResolvedValue(undefined);
 vi.mock('@/lib/n8n/client', () => ({
@@ -129,7 +137,7 @@ const defaultTenantData = {
     agent: { greeting: 'Merhaba, size nasıl yardımcı olabilirim?', name: 'Asistan' },
     language: 'tr',
     companyName: 'Test Şirket',
-    settings: { callRecording: false },
+    settings: { callRecording: false, assistantEnabled: true },
     business: {},
 };
 

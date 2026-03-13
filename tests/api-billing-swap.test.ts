@@ -11,17 +11,34 @@ import { NextRequest } from 'next/server';
 // ── Firebase Admin mock ─────────────────────────────────────────────────────
 vi.mock('@/lib/auth/firebase-admin', () => ({ initAdmin: vi.fn() }));
 
-// ── Firestore mock (chainable: collection → doc → collection → doc → get) ──
+// ── requireStrictAuth mock ──────────────────────────────────────────────────
+const mockRequireStrictAuth = vi.fn();
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: (...args: unknown[]) => mockRequireStrictAuth(...args),
+}));
+
+// ── Firestore mock (chainable: tenants→doc→members/subscription) ────────────
+const mockMemberGet = vi.fn();
 const mockSubGet = vi.fn();
 
 vi.mock('firebase-admin/firestore', () => ({
     getFirestore: vi.fn(() => ({
         collection: vi.fn().mockReturnValue({
             doc: vi.fn().mockReturnValue({
-                collection: vi.fn().mockReturnValue({
-                    doc: vi.fn().mockReturnValue({
-                        get: (...args: unknown[]) => mockSubGet(...args),
-                    }),
+                collection: vi.fn().mockImplementation((subCol: string) => {
+                    if (subCol === 'members') {
+                        return {
+                            doc: vi.fn().mockReturnValue({
+                                get: (...args: unknown[]) => mockMemberGet(...args),
+                            }),
+                        };
+                    }
+                    // subscription or others
+                    return {
+                        doc: vi.fn().mockReturnValue({
+                            get: (...args: unknown[]) => mockSubGet(...args),
+                        }),
+                    };
                 }),
             }),
         }),
@@ -84,13 +101,35 @@ function activeSubscription(overrides?: Record<string, unknown>) {
 // POST /api/billing/swap — Auth
 // ═════════════════════════════════════════════════════════════════════════════
 
+/** Setup auth mock for successful authentication */
+function setupAuth(role: string = 'owner') {
+    mockRequireStrictAuth.mockResolvedValue({
+        uid: 'user-1',
+        email: 'test@example.com',
+        tenantId: 'tenant-123',
+    });
+    mockMemberGet.mockResolvedValue({
+        exists: true,
+        data: () => ({ role }),
+    });
+}
+
+/** Setup auth mock for failed authentication */
+function setupAuthFailure() {
+    mockRequireStrictAuth.mockResolvedValue({
+        error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    });
+}
+
 describe('POST /api/billing/swap — Auth', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
     });
 
-    it('should return 401 when tenant header is missing', async () => {
+    it('should return 401 when auth fails', async () => {
+        setupAuthFailure();
+
         const { POST } = await import('@/app/api/billing/swap/route');
         const req = buildSwapRequest(
             { planId: 'professional', billingInterval: 'monthly' },
@@ -101,22 +140,13 @@ describe('POST /api/billing/swap — Auth', () => {
         expect(res.status).toBe(401);
     });
 
-    it('should return 401 when user ID header is missing', async () => {
-        const { POST } = await import('@/app/api/billing/swap/route');
-        const req = buildSwapRequest(
-            { planId: 'professional', billingInterval: 'monthly' },
-            { 'x-user-tenant': 'tenant-123', 'x-user-role': 'owner' },
-        );
-
-        const res = await POST(req);
-        expect(res.status).toBe(401);
-    });
-
     it('should return 403 for viewer role', async () => {
+        setupAuth('viewer');
+
         const { POST } = await import('@/app/api/billing/swap/route');
         const req = buildSwapRequest(
             { planId: 'professional', billingInterval: 'monthly' },
-            { 'x-user-tenant': 'tenant-123', 'x-user-uid': 'user-1', 'x-user-role': 'viewer' },
+            ownerHeaders,
         );
 
         const res = await POST(req);
@@ -124,10 +154,12 @@ describe('POST /api/billing/swap — Auth', () => {
     });
 
     it('should return 403 for agent role', async () => {
+        setupAuth('agent');
+
         const { POST } = await import('@/app/api/billing/swap/route');
         const req = buildSwapRequest(
             { planId: 'professional', billingInterval: 'monthly' },
-            { 'x-user-tenant': 'tenant-123', 'x-user-uid': 'user-1', 'x-user-role': 'agent' },
+            ownerHeaders,
         );
 
         const res = await POST(req);
@@ -135,6 +167,7 @@ describe('POST /api/billing/swap — Auth', () => {
     });
 
     it('should allow admin role', async () => {
+        setupAuth('admin');
         mockSubGet.mockResolvedValue(activeSubscription());
         mockGetVariantId.mockReturnValue('variant-pro-monthly');
         mockUpdateSubscriptionVariant.mockResolvedValue({ success: true });
@@ -142,7 +175,7 @@ describe('POST /api/billing/swap — Auth', () => {
         const { POST } = await import('@/app/api/billing/swap/route');
         const req = buildSwapRequest(
             { planId: 'professional', billingInterval: 'monthly' },
-            { 'x-user-tenant': 'tenant-123', 'x-user-uid': 'user-1', 'x-user-role': 'admin' },
+            ownerHeaders,
         );
 
         const res = await POST(req);
@@ -158,6 +191,7 @@ describe('POST /api/billing/swap — Validation', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
+        setupAuth('owner');
     });
 
     it('should return 400 for invalid planId', async () => {
@@ -202,6 +236,7 @@ describe('POST /api/billing/swap — Subscription Checks', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
+        setupAuth('owner');
     });
 
     it('should return 404 when no active subscription exists', async () => {
@@ -293,6 +328,7 @@ describe('POST /api/billing/swap — LS API Integration', () => {
     beforeEach(() => {
         vi.resetModules();
         vi.clearAllMocks();
+        setupAuth('owner');
         // Default: active subscription on starter/monthly
         mockSubGet.mockResolvedValue(activeSubscription());
     });

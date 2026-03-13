@@ -62,7 +62,32 @@ vi.mock('@/lib/voice/gpu-manager', () => ({
     gpuManager: {
         ensureReady: vi.fn().mockResolvedValue(true),
         getStatus: vi.fn().mockReturnValue({ ready: false, lastCheck: null }),
+        isPodConfigured: vi.fn().mockReturnValue(false),
+        isServerlessConfigured: vi.fn().mockReturnValue(false),
     },
+}));
+
+// ── Firebase Admin mock ────────────────────────────────────────────────────
+vi.mock('@/lib/auth/firebase-admin', () => ({ initAdmin: vi.fn() }));
+
+vi.mock('firebase-admin/firestore', () => ({
+    getFirestore: vi.fn(() => ({
+        collection: vi.fn().mockReturnValue({
+            doc: vi.fn().mockReturnValue({
+                get: vi.fn().mockResolvedValue({ exists: false, data: () => null }),
+            }),
+        }),
+    })),
+}));
+
+// ── Subscription guard mock ────────────────────────────────────────────────
+vi.mock('@/lib/billing/subscription-guard', () => ({
+    checkSubscriptionActive: vi.fn().mockResolvedValue({ active: false, planId: 'starter' }),
+}));
+
+// ── GPU pod state mock ─────────────────────────────────────────────────────
+vi.mock('@/lib/voice/gpu-pod-state', () => ({
+    updateLastGpuActivity: vi.fn().mockResolvedValue(undefined),
 }));
 
 // ── Groq client mock ────────────────────────────────────────────────────────

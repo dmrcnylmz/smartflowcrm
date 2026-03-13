@@ -58,7 +58,19 @@ const mockDeepgramCircuitBreaker = {
     getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
 };
 
-const mockTtsCircuitBreaker = {
+const mockCartesiaCircuitBreaker = {
+    isOpen: vi.fn().mockReturnValue(false),
+    execute: vi.fn().mockImplementation((fn: Function) => fn()),
+    getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
+};
+
+const mockMurfCircuitBreaker = {
+    isOpen: vi.fn().mockReturnValue(false),
+    execute: vi.fn().mockImplementation((fn: Function) => fn()),
+    getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
+};
+
+const mockKokoroCircuitBreaker = {
     isOpen: vi.fn().mockReturnValue(false),
     execute: vi.fn().mockImplementation((fn: Function) => fn()),
     getStats: vi.fn().mockReturnValue({ state: 'closed', failures: 0 }),
@@ -85,7 +97,9 @@ class MockCircuitOpenError extends Error {
 
 vi.mock('@/lib/voice/circuit-breaker', () => ({
     deepgramCircuitBreaker: mockDeepgramCircuitBreaker,
-    ttsCircuitBreaker: mockTtsCircuitBreaker,
+    cartesiaCircuitBreaker: mockCartesiaCircuitBreaker,
+    murfCircuitBreaker: mockMurfCircuitBreaker,
+    kokoroCircuitBreaker: mockKokoroCircuitBreaker,
     openaiCircuitBreaker: mockOpenaiCircuitBreaker,
     googleTtsCircuitBreaker: mockGoogleTtsCircuitBreaker,
     CircuitOpenError: MockCircuitOpenError,
@@ -95,6 +109,30 @@ vi.mock('@/lib/voice/circuit-breaker', () => ({
 vi.mock('@/lib/voice/tts-google', () => ({
     synthesizeGoogleTTS: vi.fn().mockResolvedValue(null), // Returns null by default (no credentials)
     getServiceAccountKey: vi.fn().mockReturnValue(null),   // No service account configured
+}));
+
+// ── Cartesia TTS mock ──────────────────────────────────────────────────────
+const mockSynthesizeCartesiaTTS = vi.fn().mockResolvedValue(null);
+vi.mock('@/lib/voice/tts-cartesia', () => ({
+    synthesizeCartesiaTTS: (...args: unknown[]) => mockSynthesizeCartesiaTTS(...args),
+    isCartesiaConfigured: vi.fn().mockReturnValue(true),
+}));
+
+// ── Murf TTS mock ──────────────────────────────────────────────────────────
+vi.mock('@/lib/voice/tts-murf', () => ({
+    synthesizeMurfTTS: vi.fn().mockResolvedValue(null),
+    isMurfConfigured: vi.fn().mockReturnValue(false),
+}));
+
+// ── Kokoro TTS mock ─────────────────────────────────────────────────────────
+vi.mock('@/lib/voice/tts-kokoro', () => ({
+    synthesizeKokoroTTS: vi.fn().mockResolvedValue(null),
+    isKokoroConfigured: vi.fn().mockReturnValue(false),
+}));
+
+// ── Subscription guard mock ─────────────────────────────────────────────────
+vi.mock('@/lib/billing/subscription-guard', () => ({
+    checkSubscriptionActive: vi.fn().mockResolvedValue({ active: true, planId: 'standard' }),
 }));
 
 // ── Metrics logger mock ──────────────────────────────────────────────────────
@@ -589,17 +627,15 @@ describe('/api/voice/tts GET', () => {
 
         const body = await res.json();
         expect(body.providers).toBeDefined();
-        expect(body.providers.elevenlabs).toBeDefined();
-        expect(body.providers.elevenlabs.role).toContain('primary');
+        expect(body.providers.cartesia).toBeDefined();
+        expect(body.providers.cartesia.role).toContain('default');
         expect(body.providers.google).toBeDefined();
-        expect(body.providers.google.role).toContain('fallback');
+        expect(body.providers.google.role).toContain('legacy');
         expect(body.providers.openai).toBeDefined();
-        expect(body.providers.openai.role).toContain('fallback');
+        expect(body.providers.openai.role).toContain('last-resort');
         expect(body.strategy).toBeDefined();
-        expect(body.strategy.greeting).toContain('multilingual_v2');
-        expect(body.strategy.body).toContain('turbo_v2_5');
-        expect(body.strategy.fallback_1).toContain('Google');
-        expect(body.strategy.fallback_2).toContain('OpenAI');
+        expect(body.strategy.all_plans.tr).toContain('Cartesia');
+        expect(body.strategy.all_plans.en).toContain('Cartesia');
     });
 });
 
@@ -628,11 +664,10 @@ describe('/api/voice/tts POST', () => {
         expect(body.error).toContain('Text is required');
     });
 
-    it('should return audio stream from ElevenLabs', async () => {
+    it('should return audio stream from Cartesia', async () => {
         const POST = await getHandler();
 
-        // The ElevenLabs fetch is wrapped inside ttsCircuitBreaker.execute
-        // Mock the circuit breaker to call through, and mock fetch inside
+        // Cartesia is the primary TTS provider — synthesizeCartesiaTTS is called directly (not via circuit breaker execute in test)
         const fakeAudioBody = new ReadableStream({
             start(controller) {
                 controller.enqueue(new TextEncoder().encode('fake-audio-data'));
@@ -640,15 +675,13 @@ describe('/api/voice/tts POST', () => {
             },
         });
 
-        mockTtsCircuitBreaker.execute.mockImplementation(async (fn: Function) => {
-            mockFetch.mockResolvedValueOnce(
-                new Response(fakeAudioBody, {
-                    status: 200,
-                    headers: { 'Content-Type': 'audio/mpeg' },
-                })
-            );
-            return fn();
-        });
+        // Mock synthesizeCartesiaTTS to return a successful audio response
+        mockSynthesizeCartesiaTTS.mockResolvedValueOnce(
+            new Response(fakeAudioBody, {
+                status: 200,
+                headers: { 'Content-Type': 'audio/mpeg' },
+            })
+        );
 
         const req = createMockRequest('http://localhost:3000/api/voice/tts', {
             method: 'POST',
@@ -664,18 +697,16 @@ describe('/api/voice/tts POST', () => {
         // Should return audio stream
         expect(res.status).toBe(200);
         expect(res.headers.get('Content-Type')).toBe('audio/mpeg');
-        expect(res.headers.get('X-TTS-Provider')).toBe('elevenlabs');
+        expect(res.headers.get('X-TTS-Provider')).toBe('cartesia');
     });
 
-    it('should fallback to OpenAI when ElevenLabs fails', async () => {
+    it('should fallback to OpenAI when Cartesia fails', async () => {
         const POST = await getHandler();
 
-        // Make ElevenLabs circuit breaker fail (throw non-circuit error)
-        mockTtsCircuitBreaker.execute.mockRejectedValueOnce(
-            new Error('ElevenLabs 500: Internal Server Error')
-        );
+        // Make Cartesia return null (failure)
+        mockSynthesizeCartesiaTTS.mockResolvedValueOnce(null);
 
-        // OpenAI should succeed
+        // OpenAI should succeed — the TTS route calls synthesizeOpenAI directly with fetch
         const fakeAudioBody = new ReadableStream({
             start(controller) {
                 controller.enqueue(new TextEncoder().encode('openai-audio-data'));
@@ -683,15 +714,14 @@ describe('/api/voice/tts POST', () => {
             },
         });
 
-        mockOpenaiCircuitBreaker.execute.mockImplementation(async (fn: Function) => {
-            mockFetch.mockResolvedValueOnce(
-                new Response(fakeAudioBody, {
-                    status: 200,
-                    headers: { 'Content-Type': 'audio/mpeg' },
-                })
-            );
-            return fn();
-        });
+        // For Turkish, the chain is Cartesia → OpenAI (no Kokoro/Murf for TR)
+        // OpenAI TTS uses openaiCircuitBreaker.execute wrapping a fetch call
+        mockFetch.mockResolvedValueOnce(
+            new Response(fakeAudioBody, {
+                status: 200,
+                headers: { 'Content-Type': 'audio/mpeg' },
+            })
+        );
 
         const req = createMockRequest('http://localhost:3000/api/voice/tts', {
             method: 'POST',
@@ -712,9 +742,10 @@ describe('/api/voice/tts POST', () => {
     it('should return 503 when all providers fail', async () => {
         const POST = await getHandler();
 
-        // Make all circuit breakers open so no provider can serve
-        mockTtsCircuitBreaker.isOpen.mockReturnValue(true);
-        mockGoogleTtsCircuitBreaker.isOpen.mockReturnValue(true);
+        // Make all providers return null (default) and circuit breakers open
+        mockCartesiaCircuitBreaker.isOpen.mockReturnValue(true);
+        mockMurfCircuitBreaker.isOpen.mockReturnValue(true);
+        mockKokoroCircuitBreaker.isOpen.mockReturnValue(true);
         mockOpenaiCircuitBreaker.isOpen.mockReturnValue(true);
 
         const req = createMockRequest('http://localhost:3000/api/voice/tts', {
@@ -732,8 +763,9 @@ describe('/api/voice/tts POST', () => {
         expect(body.error).toContain('All TTS providers failed');
 
         // Reset
-        mockTtsCircuitBreaker.isOpen.mockReturnValue(false);
-        mockGoogleTtsCircuitBreaker.isOpen.mockReturnValue(false);
+        mockCartesiaCircuitBreaker.isOpen.mockReturnValue(false);
+        mockMurfCircuitBreaker.isOpen.mockReturnValue(false);
+        mockKokoroCircuitBreaker.isOpen.mockReturnValue(false);
         mockOpenaiCircuitBreaker.isOpen.mockReturnValue(false);
     });
 

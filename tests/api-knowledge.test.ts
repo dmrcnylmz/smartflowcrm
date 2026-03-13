@@ -21,6 +21,7 @@ vi.mock('@/lib/knowledge/pipeline', () => ({
     ingestDocument: (...args: unknown[]) => mockIngestDocument(...args),
     deleteKBDocument: (...args: unknown[]) => mockDeleteKBDocument(...args),
     getKBStats: (...args: unknown[]) => mockGetKBStats(...args),
+    linkKBDocumentsToAgent: vi.fn().mockResolvedValue({ updated: 0 }),
 }));
 
 // Mock requireStrictAuth — simulate authenticated user
@@ -86,8 +87,8 @@ describe('/api/knowledge', () => {
             const response = await GET(request);
             await response.json();
 
-            // The route caps topK at 50
-            expect(mockQueryKnowledgeBase).toHaveBeenCalledWith('tenant-123', 'test', 50);
+            // The route caps topK at 50, passes threshold=0.20 and agentId=undefined
+            expect(mockQueryKnowledgeBase).toHaveBeenCalledWith('tenant-123', 'test', 50, 0.20, undefined);
         });
 
         it('should return 401 when auth is missing', async () => {
@@ -129,9 +130,11 @@ describe('/api/knowledge', () => {
             expect(response.status).toBe(201);
             expect(data.status).toBe('success');
             expect(data.documentId).toBe('new-doc1');
+            // ingestDocument receives (tenantId, source, agentId)
             expect(mockIngestDocument).toHaveBeenCalledWith(
                 'tenant-123',
-                expect.objectContaining({ type: 'text' })
+                expect.objectContaining({ type: 'text' }),
+                undefined,
             );
         });
     });

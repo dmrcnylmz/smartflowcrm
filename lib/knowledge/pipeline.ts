@@ -570,6 +570,39 @@ const TURKISH_STOP_WORDS = new Set([
 // =============================================
 
 /**
+ * Link existing KB documents to an agent by updating agentId.
+ * Used after wizard creates an agent — associates KB docs added during wizard.
+ */
+export async function linkKBDocumentsToAgent(
+    tenantId: string,
+    documentIds: string[],
+    agentId: string,
+): Promise<{ updated: number }> {
+    if (!documentIds.length || !agentId) return { updated: 0 };
+
+    const db = getDb();
+    const batch = db.batch();
+    let updated = 0;
+
+    for (const docId of documentIds) {
+        const docRef = tenantKbDocs(tenantId).doc(docId);
+        batch.update(docRef, { agentId });
+
+        // Also update all chunks for this document
+        const chunksSnap = await tenantKbChunks(tenantId)
+            .where('documentId', '==', docId)
+            .get();
+        chunksSnap.docs.forEach(chunk => {
+            batch.update(chunk.ref, { agentId });
+        });
+        updated++;
+    }
+
+    await batch.commit();
+    return { updated };
+}
+
+/**
  * List all KB documents for a tenant.
  */
 export async function listKBDocuments(tenantId: string, agentId?: string): Promise<KBDocument[]> {

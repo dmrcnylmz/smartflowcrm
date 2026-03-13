@@ -206,6 +206,12 @@ describe('API Tenant Tests', () => {
         });
 
         it('PUT should reject viewer role', async () => {
+            // Mock member doc to return viewer role (route checks Firestore, not headers)
+            mockGet.mockResolvedValueOnce({
+                exists: true,
+                data: () => ({ role: 'viewer' }),
+            });
+
             const { PUT } = await import('@/app/api/tenant/settings/route');
             const request = createMockRequest('/api/tenant/settings', {
                 method: 'PUT',

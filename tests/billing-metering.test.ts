@@ -354,8 +354,10 @@ describe('Billing Metering', () => {
         it('should have correct rate values', () => {
             expect(COST_RATES.twilio.perMinute).toBe(0.01);
             expect(COST_RATES.sip_trunk.perMinute).toBe(0.003);
-            expect(COST_RATES.elevenlabs.per1000Chars).toBe(0.15);
-            expect(COST_RATES.llm.perCall).toBe(0.02);
+            expect(COST_RATES.cartesia.per1000Chars).toBe(0.038);
+            expect(COST_RATES.murf.per1000Chars).toBe(0.017);
+            expect(COST_RATES.kokoro.per1000Chars).toBe(0.001);
+            expect(COST_RATES.llm.perCall).toBe(0.002);
         });
     });
 

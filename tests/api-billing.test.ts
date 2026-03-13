@@ -11,6 +11,7 @@ vi.mock('@/lib/auth/firebase-admin', () => ({ initAdmin: vi.fn() }));
 const mockGet = vi.fn();
 const mockSet = vi.fn();
 const mockAdd = vi.fn();
+const mockMemberGet = vi.fn();
 
 vi.mock('firebase-admin/firestore', () => ({
     getFirestore: vi.fn(() => ({
@@ -18,10 +19,19 @@ vi.mock('firebase-admin/firestore', () => ({
             doc: vi.fn().mockReturnValue({
                 get: mockGet,
                 set: mockSet,
-                collection: vi.fn().mockReturnValue({
-                    doc: vi.fn().mockReturnValue({ get: mockGet, set: mockSet }),
-                    add: mockAdd,
-                    get: vi.fn().mockResolvedValue({ docs: [] }),
+                collection: vi.fn().mockImplementation((subCol: string) => {
+                    if (subCol === 'members') {
+                        return {
+                            doc: vi.fn().mockReturnValue({ get: mockMemberGet, set: mockSet }),
+                            add: mockAdd,
+                            get: vi.fn().mockResolvedValue({ docs: [] }),
+                        };
+                    }
+                    return {
+                        doc: vi.fn().mockReturnValue({ get: mockGet, set: mockSet }),
+                        add: mockAdd,
+                        get: vi.fn().mockResolvedValue({ docs: [] }),
+                    };
                 }),
             }),
         }),
@@ -86,6 +96,11 @@ describe('API Billing Tests', () => {
             email: 'test@example.com',
             tenantId: 'tenant-123',
         });
+        // Default: member is owner (passes role check)
+        mockMemberGet.mockResolvedValue({
+            exists: true,
+            data: () => ({ role: 'owner' }),
+        });
     });
 
     // ── Checkout ──
@@ -124,7 +139,11 @@ describe('API Billing Tests', () => {
             expect(response.status).toBe(400);
         });
 
-        it('should return 401 when tenant header is missing', async () => {
+        it('should return 401 when auth fails', async () => {
+            mockRequireStrictAuth.mockResolvedValueOnce({
+                error: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+            });
+
             const { POST } = await import('@/app/api/billing/checkout/route');
             const request = createMockRequest('/api/billing/checkout', {
                 method: 'POST',
@@ -135,13 +154,17 @@ describe('API Billing Tests', () => {
         });
 
         it('should return 403 for non-owner/admin role', async () => {
+            mockMemberGet.mockResolvedValueOnce({
+                exists: true,
+                data: () => ({ role: 'viewer' }),
+            });
+
             const { POST } = await import('@/app/api/billing/checkout/route');
             const request = createMockRequest('/api/billing/checkout', {
                 method: 'POST',
                 headers: {
                     'x-user-tenant': 'tenant-123',
                     'x-user-id': 'user-1',
-                    'x-user-role': 'viewer',
                 },
                 body: { planId: 'starter' },
             });

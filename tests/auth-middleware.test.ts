@@ -235,6 +235,8 @@ describe('Protected Routes', () => {
 // ============================================
 
 describe('Public Routes', () => {
+    // Note: /api/voice/test-e2e, /api/twilio/test, /api/billing/alert-test,
+    // /api/system/go-live-check were moved behind auth for security
     const publicPaths = [
         '/api/webhook',
         '/api/health',
@@ -246,10 +248,6 @@ describe('Public Routes', () => {
         '/api/twilio/recording',
         '/api/billing/webhook',
         '/api/cron/appointment-reminders',
-        '/api/voice/test-e2e',
-        '/api/twilio/test',
-        '/api/billing/alert-test',
-        '/api/system/go-live-check',
     ];
 
     it.each(publicPaths)(

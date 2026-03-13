@@ -65,6 +65,17 @@ vi.mock('@/lib/phone/gateway', () => ({
     provisionNumber: (...args: unknown[]) => mockProvisionNumber(...args),
 }));
 
+// ── Subscription guard mock (used by provision-phone route for cost guard) ──
+const mockCheckSubscriptionActive = vi.fn().mockResolvedValue({ active: true, planId: 'starter', status: 'active' });
+vi.mock('@/lib/billing/subscription-guard', () => ({
+    checkSubscriptionActive: (...args: unknown[]) => mockCheckSubscriptionActive(...args),
+}));
+
+// ── Phone types mock (getProviderForCountry) ──
+vi.mock('@/lib/phone/types', () => ({
+    getProviderForCountry: (country: string) => country.toUpperCase() === 'TR' ? 'SIP_TRUNK' : 'TWILIO_NATIVE',
+}));
+
 // ── Error handler mock ──
 vi.mock('@/lib/utils/error-handler', () => ({
     handleApiError: vi.fn((err: unknown) => {

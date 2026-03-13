@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats } from '@/lib/knowledge/pipeline';
+import { ingestDocument, listKBDocuments, deleteKBDocument, queryKnowledgeBase, getKBStats, linkKBDocumentsToAgent } from '@/lib/knowledge/pipeline';
 import type { DocumentSource } from '@/lib/knowledge/document-processor';
 import { handleApiError, requireFields, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
@@ -146,6 +146,37 @@ export async function DELETE(request: NextRequest) {
 
     } catch (error) {
         return handleApiError(error, 'Knowledge DELETE');
+    }
+}
+
+// =============================================
+// PATCH: Link documents to an agent
+// =============================================
+
+export async function PATCH(request: NextRequest) {
+    try {
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+
+        const body = await request.json();
+        const { documentIds, agentId } = body;
+
+        if (!agentId || typeof agentId !== 'string') {
+            return errorResponse('agentId is required');
+        }
+        if (!Array.isArray(documentIds) || documentIds.length === 0) {
+            return errorResponse('documentIds must be a non-empty array');
+        }
+
+        const result = await linkKBDocumentsToAgent(auth.tenantId, documentIds, agentId);
+
+        return NextResponse.json({
+            message: `${result.updated} documents linked to agent ${agentId}`,
+            ...result,
+        });
+
+    } catch (error) {
+        return handleApiError(error, 'Knowledge PATCH');
     }
 }
 

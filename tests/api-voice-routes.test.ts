@@ -42,7 +42,7 @@ const mockOpenaiCircuitBreaker = {
     getState: vi.fn(() => 'CLOSED'),
     getStats: vi.fn(() => ({})),
 };
-const mockTtsCircuitBreaker = {
+const mockCartesiaCircuitBreaker = {
     isOpen: vi.fn(() => false),
     getState: vi.fn(() => 'CLOSED'),
     getStats: vi.fn(() => ({})),
@@ -61,7 +61,7 @@ const mockGeminiCircuitBreaker = {
 vi.mock('@/lib/voice/circuit-breaker', () => ({
     gpuCircuitBreaker: mockGpuCircuitBreaker,
     openaiCircuitBreaker: mockOpenaiCircuitBreaker,
-    ttsCircuitBreaker: mockTtsCircuitBreaker,
+    cartesiaCircuitBreaker: mockCartesiaCircuitBreaker,
     groqCircuitBreaker: mockGroqCircuitBreaker,
     geminiCircuitBreaker: mockGeminiCircuitBreaker,
 }));
@@ -273,7 +273,7 @@ describe('voice/health', () => {
         expect(data.system.circuitBreakers.openai).toBe('CLOSED');
         expect(data.system.circuitBreakers.groq).toBe('CLOSED');
         expect(data.system.circuitBreakers.gemini).toBe('CLOSED');
-        expect(data.system.circuitBreakers.tts).toBe('CLOSED');
+        expect(data.system.circuitBreakers.cartesia).toBe('CLOSED');
         expect(data.system.cache).toBeDefined();
         expect(data.system.cache.infer).toBeDefined();
         expect(data.system.cache.tts).toBeDefined();

@@ -355,7 +355,13 @@ describe('/api/agents', () => {
     });
 
     describe('DELETE', () => {
-        it('should succeed with admin role', async () => {
+        it('should succeed with admin role and inactive agent', async () => {
+            // Mock Firestore chain for members → role check + agent → isActive check
+            mockGet
+                // 1st call: member doc (role check)
+                .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin' }) })
+                // 2nd call: agent doc (isActive check)
+                .mockResolvedValueOnce({ exists: true, data: () => ({ isActive: false, name: 'Test Agent' }) });
             mockDelete.mockResolvedValue(undefined);
 
             const { DELETE } = await import('@/app/api/agents/route');
@@ -363,7 +369,6 @@ describe('/api/agents', () => {
                 method: 'DELETE',
                 headers: {
                     'x-user-tenant': 'tenant-123',
-                    'x-user-role': 'admin',
                     'Authorization': 'Bearer test-token',
                 },
                 body: { id: 'agent-to-delete' },
@@ -377,6 +382,9 @@ describe('/api/agents', () => {
         });
 
         it('should return 403 without admin role', async () => {
+            // Member doc returns viewer role
+            mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'viewer' }) });
+
             const { DELETE } = await import('@/app/api/agents/route');
             const request = createMockRequest('/api/agents', {
                 method: 'DELETE',
@@ -391,13 +399,37 @@ describe('/api/agents', () => {
             expect(response.status).toBe(403);
         });
 
-        it('should return 400 when id is missing', async () => {
+        it('should return 403 when trying to delete active agent', async () => {
+            // Member doc → admin, Agent doc → isActive: true
+            mockGet
+                .mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin' }) })
+                .mockResolvedValueOnce({ exists: true, data: () => ({ isActive: true, name: 'Active Agent' }) });
+
             const { DELETE } = await import('@/app/api/agents/route');
             const request = createMockRequest('/api/agents', {
                 method: 'DELETE',
                 headers: {
                     'x-user-tenant': 'tenant-123',
-                    'x-user-role': 'admin',
+                    'Authorization': 'Bearer test-token',
+                },
+                body: { id: 'active-agent' },
+            });
+
+            const response = await DELETE(request);
+            expect(response.status).toBe(403);
+            const data = await response.json();
+            expect(data.error).toContain('Aktif asistan silinemez');
+        });
+
+        it('should return 400 when id is missing', async () => {
+            // Member doc → admin role (gets past role check first)
+            mockGet.mockResolvedValueOnce({ exists: true, data: () => ({ role: 'admin' }) });
+
+            const { DELETE } = await import('@/app/api/agents/route');
+            const request = createMockRequest('/api/agents', {
+                method: 'DELETE',
+                headers: {
+                    'x-user-tenant': 'tenant-123',
                     'Authorization': 'Bearer test-token',
                 },
                 body: {},

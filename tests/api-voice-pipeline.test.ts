@@ -94,7 +94,7 @@ function buildInvalidJsonRequest(): NextRequest {
 
 describe('POST /api/voice/pipeline — Config Validation', () => {
     const savedOpenAI = process.env.OPENAI_API_KEY;
-    const savedElevenLabs = process.env.ELEVENLABS_API_KEY;
+    const savedCartesia = process.env.CARTESIA_API_KEY;
     const savedDeepgram = process.env.DEEPGRAM_API_KEY;
 
     beforeEach(() => {
@@ -102,7 +102,7 @@ describe('POST /api/voice/pipeline — Config Validation', () => {
         vi.clearAllMocks();
         // Clear API keys to test missing config
         delete process.env.OPENAI_API_KEY;
-        delete process.env.ELEVENLABS_API_KEY;
+        delete process.env.CARTESIA_API_KEY;
         delete process.env.DEEPGRAM_API_KEY;
     });
 
@@ -110,8 +110,8 @@ describe('POST /api/voice/pipeline — Config Validation', () => {
         // Restore original env
         if (savedOpenAI) process.env.OPENAI_API_KEY = savedOpenAI;
         else delete process.env.OPENAI_API_KEY;
-        if (savedElevenLabs) process.env.ELEVENLABS_API_KEY = savedElevenLabs;
-        else delete process.env.ELEVENLABS_API_KEY;
+        if (savedCartesia) process.env.CARTESIA_API_KEY = savedCartesia;
+        else delete process.env.CARTESIA_API_KEY;
         if (savedDeepgram) process.env.DEEPGRAM_API_KEY = savedDeepgram;
         else delete process.env.DEEPGRAM_API_KEY;
     });
@@ -137,14 +137,14 @@ describe('POST /api/voice/pipeline — Actions', () => {
         vi.resetModules();
         vi.clearAllMocks();
         process.env.OPENAI_API_KEY = 'test-openai-key';
-        process.env.ELEVENLABS_API_KEY = 'test-elevenlabs-key';
+        process.env.CARTESIA_API_KEY = 'test-cartesia-key';
         process.env.DEEPGRAM_API_KEY = 'test-deepgram-key';
         mockInitialize.mockResolvedValue(undefined);
     });
 
     afterEach(() => {
         delete process.env.OPENAI_API_KEY;
-        delete process.env.ELEVENLABS_API_KEY;
+        delete process.env.CARTESIA_API_KEY;
         delete process.env.DEEPGRAM_API_KEY;
     });
 
@@ -255,7 +255,7 @@ describe('GET /api/voice/pipeline — Health Check', () => {
 
     it('should return health status with provider info when configured', async () => {
         process.env.OPENAI_API_KEY = 'test-openai-key';
-        process.env.ELEVENLABS_API_KEY = 'test-elevenlabs-key';
+        process.env.CARTESIA_API_KEY = 'test-cartesia-key';
         process.env.DEEPGRAM_API_KEY = 'test-deepgram-key';
 
         const { GET } = await import('@/app/api/voice/pipeline/route');
@@ -269,17 +269,17 @@ describe('GET /api/voice/pipeline — Health Check', () => {
         expect(body.pipeline.configured).toBe(true);
         expect(body.pipeline.providers.stt).toContain('deepgram');
         expect(body.pipeline.providers.llm).toContain('gpt');
-        expect(body.pipeline.providers.tts).toContain('elevenlabs');
+        expect(body.pipeline.providers.tts).toContain('cartesia');
         expect(body.timestamp).toBeDefined();
 
         delete process.env.OPENAI_API_KEY;
-        delete process.env.ELEVENLABS_API_KEY;
+        delete process.env.CARTESIA_API_KEY;
         delete process.env.DEEPGRAM_API_KEY;
     });
 
     it('should report not-configured when API keys are missing', async () => {
         delete process.env.OPENAI_API_KEY;
-        delete process.env.ELEVENLABS_API_KEY;
+        delete process.env.CARTESIA_API_KEY;
         delete process.env.DEEPGRAM_API_KEY;
 
         const { GET } = await import('@/app/api/voice/pipeline/route');

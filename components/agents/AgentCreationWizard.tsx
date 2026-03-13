@@ -140,6 +140,9 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
     const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
     const [showTestPanel, setShowTestPanel] = useState(false);
 
+    // KB document IDs added during wizard (before agent exists)
+    const [wizardKbDocIds, setWizardKbDocIds] = useState<string[]>([]);
+
     // Draft state
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const [agentName, setAgentName] = useState('');
@@ -167,6 +170,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
             setError(null);
             setCreatedAgentId(null);
             setShowTestPanel(false);
+            setWizardKbDocIds([]);
         }
     }, [open]);
 
@@ -270,6 +274,16 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
             }
 
             const data = await response.json();
+
+            // Link KB documents added during wizard to the new agent
+            if (wizardKbDocIds.length > 0 && data.id) {
+                authFetch('/api/knowledge', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ documentIds: wizardKbDocIds, agentId: data.id }),
+                }).catch(() => { /* best-effort — docs still accessible tenant-wide */ });
+            }
+
             toast({
                 title: 'Asistan Oluşturuldu',
                 description: `${agentName} başarıyla oluşturuldu.`,
@@ -445,6 +459,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                     <StepKnowledgeBase
                                         agentName={agentName}
                                         authFetch={authFetch}
+                                        onDocumentAdded={(docId) => setWizardKbDocIds(prev => [...prev, docId])}
                                     />
                                 )}
                                 {currentStep === 4 && (
@@ -1210,9 +1225,11 @@ function StepCustomize({
 function StepKnowledgeBase({
     agentName,
     authFetch,
+    onDocumentAdded,
 }: {
     agentName: string;
     authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+    onDocumentAdded?: (documentId: string) => void;
 }) {
     const { toast } = useToast();
     const [textContent, setTextContent] = useState('');
@@ -1231,12 +1248,13 @@ function StepKnowledgeBase({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: `${agentName} - Metin Bilgisi`,
-                    sourceType: 'text',
+                    type: 'text',
                     content: textContent.trim(),
                 }),
             });
             if (!res.ok) throw new Error('Yükleme başarısız');
+            const data = await res.json();
+            if (data.documentId) onDocumentAdded?.(data.documentId);
             setAddedDocs(prev => [...prev, { title: `Metin: ${textContent.slice(0, 40)}...`, type: 'text' }]);
             setTextContent('');
             toast({ title: 'Eklendi', description: 'Metin bilgisi başarıyla eklendi.' });
@@ -1261,12 +1279,13 @@ function StepKnowledgeBase({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: `${agentName} - Web Kaynağı`,
-                    sourceType: 'url',
-                    source: urlInput.trim(),
+                    type: 'url',
+                    content: urlInput.trim(),
                 }),
             });
             if (!res.ok) throw new Error('URL tarama başarısız');
+            const data = await res.json();
+            if (data.documentId) onDocumentAdded?.(data.documentId);
             setAddedDocs(prev => [...prev, { title: urlInput.trim(), type: 'url' }]);
             setUrlInput('');
             toast({ title: 'Eklendi', description: 'Web kaynağı başarıyla tarandı.' });
