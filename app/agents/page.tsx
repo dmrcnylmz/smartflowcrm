@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useTenantSettings } from '@/lib/hooks/useTenantSettings';
-import { VoiceTestModal } from '@/components/voice/VoiceTestModal';
+import { AgentTestPanel } from '@/components/agents/AgentTestPanel';
+import { useAgentKBCheck } from '@/lib/hooks/useAgentKBCheck';
 import dynamic from 'next/dynamic';
 
 const AgentCreationWizard = dynamic(
@@ -56,6 +57,8 @@ import {
     Car,
     Scale,
     Shield,
+    Rocket,
+    ChevronRight,
 } from 'lucide-react';
 import type { Agent, AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
 import { VOICE_STYLES as SHARED_VOICE_STYLES, AGENT_LANGUAGES } from '@/lib/agents/types';
@@ -189,6 +192,7 @@ export default function AgentsPage() {
     const { toast } = useToast();
     const authFetch = useAuthFetch();
     const { settings: tenantSettings } = useTenantSettings();
+    const { hasKB: tenantHasKB } = useAgentKBCheck(undefined); // Tenant-level KB check
     const [agents, setAgents] = useState<Agent[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -586,17 +590,58 @@ export default function AgentsPage() {
                     </Button>
                 </div>
             ) : agents.length === 0 && !loading ? (
-                /* ─── Template-based Empty State ─── */
+                /* ─── Empty State (KB-aware) ─── */
                 <div className="animate-fade-in-up">
-                    <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
-                            <Wand2 className="h-8 w-8 text-violet-500" />
+                    {tenantHasKB === false ? (
+                        /* No KB + No Agents → 2-step guide */
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
+                                <Rocket className="h-8 w-8 text-violet-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white/90">Baslangıc Rehberi</h3>
+                            <p className="text-white/40 mt-1 max-w-md mx-auto">
+                                AI asistanınızı kurmak icin iki basit adımı takip edin
+                            </p>
+
+                            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 max-w-lg mx-auto">
+                                {/* Step 1: Add KB */}
+                                <button
+                                    onClick={() => window.location.href = '/knowledge'}
+                                    className="flex-1 w-full p-5 rounded-xl border-2 border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10 transition-all text-left group"
+                                >
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="h-7 w-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                                        <span className="text-sm font-semibold text-white/80">Once Bilgi Bankası Olusturun</span>
+                                    </div>
+                                    <p className="text-xs text-white/40 ml-10">SSS, urun bilgileri veya web sitesi icerigi ekleyin</p>
+                                    <div className="mt-3 ml-10 text-xs text-violet-400 group-hover:text-violet-300 flex items-center gap-1">
+                                        Bilgi Ekle <ChevronRight className="h-3 w-3" />
+                                    </div>
+                                </button>
+
+                                {/* Step 2: Create Agent (disabled) */}
+                                <div className="flex-1 w-full p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] opacity-50 text-left">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="h-7 w-7 rounded-full bg-white/10 text-white/40 text-xs font-bold flex items-center justify-center">2</span>
+                                        <span className="text-sm font-semibold text-white/40">Sonra Asistan Olusturun</span>
+                                    </div>
+                                    <p className="text-xs text-white/25 ml-10">Bilgi bankası eklendikten sonra asistan olusturabilirsiniz</p>
+                                </div>
+                            </div>
                         </div>
-                        <h3 className="text-xl font-bold text-white/90">İlk Asistanınızı Oluşturun</h3>
-                        <p className="text-white/40 mt-1 max-w-md mx-auto">
-                            Sektörünüze uygun bir şablon seçin ve adım adım asistanınızı oluşturun
-                        </p>
-                    </div>
+                    ) : (
+                        /* Has KB (or loading) → Show template selection */
+                        <div className="text-center mb-8">
+                            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
+                                <Wand2 className="h-8 w-8 text-violet-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white/90">İlk Asistanınızı Oluşturun</h3>
+                            <p className="text-white/40 mt-1 max-w-md mx-auto">
+                                Sektörünüze uygun bir şablon seçin ve adım adım asistanınızı oluşturun
+                            </p>
+                        </div>
+                    )}
+                    {tenantHasKB !== false && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-4xl mx-auto">
                         {AGENT_TEMPLATES.map((template, idx) => {
                             const Icon = getTemplateIcon(template.icon);
@@ -616,6 +661,7 @@ export default function AgentsPage() {
                             );
                         })}
                     </div>
+                    )}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1221,13 +1267,16 @@ export default function AgentsPage() {
                 onCancel={() => setWizardOpen(false)}
             />
 
-            {/* Voice Test Modal */}
-            <VoiceTestModal
-                isOpen={!!testingAgent}
-                onClose={() => setTestingAgent(null)}
-                tenantId="default"
-                agentName={testingAgent?.name || 'Callception AI'}
-            />
+            {/* Unified Test Panel (modal mode) */}
+            {testingAgent && (
+                <AgentTestPanel
+                    agentId={testingAgent.id}
+                    agentName={testingAgent.name}
+                    systemPrompt={testingAgent.systemPrompt}
+                    voiceConfig={testingAgent.voiceConfig}
+                    onClose={() => setTestingAgent(null)}
+                />
+            )}
 
             {/* Agent Activation Flow */}
             {activatingAgent && (

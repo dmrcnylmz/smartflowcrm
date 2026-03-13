@@ -17,11 +17,12 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronRight, ChevronLeft, Loader2, X, Sparkles,
-    Wand2, Check, AlertTriangle, MessageCircle,
+    Wand2, Check, AlertTriangle, MessageCircle, BookOpen,
 } from 'lucide-react';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useToast } from '@/components/ui/toast';
 import { useTenantSettings } from '@/lib/hooks/useTenantSettings';
+import { useAgentKBCheck } from '@/lib/hooks/useAgentKBCheck';
 import { AgentTestPanel } from '@/components/agents/AgentTestPanel';
 import { getTemplateById } from '@/lib/agents/templates';
 import type { AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
@@ -66,6 +67,10 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
 
     // KB document IDs added during wizard (before agent exists)
     const [wizardKbDocIds, setWizardKbDocIds] = useState<string[]>([]);
+    // Tenant-level KB check (for SuccessScreen guidance)
+    const { hasKB: tenantHasKB } = useAgentKBCheck(undefined);
+    // KB skip warning when moving past Step 3 without adding KB
+    const [showKBSkipWarning, setShowKBSkipWarning] = useState(false);
 
     // Draft state
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -95,6 +100,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
             setCreatedAgentId(null);
             setShowTestPanel(false);
             setWizardKbDocIds([]);
+            setShowKBSkipWarning(false);
         }
     }, [open]);
 
@@ -153,12 +159,19 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
     // Navigation
     const nextStep = () => {
         if (currentStep < WIZARD_STEPS.length - 1) {
+            // Show KB skip warning when leaving step 3 without KB docs
+            if (currentStep === 3 && wizardKbDocIds.length === 0 && !showKBSkipWarning) {
+                setShowKBSkipWarning(true);
+                return;
+            }
+            setShowKBSkipWarning(false);
             setStepDirection(1);
             setCurrentStep(prev => prev + 1);
         }
     };
     const prevStep = () => {
         if (currentStep > 0) {
+            setShowKBSkipWarning(false);
             setStepDirection(-1);
             setCurrentStep(prev => prev - 1);
         }
@@ -388,6 +401,47 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                     </div>
                                 )}
 
+                                {/* KB Skip Warning */}
+                                {showKBSkipWarning && currentStep === 3 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mb-5 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                                            <div className="flex-1">
+                                                <h4 className="text-sm font-semibold text-amber-300">
+                                                    Bilgi Bankası olmadan devam ediyorsunuz
+                                                </h4>
+                                                <p className="text-xs text-amber-200/60 mt-1 leading-relaxed">
+                                                    Asistanınız bilgi bankası olmadan dogru yanıt veremeyecektir.
+                                                    Test etmeden once bilgi eklemeniz onerilir.
+                                                </p>
+                                                <div className="flex items-center gap-3 mt-3">
+                                                    <button
+                                                        onClick={() => setShowKBSkipWarning(false)}
+                                                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all"
+                                                    >
+                                                        <BookOpen className="h-3 w-3" />
+                                                        Bilgi Ekle
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setShowKBSkipWarning(false);
+                                                            setStepDirection(1);
+                                                            setCurrentStep(prev => prev + 1);
+                                                        }}
+                                                        className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                                                    >
+                                                        Yine de Devam Et →
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
                                 {/* Step Content */}
                                 {renderStep()}
                             </motion.div>
@@ -396,6 +450,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 agentName={agentName}
                                 onTestClick={() => setShowTestPanel(true)}
                                 onDoneClick={() => onComplete(createdAgentId)}
+                                hasKB={wizardKbDocIds.length > 0 ? true : tenantHasKB}
+                                onAddKBClick={() => {
+                                    setShowTestPanel(false);
+                                    setCreatedAgentId(null);
+                                    setCurrentStep(3);
+                                }}
                             />
                         ) : (
                             /* Test Panel (inline after creation) */
@@ -425,6 +485,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                     systemPrompt={resolvedPrompt}
                                     voiceConfig={{ ...voiceConfig, language }}
                                     inline
+                                    onAddKB={() => {
+                                        // Navigate back to KB step in wizard
+                                        setShowTestPanel(false);
+                                        setCreatedAgentId(null);
+                                        setCurrentStep(3);
+                                    }}
                                 />
                             </motion.div>
                         )}

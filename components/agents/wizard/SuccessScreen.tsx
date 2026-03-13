@@ -2,21 +2,29 @@
 
 /**
  * Success Screen — Shown after agent creation with confetti animation
+ *
+ * KB-aware: If no KB exists, primary CTA is "Add Knowledge Base" instead of "Test".
  */
 
 import { motion } from 'framer-motion';
-import { Check, ChevronRight, MessageCircle } from 'lucide-react';
+import { Check, ChevronRight, MessageCircle, BookOpen } from 'lucide-react';
 import { successCheckVariants, fadeUpVariants } from './wizard-animations';
 
 interface SuccessScreenProps {
     agentName: string;
     onTestClick: () => void;
     onDoneClick: () => void;
+    /** Whether the agent/tenant has KB content */
+    hasKB?: boolean | null;
+    /** Callback when user wants to add KB */
+    onAddKBClick?: () => void;
 }
 
 const CONFETTI_COLORS = ['#dc2626', '#10b981', '#6366f1', '#f59e0b', '#ec4899'];
 
-export function SuccessScreen({ agentName, onTestClick, onDoneClick }: SuccessScreenProps) {
+export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAddKBClick }: SuccessScreenProps) {
+    const showKBPrompt = hasKB === false;
+
     return (
         <motion.div
             key="success"
@@ -72,8 +80,10 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick }: SuccessSc
                 custom={0.4}
                 className="text-white/50 max-w-md mx-auto mb-8"
             >
-                <span className="text-white font-medium">{agentName}</span> başarıyla oluşturuldu.
-                Şimdi test ederek doğru çalıştığını doğrulayabilirsiniz.
+                <span className="text-white font-medium">{agentName}</span> basariyla olusturuldu.
+                {showKBPrompt
+                    ? ' Test etmeden once bilgi bankası eklemeniz onerilir.'
+                    : ' Simdi test ederek dogru calistigini dogrulayabilirsiniz.'}
             </motion.p>
             <motion.div
                 variants={fadeUpVariants}
@@ -82,20 +92,41 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick }: SuccessSc
                 custom={0.5}
                 className="flex items-center justify-center gap-4"
             >
-                <button
-                    onClick={onTestClick}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
-                >
-                    <MessageCircle className="h-4 w-4" />
-                    Şimdi Test Et
-                </button>
-                <button
-                    onClick={onDoneClick}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
-                >
-                    Asistanlar Sayfasına Dön
-                    <ChevronRight className="h-4 w-4" />
-                </button>
+                {showKBPrompt ? (
+                    <>
+                        <button
+                            onClick={onAddKBClick || (() => window.location.href = '/knowledge')}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
+                        >
+                            <BookOpen className="h-4 w-4" />
+                            Bilgi Bankası Ekle
+                        </button>
+                        <button
+                            onClick={onTestClick}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                            Yine de Test Et
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <button
+                            onClick={onTestClick}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                            Simdi Test Et
+                        </button>
+                        <button
+                            onClick={onDoneClick}
+                            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
+                        >
+                            Asistanlar Sayfasına Don
+                            <ChevronRight className="h-4 w-4" />
+                        </button>
+                    </>
+                )}
             </motion.div>
         </motion.div>
     );

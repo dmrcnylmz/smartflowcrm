@@ -31,7 +31,10 @@ import {
     CreditCard,
     Plus,
     PhoneCall,
+    BookOpen,
+    AlertTriangle,
 } from 'lucide-react';
+import { useAgentKBCheck } from '@/lib/hooks/useAgentKBCheck';
 
 // =============================================
 // Types
@@ -71,10 +74,13 @@ export function AgentActivationFlow({
     onOpenChange: (open: boolean) => void;
     onActivated: () => void;
 }) {
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState(0);
     const [subscriptionOk, setSubscriptionOk] = useState<boolean | null>(null);
     const [planName, setPlanName] = useState('');
     const [checkingSubscription, setCheckingSubscription] = useState(true);
+
+    // KB check
+    const { hasKB, isChecking: checkingKB, documentCount } = useAgentKBCheck(agent.id);
     const [availableNumbers, setAvailableNumbers] = useState<PhoneNumber[]>([]);
     const [loadingNumbers, setLoadingNumbers] = useState(false);
     const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
@@ -89,7 +95,7 @@ export function AgentActivationFlow({
     // Reset state when dialog opens
     useEffect(() => {
         if (open) {
-            setStep(1);
+            setStep(0);
             setSubscriptionOk(null);
             setCheckingSubscription(true);
             setAvailableNumbers([]);
@@ -98,10 +104,17 @@ export function AgentActivationFlow({
             setIsNewNumber(false);
             setActivating(false);
             setActivated(false);
-            checkSubscription();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
+
+    // Start subscription check when KB check passes (step 0 → 1)
+    useEffect(() => {
+        if (open && step === 1) {
+            checkSubscription();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, step]);
 
     // ── Step 1: Subscription Check ─────────────────────────────────────
     async function checkSubscription() {
@@ -137,6 +150,10 @@ export function AgentActivationFlow({
         } finally {
             setLoadingNumbers(false);
         }
+    }
+
+    function goToStep1() {
+        setStep(1);
     }
 
     function goToStep2() {
@@ -219,7 +236,7 @@ export function AgentActivationFlow({
 
                 {/* Step indicators */}
                 <div className="flex items-center gap-2 py-2">
-                    {[1, 2, 3].map((s) => (
+                    {[0, 1, 2, 3].map((s) => (
                         <div key={s} className="flex items-center gap-2 flex-1">
                             <div className={`h-2 flex-1 rounded-full transition-colors ${
                                 s <= step
@@ -232,6 +249,14 @@ export function AgentActivationFlow({
 
                 {/* Step Content */}
                 <div className="min-h-[200px]">
+                    {step === 0 && (
+                        <StepKBCheck
+                            checkingKB={checkingKB}
+                            hasKB={hasKB}
+                            documentCount={documentCount}
+                            onContinue={goToStep1}
+                        />
+                    )}
                     {step === 1 && (
                         <StepSubscriptionCheck
                             checking={checkingSubscription}
@@ -266,6 +291,78 @@ export function AgentActivationFlow({
                 </div>
             </DialogContent>
         </Dialog>
+    );
+}
+
+// =============================================
+// Step 0: KB Check
+// =============================================
+
+function StepKBCheck({
+    checkingKB,
+    hasKB,
+    documentCount,
+    onContinue,
+}: {
+    checkingKB: boolean;
+    hasKB: boolean | null;
+    documentCount: number;
+    onContinue: () => void;
+}) {
+    if (checkingKB || hasKB === null) {
+        return (
+            <div className="flex flex-col items-center justify-center py-8 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                <p className="text-sm text-muted-foreground">Bilgi Bankası kontrol ediliyor...</p>
+            </div>
+        );
+    }
+
+    if (!hasKB) {
+        return (
+            <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                        <h4 className="font-semibold text-sm">Bilgi Bankası Gerekli</h4>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Asistanı canlıya almak icin en az 1 bilgi kaynagı eklemelisiniz.
+                            Bilgi bankası olmadan asistanınız dogru yanıt veremez.
+                        </p>
+                    </div>
+                </div>
+                <div className="flex justify-end">
+                    <Button
+                        variant="default"
+                        onClick={() => window.location.href = '/knowledge'}
+                        className="gap-2"
+                    >
+                        <BookOpen className="h-4 w-4" />
+                        Bilgi Ekle
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-start gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                <div>
+                    <h4 className="font-semibold text-sm">Bilgi Bankası Hazır</h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {documentCount} belge yuklu — Asistanınız bilgi bankasından yanıt verebilir.
+                    </p>
+                </div>
+            </div>
+            <div className="flex justify-end">
+                <Button onClick={onContinue} className="gap-2">
+                    Devam Et
+                    <ArrowRight className="h-4 w-4" />
+                </Button>
+            </div>
+        </div>
     );
 }
 

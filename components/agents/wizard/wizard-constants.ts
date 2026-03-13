@@ -25,7 +25,7 @@ export const WIZARD_STEPS = [
     { id: 'template', label: 'Şablon Seçimi', icon: Sparkles, description: 'Sektörünüze uygun şablonu seçin' },
     { id: 'identity', label: 'Kimlik', icon: Bot, description: 'Asistanın adı, rolü ve dili' },
     { id: 'customize', label: 'Özelleştir', icon: Wand2, description: 'Değişkenleri doldurun ve prompt\'u önizleyin' },
-    { id: 'knowledge', label: 'Bilgi Bankası', icon: BookOpen, description: 'Asistanınıza bilgi kaynakları ekleyin' },
+    { id: 'knowledge', label: 'Bilgi Bankası', icon: BookOpen, description: 'Asistanın doğru yanıt vermesi için bilgi kaynakları ekleyin (Önerilen)' },
     { id: 'review', label: 'İnceleme', icon: Eye, description: 'Son kontrol ve oluşturma' },
 ];
 

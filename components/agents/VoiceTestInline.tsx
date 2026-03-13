@@ -8,7 +8,7 @@
  * No low-quality browser TTS (Web Speech Synthesis) is ever used.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 import {
     Mic, MicOff, Phone, PhoneOff, Bot, User, Loader2,
     AlertCircle, Volume2, Clock, Wifi, WifiOff,
@@ -65,21 +65,43 @@ interface VoiceTestInlineProps {
     agentName: string;
     voiceConfig?: AgentVoiceConfig;
     systemPrompt?: string;
+    /** Embedded mode: only manages audio/STT state, doesn't render UI */
+    embedded?: boolean;
+    /** Callback for each transcript turn (embedded mode) */
+    onTranscriptUpdate?: (turn: TranscriptTurn) => void;
+    /** Callback when call state changes (embedded mode) */
+    onCallStateChange?: (state: CallState) => void;
+    /** Callback for call duration updates (embedded mode) */
+    onDurationUpdate?: (seconds: number) => void;
+    /** Callback for voice mode info (embedded mode) */
+    onVoiceModeChange?: (mode: VoiceMode) => void;
 }
 
-type CallState = 'idle' | 'connecting' | 'connected' | 'ending' | 'error';
-type VoiceMode = 'gpu' | 'cartesia-fallback';
+export type CallState = 'idle' | 'connecting' | 'connected' | 'ending' | 'error';
+export type VoiceMode = 'gpu' | 'cartesia-fallback';
+
+/** Imperative handle exposed to parent (used in embedded mode) */
+export interface VoiceTestHandle {
+    startCall: () => void;
+    endCall: () => void;
+    callState: CallState;
+}
 
 // =============================================
 // Component
 // =============================================
 
-export function VoiceTestInline({
+export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>(function VoiceTestInline({
     agentId,
     agentName,
     voiceConfig,
     systemPrompt,
-}: VoiceTestInlineProps) {
+    embedded = false,
+    onTranscriptUpdate,
+    onCallStateChange,
+    onDurationUpdate,
+    onVoiceModeChange,
+}: VoiceTestInlineProps, ref: React.Ref<VoiceTestHandle>) {
     const authFetch = useAuthFetch();
     const [callState, setCallState] = useState<CallState>('idle');
     const [voiceMode, setVoiceMode] = useState<VoiceMode>('gpu');
@@ -102,10 +124,16 @@ export function VoiceTestInline({
 
     const language = voiceConfig?.language || 'tr';
 
-    // Keep callState ref in sync
+    // Keep callState ref in sync + notify parent in embedded mode
     useEffect(() => {
         callStateRef.current = callState;
-    }, [callState]);
+        onCallStateChange?.(callState);
+    }, [callState, onCallStateChange]);
+
+    // Notify parent of duration changes in embedded mode
+    useEffect(() => {
+        onDurationUpdate?.(callDuration);
+    }, [callDuration, onDurationUpdate]);
 
     // Auto-scroll transcript
     useEffect(() => {
@@ -172,6 +200,7 @@ export function VoiceTestInline({
     const startCartesiaFallbackMode = useCallback(async () => {
         setCallState('connected');
         setVoiceMode('cartesia-fallback');
+        onVoiceModeChange?.('cartesia-fallback');
         setCallDuration(0);
         durationRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
 
@@ -205,7 +234,9 @@ export function VoiceTestInline({
 
             isSpeakingRef.current = true;
             setIsProcessing(true);
-            setTranscript(prev => [...prev, { speaker: 'user' as const, text: finalText, timestamp: new Date().toISOString() }]);
+            const userTurn: TranscriptTurn = { speaker: 'user' as const, text: finalText, timestamp: new Date().toISOString() };
+            setTranscript(prev => [...prev, userTurn]);
+            onTranscriptUpdate?.(userTurn);
 
             // Pause recognition during TTS playback to prevent echo
             try { recognition.stop(); } catch { /* ignore */ }
@@ -224,7 +255,9 @@ export function VoiceTestInline({
                 });
                 const data = await res.json();
                 if (data.success && data.response) {
-                    setTranscript(prev => [...prev, { speaker: 'assistant' as const, text: data.response, timestamp: new Date().toISOString() }]);
+                    const assistantTurn: TranscriptTurn = { speaker: 'assistant' as const, text: data.response, timestamp: new Date().toISOString() };
+                    setTranscript(prev => [...prev, assistantTurn]);
+                    onTranscriptUpdate?.(assistantTurn);
                     setIsProcessing(false);
 
                     // Play via Cartesia TTS — high quality, no browser garbage voices
@@ -292,6 +325,7 @@ export function VoiceTestInline({
 
             // GPU mode — full Personaplex
             setVoiceMode('gpu');
+            onVoiceModeChange?.('gpu');
             const persona = voiceConfig?.voiceCatalogId || 'ct-leyla';
             const effectivePersona = language === 'en' && !persona.endsWith('_en')
                 ? `${persona}_en` : persona;
@@ -330,6 +364,10 @@ export function VoiceTestInline({
                     }
                     return [...prev, turn];
                 });
+                // Notify parent (skip interim "..." updates)
+                if (!turn.text.endsWith('...')) {
+                    onTranscriptUpdate?.(turn);
+                }
             };
 
             client.onError = (err) => {
@@ -397,6 +435,18 @@ export function VoiceTestInline({
             }
         }
     };
+
+    // ── Expose imperative handle for parent control (embedded mode) ──
+    useImperativeHandle(ref, () => ({
+        startCall,
+        endCall,
+        callState,
+    }), [startCall, endCall, callState]);
+
+    // ── Embedded mode: manage audio/STT but don't render UI ──
+    if (embedded) {
+        return null;
+    }
 
     return (
         <div className="flex flex-col h-full">
@@ -561,4 +611,4 @@ export function VoiceTestInline({
             </div>
         </div>
     );
-}
+});

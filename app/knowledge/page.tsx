@@ -10,8 +10,9 @@ import {
     BookOpen, Upload, Globe, FileText, Trash2, Search, Database,
     Loader2, CheckCircle, XCircle, Clock, Plus, BarChart3, Sparkles,
     MessageSquare, ChevronRight, FileUp, File, X, RefreshCw,
-    AlertTriangle, Rocket, Brain, Zap,
+    AlertTriangle, Rocket, Brain, Zap, Bot,
 } from 'lucide-react';
+import { AssignToAgentDialog } from '@/components/knowledge/AssignToAgentDialog';
 
 // =============================================
 // Types
@@ -90,6 +91,9 @@ function KnowledgePageContent() {
 
     // Delete state
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Agent assignment state
+    const [assigningDoc, setAssigningDoc] = useState<{ id: string; title: string } | null>(null);
 
     // ─── Data fetching ───────────────────────────────────────
 
@@ -497,6 +501,14 @@ function KnowledgePageContent() {
                                             </span>
                                         )}
                                         <button
+                                            onClick={() => setAssigningDoc({ id: doc.id, title: doc.title || 'Adsiz Belge' })}
+                                            className="h-8 w-8 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-violet-500/30 hover:bg-violet-500/10 flex items-center justify-center text-white/25 hover:text-violet-400 transition-all opacity-0 group-hover:opacity-100"
+                                            aria-label="Asistana Ata"
+                                            title="Asistana Ata"
+                                        >
+                                            <Bot className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
                                             onClick={() => handleDelete(doc.id)}
                                             disabled={deletingId === doc.id}
                                             className="h-8 w-8 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-red-500/30 hover:bg-red-500/10 flex items-center justify-center text-white/25 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
@@ -752,6 +764,19 @@ function KnowledgePageContent() {
                         </div>
                     </div>
                 </div>
+            )}
+            {/* ─── Assign to Agent Dialog ─── */}
+            {assigningDoc && (
+                <AssignToAgentDialog
+                    open={!!assigningDoc}
+                    onOpenChange={(open) => { if (!open) setAssigningDoc(null); }}
+                    documentId={assigningDoc.id}
+                    documentTitle={assigningDoc.title}
+                    onAssigned={() => {
+                        setAssigningDoc(null);
+                        toast({ title: 'Atandı', description: 'Belge asistana basariyla atandı.' });
+                    }}
+                />
             )}
         </div>
     );

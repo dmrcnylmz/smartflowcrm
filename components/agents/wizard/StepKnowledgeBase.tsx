@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     BookOpen, MessageCircle, Globe, Plus,
-    Loader2, CheckCircle,
+    Loader2, CheckCircle, AlertTriangle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -101,10 +101,10 @@ export function StepKnowledgeBase({
                 <div className="flex items-start gap-3">
                     <BookOpen className="h-5 w-5 text-inception-teal flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="text-sm font-semibold text-white/90">Bilgi Bankası (İsteğe Bağlı)</h4>
+                        <h4 className="text-sm font-semibold text-white/90">Bilgi Bankası (Önerilen)</h4>
                         <p className="text-xs text-white/40 mt-1 leading-relaxed">
                             {agentName ? `${agentName} asistanınıza` : 'Asistanınıza'} şirketinize özel bilgi kaynakları ekleyerek daha doğru yanıtlar vermesini sağlayın.
-                            SSS, ürün bilgileri veya web sitesi içeriği ekleyebilirsiniz. Bu adımı atlayıp sonra da ekleyebilirsiniz.
+                            SSS, ürün bilgileri veya web sitesi içeriği ekleyebilirsiniz.
                         </p>
                     </div>
                 </div>
@@ -203,6 +203,21 @@ export function StepKnowledgeBase({
                             </div>
                         ))}
                     </div>
+                </motion.div>
+            )}
+
+            {/* Nudge when no documents added */}
+            {addedDocs.length === 0 && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15"
+                >
+                    <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-300/80 leading-relaxed">
+                        Henuz bilgi eklenmedi. Asistanınızın dogru yanıt vermesi icin en az 1 belge eklemeniz onerilir.
+                    </p>
                 </motion.div>
             )}
         </div>
