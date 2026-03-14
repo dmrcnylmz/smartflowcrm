@@ -313,7 +313,10 @@ export function generateResponseAndGatherTwiML(options: {
     timeout?: number;
     speechTimeout?: string;
     shouldHangup?: boolean;
-    audioUrl?: string; // Cartesia <Play> URL — if provided, uses <Play> instead of <Say> for AI response
+    /** Tek Cartesia <Play> URL (geriye dönük uyumluluk) */
+    audioUrl?: string;
+    /** Streaming pipeline chunk'ları için birden fazla <Play> URL (audioUrl'yi geçersiz kılar) */
+    audioUrls?: string[];
 }): string {
     const {
         gatherUrl,
@@ -324,16 +327,22 @@ export function generateResponseAndGatherTwiML(options: {
         speechTimeout = 'auto',
         shouldHangup = false,
         audioUrl,
+        audioUrls,
     } = options;
 
     const langAttr = `language="${escapeXml(language)}"`;
     const voiceAttr = `voice="${escapeXml(voice)}"`;
     const gatherAttr = `input="speech" action="${escapeXml(gatherUrl)}" method="POST" ${langAttr} speechTimeout="${speechTimeout}" timeout="${timeout}"`;
 
-    // Use <Play> for Cartesia audio, fall back to <Say> for Google TTS
-    const responseTag = audioUrl
-        ? `<Play>${escapeXml(audioUrl)}</Play>`
-        : `<Say ${langAttr} ${voiceAttr}>${escapeXml(aiResponse)}</Say>`;
+    // Çoklu <Play> (chunk'lar) → tek <Play> → <Say> öncelik sırası
+    let responseTag: string;
+    if (audioUrls && audioUrls.length > 0) {
+        responseTag = audioUrls.map(u => `<Play>${escapeXml(u)}</Play>`).join('\n  ');
+    } else if (audioUrl) {
+        responseTag = `<Play>${escapeXml(audioUrl)}</Play>`;
+    } else {
+        responseTag = `<Say ${langAttr} ${voiceAttr}>${escapeXml(aiResponse)}</Say>`;
+    }
 
     if (shouldHangup) {
         return `<?xml version="1.0" encoding="UTF-8"?>

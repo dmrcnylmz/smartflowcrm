@@ -25,7 +25,7 @@
  * Query params: tenantId, callSid
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig } from '@/lib/twilio/telephony';
@@ -36,6 +36,7 @@ import { getResponseCache, buildCacheKey } from '@/lib/ai/response-cache';
 import { optimizeForPhoneTTS } from '@/lib/twilio/text-optimizer';
 import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
+import { streamLLMWithChunkedTTS } from '@/lib/voice/streaming-tts-pipeline';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:gather');
@@ -313,17 +314,22 @@ export async function POST(request: NextRequest) {
         const intent = detectIntentFast(speechResult);
         rlog.info('intent', { intent: intent.intent, confidence: intent.confidence, keywords: intent.detectedKeywords, lang: intent.language });
 
-        // 2. Check for shortcut (greeting, farewell, thanks → skip LLM)
+        // 2. Check for shortcut (greeting, farewell, thanks → skip LLM entirely)
         let aiResponse: string;
         let shouldEndCall = false;
         let responseSource: 'shortcut' | 'cache' | 'llm' = 'llm';
+        let responseAudioUrls: string[] = [];
+
+        const cartesiaLang = language === 'en' ? 'en' : 'tr';
+        const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
+        const cartesiaStart = Date.now();
 
         if (shouldShortcut(intent)) {
             aiResponse = getShortcutResponse(intent.intent, language);
             shouldEndCall = intent.intent === 'farewell';
             responseSource = 'shortcut';
         } else {
-            // 3. Check response cache → call LLM only on miss
+            // 3. Check response cache → LLM'i yalnızca cache miss'te çağır
             const cache = getResponseCache();
             const cacheKey = buildCacheKey(tenantId, intent.intent, speechResult);
             const cachedResponse = cache.get(cacheKey);
@@ -332,59 +338,84 @@ export async function POST(request: NextRequest) {
                 aiResponse = cachedResponse;
                 responseSource = 'cache';
             } else {
+                // ── Streaming Pipeline: LLM akışı + cümle-bazlı TTS parçalama ────────
+                // İlk cümle hazır olur olmaz Cartesia başlar → kullanıcı ~700ms'de sesi duyar
+                // (önceki mimari: LLM tamamlandıktan sonra TTS → ~1400ms)
                 const llmStart = Date.now();
-                aiResponse = await generateLLMResponse(speechResult, tenantData, tenantId, callSid, language, activeAgent, history);
-                rlog.info('llm', { durationMs: Date.now() - llmStart, responseLength: aiResponse.length });
-                // Store in cache for future calls (same tenant, same question)
+                const phoneMessages = buildPhoneMessages(speechResult, tenantData, language, activeAgent, history);
+
+                const pipelineResult = await streamLLMWithChunkedTTS(phoneMessages, {
+                    lang: cartesiaLang,
+                    voiceId,
+                    maxTokens: 150,  // Kısa yanıta zorlamıyoruz — LLM doğal uzunluğunu seçer
+                    temperature: 0.3,
+                    baseUrl,
+                }).catch(() => null);
+
+                if (pipelineResult) {
+                    // ── Streaming başarılı: chunk1 hazır, chunk2 arka planda ──
+                    aiResponse = optimizeForPhoneTTS(pipelineResult.fullText);
+                    responseAudioUrls = [pipelineResult.chunk1Url, pipelineResult.chunk2Url]
+                        .filter((u): u is string => !!u);
+
+                    // Chunk2 TTS oluşturmasını response gönderildikten sonra tamamla
+                    try { after(pipelineResult.chunk2Gen); } catch { void pipelineResult.chunk2Gen; }
+
+                    rlog.info('llm', {
+                        source: 'groq-stream',
+                        durationMs: Date.now() - llmStart,
+                        responseLength: aiResponse.length,
+                        chunks: responseAudioUrls.length,
+                        ...pipelineResult.timing,
+                    });
+                } else {
+                    // ── Fallback: streaming başarısız → klasik LLM + tek TTS ──
+                    aiResponse = await generateLLMResponse(speechResult, tenantData, tenantId, callSid, language, activeAgent, history);
+                    rlog.info('llm', { source: 'fallback', durationMs: Date.now() - llmStart, responseLength: aiResponse.length });
+                }
+
                 cache.set(cacheKey, aiResponse, intent.intent);
             }
 
-            // Check if LLM suggests ending the call
+            // Aramanın bitmesi gerekip gerekmediğini kontrol et
             shouldEndCall = aiResponse.toLowerCase().includes('iyi günler') ||
                             aiResponse.toLowerCase().includes('hoşça kalın') ||
                             aiResponse.toLowerCase().includes('goodbye');
         }
 
-        // 4. Optimize text for phone TTS (160 char limit → Cartesia ~400ms daha hızlı)
+        // 4. Metin optimizasyonu (emoji/markdown temizleme)
+        //    Streaming path'de fullText zaten optimize edildi; shortcut/cache için burada yap
         const preOptLen = aiResponse.length;
-        aiResponse = optimizeForPhoneTTS(aiResponse, 160);
+        if (responseAudioUrls.length === 0) {
+            // Streaming yapmadıysak metni optimize et (shortcut, cache hit, fallback)
+            aiResponse = optimizeForPhoneTTS(aiResponse);
+        }
         const postOptLen = aiResponse.length;
 
-        // 5. Pre-generate Cartesia audio + Firestore write in PARALLEL
-        //    → eliminates double-hop latency: Twilio won't need to wait for Cartesia
-        const cartesiaLang = language === 'en' ? 'en' : 'tr';
-        const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
-
-        const cartesiaStart = Date.now();
-        const [cartesiaResult] = await Promise.all([
-            // 5a. Generate Cartesia audio (await — needed before we can return TwiML with cache ID)
-            isCartesiaConfigured() && !shouldEndCall
-                ? synthesizeCartesiaTTS(aiResponse, cartesiaLang, voiceId)
-                    .catch(() => null)
-                : Promise.resolve(null),
-
-            // 5b. Firestore update (fire-and-forget — don't block TwiML return)
-            getDb()
-                .collection('tenants').doc(tenantId)
-                .collection('calls').doc(callSid)
-                .update({
-                    conversationHistory: FieldValue.arrayUnion(
-                        { role: 'user', content: speechResult, intent: intent.intent, timestamp: new Date().toISOString() },
-                        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
-                    ),
-                    lastActivityAt: FieldValue.serverTimestamp(),
-                }).catch(() => {}),
-        ]);
-
-        // Cache audio for tts/phone endpoint to serve instantly
-        let responseAudioUrl: string | undefined;
-        if (cartesiaResult) {
-            const audioId = crypto.randomUUID();
-            const audioBuf = Buffer.from(await cartesiaResult.arrayBuffer());
-            cachePhoneAudio(audioId, audioBuf);
-            responseAudioUrl = `${baseUrl}/api/voice/tts/phone?id=${audioId}`;
-            rlog.info('tts:pre-gen', { audioId, audioBytes: audioBuf.byteLength, cartesiaMs: Date.now() - cartesiaStart });
+        // 5. Streaming kullanılmadıysa tek-chunk TTS üret (shortcut, cache hit, fallback)
+        if (responseAudioUrls.length === 0 && isCartesiaConfigured() && !shouldEndCall) {
+            const cartesiaResult = await synthesizeCartesiaTTS(aiResponse, cartesiaLang, voiceId)
+                .catch(() => null);
+            if (cartesiaResult) {
+                const audioId = crypto.randomUUID();
+                const audioBuf = Buffer.from(await cartesiaResult.arrayBuffer());
+                cachePhoneAudio(audioId, audioBuf);
+                responseAudioUrls = [`${baseUrl}/api/voice/tts/phone?id=${audioId}`];
+                rlog.info('tts:pre-gen', { audioId, audioBytes: audioBuf.byteLength, cartesiaMs: Date.now() - cartesiaStart });
+            }
         }
+
+        // 6. Firestore konuşma geçmişini güncelle (fire-and-forget)
+        getDb()
+            .collection('tenants').doc(tenantId)
+            .collection('calls').doc(callSid)
+            .update({
+                conversationHistory: FieldValue.arrayUnion(
+                    { role: 'user', content: speechResult, intent: intent.intent, timestamp: new Date().toISOString() },
+                    { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
+                ),
+                lastActivityAt: FieldValue.serverTimestamp(),
+            }).catch(() => {});
 
         rlog.info('gather:done', {
             source: responseSource,
@@ -392,12 +423,13 @@ export async function POST(request: NextRequest) {
             configCache: { tenant: tenantCacheHit, agent: agentCacheHit },
             ttsOpt: preOptLen !== postOptLen ? { before: preOptLen, after: postOptLen } : 'no-change',
             shouldEnd: shouldEndCall,
+            chunks: responseAudioUrls.length,
             firestoreMs,
             cartesiaMs: Date.now() - cartesiaStart,
             totalMs: Date.now() - reqStart,
         });
 
-        // 6. Fire n8n webhook (fire-and-forget)
+        // 7. n8n webhook (fire-and-forget)
         sendWebhook('on_new_call', {
             tenantId,
             sessionId: callSid,
@@ -411,13 +443,13 @@ export async function POST(request: NextRequest) {
             },
         }).catch(() => {});
 
-        // 7. Build TwiML response
+        // 8. TwiML yanıtı oluştur
         const twiml = generateResponseAndGatherTwiML({
             gatherUrl,
             aiResponse,
             language: language === 'en' ? 'en-US' : 'tr-TR',
             shouldHangup: shouldEndCall,
-            audioUrl: responseAudioUrl,
+            audioUrls: responseAudioUrls.length > 0 ? responseAudioUrls : undefined,
         });
 
         return new NextResponse(twiml, {
@@ -436,7 +468,76 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Generate LLM response using shared fallback chain (OpenAI → Groq → Gemini).
+ * Telefon görüşmesi için mesaj dizisini oluşturur.
+ * Hem streaming pipeline hem de klasik fallback tarafından kullanılır.
+ */
+function buildPhoneMessages(
+    userMessage: string,
+    tenantData: FirebaseFirestore.DocumentData | undefined,
+    language: string,
+    activeAgent?: FirebaseFirestore.DocumentData | null,
+    existingHistory?: Array<{ role: string; content: string }>,
+): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
+    let systemPrompt: string;
+
+    if (activeAgent?.systemPrompt) {
+        systemPrompt = activeAgent.systemPrompt;
+        const variables = activeAgent.variables || [];
+        for (const v of variables) {
+            if (v.key && v.defaultValue) {
+                systemPrompt = systemPrompt.replace(
+                    new RegExp(`\\{${v.key}\\}`, 'g'),
+                    v.defaultValue,
+                );
+            }
+        }
+        if (!systemPrompt.includes('telefon görüşmesi')) {
+            systemPrompt += `\n\nTelefon Görüşmesi Kuralları:
+- Doğal ve akıcı konuş, gereksiz uzatmaktan kaçın
+- ${language === 'tr' ? 'Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)' : 'Speak English unless the customer speaks Turkish'}
+- Samimi ve yardımsever bir üslup kullan`;
+        }
+    } else {
+        const agentName = tenantData?.agent?.name || 'Asistan';
+        const companyName = tenantData?.companyName || 'Şirket';
+        const agentRole = tenantData?.agent?.role || 'Müşteri Temsilcisi';
+        const traits = tenantData?.agent?.traits?.join(', ') || 'profesyonel, nazik';
+        const services = tenantData?.business?.services?.join(', ') || '';
+        const workingHours = tenantData?.business?.workingHours || '09:00-18:00';
+        const workingDays = tenantData?.business?.workingDays || 'Pazartesi-Cuma';
+
+        systemPrompt = `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
+Karakter özelliklerin: ${traits}.
+${services ? `Sunduğun hizmetler: ${services}.` : ''}
+Çalışma saatleri: ${workingDays}, ${workingHours}.
+
+Kurallar:
+- Doğal ve akıcı konuş, gereksiz uzatmaktan kaçın
+- Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)
+- Randevu, şikayet, bilgi talebi gibi işlemleri yönet
+- Fiyat, kontrat detayı verme (sadece bilgi al, kaydet)
+- Çözemediğin konularda müşteriye yetkili birine yönlendir
+- Doğal ve samimi bir üslup kullan
+- Müşterinin adını sor ve kullan`;
+    }
+
+    const chatHistory = (existingHistory || [])
+        .slice(-6) // Son 3 tur
+        .map((turn: { role: string; content: string }) => ({
+            role: turn.role as 'user' | 'assistant',
+            content: turn.content,
+        }));
+
+    return [
+        { role: 'system', content: systemPrompt },
+        ...chatHistory,
+        { role: 'user', content: userMessage },
+    ];
+}
+
+/**
+ * Generate LLM response using shared fallback chain (Groq → Gemini → OpenAI).
+ * Klasik non-streaming fallback — streaming pipeline başarısız olduğunda kullanılır.
  *
  * Accepts pre-loaded conversation history to avoid duplicate Firestore reads
  * (history is already loaded in POST handler for turn counting).
@@ -450,71 +551,14 @@ async function generateLLMResponse(
     activeAgent?: FirebaseFirestore.DocumentData | null,
     existingHistory?: Array<{ role: string; content: string }>,
 ): Promise<string> {
+    void tenantId; void callSid; // Gelecekte kullanılabilir (linting)
     try {
-        let systemPrompt: string;
+        // buildPhoneMessages ile mesaj dizisini oluştur (streaming pipeline ile aynı prompt)
+        const messages = buildPhoneMessages(userMessage, tenantData, language, activeAgent, existingHistory);
 
-        if (activeAgent?.systemPrompt) {
-            // Use agent's custom system prompt (from agents collection)
-            // Resolve variables: replace {key} with defaultValue
-            systemPrompt = activeAgent.systemPrompt;
-            const variables = activeAgent.variables || [];
-            for (const v of variables) {
-                if (v.key && v.defaultValue) {
-                    systemPrompt = systemPrompt.replace(
-                        new RegExp(`\\{${v.key}\\}`, 'g'),
-                        v.defaultValue,
-                    );
-                }
-            }
-            // Append phone-call rules if not already present
-            if (!systemPrompt.includes('telefon görüşmesi')) {
-                systemPrompt += `\n\nTelefon Görüşmesi Kuralları:
-- Telefon için MAKSIMUM 2 cümle, toplamda 150 karakter
-- ${language === 'tr' ? 'Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)' : 'Speak English unless the customer speaks Turkish'}
-- Doğal ve samimi bir üslup kullan`;
-            }
-        } else {
-            // Fallback: Build system prompt from tenant-level config
-            const agentName = tenantData?.agent?.name || 'Asistan';
-            const companyName = tenantData?.companyName || 'Şirket';
-            const agentRole = tenantData?.agent?.role || 'Müşteri Temsilcisi';
-            const traits = tenantData?.agent?.traits?.join(', ') || 'profesyonel, nazik';
-            const services = tenantData?.business?.services?.join(', ') || '';
-            const workingHours = tenantData?.business?.workingHours || '09:00-18:00';
-            const workingDays = tenantData?.business?.workingDays || 'Pazartesi-Cuma';
-
-            systemPrompt = `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
-Karakter özelliklerin: ${traits}.
-${services ? `Sunduğun hizmetler: ${services}.` : ''}
-Çalışma saatleri: ${workingDays}, ${workingHours}.
-
-Kurallar:
-- Telefon için MAKSIMUM 2 cümle, toplamda 150 karakter
-- Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)
-- Randevu, şikayet, bilgi talebi gibi işlemleri yönet
-- Fiyat, kontrat detayı verme (sadece bilgi al, kaydet)
-- Çözemediğin konularda müşteriye yetkili birine yönlendir
-- Doğal ve samimi bir üslup kullan
-- Müşterinin adını sor ve kullan`;
-        }
-
-        // Use pre-loaded history (avoids duplicate Firestore read)
-        const chatHistory = (existingHistory || [])
-            .slice(-6) // Last 3 turns
-            .map((turn: { role: string; content: string }) => ({
-                role: turn.role as 'user' | 'assistant',
-                content: turn.content,
-            }));
-
-        // Use shared fallback chain (Groq → OpenAI → Gemini → graceful)
-        const result = await generateWithFallback(
-            [
-                { role: 'system', content: systemPrompt },
-                ...chatHistory,
-                { role: 'user', content: userMessage },
-            ],
-            { maxTokens: 80, temperature: 0.3, language },
-        );
+        // Fallback zinciri: Groq → Gemini → OpenAI → graceful
+        // maxTokens: 150 — kısa yanıta ZORLAMIYORUZ, LLM doğal uzunluğu seçer
+        const result = await generateWithFallback(messages, { maxTokens: 150, temperature: 0.3, language });
 
         return result.text || 'Yanıt oluşturulamadı.';
 

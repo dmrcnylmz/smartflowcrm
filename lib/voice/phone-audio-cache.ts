@@ -53,3 +53,32 @@ export function getCachedPhoneAudio(id: string): Buffer | null {
 export function getPhoneAudioCacheSize(): number {
     return phoneAudioCache.size;
 }
+
+// ─── Metin-bazlı cache (HMAC fallback path için) ───────────────────────────
+//
+// Streaming pipeline chunk2'yi arka planda üretip metne göre cache'e alır.
+// tts/phone'un HMAC fallback yolu, Cartesia'ya gitmeden önce bu cache'i kontrol eder.
+// Böylece Twilio chunk2'yi istediğinde cache'ten (~5ms) alınır.
+
+import { createHash } from 'crypto';
+
+function makeTextKey(text: string, lang: string, voiceId: string): string {
+    return 'txt:' + createHash('sha256')
+        .update(`${text}\x00${lang}\x00${voiceId}`)
+        .digest('hex')
+        .slice(0, 24);
+}
+
+/** Metne göre audio cache'e yaz (streaming pipeline chunk2 için). */
+export function cachePhoneAudioByText(text: string, lang: string, voiceId: string, buf: Buffer): void {
+    phoneAudioCache.set(makeTextKey(text, lang, voiceId), { buf, exp: Date.now() + CACHE_TTL_MS });
+}
+
+/** Metne göre audio al. Yoksa veya süre dolmuşsa null döner. */
+export function getCachedPhoneAudioByText(text: string, lang: string, voiceId: string): Buffer | null {
+    const key = makeTextKey(text, lang, voiceId);
+    const entry = phoneAudioCache.get(key);
+    if (!entry) return null;
+    if (entry.exp < Date.now()) { phoneAudioCache.delete(key); return null; }
+    return entry.buf;
+}

@@ -131,6 +131,17 @@ vi.mock('@/lib/n8n/client', () => ({
     sendWebhook: (...args: unknown[]) => mockSendWebhook(...args),
 }));
 
+// ── Streaming TTS Pipeline mock (tests'te null döner → klasik fallback kullanılır) ──
+vi.mock('@/lib/voice/streaming-tts-pipeline', () => ({
+    streamLLMWithChunkedTTS: vi.fn().mockResolvedValue(null),
+}));
+
+// ── next/server after() mock (test ortamında no-op) ──
+vi.mock('next/server', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('next/server')>();
+    return { ...actual, after: vi.fn() };
+});
+
 // ── Default Twilio call body ──
 const defaultCallBody = {
     From: '+905551111111',

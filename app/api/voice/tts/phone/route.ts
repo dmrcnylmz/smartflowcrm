@@ -14,7 +14,7 @@
 
 import { NextRequest } from 'next/server';
 import { synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
-import { getCachedPhoneAudio } from '@/lib/voice/phone-audio-cache';
+import { getCachedPhoneAudio, getCachedPhoneAudioByText } from '@/lib/voice/phone-audio-cache';
 import { createLogger } from '@/lib/utils/logger';
 import { createHmac } from 'crypto';
 
@@ -79,6 +79,14 @@ export async function GET(request: NextRequest) {
     if (!verifySignature(text, lang, voiceId, sig)) {
         log.warn('tts:phone:forbidden', { textLength: text.length, lang });
         return new Response('Forbidden', { status: 403 });
+    }
+
+    // ── Metin-hash cache: streaming pipeline chunk2'yi önceden üretmiş olabilir ──
+    const textCached = getCachedPhoneAudioByText(text, lang, voiceId);
+    if (textCached) {
+        const latencyMs = Date.now() - start;
+        log.info('tts:phone:text-cache-hit', { textLength: text.length, latencyMs });
+        return audioResponse(textCached.buffer as ArrayBuffer, 'text-cache', latencyMs);
     }
 
     try {
