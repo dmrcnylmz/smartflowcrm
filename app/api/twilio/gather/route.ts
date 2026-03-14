@@ -28,13 +28,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig, buildPhoneTtsUrl } from '@/lib/twilio/telephony';
+import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig } from '@/lib/twilio/telephony';
 import { detectIntentFast, shouldShortcut, getShortcutResponse } from '@/lib/ai/intent-fast';
 import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';
 import { sendWebhook } from '@/lib/n8n/client';
 import { getResponseCache, buildCacheKey } from '@/lib/ai/response-cache';
 import { optimizeForPhoneTTS } from '@/lib/twilio/text-optimizer';
-import { isCartesiaConfigured } from '@/lib/voice/tts-cartesia';
+import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
+import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:gather');
@@ -343,28 +344,53 @@ export async function POST(request: NextRequest) {
         aiResponse = optimizeForPhoneTTS(aiResponse);
         const postOptLen = aiResponse.length;
 
+        // 5. Pre-generate Cartesia audio + Firestore write in PARALLEL
+        //    → eliminates double-hop latency: Twilio won't need to wait for Cartesia
+        const cartesiaLang = language === 'en' ? 'en' : 'tr';
+        const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
+
+        const cartesiaStart = Date.now();
+        const [cartesiaResult] = await Promise.all([
+            // 5a. Generate Cartesia audio (await — needed before we can return TwiML with cache ID)
+            isCartesiaConfigured() && !shouldEndCall
+                ? synthesizeCartesiaTTS(aiResponse, cartesiaLang, voiceId)
+                    .catch(() => null)
+                : Promise.resolve(null),
+
+            // 5b. Firestore update (fire-and-forget — don't block TwiML return)
+            getDb()
+                .collection('tenants').doc(tenantId)
+                .collection('calls').doc(callSid)
+                .update({
+                    conversationHistory: FieldValue.arrayUnion(
+                        { role: 'user', content: speechResult, intent: intent.intent, timestamp: new Date().toISOString() },
+                        { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
+                    ),
+                    lastActivityAt: FieldValue.serverTimestamp(),
+                }).catch(() => {}),
+        ]);
+
+        // Cache audio for tts/phone endpoint to serve instantly
+        let responseAudioUrl: string | undefined;
+        if (cartesiaResult) {
+            const audioId = crypto.randomUUID();
+            const audioBuf = Buffer.from(await cartesiaResult.arrayBuffer());
+            cachePhoneAudio(audioId, audioBuf);
+            responseAudioUrl = `${baseUrl}/api/voice/tts/phone?id=${audioId}`;
+            rlog.info('tts:pre-gen', { audioId, audioBytes: audioBuf.byteLength, cartesiaMs: Date.now() - cartesiaStart });
+        }
+
         rlog.info('gather:done', {
             source: responseSource,
             turn: turnCount,
             configCache: { tenant: tenantCacheHit, agent: agentCacheHit },
             ttsOpt: preOptLen !== postOptLen ? { before: preOptLen, after: postOptLen } : 'no-change',
             shouldEnd: shouldEndCall,
+            cartesiaMs: Date.now() - cartesiaStart,
             totalMs: Date.now() - reqStart,
         });
 
-        // 5. Save conversation turn to Firestore
-        await getDb()
-            .collection('tenants').doc(tenantId)
-            .collection('calls').doc(callSid)
-            .update({
-                conversationHistory: FieldValue.arrayUnion(
-                    { role: 'user', content: speechResult, intent: intent.intent, timestamp: new Date().toISOString() },
-                    { role: 'assistant', content: aiResponse, timestamp: new Date().toISOString() }
-                ),
-                lastActivityAt: FieldValue.serverTimestamp(),
-            });
-
-        // 6. Fire n8n on_new_call webhook (fire-and-forget)
+        // 6. Fire n8n webhook (fire-and-forget)
         sendWebhook('on_new_call', {
             tenantId,
             sessionId: callSid,
@@ -378,13 +404,7 @@ export async function POST(request: NextRequest) {
             },
         }).catch(() => {});
 
-        // 7. Build TwiML response — use Cartesia <Play> if configured, else Google WaveNet <Say>
-        const cartesiaLang = language === 'en' ? 'en' : 'tr';
-        const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
-        const responseAudioUrl = isCartesiaConfigured()
-            ? buildPhoneTtsUrl(baseUrl, aiResponse, cartesiaLang, voiceId)
-            : undefined;
-
+        // 7. Build TwiML response
         const twiml = generateResponseAndGatherTwiML({
             gatherUrl,
             aiResponse,

@@ -1,23 +1,20 @@
 /**
  * Phone TTS Endpoint — Serves Cartesia audio for Twilio <Play>
  *
+ * GET /api/voice/tts/phone?id=AUDIO_CACHE_ID
+ *   Fast path: gather route pre-generated audio, serve from module cache instantly.
+ *
  * GET /api/voice/tts/phone?t=BASE64URL_TEXT&l=tr&v=VOICE_ID&s=HMAC_SIG
+ *   Fallback path: generate audio via Cartesia on demand (cache miss / different instance).
  *
- * Called by Twilio when processing <Play> tags in TwiML.
- * Generates audio via Cartesia Sonic-3 and returns WAV.
- *
- * Security: HMAC-SHA256 signature using TWILIO_AUTH_TOKEN as secret.
- * This prevents unauthorized TTS generation.
- *
- * Flow:
- *   1. Twilio receives TwiML with <Play url="...this endpoint..."/>
- *   2. Twilio fetches audio from this URL
- *   3. We call Cartesia API → PCM → WAV
- *   4. Return WAV audio to Twilio for playback
+ * Security:
+ *   - Cache ID path: UUIDs are unguessable, short TTL (60s)
+ *   - Text path: HMAC-SHA256 signature using TWILIO_AUTH_TOKEN as secret
  */
 
 import { NextRequest } from 'next/server';
 import { synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
+import { getCachedPhoneAudio } from '@/lib/voice/phone-audio-cache';
 import { createLogger } from '@/lib/utils/logger';
 import { createHmac } from 'crypto';
 
@@ -25,10 +22,6 @@ export const dynamic = 'force-dynamic';
 
 const log = createLogger('tts:phone');
 
-/**
- * Verify HMAC signature to prevent abuse.
- * Signature = first 16 hex chars of HMAC-SHA256(text:lang:voiceId, TWILIO_AUTH_TOKEN)
- */
 function verifySignature(text: string, lang: string, voiceId: string, signature: string): boolean {
     const secret = process.env.TWILIO_AUTH_TOKEN || '';
     if (!secret) return false;
@@ -37,16 +30,44 @@ function verifySignature(text: string, lang: string, voiceId: string, signature:
     return expected === signature;
 }
 
+function audioResponse(buf: Buffer | ArrayBuffer, source: string, latencyMs: number): Response {
+    const buffer = buf instanceof Buffer ? buf : Buffer.from(buf);
+    return new Response(buffer, {
+        headers: {
+            'Content-Type': 'audio/wav',
+            'Content-Length': String(buffer.byteLength),
+            'Cache-Control': 'private, max-age=300',
+            'X-TTS-Provider': 'cartesia',
+            'X-TTS-Source': source,
+            'X-TTS-Latency-Ms': String(latencyMs),
+        },
+    });
+}
+
 export async function GET(request: NextRequest) {
     const start = Date.now();
     const { searchParams } = request.nextUrl;
+    const audioId = searchParams.get('id');
 
+    // ── FAST PATH: serve from pre-generated cache ──────────────────────────
+    if (audioId) {
+        const cached = getCachedPhoneAudio(audioId);
+        if (cached) {
+            const latencyMs = Date.now() - start;
+            log.info('tts:phone:cache-hit', { audioId, audioBytes: cached.byteLength, latencyMs });
+            return audioResponse(cached, 'cache', latencyMs);
+        }
+        // Cache miss (different Vercel instance) — fall through to text-based generation
+        log.warn('tts:phone:cache-miss', { audioId });
+        return new Response('Audio not found or expired', { status: 404 });
+    }
+
+    // ── FALLBACK PATH: generate from text (HMAC signed) ────────────────────
     const textB64 = searchParams.get('t') || '';
     const lang = (searchParams.get('l') || 'tr') as 'tr' | 'en';
     const voiceId = searchParams.get('v') || '';
     const sig = searchParams.get('s') || '';
 
-    // Decode base64url text
     let text: string;
     try {
         text = Buffer.from(textB64, 'base64url').toString('utf-8');
@@ -54,38 +75,24 @@ export async function GET(request: NextRequest) {
         return new Response('Bad Request', { status: 400 });
     }
 
-    if (!text) {
-        return new Response('Bad Request: missing text', { status: 400 });
-    }
+    if (!text) return new Response('Bad Request: missing text or id', { status: 400 });
 
-    // Verify HMAC signature
     if (!verifySignature(text, lang, voiceId, sig)) {
         log.warn('tts:phone:forbidden', { textLength: text.length, lang });
         return new Response('Forbidden', { status: 403 });
     }
 
-    // Generate audio via Cartesia
     try {
-        const audioResponse = await synthesizeCartesiaTTS(text, lang, voiceId || undefined);
-        if (!audioResponse) {
+        const audioResp = await synthesizeCartesiaTTS(text, lang, voiceId || undefined);
+        if (!audioResp) {
             log.error('tts:phone:cartesia_failed', { textLength: text.length, lang });
             return new Response('TTS generation failed', { status: 502 });
         }
 
-        const audioBuffer = await audioResponse.arrayBuffer();
+        const buf = await audioResp.arrayBuffer();
         const latencyMs = Date.now() - start;
-
-        log.info('tts:phone:ok', { textLength: text.length, lang, audioBytes: audioBuffer.byteLength, latencyMs });
-
-        return new Response(audioBuffer, {
-            headers: {
-                'Content-Type': 'audio/wav',
-                'Content-Length': String(audioBuffer.byteLength),
-                'Cache-Control': 'private, max-age=300', // 5 min cache — same text = same audio
-                'X-TTS-Provider': 'cartesia',
-                'X-TTS-Latency-Ms': String(latencyMs),
-            },
-        });
+        log.info('tts:phone:cartesia-fallback', { textLength: text.length, lang, audioBytes: buf.byteLength, latencyMs });
+        return audioResponse(buf, 'cartesia-fallback', latencyMs);
     } catch (err) {
         log.error('tts:phone:error', { error: err instanceof Error ? err.message : String(err) });
         return new Response('Internal Server Error', { status: 500 });

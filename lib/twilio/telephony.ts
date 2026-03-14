@@ -293,9 +293,7 @@ export function generateGatherTwiML(options: {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   ${recordDirective}${greetingTag}
-  <Gather ${gatherAttr}>
-    <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'I am listening...' : 'Dinliyorum...'}</Say>
-  </Gather>
+  <Gather ${gatherAttr}/>
   <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'I could not hear you. Could you please repeat?' : 'Sizi duyamadım, tekrar söyleyebilir misiniz?'}</Say>
   <Gather ${gatherAttr}/>
   <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Thank you for calling. Goodbye.' : 'Aradığınız için teşekkür ederiz. İyi günler.'}</Say>
