@@ -32,7 +32,7 @@ const DEFAULT_CONFIG: RAGConfig = {
 export async function retrieveContext(
   query: string,
   vectorStore: VectorStore,
-  _embedder: EmbeddingGenerator,
+  _embedder: unknown,
   config: RAGConfig = {},
   tenantId: string = 'default'
 ): Promise<RAGResult> {
