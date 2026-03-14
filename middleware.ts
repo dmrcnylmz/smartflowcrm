@@ -22,6 +22,7 @@ const PUBLIC_API_PATHS = [
     '/api/twilio/status',
     '/api/twilio/gather',
     '/api/twilio/recording',
+    '/api/voice/tts/phone',  // Twilio <Play> fetches this without auth — HMAC imzayla korumalı
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
     '/api/cron/gpu-shutdown',
