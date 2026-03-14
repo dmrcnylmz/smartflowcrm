@@ -20,7 +20,7 @@ export interface GuardrailConfig {
     allowPriceQuotes: boolean;
     allowContractTerms: boolean;
     maxResponseLength: number;
-    language: 'tr' | 'en';
+    language: 'tr' | 'en' | 'de' | 'fr';
 }
 
 export interface GuardrailResult {

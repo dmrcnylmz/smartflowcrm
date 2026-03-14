@@ -20,7 +20,7 @@ export interface PromptContext {
     tenant: TenantConfig;
     ragResults: SearchResult[];
     currentIntent?: string;
-    language: 'tr' | 'en';
+    language: 'tr' | 'en' | 'de' | 'fr';
 }
 
 // --- Core Builder ---
@@ -32,11 +32,16 @@ export interface PromptContext {
 export function buildSystemPrompt(ctx: PromptContext): string {
     const { tenant, ragResults, currentIntent, language } = ctx;
 
-    if (language === 'en') {
-        return buildEnglishPrompt(tenant, ragResults, currentIntent);
+    switch (language) {
+        case 'en':
+            return buildEnglishPrompt(tenant, ragResults, currentIntent);
+        case 'de':
+            return buildGermanPrompt(tenant, ragResults, currentIntent);
+        case 'fr':
+            return buildFrenchPrompt(tenant, ragResults, currentIntent);
+        default:
+            return buildTurkishPrompt(tenant, ragResults, currentIntent);
     }
-
-    return buildTurkishPrompt(tenant, ragResults, currentIntent);
 }
 
 // --- Turkish Prompt ---
@@ -173,6 +178,144 @@ function buildEnglishPrompt(
     return parts.join('\n');
 }
 
+// --- German Prompt ---
+
+function buildGermanPrompt(
+    tenant: TenantConfig,
+    ragResults: SearchResult[],
+    currentIntent?: string,
+): string {
+    const { agent, business, guardrails } = tenant;
+
+    const parts: string[] = [];
+
+    // Layer 1: Identity
+    parts.push(`Sie sind ${agent.name}, ${agent.role} bei ${tenant.companyName}.`);
+    parts.push(`Ihre Persönlichkeit: ${agent.traits.join(', ')}.`);
+    parts.push('Sie führen ein Telefongespräch mit einem Kunden. Sprechen Sie kurz, klar und natürlich.');
+
+    // Layer 2: Company Facts
+    parts.push('');
+    parts.push('--- UNTERNEHMENSINFORMATIONEN ---');
+    parts.push(`Unternehmen: ${tenant.companyName}`);
+    parts.push(`Branche: ${tenant.sector}`);
+    parts.push(`Arbeitszeiten: ${business.workingDays} ${business.workingHours}`);
+    if (business.services.length > 0) {
+        parts.push(`Dienstleistungen: ${business.services.join(', ')}`);
+    }
+    if (business.phone) parts.push(`Telefon: ${business.phone}`);
+    if (business.email) parts.push(`E-Mail: ${business.email}`);
+    if (business.website) parts.push(`Web: ${business.website}`);
+
+    // Layer 3: RAG Context
+    if (ragResults.length > 0) {
+        parts.push('');
+        parts.push('--- WISSENSDATENBANK (NUR HIERAUS ANTWORTEN) ---');
+        for (const result of ragResults) {
+            parts.push(result.text);
+        }
+    }
+
+    // Intent-specific
+    if (currentIntent) {
+        parts.push('');
+        parts.push(`--- AKTUELLES KUNDENANLIEGEN: ${getIntentLabelDE(currentIntent)} ---`);
+        parts.push(getIntentInstructionDE(currentIntent));
+    }
+
+    // Layer 4: Guardrails
+    parts.push('');
+    parts.push('--- ABSOLUTE REGELN (NIEMALS VERLETZEN) ---');
+    parts.push('1. Antworten Sie NUR aus der obigen Wissensdatenbank. Erfinden Sie keine Informationen.');
+    parts.push('2. Bei Unsicherheit sagen Sie: "Lassen Sie mich das prüfen und ich melde mich bei Ihnen."');
+    parts.push('3. Geben Sie niemals zu, dass Sie eine KI, ein Bot oder ein Assistent sind.');
+    parts.push('4. Erwähnen Sie niemals Konkurrenzunternehmen.');
+
+    if (!guardrails.allowPriceQuotes) {
+        parts.push('5. Nennen Sie keine Preise, es sei denn, sie stehen in der Wissensdatenbank.');
+    }
+    if (!guardrails.allowContractTerms) {
+        parts.push('6. Machen Sie keine Vertrags- oder Bindungszusagen.');
+    }
+    if (guardrails.forbiddenTopics.length > 0) {
+        parts.push(`7. Sprechen Sie nicht über: ${guardrails.forbiddenTopics.join(', ')}`);
+    }
+
+    parts.push('');
+    parts.push('Halten Sie Antworten kurz (1-3 Sätze). Klingen Sie natürlich, wie in einem echten Telefonat.');
+
+    return parts.join('\n');
+}
+
+// --- French Prompt ---
+
+function buildFrenchPrompt(
+    tenant: TenantConfig,
+    ragResults: SearchResult[],
+    currentIntent?: string,
+): string {
+    const { agent, business, guardrails } = tenant;
+
+    const parts: string[] = [];
+
+    // Layer 1: Identity
+    parts.push(`Vous êtes ${agent.name}, ${agent.role} chez ${tenant.companyName}.`);
+    parts.push(`Votre personnalité : ${agent.traits.join(', ')}.`);
+    parts.push('Vous êtes en conversation téléphonique avec un client. Parlez brièvement, clairement et naturellement.');
+
+    // Layer 2: Company Facts
+    parts.push('');
+    parts.push('--- INFORMATIONS ENTREPRISE ---');
+    parts.push(`Entreprise : ${tenant.companyName}`);
+    parts.push(`Secteur : ${tenant.sector}`);
+    parts.push(`Horaires : ${business.workingDays} ${business.workingHours}`);
+    if (business.services.length > 0) {
+        parts.push(`Services : ${business.services.join(', ')}`);
+    }
+    if (business.phone) parts.push(`Téléphone : ${business.phone}`);
+    if (business.email) parts.push(`E-mail : ${business.email}`);
+    if (business.website) parts.push(`Web : ${business.website}`);
+
+    // Layer 3: RAG Context
+    if (ragResults.length > 0) {
+        parts.push('');
+        parts.push('--- BASE DE CONNAISSANCES (RÉPONDEZ UNIQUEMENT À PARTIR DE CECI) ---');
+        for (const result of ragResults) {
+            parts.push(result.text);
+        }
+    }
+
+    // Intent-specific
+    if (currentIntent) {
+        parts.push('');
+        parts.push(`--- INTENTION ACTUELLE DU CLIENT : ${getIntentLabelFR(currentIntent)} ---`);
+        parts.push(getIntentInstructionFR(currentIntent));
+    }
+
+    // Layer 4: Guardrails
+    parts.push('');
+    parts.push('--- RÈGLES ABSOLUES (NE JAMAIS ENFREINDRE) ---');
+    parts.push('1. Répondez UNIQUEMENT à partir de la base de connaissances ci-dessus. N\'inventez rien.');
+    parts.push('2. En cas de doute, dites : "Permettez-moi de vérifier et je reviens vers vous."');
+    parts.push('3. Ne révélez jamais que vous êtes une IA, un bot ou un assistant.');
+    parts.push('4. Ne mentionnez jamais les entreprises concurrentes.');
+
+    if (!guardrails.allowPriceQuotes) {
+        parts.push('5. Ne donnez pas de prix sauf s\'ils figurent dans la base de connaissances.');
+    }
+    if (!guardrails.allowContractTerms) {
+        parts.push('6. Ne faites aucun engagement contractuel.');
+    }
+    if (guardrails.forbiddenTopics.length > 0) {
+        parts.push(`7. Ne parlez jamais de : ${guardrails.forbiddenTopics.join(', ')}`);
+    }
+
+    parts.push('');
+    parts.push('Gardez vos réponses courtes (1-3 phrases). Soyez naturel, comme dans un vrai appel téléphonique.');
+
+    return parts.join('\n');
+}
+
 // --- Intent Helpers ---
 
 function getIntentLabelTR(intent: string): string {
@@ -218,4 +361,64 @@ function getIntentInstructionEN(intent: string): string {
         thanks: 'Say you\'re welcome and ask if there\'s anything else.',
     };
     return instructions[intent] || 'Help the customer.';
+}
+
+function getIntentLabelDE(intent: string): string {
+    const labels: Record<string, string> = {
+        appointment: 'Terminanfrage',
+        complaint: 'Beschwerde',
+        pricing: 'Preisanfrage',
+        info: 'Informationsanfrage',
+        cancellation: 'Kündigungsanfrage',
+        greeting: 'Begrüßung',
+        farewell: 'Verabschiedung',
+        escalation: 'Weiterleitung',
+        thanks: 'Dankeschön',
+    };
+    return labels[intent] || intent;
+}
+
+function getIntentInstructionDE(intent: string): string {
+    const instructions: Record<string, string> = {
+        appointment: 'Kunde möchte einen Termin buchen. Fragen Sie nach Datum und Uhrzeit. Verwenden Sie book_appointment.',
+        complaint: 'Kunde hat eine Beschwerde. Hören Sie aufmerksam zu, zeigen Sie Empathie. Verwenden Sie log_complaint.',
+        pricing: 'Kunde fragt nach Preisen. Teilen Sie mit, wenn in der Wissensdatenbank, sonst an Fachabteilung weiterleiten.',
+        info: 'Kunde möchte Informationen. Antworten Sie aus der Wissensdatenbank.',
+        cancellation: 'Kunde möchte kündigen. Fragen Sie nach dem Grund, bieten Sie Lösungen an.',
+        greeting: 'Begrüßen Sie den Kunden und fragen Sie, wie Sie helfen können.',
+        farewell: 'Bedanken Sie sich beim Kunden und verabschieden Sie sich.',
+        escalation: 'Verbinden Sie den Kunden mit einem Vorgesetzten. Verwenden Sie escalate_to_human.',
+        thanks: 'Sagen Sie bitte und fragen Sie, ob es noch etwas gibt.',
+    };
+    return instructions[intent] || 'Helfen Sie dem Kunden.';
+}
+
+function getIntentLabelFR(intent: string): string {
+    const labels: Record<string, string> = {
+        appointment: 'Demande de rendez-vous',
+        complaint: 'Réclamation',
+        pricing: 'Demande de prix',
+        info: 'Demande d\'information',
+        cancellation: 'Demande d\'annulation',
+        greeting: 'Salutation',
+        farewell: 'Au revoir',
+        escalation: 'Transfert',
+        thanks: 'Remerciement',
+    };
+    return labels[intent] || intent;
+}
+
+function getIntentInstructionFR(intent: string): string {
+    const instructions: Record<string, string> = {
+        appointment: 'Le client souhaite prendre rendez-vous. Demandez la date et l\'heure. Utilisez book_appointment.',
+        complaint: 'Le client a une réclamation. Écoutez attentivement, montrez de l\'empathie. Utilisez log_complaint.',
+        pricing: 'Le client demande les tarifs. Partagez si disponible dans la base, sinon redirigez vers un spécialiste.',
+        info: 'Le client souhaite des informations. Répondez à partir de la base de connaissances.',
+        cancellation: 'Le client veut annuler. Demandez pourquoi, proposez des solutions.',
+        greeting: 'Saluez le client et demandez comment vous pouvez l\'aider.',
+        farewell: 'Remerciez le client et dites au revoir.',
+        escalation: 'Transférez le client à un responsable. Utilisez escalate_to_human.',
+        thanks: 'Dites de rien et demandez s\'il y a autre chose.',
+    };
+    return instructions[intent] || 'Aidez le client.';
 }
