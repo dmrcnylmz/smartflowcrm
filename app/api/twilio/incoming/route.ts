@@ -25,13 +25,13 @@ import {
     resolveTenantFromPhone,
     validateTwilioSignature,
     getTwilioConfig,
-    buildPhoneTtsUrl,
     type TwilioCallEvent,
 } from '@/lib/twilio/telephony';
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
 import { gpuManager } from '@/lib/voice/gpu-manager';
-import { isCartesiaConfigured } from '@/lib/voice/tts-cartesia';
+import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
+import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:incoming');
@@ -257,11 +257,60 @@ export async function POST(request: NextRequest) {
         // Check if recording is enabled for this tenant
         const recordCall = tenantData?.settings?.callRecording === true;
 
-        // Build Cartesia audio URL for high-quality greeting (fallback to <Say> if not configured)
+        // Pre-generate Cartesia greeting audio + Firestore write in PARALLEL
         const cartesiaLang = language === 'en-US' ? 'en' : 'tr';
-        const greetingAudioUrl = isCartesiaConfigured()
-            ? buildPhoneTtsUrl(baseUrl, greeting, cartesiaLang)
-            : undefined;
+        const agentVoiceId = undefined; // no voiceId binding at phone level yet
+
+        const [cartesiaResult] = await Promise.all([
+            // Pre-generate greeting audio (Twilio will serve from cache instantly)
+            isCartesiaConfigured()
+                ? synthesizeCartesiaTTS(greeting, cartesiaLang, agentVoiceId).catch(() => null)
+                : Promise.resolve(null),
+
+            // Record the call in Firestore (parallel — don't block TwiML)
+            getDb()
+                .collection('tenants').doc(tenantId)
+                .collection('calls').doc(callEvent.CallSid)
+                .set({
+                    callSid: callEvent.CallSid,
+                    tenantId,
+                    from: callerNumber,
+                    to: calledNumber,
+                    direction: 'inbound',
+                    status: callEvent.CallStatus || 'ringing',
+                    channel: 'twilio',
+                    providerType,
+                    sipCarrier: sipCarrier || null,
+                    callerName: callEvent.CallerName || null,
+                    callerCountry: callEvent.CallerCountry || null,
+                    startedAt: FieldValue.serverTimestamp(),
+                    conversationHistory: [],
+                    metadata: {
+                        accountSid: callEvent.AccountSid,
+                        callerCity: callEvent.CallerCity,
+                        callerState: callEvent.CallerState,
+                    },
+                }).catch(() => {}),
+
+            // Meter the call start (parallel)
+            getDb()
+                .collection('tenants').doc(tenantId)
+                .collection('usage').doc('current')
+                .set({
+                    totalCalls: FieldValue.increment(1),
+                    inboundCalls: FieldValue.increment(1),
+                    lastCallAt: FieldValue.serverTimestamp(),
+                }, { merge: true }).catch(() => {}),
+        ]);
+
+        // Cache greeting audio → Twilio <Play> serves from cache instantly
+        let greetingAudioUrl: string | undefined;
+        if (cartesiaResult) {
+            const audioId = crypto.randomUUID();
+            const audioBuf = Buffer.from(await cartesiaResult.arrayBuffer());
+            cachePhoneAudio(audioId, audioBuf);
+            greetingAudioUrl = `${baseUrl}/api/voice/tts/phone?id=${audioId}`;
+        }
 
         // Generate TwiML: Play/Say greeting, then gather speech (optionally record)
         const twiml = generateGatherTwiML({
@@ -273,43 +322,6 @@ export async function POST(request: NextRequest) {
             recordingCallbackUrl: recordingUrl,
             audioUrl: greetingAudioUrl,
         });
-
-        // Record the call in Firestore
-        await getDb()
-            .collection('tenants').doc(tenantId)
-            .collection('calls').doc(callEvent.CallSid)
-            .set({
-                callSid: callEvent.CallSid,
-                tenantId,
-                from: callerNumber,
-                to: calledNumber,
-                direction: 'inbound',
-                status: callEvent.CallStatus || 'ringing',
-                channel: 'twilio',
-                providerType,
-                sipCarrier: sipCarrier || null,
-                callerName: callEvent.CallerName || null,
-                callerCountry: callEvent.CallerCountry || null,
-                startedAt: FieldValue.serverTimestamp(),
-                conversationHistory: [],
-                metadata: {
-                    accountSid: callEvent.AccountSid,
-                    callerCity: callEvent.CallerCity,
-                    callerState: callEvent.CallerState,
-                },
-            });
-
-        // Meter the call start
-        await getDb()
-            .collection('tenants').doc(tenantId)
-            .collection('usage').doc('current')
-            .set({
-                totalCalls: FieldValue.increment(1),
-                inboundCalls: FieldValue.increment(1),
-                lastCallAt: FieldValue.serverTimestamp(),
-            }, { merge: true });
-
-        // Incoming call logged via Firestore usage metering above
 
         return new NextResponse(twiml, {
             headers: { 'Content-Type': 'text/xml' },
