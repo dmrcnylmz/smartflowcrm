@@ -252,14 +252,22 @@ export async function queryKnowledgeBase(
     const queryEmbedding = await generateEmbedding(query);
 
     // 2. Load chunk vectors for this tenant
-    // If agentId is provided, load both agent-specific AND global (no agentId) chunks
-    // This gives agent-specific KB priority while still using shared knowledge
-    let chunksQuery: FirebaseFirestore.Query = tenantKbChunks(tenantId);
+    // When agentId is provided, run two parallel queries:
+    //   a) agent-specific chunks (agentId == X)
+    //   b) global chunks (no agentId field) — shared knowledge
+    // This avoids loading ALL chunks and filtering in-memory
+    let chunksSnap: FirebaseFirestore.QuerySnapshot;
     if (agentId) {
-        // We'll filter in-memory to include both agent-specific and global chunks
-        // Firestore doesn't support OR queries on optional fields efficiently
+        const [agentChunks, globalChunks] = await Promise.all([
+            tenantKbChunks(tenantId).where('agentId', '==', agentId).get(),
+            tenantKbChunks(tenantId).where('agentId', '==', null).get(),
+        ]);
+        // Merge results — use a combined docs array
+        const allDocs = [...agentChunks.docs, ...globalChunks.docs];
+        chunksSnap = { docs: allDocs, size: allDocs.length, empty: allDocs.length === 0 } as unknown as FirebaseFirestore.QuerySnapshot;
+    } else {
+        chunksSnap = await tenantKbChunks(tenantId).get();
     }
-    const chunksSnap = await chunksQuery.get();
 
     if (chunksSnap.empty) {
         return [];
@@ -285,9 +293,6 @@ export async function queryKnowledgeBase(
     for (const doc of chunksSnap.docs) {
         const data = doc.data();
         if (!data.vector || !Array.isArray(data.vector)) continue;
-
-        // Agent-specific filtering: skip chunks belonging to OTHER agents
-        if (agentId && data.agentId && data.agentId !== agentId) continue;
 
         // Semantic score
         const semanticScore = cosineSimilarity(queryEmbedding.vector, data.vector);

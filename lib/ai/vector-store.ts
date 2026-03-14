@@ -44,7 +44,7 @@ export interface VectorStoreConfig {
 
 const DEFAULT_SIMILARITY_THRESHOLD = 0.75;
 const DEFAULT_MAX_RESULTS = 3;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes — KB data is mostly static
 
 // --- In-Memory Tenant Cache ---
 

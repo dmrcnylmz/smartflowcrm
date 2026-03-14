@@ -4,7 +4,6 @@
  */
 
 import { VectorStore, type SearchResult } from './vector-store';
-import { EmbeddingGenerator } from './embeddings';
 import { logger } from '@/lib/utils/logger';
 import { queryKnowledgeBase, type RetrievalResult } from '@/lib/knowledge/pipeline';
 import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';

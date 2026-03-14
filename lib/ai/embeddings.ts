@@ -1,123 +1,52 @@
 /**
- * Vector Embeddings
+ * Vector Embeddings — Google text-embedding-004
  *
- * OpenAI text-embedding-3-small for document and query embedding.
- * Cosine similarity for vector search.
+ * Thin wrapper over knowledge/embeddings for backward compatibility.
+ * Used by VectorStore and RAG modules.
+ *
+ * Re-exports cosineSimilarity from the canonical source.
  */
 
-import OpenAI from 'openai';
+export { cosineSimilarity } from '@/lib/knowledge/embeddings';
+import { generateEmbedding, generateEmbeddings as batchEmbed } from '@/lib/knowledge/embeddings';
 
 // --- Types ---
 
 export interface EmbeddingConfig {
-    apiKey: string;
+    apiKey?: string; // Kept for interface compat, uses GOOGLE_AI_API_KEY env
     model?: string;
     dimensions?: number;
 }
 
-// --- Constants ---
-
-const DEFAULT_MODEL = 'text-embedding-3-small';
-const DEFAULT_DIMENSIONS = 1536;
-
-// --- Embedding Generator ---
+// --- EmbeddingGenerator class (used by VectorStore) ---
 
 export class EmbeddingGenerator {
-    private client: OpenAI;
-    private model: string;
-    private dimensions: number;
-
-    constructor(config: EmbeddingConfig) {
-        this.client = new OpenAI({ apiKey: config.apiKey });
-        this.model = config.model || DEFAULT_MODEL;
-        this.dimensions = config.dimensions || DEFAULT_DIMENSIONS;
+    constructor(_config?: EmbeddingConfig) {
+        // Config is ignored — uses GOOGLE_AI_API_KEY from env
     }
 
-    /**
-     * Generate embedding for a single text.
-     */
     async generateEmbedding(text: string): Promise<number[]> {
         const cleaned = text.replace(/\n/g, ' ').trim();
-        if (!cleaned) return new Array(this.dimensions).fill(0);
-
-        const response = await this.client.embeddings.create({
-            model: this.model,
-            input: cleaned,
-            dimensions: this.dimensions,
-        });
-
-        return response.data[0].embedding;
+        if (!cleaned) return new Array(768).fill(0);
+        const result = await generateEmbedding(cleaned);
+        return result.vector;
     }
 
-    /**
-     * Generate embeddings for multiple texts (batch).
-     */
     async generateEmbeddings(texts: string[]): Promise<number[][]> {
         const cleaned = texts.map(t => t.replace(/\n/g, ' ').trim());
-
-        const response = await this.client.embeddings.create({
-            model: this.model,
-            input: cleaned,
-            dimensions: this.dimensions,
-        });
-
-        // Sort by index to maintain order
-        return response.data
-            .sort((a, b) => a.index - b.index)
-            .map(d => d.embedding);
+        const result = await batchEmbed(cleaned);
+        return result.embeddings.map(e => e.vector);
     }
 }
 
-// --- Cosine Similarity ---
+// --- Text Chunking (delegates to knowledge/chunker) ---
+
+import { chunkText as adaptiveChunk } from '@/lib/knowledge/chunker';
 
 /**
- * Calculate cosine similarity between two vectors.
- * Returns value between -1 and 1 (1 = identical, 0 = orthogonal).
- */
-export function cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) {
-        throw new Error(`Vector dimension mismatch: ${a.length} vs ${b.length}`);
-    }
-
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-        dotProduct += a[i] * b[i];
-        normA += a[i] * a[i];
-        normB += b[i] * b[i];
-    }
-
-    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-    if (denominator === 0) return 0;
-
-    return dotProduct / denominator;
-}
-
-// --- Text Chunking ---
-
-/**
- * Split text into chunks of 100-300 tokens (~400-1200 chars).
- * Preserves sentence boundaries.
+ * Split text into chunks. Uses adaptive content-type aware chunking.
  */
 export function chunkText(text: string, maxChunkChars: number = 800): string[] {
-    const sentences = text.split(/(?<=[.!?])\s+/);
-    const chunks: string[] = [];
-    let currentChunk = '';
-
-    for (const sentence of sentences) {
-        if (currentChunk.length + sentence.length > maxChunkChars && currentChunk.length > 0) {
-            chunks.push(currentChunk.trim());
-            currentChunk = sentence;
-        } else {
-            currentChunk += (currentChunk ? ' ' : '') + sentence;
-        }
-    }
-
-    if (currentChunk.trim()) {
-        chunks.push(currentChunk.trim());
-    }
-
-    return chunks;
+    const chunks = adaptiveChunk(text, { maxChunkSize: maxChunkChars });
+    return chunks.map(c => c.content);
 }
