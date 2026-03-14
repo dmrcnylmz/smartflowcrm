@@ -30,12 +30,11 @@ function verifySignature(text: string, lang: string, voiceId: string, signature:
     return expected === signature;
 }
 
-function audioResponse(buf: Buffer | ArrayBuffer, source: string, latencyMs: number): Response {
-    const buffer = buf instanceof Buffer ? buf : Buffer.from(buf);
-    return new Response(buffer, {
+function audioResponse(buf: ArrayBuffer, source: string, latencyMs: number): Response {
+    return new Response(buf, {
         headers: {
             'Content-Type': 'audio/wav',
-            'Content-Length': String(buffer.byteLength),
+            'Content-Length': String(buf.byteLength),
             'Cache-Control': 'private, max-age=300',
             'X-TTS-Provider': 'cartesia',
             'X-TTS-Source': source,
@@ -55,7 +54,7 @@ export async function GET(request: NextRequest) {
         if (cached) {
             const latencyMs = Date.now() - start;
             log.info('tts:phone:cache-hit', { audioId, audioBytes: cached.byteLength, latencyMs });
-            return audioResponse(cached, 'cache', latencyMs);
+            return audioResponse(cached.buffer as ArrayBuffer, 'cache', latencyMs);
         }
         // Cache miss (different Vercel instance) — fall through to text-based generation
         log.warn('tts:phone:cache-miss', { audioId });
