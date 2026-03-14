@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-select-filter';
 import { exportCalls, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot, AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot, AlertTriangle, Loader2, Play, Pause, Volume2 } from 'lucide-react';
 import { VoiceCallModal } from '@/components/voice/VoiceCallModal';
 import { useCalls } from '@/lib/firebase/hooks';
 import { getCustomersBatch, extractCustomerIds, getCustomer } from '@/lib/firebase/batch-helpers';
@@ -703,6 +703,15 @@ function CallsPageContent() {
                   </p>
                 </div>
 
+                {/* Recording Player */}
+                {selectedCall.recording?.status === 'completed' && selectedCall.recording.mp3Url && (
+                  <RecordingPlayer
+                    mp3Url={selectedCall.recording.mp3Url}
+                    wavUrl={selectedCall.recording.wavUrl}
+                    duration={selectedCall.recording.duration}
+                  />
+                )}
+
                 <div>
                   <h4 className="text-sm font-bold flex items-center gap-2 mb-4 text-slate-700 dark:text-slate-300">
                     <FileText className="h-4 w-4" />
@@ -732,6 +741,113 @@ function CallsPageContent() {
           setTimeout(() => refetchCalls(), 1500);
         }}
       />
+    </div>
+  );
+}
+
+// =============================================
+// Recording Player Component
+// =============================================
+
+function RecordingPlayer({
+  mp3Url,
+  wavUrl,
+  duration,
+}: {
+  mp3Url: string;
+  wavUrl?: string;
+  duration?: number;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(duration || 0);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const togglePlay = () => {
+    if (!audioRef.current) {
+      const audio = new Audio(mp3Url);
+      audio.onloadedmetadata = () => setAudioDuration(audio.duration);
+      audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
+      audio.onended = () => { setIsPlaying(false); setCurrentTime(0); };
+      audio.onerror = () => setIsPlaying(false);
+      audioRef.current = audio;
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => setIsPlaying(false));
+      setIsPlaying(true);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    setCurrentTime(time);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+    }
+  };
+
+  return (
+    <div className="mb-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-4 border shadow-sm">
+      <h4 className="text-sm font-bold flex items-center gap-2 mb-3 text-slate-700 dark:text-slate-300">
+        <Volume2 className="h-4 w-4" />
+        Kayıt
+      </h4>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={togglePlay}
+          className="h-10 w-10 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors shrink-0"
+        >
+          {isPlaying ? (
+            <Pause className="h-4 w-4 text-primary" />
+          ) : (
+            <Play className="h-4 w-4 text-primary ml-0.5" />
+          )}
+        </button>
+        <div className="flex-1 space-y-1">
+          <input
+            type="range"
+            min={0}
+            max={audioDuration || 1}
+            step={0.1}
+            value={currentTime}
+            onChange={handleSeek}
+            className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer accent-primary"
+          />
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(audioDuration)}</span>
+          </div>
+        </div>
+        {wavUrl && (
+          <a
+            href={wavUrl}
+            download
+            className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+            title="İndir"
+          >
+            <Download className="h-4 w-4" />
+          </a>
+        )}
+      </div>
     </div>
   );
 }

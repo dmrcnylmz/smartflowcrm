@@ -35,7 +35,7 @@ export interface SearchResult {
 }
 
 export interface VectorStoreConfig {
-    openaiApiKey: string;
+    openaiApiKey?: string;
     similarityThreshold?: number;
     maxResults?: number;
 }
@@ -60,13 +60,13 @@ export class VectorStore {
     private cache: Map<string, TenantCache> = new Map();
     private config: Required<VectorStoreConfig>;
 
-    constructor(config: VectorStoreConfig) {
+    constructor(config: VectorStoreConfig = {}) {
         this.config = {
-            openaiApiKey: config.openaiApiKey,
+            openaiApiKey: config.openaiApiKey || '',
             similarityThreshold: config.similarityThreshold || DEFAULT_SIMILARITY_THRESHOLD,
             maxResults: config.maxResults || DEFAULT_MAX_RESULTS,
         };
-        this.embedder = new EmbeddingGenerator({ apiKey: config.openaiApiKey });
+        this.embedder = new EmbeddingGenerator();
     }
 
     /**

@@ -29,6 +29,15 @@ export interface CallLog {
   voiceSessionId?: string;
   aiPersona?: string;
   voiceMetrics?: Record<string, unknown>;
+  recording?: {
+    sid: string;
+    url: string;
+    mp3Url: string;
+    wavUrl: string;
+    duration: number;
+    status: 'completed' | 'failed';
+    completedAt?: FirestoreTimestamp;
+  };
 }
 
 export interface Appointment {

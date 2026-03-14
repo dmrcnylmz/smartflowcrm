@@ -80,7 +80,7 @@ export class VoicePipeline extends EventEmitter {
         // Initialize providers
         this.stt = new DeepgramSTT({ apiKey: config.deepgramApiKey });
         this.llm = new LLMStreaming({ apiKey: config.openaiApiKey });
-        this.vectorStore = new VectorStore({ openaiApiKey: config.openaiApiKey });
+        this.vectorStore = new VectorStore();
 
         // Initialize session state
         this.session = {

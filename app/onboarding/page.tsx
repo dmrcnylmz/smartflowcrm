@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { auth } from '@/lib/firebase/config';
+import { useTranslations } from 'next-intl';
 import {
     Building2, Mic, FileText, Rocket, ChevronRight, ChevronLeft,
     Check, Loader2, Briefcase, ShoppingBag, HeartPulse, Headphones,
@@ -44,142 +45,43 @@ const INITIAL_DATA: OnboardingData = {
     template: '',
     agentName: 'Asistan',
     agentRole: 'Müşteri Temsilcisi',
-    agentTraits: ['profesyonel', 'nazik'],
+    agentTraits: ['professional', 'polite'],
     greeting: '',
     farewell: '',
     voiceId: 'EXAVITQu4vr4xnSDxMaL',
 };
 
-const STEPS = [
-    { id: 'company', label: 'Şirket Bilgileri', icon: Building2, description: 'Temel şirket bilgilerinizi girin' },
-    { id: 'template', label: 'Şablon Seçimi', icon: FileText, description: 'Sektörünüze uygun şablonu seçin' },
-    { id: 'voice', label: 'Sesli Asistan', icon: Mic, description: 'AI asistanınızı özelleştirin' },
-    { id: 'launch', label: 'Başlat', icon: Rocket, description: 'Son kontrol ve başlatma' },
-];
+const STEP_IDS = ['company', 'template', 'voice', 'launch'] as const;
+const STEP_ICONS = [Building2, FileText, Mic, Rocket];
 
-const TEMPLATES = [
-    {
-        id: 'healthcare',
-        name: 'Sağlık & Klinik',
-        icon: HeartPulse,
-        color: 'from-emerald-500 to-teal-600',
-        borderColor: 'border-emerald-500/40',
-        glowColor: 'shadow-emerald-500/20',
-        description: 'Randevu alma, doktor bilgileri, acil yönlendirme',
-        features: ['Randevu takibi', 'Doktor uygunluk sorgusu', 'Sigorta bilgisi', 'Acil yönlendirme'],
-        defaultGreeting: 'Merhaba, kliniğimize hoş geldiniz. Randevu almak veya bilgi almak için yardımcı olabilirim.',
-    },
-    {
-        id: 'ecommerce',
-        name: 'E-Ticaret',
-        icon: ShoppingBag,
-        color: 'from-violet-500 to-purple-600',
-        borderColor: 'border-violet-500/40',
-        glowColor: 'shadow-violet-500/20',
-        description: 'Sipariş takibi, iade işlemleri, ürün bilgisi',
-        features: ['Sipariş durumu', 'İade/değişim', 'Ürün bilgisi', 'Kargo takibi'],
-        defaultGreeting: 'Merhaba, mağazamıza hoş geldiniz. Siparişiniz veya ürünlerimiz hakkında yardımcı olabilirim.',
-    },
-    {
-        id: 'insurance',
-        name: 'Sigorta',
-        icon: Briefcase,
-        color: 'from-blue-500 to-indigo-600',
-        borderColor: 'border-blue-500/40',
-        glowColor: 'shadow-blue-500/20',
-        description: 'Poliçe bilgisi, hasar ihbarı, teklif alma',
-        features: ['Poliçe sorgulama', 'Hasar ihbarı', 'Teklif alma', 'Teminat bilgisi'],
-        defaultGreeting: 'Merhaba, sigorta şirketimize hoş geldiniz. Poliçeniz veya hasar ihbarı için yardımcı olabilirim.',
-    },
-    {
-        id: 'support',
-        name: 'Teknik Destek',
-        icon: Headphones,
-        color: 'from-orange-500 to-red-500',
-        borderColor: 'border-orange-500/40',
-        glowColor: 'shadow-orange-500/20',
-        description: 'Sorun giderme, bilet açma, uzman yönlendirme',
-        features: ['Sorun tespiti', 'Destek bileti', 'Uzman yönlendirme', 'SLA takibi'],
-        defaultGreeting: 'Merhaba, teknik destek hattımıza hoş geldiniz. Sorununuzu çözmek için buradayım.',
-    },
-    {
-        id: 'education',
-        name: 'Eğitim',
-        icon: GraduationCap,
-        color: 'from-amber-500 to-yellow-500',
-        borderColor: 'border-amber-500/40',
-        glowColor: 'shadow-amber-500/20',
-        description: 'Kayıt bilgisi, ders programı, danışmanlık',
-        features: ['Kayıt işlemleri', 'Ders programı', 'Danışman yönlendirme', 'Duyurular'],
-        defaultGreeting: 'Merhaba, kurumumuza hoş geldiniz. Kayıt veya eğitim programlarımız hakkında yardımcı olabilirim.',
-    },
-    {
-        id: 'restaurant',
-        name: 'Restoran & Otel',
-        icon: Utensils,
-        color: 'from-rose-500 to-pink-600',
-        borderColor: 'border-rose-500/40',
-        glowColor: 'shadow-rose-500/20',
-        description: 'Rezervasyon, menü bilgisi, özel istekler',
-        features: ['Rezervasyon', 'Menü bilgisi', 'Özel diyet', 'Etkinlik organizasyonu'],
-        defaultGreeting: 'Merhaba, restoranımıza hoş geldiniz. Rezervasyon veya menümüz hakkında yardımcı olabilirim.',
-    },
-    {
-        id: 'realestate',
-        name: 'Gayrimenkul',
-        icon: HomeIcon,
-        color: 'from-cyan-500 to-blue-500',
-        borderColor: 'border-cyan-500/40',
-        glowColor: 'shadow-cyan-500/20',
-        description: 'İlan bilgisi, gezici randevusu, fiyat teklifi',
-        features: ['İlan sorgulama', 'Gezici randevusu', 'Fiyat bilgisi', 'Kredi danışmanlığı'],
-        defaultGreeting: 'Merhaba, emlak ofisimize hoş geldiniz. Mülk arama veya randevu almak için yardımcı olabilirim.',
-    },
-    {
-        id: 'automotive',
-        name: 'Otomotiv',
-        icon: Car,
-        color: 'from-slate-500 to-gray-600',
-        borderColor: 'border-slate-500/40',
-        glowColor: 'shadow-slate-500/20',
-        description: 'Servis randevusu, parça bilgisi, test sürüşü',
-        features: ['Servis randevusu', 'Yedek parça', 'Test sürüşü', 'Garanti bilgisi'],
-        defaultGreeting: 'Merhaba, bayimize hoş geldiniz. Servis veya araç bilgisi için yardımcı olabilirim.',
-    },
-    {
-        id: 'finance',
-        name: 'Finans',
-        icon: Scale,
-        color: 'from-green-500 to-emerald-600',
-        borderColor: 'border-green-500/40',
-        glowColor: 'shadow-green-500/20',
-        description: 'Hesap bilgisi, işlem yönlendirme, kredi sorgusu',
-        features: ['Hesap sorgulama', 'Kredi bilgisi', 'Şube yönlendirme', 'Kampanya bilgisi'],
-        defaultGreeting: 'Merhaba, bankamıza hoş geldiniz. Hesap işlemleriniz veya ürünlerimiz için yardımcı olabilirim.',
-    },
-    {
-        id: 'legal',
-        name: 'Hukuk',
-        icon: Shield,
-        color: 'from-indigo-500 to-purple-600',
-        borderColor: 'border-indigo-500/40',
-        glowColor: 'shadow-indigo-500/20',
-        description: 'Hukuki bilgi, randevu, yönlendirme',
-        features: ['Ön bilgi toplama', 'Avukat randevusu', 'Dosya sorgulama', 'Yönlendirme'],
-        defaultGreeting: 'Merhaba, hukuk ofisimize hoş geldiniz. Hukuki danışmanlık veya randevu için yardımcı olabilirim.',
-    },
+const TEMPLATE_DEFS = [
+    { id: 'healthcare', icon: HeartPulse, color: 'from-emerald-500 to-teal-600', borderColor: 'border-emerald-500/40', glowColor: 'shadow-emerald-500/20', featureCount: 4 },
+    { id: 'ecommerce', icon: ShoppingBag, color: 'from-violet-500 to-purple-600', borderColor: 'border-violet-500/40', glowColor: 'shadow-violet-500/20', featureCount: 4 },
+    { id: 'insurance', icon: Briefcase, color: 'from-blue-500 to-indigo-600', borderColor: 'border-blue-500/40', glowColor: 'shadow-blue-500/20', featureCount: 4 },
+    { id: 'support', icon: Headphones, color: 'from-orange-500 to-red-500', borderColor: 'border-orange-500/40', glowColor: 'shadow-orange-500/20', featureCount: 4 },
+    { id: 'education', icon: GraduationCap, color: 'from-amber-500 to-yellow-500', borderColor: 'border-amber-500/40', glowColor: 'shadow-amber-500/20', featureCount: 4 },
+    { id: 'restaurant', icon: Utensils, color: 'from-rose-500 to-pink-600', borderColor: 'border-rose-500/40', glowColor: 'shadow-rose-500/20', featureCount: 4 },
+    { id: 'realestate', icon: HomeIcon, color: 'from-cyan-500 to-blue-500', borderColor: 'border-cyan-500/40', glowColor: 'shadow-cyan-500/20', featureCount: 4 },
+    { id: 'automotive', icon: Car, color: 'from-slate-500 to-gray-600', borderColor: 'border-slate-500/40', glowColor: 'shadow-slate-500/20', featureCount: 4 },
+    { id: 'finance', icon: Scale, color: 'from-green-500 to-emerald-600', borderColor: 'border-green-500/40', glowColor: 'shadow-green-500/20', featureCount: 4 },
+    { id: 'legal', icon: Shield, color: 'from-indigo-500 to-purple-600', borderColor: 'border-indigo-500/40', glowColor: 'shadow-indigo-500/20', featureCount: 4 },
 ];
 
 const VOICE_OPTIONS = [
-    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', gender: 'Kadın', tone: 'Profesyonel & Sıcak' },
-    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'Kadın', tone: 'Sakin & Güven Veren' },
-    { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', gender: 'Erkek', tone: 'Profesyonel & Kararlı' },
-    { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold', gender: 'Erkek', tone: 'Güçlü & Otoriter' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', gender: 'female', tone: 'Professional & Warm' },
+    { id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'female', tone: 'Calm & Reassuring' },
+    { id: 'ErXwobaYiN019PkySvjV', name: 'Antoni', gender: 'male', tone: 'Professional & Decisive' },
+    { id: 'VR6AewLTigWG4xSOukaG', name: 'Arnold', gender: 'male', tone: 'Strong & Authoritative' },
 ];
 
-const TRAIT_OPTIONS = [
-    'profesyonel', 'nazik', 'samimi', 'enerjik', 'sakin',
-    'çözüm odaklı', 'sabırlı', 'detaycı', 'empatik', 'güler yüzlü'
+const TRAIT_KEYS = [
+    'professional', 'polite', 'friendly', 'energetic', 'calm',
+    'solutionOriented', 'patient', 'detailOriented', 'empathetic', 'cheerful'
+];
+
+const SECTOR_KEYS = [
+    'healthcare', 'ecommerce', 'insurance', 'support', 'education',
+    'restaurant', 'realestate', 'automotive', 'finance', 'legal', 'other'
 ];
 
 // =============================================
@@ -189,6 +91,7 @@ const TRAIT_OPTIONS = [
 export default function OnboardingPage() {
     const router = useRouter();
     const { user, loading: authLoading, refreshClaims } = useAuth();
+    const t = useTranslations('onboarding');
     const [currentStep, setCurrentStep] = useState(0);
     const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -206,7 +109,7 @@ export default function OnboardingPage() {
     }, []);
 
     const nextStep = () => {
-        if (currentStep < STEPS.length - 1) setCurrentStep(prev => prev + 1);
+        if (currentStep < STEP_IDS.length - 1) setCurrentStep(prev => prev + 1);
     };
 
     const prevStep = () => {
@@ -218,7 +121,7 @@ export default function OnboardingPage() {
             case 0: return !!data.companyName.trim() && !!data.sector;
             case 1: return !!data.template;
             case 2: return !!data.agentName.trim();
-            case 3: return true; // Launch step
+            case 3: return true;
             default: return false;
         }
     }, [currentStep, data]);
@@ -228,16 +131,15 @@ export default function OnboardingPage() {
         setError(null);
 
         try {
-            // Use context user first, fall back to Firebase SDK directly
             const currentUser = user ?? auth.currentUser;
             if (!currentUser) {
-                setError('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+                setError(t('sessionNotFound'));
                 router.replace('/login');
                 setIsSubmitting(false);
                 return;
             }
 
-            const token = await currentUser.getIdToken(true); // force refresh token
+            const token = await currentUser.getIdToken(true);
             const response = await fetch('/api/tenants', {
                 method: 'POST',
                 headers: {
@@ -252,8 +154,8 @@ export default function OnboardingPage() {
                         name: data.agentName,
                         role: data.agentRole,
                         traits: data.agentTraits,
-                        greeting: data.greeting || TEMPLATES.find(t => t.id === data.template)?.defaultGreeting || '',
-                        farewell: data.farewell || 'Aradığınız için teşekkür ederiz. İyi günler.',
+                        greeting: data.greeting || '',
+                        farewell: data.farewell || t('farewellDefault'),
                     },
                     business: {
                         workingHours: data.workingHours,
@@ -268,39 +170,42 @@ export default function OnboardingPage() {
                         similarityBoost: 0.75,
                     },
                 }),
-                signal: AbortSignal.timeout(30_000), // 30s timeout — never hang indefinitely
+                signal: AbortSignal.timeout(30_000),
             });
 
             const responseData = await response.json();
 
             if (!response.ok) {
-                // Show specific error from API
-                const errMsg = responseData?.error || responseData?.message || `Hata kodu: ${response.status}`;
+                const errMsg = responseData?.error || responseData?.message || `Error: ${response.status}`;
                 throw new Error(errMsg);
             }
 
-            // Force-refresh Firebase token so new custom claims (tenantId, role) are in JWT
             try {
                 await refreshClaims();
             } catch {
-                // Retry once — claims refresh is critical for redirect to work
                 await new Promise(r => setTimeout(r, 1000));
                 await refreshClaims();
             }
 
-            // Go to knowledge base setup after company creation
             router.push('/knowledge?setup=true');
         } catch (err) {
             const message = err instanceof Error
                 ? err.name === 'TimeoutError'
-                    ? 'Sunucu yanıt vermedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.'
+                    ? t('serverTimeout')
                     : err.message
-                : 'Bilinmeyen bir hata oluştu.';
-            setError(`Kurulum tamamlanamadı: ${message}`);
+                : t('unknownError');
+            setError(`${t('setupFailed')}: ${message}`);
         } finally {
             setIsSubmitting(false);
         }
     }
+
+    const stepLabels = [
+        t('steps.company'), t('steps.template'), t('steps.voice'), t('steps.launch')
+    ];
+    const stepDescs = [
+        t('steps.companyDesc'), t('steps.templateDesc'), t('steps.voiceDesc'), t('steps.launchDesc')
+    ];
 
     return (
         <div className="min-h-screen bg-[#080810]">
@@ -330,11 +235,11 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                             <h1 className="text-base font-bold text-white font-display tracking-wider">CALLCEPTION</h1>
-                            <p className="text-xs text-white/40">Şirket Kurulum</p>
+                            <p className="text-xs text-white/40">{t('companySetup')}</p>
                         </div>
                     </div>
                     <div className="text-sm text-white/40 font-display tabular-nums">
-                        {String(currentStep + 1).padStart(2, '0')} / {String(STEPS.length).padStart(2, '0')}
+                        {String(currentStep + 1).padStart(2, '0')} / {String(STEP_IDS.length).padStart(2, '0')}
                     </div>
                 </div>
 
@@ -342,7 +247,7 @@ export default function OnboardingPage() {
                 <div className="h-[1px] bg-white/[0.04]">
                     <div
                         className="h-full bg-inception-red transition-all duration-500"
-                        style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
+                        style={{ width: `${((currentStep + 1) / STEP_IDS.length) * 100}%` }}
                     />
                 </div>
             </div>
@@ -350,12 +255,12 @@ export default function OnboardingPage() {
             {/* Step Tabs */}
             <div className="relative max-w-5xl mx-auto px-6 pt-6">
                 <div className="flex items-center gap-1.5">
-                    {STEPS.map((step, index) => {
-                        const StepIcon = step.icon;
+                    {STEP_IDS.map((_, index) => {
+                        const StepIcon = STEP_ICONS[index];
                         const isComplete = index < currentStep;
                         const isCurrent = index === currentStep;
                         return (
-                            <div key={step.id} className="flex-1 flex items-center gap-1.5">
+                            <div key={index} className="flex-1 flex items-center gap-1.5">
                                 <button
                                     onClick={() => index <= currentStep && setCurrentStep(index)}
                                     disabled={index > currentStep}
@@ -372,9 +277,9 @@ export default function OnboardingPage() {
                                     ) : (
                                         <StepIcon className="h-3.5 w-3.5 flex-shrink-0" />
                                     )}
-                                    <span className="hidden sm:inline truncate font-display tracking-wide">{step.label}</span>
+                                    <span className="hidden sm:inline truncate font-display tracking-wide">{stepLabels[index]}</span>
                                 </button>
-                                {index < STEPS.length - 1 && (
+                                {index < STEP_IDS.length - 1 && (
                                     <ChevronRight className={`h-3.5 w-3.5 flex-shrink-0 ${isComplete ? 'text-inception-teal/60' : 'text-white/10'}`} />
                                 )}
                             </div>
@@ -387,11 +292,10 @@ export default function OnboardingPage() {
             <div className="relative max-w-5xl mx-auto px-6 py-6">
                 <div key={currentStep} className="animate-fade-in-up">
                     <div className="mb-6">
-                        <h2 className="text-xl font-bold text-white font-display tracking-wide">{STEPS[currentStep].label}</h2>
-                        <p className="text-white/40 mt-1 text-sm">{STEPS[currentStep].description}</p>
+                        <h2 className="text-xl font-bold text-white font-display tracking-wide">{stepLabels[currentStep]}</h2>
+                        <p className="text-white/40 mt-1 text-sm">{stepDescs[currentStep]}</p>
                     </div>
 
-                    {/* Error */}
                     {error && (
                         <div className="mb-5 p-4 bg-inception-red/10 border border-inception-red/30 rounded-xl flex items-start gap-3">
                             <AlertCircle className="h-4 w-4 text-inception-red flex-shrink-0 mt-0.5" />
@@ -419,10 +323,10 @@ export default function OnboardingPage() {
                             }`}
                     >
                         <ChevronLeft className="h-4 w-4" />
-                        Geri
+                        {t('back')}
                     </button>
 
-                    {currentStep < STEPS.length - 1 ? (
+                    {currentStep < STEP_IDS.length - 1 ? (
                         <button
                             onClick={nextStep}
                             disabled={!canProceed()}
@@ -432,7 +336,7 @@ export default function OnboardingPage() {
                                     : 'bg-white/[0.04] border-white/[0.08] text-white/20 cursor-not-allowed'
                                 }`}
                         >
-                            Devam Et
+                            {t('continue')}
                             <ChevronRight className="h-4 w-4" />
                         </button>
                     ) : (
@@ -444,12 +348,12 @@ export default function OnboardingPage() {
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="h-4 w-4 animate-spin" />
-                                    Oluşturuluyor...
+                                    {t('creating')}
                                 </>
                             ) : (
                                 <>
                                     <Rocket className="h-4 w-4" />
-                                    Şirketi Başlat
+                                    {t('launchCompany')}
                                 </>
                             )}
                         </button>
@@ -457,7 +361,6 @@ export default function OnboardingPage() {
                 </div>
             </div>
 
-            {/* Bottom padding for fixed footer */}
             <div className="h-24" />
         </div>
     );
@@ -474,58 +377,55 @@ function StepCompanyInfo({
     data: OnboardingData;
     updateData: (updates: Partial<OnboardingData>) => void;
 }) {
-    const SECTORS = [
-        'Sağlık', 'E-Ticaret', 'Sigorta', 'Teknik Destek', 'Eğitim',
-        'Restoran & Otel', 'Gayrimenkul', 'Otomotiv', 'Finans', 'Hukuk', 'Diğer'
-    ];
+    const t = useTranslations('onboarding');
 
     return (
         <div className="grid md:grid-cols-2 gap-6">
-            {/* Company Name */}
             <div className="md:col-span-2">
                 <Label className="text-white/70 mb-2 text-sm">
-                    Şirket Adı <span className="text-inception-red">*</span>
+                    {t('companyName')} <span className="text-inception-red">*</span>
                 </Label>
                 <Input
                     value={data.companyName}
                     onChange={(e) => updateData({ companyName: e.target.value })}
-                    placeholder="Şirketinizin adını girin"
+                    placeholder={t('companyNamePlaceholder')}
                     className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50 focus:ring-inception-red/20"
                 />
             </div>
 
-            {/* Sector */}
             <div>
                 <label className="block text-sm text-white/70 mb-3">
-                    Sektör <span className="text-inception-red">*</span>
+                    {t('sector')} <span className="text-inception-red">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                    {SECTORS.map((sector) => (
-                        <button
-                            key={sector}
-                            onClick={() => updateData({ sector })}
-                            className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all border
-                                ${data.sector === sector
-                                    ? 'bg-inception-red/10 text-inception-red border-inception-red/40 shadow-sm shadow-inception-red/10'
-                                    : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:text-white/80 hover:border-white/[0.12]'
-                                }`}
-                        >
-                            {sector}
-                        </button>
-                    ))}
+                    {SECTOR_KEYS.map((sectorKey) => {
+                        const sectorName = t(`sectors.${sectorKey}`);
+                        return (
+                            <button
+                                key={sectorKey}
+                                onClick={() => updateData({ sector: sectorKey })}
+                                className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-all border
+                                    ${data.sector === sectorKey
+                                        ? 'bg-inception-red/10 text-inception-red border-inception-red/40 shadow-sm shadow-inception-red/10'
+                                        : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:text-white/80 hover:border-white/[0.12]'
+                                    }`}
+                            >
+                                {sectorName}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Language & Working Hours */}
             <div className="space-y-5">
                 <div>
-                    <label className="block text-sm text-white/70 mb-2">Dil / Language</label>
+                    <label className="block text-sm text-white/70 mb-2">{t('language')}</label>
                     <div className="grid grid-cols-2 gap-2">
                         {[
-                            { id: 'tr', flag: '🇹🇷', name: 'Türkçe' },
-                            { id: 'en', flag: '🇬🇧', name: 'English' },
-                            { id: 'de', flag: '🇩🇪', name: 'Deutsch' },
-                            { id: 'fr', flag: '🇫🇷', name: 'Français' },
+                            { id: 'tr', flag: '\u{1F1F9}\u{1F1F7}', name: 'Türkçe' },
+                            { id: 'en', flag: '\u{1F1EC}\u{1F1E7}', name: 'English' },
+                            { id: 'de', flag: '\u{1F1E9}\u{1F1EA}', name: 'Deutsch' },
+                            { id: 'fr', flag: '\u{1F1EB}\u{1F1F7}', name: 'Français' },
                         ].map(({ id, flag, name }) => (
                             <button
                                 key={id}
@@ -544,7 +444,7 @@ function StepCompanyInfo({
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Çalışma Saatleri</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('workingHours')}</Label>
                     <Input
                         value={data.workingHours}
                         onChange={(e) => updateData({ workingHours: e.target.value })}
@@ -554,21 +454,21 @@ function StepCompanyInfo({
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Çalışma Günleri</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('workingDays')}</Label>
                     <Input
                         value={data.workingDays}
                         onChange={(e) => updateData({ workingDays: e.target.value })}
-                        placeholder="Pazartesi-Cuma"
+                        placeholder="Mon-Fri"
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Hizmetler <span className="text-white/30 font-normal">(virgülle ayırın)</span></Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('services')} <span className="text-white/30 font-normal">({t('servicesHint')})</span></Label>
                     <Input
                         value={data.services}
                         onChange={(e) => updateData({ services: e.target.value })}
-                        placeholder="Randevu, Bilgi, Şikayet, Destek"
+                        placeholder={t('servicesPlaceholder')}
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
                 </div>
@@ -588,15 +488,18 @@ function StepTemplateSelection({
     data: OnboardingData;
     updateData: (updates: Partial<OnboardingData>) => void;
 }) {
+    const t = useTranslations('onboarding');
+
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {TEMPLATES.map((template, idx) => {
+            {TEMPLATE_DEFS.map((template, idx) => {
                 const Icon = template.icon;
                 const isSelected = data.template === template.id;
+                const sectorKey = template.id as keyof typeof SECTOR_KEYS;
                 return (
                     <button
                         key={template.id}
-                        onClick={() => updateData({ template: template.id, greeting: template.defaultGreeting })}
+                        onClick={() => updateData({ template: template.id })}
                         style={{ animationDelay: `${idx * 50}ms` }}
                         className={`relative group p-4 rounded-xl border text-left transition-all duration-300 hover:-translate-y-0.5 animate-fade-in-up
                             ${isSelected
@@ -612,8 +515,9 @@ function StepTemplateSelection({
                         <div className={`h-10 w-10 rounded-lg bg-gradient-to-r ${template.color} flex items-center justify-center mb-3 shadow-sm`}>
                             <Icon className="h-5 w-5 text-white" />
                         </div>
-                        <h3 className={`font-semibold text-sm mb-1 ${isSelected ? 'text-white' : 'text-white/70'}`}>{template.name}</h3>
-                        <p className="text-xs text-white/30 line-clamp-2 leading-relaxed">{template.description}</p>
+                        <h3 className={`font-semibold text-sm mb-1 ${isSelected ? 'text-white' : 'text-white/70'}`}>
+                            {t(`sectors.${sectorKey}`)}
+                        </h3>
                     </button>
                 );
             })}
@@ -632,6 +536,8 @@ function StepVoiceConfig({
     data: OnboardingData;
     updateData: (updates: Partial<OnboardingData>) => void;
 }) {
+    const t = useTranslations('onboarding');
+
     const toggleTrait = (trait: string) => {
         const current = data.agentTraits;
         if (current.includes(trait)) {
@@ -643,66 +549,64 @@ function StepVoiceConfig({
 
     return (
         <div className="grid md:grid-cols-2 gap-8">
-            {/* Agent Identity */}
             <div className="space-y-5">
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
                     <div className="h-px flex-1 bg-white/[0.06]" />
-                    Asistan Kimliği
+                    {t('agentIdentity')}
                     <div className="h-px flex-1 bg-white/[0.06]" />
                 </h3>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Asistan Adı</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('agentName')}</Label>
                     <Input
                         value={data.agentName}
                         onChange={(e) => updateData({ agentName: e.target.value })}
-                        placeholder="Asistan"
+                        placeholder={t('agentName')}
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Rolü</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('agentRole')}</Label>
                     <Input
                         value={data.agentRole}
                         onChange={(e) => updateData({ agentRole: e.target.value })}
-                        placeholder="Müşteri Temsilcisi"
+                        placeholder={t('agentRolePlaceholder')}
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
                 </div>
 
                 <div>
                     <label className="block text-sm text-white/70 mb-2">
-                        Karakter Özellikleri <span className="text-white/30 text-xs">(en fazla 5)</span>
+                        {t('traits')} <span className="text-white/30 text-xs">({t('traitsMax')})</span>
                     </label>
                     <div className="flex flex-wrap gap-2">
-                        {TRAIT_OPTIONS.map((trait) => (
+                        {TRAIT_KEYS.map((traitKey) => (
                             <button
-                                key={trait}
-                                onClick={() => toggleTrait(trait)}
+                                key={traitKey}
+                                onClick={() => toggleTrait(traitKey)}
                                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all border
-                                    ${data.agentTraits.includes(trait)
+                                    ${data.agentTraits.includes(traitKey)
                                         ? 'bg-inception-red/10 border-inception-red/40 text-inception-red'
                                         : 'bg-white/[0.03] border-white/[0.06] text-white/40 hover:border-white/[0.12] hover:text-white/70'
                                     }`}
                             >
-                                {trait}
+                                {t(`traits_list.${traitKey}`)}
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
 
-            {/* Voice & Messages */}
             <div className="space-y-5">
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
                     <div className="h-px flex-1 bg-white/[0.06]" />
-                    Ses & Mesajlar
+                    {t('voiceMessages')}
                     <div className="h-px flex-1 bg-white/[0.06]" />
                 </h3>
 
                 <div>
-                    <label className="block text-sm text-white/70 mb-2">Ses Seçimi</label>
+                    <label className="block text-sm text-white/70 mb-2">{t('voiceSelection')}</label>
                     <div className="space-y-2">
                         {VOICE_OPTIONS.map((voice) => (
                             <button
@@ -715,7 +619,7 @@ function StepVoiceConfig({
                                     }`}
                             >
                                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold font-display
-                                    ${voice.gender === 'Kadın'
+                                    ${voice.gender === 'female'
                                         ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white'
                                         : 'bg-gradient-to-r from-blue-400 to-indigo-500 text-white'
                                     }`}>
@@ -723,7 +627,9 @@ function StepVoiceConfig({
                                 </div>
                                 <div className="flex-1">
                                     <div className="text-sm font-medium text-white/80">{voice.name}</div>
-                                    <div className="text-xs text-white/30">{voice.gender} · {voice.tone}</div>
+                                    <div className="text-xs text-white/30">
+                                        {t(voice.gender === 'female' ? 'female' : 'male')} · {voice.tone}
+                                    </div>
                                 </div>
                                 {data.voiceId === voice.id && (
                                     <Check className="h-4 w-4 text-inception-red" />
@@ -734,22 +640,22 @@ function StepVoiceConfig({
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Karşılama Mesajı</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('greeting')}</Label>
                     <Textarea
                         value={data.greeting}
                         onChange={(e) => updateData({ greeting: e.target.value })}
-                        placeholder="Merhaba, şirketimize hoş geldiniz..."
+                        placeholder={t('greetingPlaceholder')}
                         rows={3}
                         className="rounded-xl resize-none bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
                 </div>
 
                 <div>
-                    <Label className="text-white/70 mb-2 text-sm">Veda Mesajı</Label>
+                    <Label className="text-white/70 mb-2 text-sm">{t('farewell')}</Label>
                     <Textarea
                         value={data.farewell}
                         onChange={(e) => updateData({ farewell: e.target.value })}
-                        placeholder="Aradığınız için teşekkür ederiz. İyi günler."
+                        placeholder={t('farewellPlaceholder')}
                         rows={2}
                         className="rounded-xl resize-none bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50"
                     />
@@ -764,32 +670,38 @@ function StepVoiceConfig({
 // =============================================
 
 function StepReview({ data }: { data: OnboardingData }) {
-    const template = TEMPLATES.find(t => t.id === data.template);
+    const t = useTranslations('onboarding');
+    const template = TEMPLATE_DEFS.find(td => td.id === data.template);
     const voice = VOICE_OPTIONS.find(v => v.id === data.voiceId);
+
+    const langDisplay: Record<string, string> = {
+        tr: '\u{1F1F9}\u{1F1F7} Türkçe',
+        en: '\u{1F1EC}\u{1F1E7} English',
+        de: '\u{1F1E9}\u{1F1EA} Deutsch',
+        fr: '\u{1F1EB}\u{1F1F7} Français',
+    };
 
     return (
         <div className="grid md:grid-cols-2 gap-4">
-            {/* Company Summary */}
             <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-inception-red/10 border border-inception-red/20 flex items-center justify-center">
                         <Building2 className="h-4 w-4 text-inception-red" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Şirket Bilgileri</h3>
-                        <p className="text-xs text-white/30">Adım 1</p>
+                        <h3 className="font-semibold text-white text-sm">{t('companyInfo')}</h3>
+                        <p className="text-xs text-white/30">{t('step')} 1</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
-                    <ReviewItem label="Şirket" value={data.companyName} />
-                    <ReviewItem label="Sektör" value={data.sector} />
-                    <ReviewItem label="Dil" value={data.language === 'tr' ? '🇹🇷 Türkçe' : '🇬🇧 English'} />
-                    <ReviewItem label="Çalışma" value={`${data.workingDays} ${data.workingHours}`} />
-                    {data.services && <ReviewItem label="Hizmetler" value={data.services} />}
+                    <ReviewItem label={t('company')} value={data.companyName} />
+                    <ReviewItem label={t('sector')} value={data.sector ? t(`sectors.${data.sector}`) : '-'} />
+                    <ReviewItem label={t('language')} value={langDisplay[data.language] || data.language} />
+                    <ReviewItem label={t('working')} value={`${data.workingDays} ${data.workingHours}`} />
+                    {data.services && <ReviewItem label={t('services')} value={data.services} />}
                 </div>
             </div>
 
-            {/* Template Summary */}
             <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-4">
                 <div className="flex items-center gap-3">
                     {template && (
@@ -798,61 +710,55 @@ function StepReview({ data }: { data: OnboardingData }) {
                         </div>
                     )}
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Şablon</h3>
-                        <p className="text-xs text-white/30">Adım 2</p>
+                        <h3 className="font-semibold text-white text-sm">{t('templateLabel')}</h3>
+                        <p className="text-xs text-white/30">{t('step')} 2</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
-                    <ReviewItem label="Seçilen" value={template?.name || '-'} />
-                    <ReviewItem label="Açıklama" value={template?.description || '-'} />
+                    <ReviewItem label={t('selected')} value={data.template ? t(`sectors.${data.template}`) : '-'} />
                 </div>
             </div>
 
-            {/* Voice Agent Summary */}
             <div className="md:col-span-2 bg-white/[0.03] rounded-xl border border-white/[0.06] p-5 space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
                         <Mic className="h-4 w-4 text-violet-400" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Sesli Asistan</h3>
-                        <p className="text-xs text-white/30">Adım 3</p>
+                        <h3 className="font-semibold text-white text-sm">{t('voiceAssistant')}</h3>
+                        <p className="text-xs text-white/30">{t('step')} 3</p>
                     </div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-4 text-sm">
                     <div className="space-y-2">
-                        <ReviewItem label="İsim" value={data.agentName} />
-                        <ReviewItem label="Rol" value={data.agentRole} />
-                        <ReviewItem label="Özellikler" value={data.agentTraits.join(', ')} />
-                        <ReviewItem label="Ses" value={voice ? `${voice.name} (${voice.tone})` : '-'} />
+                        <ReviewItem label={t('name')} value={data.agentName} />
+                        <ReviewItem label={t('role')} value={data.agentRole} />
+                        <ReviewItem label={t('features')} value={data.agentTraits.map(tk => t(`traits_list.${tk}`)).join(', ')} />
+                        <ReviewItem label={t('voice')} value={voice ? `${voice.name} (${voice.tone})` : '-'} />
                     </div>
                     <div className="space-y-3">
                         <div>
-                            <span className="text-white/30 text-xs uppercase tracking-wide">Karşılama</span>
+                            <span className="text-white/30 text-xs uppercase tracking-wide">{t('greeting')}</span>
                             <p className="text-white/60 mt-1 text-xs bg-white/[0.03] rounded-lg p-3 italic border border-white/[0.05]">
-                                &ldquo;{data.greeting || '(varsayılan kullanılacak)'}&rdquo;
+                                &ldquo;{data.greeting || `(${t('defaultWillBeUsed')})`}&rdquo;
                             </p>
                         </div>
                         <div>
-                            <span className="text-white/30 text-xs uppercase tracking-wide">Veda</span>
+                            <span className="text-white/30 text-xs uppercase tracking-wide">{t('farewell')}</span>
                             <p className="text-white/60 mt-1 text-xs bg-white/[0.03] rounded-lg p-3 italic border border-white/[0.05]">
-                                &ldquo;{data.farewell || 'Aradığınız için teşekkür ederiz. İyi günler.'}&rdquo;
+                                &ldquo;{data.farewell || t('farewellDefault')}&rdquo;
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Launch Banner */}
             <div className="md:col-span-2 bg-inception-red/5 rounded-xl border border-inception-red/20 p-5">
                 <div className="flex items-start gap-3">
                     <Rocket className="h-5 w-5 text-inception-red flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">BAŞLATMAYA HAZIR</h4>
-                        <p className="text-xs text-white/40 mt-1">
-                            &quot;Şirketi Başlat&quot; butonuna tıkladığınızda AI sesli asistanınız yapılandırılacak.
-                            Asistanı ücretsiz test edebilir, canlıya almak istediğinizde Asistanlar sayfasından telefon numarası atayabilirsiniz.
-                        </p>
+                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">{t('readyToLaunch')}</h4>
+                        <p className="text-xs text-white/40 mt-1">{t('launchDescription')}</p>
                     </div>
                 </div>
             </div>

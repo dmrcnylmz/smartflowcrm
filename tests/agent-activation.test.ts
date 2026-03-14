@@ -192,12 +192,12 @@ describe('Agent Activation System', () => {
             const fs = await import('fs');
             const content = fs.readFileSync('app/onboarding/page.tsx', 'utf-8');
             // Should have exactly 4 steps: company, template, voice, launch
-            expect(content).toContain("id: 'company'");
-            expect(content).toContain("id: 'template'");
-            expect(content).toContain("id: 'voice'");
-            expect(content).toContain("id: 'launch'");
+            expect(content).toContain("'company'");
+            expect(content).toContain("'template'");
+            expect(content).toContain("'voice'");
+            expect(content).toContain("'launch'");
             // Should NOT have phone step
-            expect(content).not.toContain("id: 'phone'");
+            expect(content).not.toContain("'phone'");
         });
 
         it('onboarding does not import Phone or SkipForward icons', async () => {
@@ -216,9 +216,10 @@ describe('Agent Activation System', () => {
 
         it('onboarding launch banner mentions testing and activation', async () => {
             const fs = await import('fs');
-            const content = fs.readFileSync('app/onboarding/page.tsx', 'utf-8');
-            expect(content).toContain('ücretsiz test');
-            expect(content).toContain('Asistanlar sayfasından');
+            // Check the Turkish message file for launch banner content
+            const messages = fs.readFileSync('messages/tr.json', 'utf-8');
+            expect(messages).toContain('ücretsiz test');
+            expect(messages).toContain('Asistanlar sayfasından');
         });
     });
 

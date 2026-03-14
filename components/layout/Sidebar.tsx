@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react';
+import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -29,42 +29,43 @@ import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { Logo } from '@/components/layout/Logo';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
+import { useTranslations } from 'next-intl';
 
 interface NavSection {
-  title: string;
-  items: { href: string; label: string; icon: typeof LayoutDashboard }[];
+  titleKey: string;
+  items: { href: string; labelKey: string; icon: typeof LayoutDashboard }[];
 }
 
 const baseNavSections: NavSection[] = [
   {
-    title: 'Ana Menü',
+    titleKey: 'mainMenu',
     items: [
-      { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/calls', label: 'Çağrılar', icon: Phone },
-      { href: '/customers', label: 'Müşteriler', icon: Users },
+      { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
+      { href: '/calls', labelKey: 'calls', icon: Phone },
+      { href: '/customers', labelKey: 'customers', icon: Users },
     ],
   },
   {
-    title: 'Operasyonlar',
+    titleKey: 'operations',
     items: [
-      { href: '/appointments', label: 'Randevular', icon: Calendar },
-      { href: '/tickets', label: 'Biletler', icon: FileText },
-      { href: '/complaints', label: 'Şikayetler', icon: AlertCircle },
+      { href: '/appointments', labelKey: 'appointments', icon: Calendar },
+      { href: '/tickets', labelKey: 'tickets', icon: FileText },
+      { href: '/complaints', labelKey: 'complaints', icon: AlertCircle },
     ],
   },
   {
-    title: 'AI & Analiz',
+    titleKey: 'aiAnalysis',
     items: [
-      { href: '/knowledge', label: 'Bilgi Tabanı', icon: Database },
-      { href: '/agents', label: 'Asistanlar', icon: Bot },
-      { href: '/reports', label: 'Raporlar', icon: BarChart3 },
+      { href: '/knowledge', labelKey: 'knowledge', icon: Database },
+      { href: '/agents', labelKey: 'agents', icon: Bot },
+      { href: '/reports', labelKey: 'reports', icon: BarChart3 },
     ],
   },
   {
-    title: 'Yönetim',
+    titleKey: 'management',
     items: [
-      { href: '/billing', label: 'Faturalandırma', icon: CreditCard },
-      { href: '/admin', label: 'Ayarlar', icon: Settings },
+      { href: '/billing', labelKey: 'billing', icon: CreditCard },
+      { href: '/admin', labelKey: 'settings', icon: Settings },
     ],
   },
 ];
@@ -82,9 +83,9 @@ function getNavSections(email?: string | null): NavSection[] {
   return [
     ...baseNavSections,
     {
-      title: 'Sistem',
+      titleKey: 'system',
       items: [
-        { href: '/admin/super', label: 'Sistem Yönetimi', icon: Shield },
+        { href: '/admin/super', labelKey: 'systemAdmin', icon: Shield },
       ],
     },
   ];
@@ -93,6 +94,8 @@ function getNavSections(email?: string | null): NavSection[] {
 export const Sidebar = memo(function Sidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const t = useTranslations('nav');
+  const tAuth = useTranslations('auth');
   const navSections = useMemo(() => getNavSections(user?.email), [user?.email]);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -165,7 +168,7 @@ export const Sidebar = memo(function Sidebar() {
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="hidden lg:flex p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label={collapsed ? 'Sidebar genişlet' : 'Sidebar daralt'}
+            aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
           >
             {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
           </button>
@@ -173,15 +176,16 @@ export const Sidebar = memo(function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav role="navigation" aria-label="Ana menü" className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
+      <nav role="navigation" aria-label={t('mainMenu')} className={cn("flex-1 py-2 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
         {navSections.map((section, sectionIdx) => {
           let itemIndex = 0;
           for (let s = 0; s < sectionIdx; s++) itemIndex += navSections[s].items.length;
+          const sectionTitle = t(section.titleKey);
           return (
-            <div key={section.title} className={cn(sectionIdx > 0 ? "mt-4" : "")}>
+            <div key={section.titleKey} className={cn(sectionIdx > 0 ? "mt-4" : "")}>
               {!collapsed && (
                 <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                  {section.title}
+                  {sectionTitle}
                 </p>
               )}
               {collapsed && sectionIdx > 0 && (
@@ -192,12 +196,13 @@ export const Sidebar = memo(function Sidebar() {
                   const Icon = item.icon;
                   const isActive = pathname === item.href;
                   const animIdx = itemIndex + idx;
+                  const label = t(item.labelKey);
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      title={collapsed ? item.label : undefined}
-                      aria-label={item.label}
+                      title={collapsed ? label : undefined}
+                      aria-label={label}
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl transition-all duration-200",
@@ -210,13 +215,13 @@ export const Sidebar = memo(function Sidebar() {
                       style={{ animationDelay: `${animIdx * 30}ms` }}
                     >
                       <Icon className={cn("shrink-0 transition-transform duration-200 group-hover:scale-110", collapsed ? "h-5 w-5" : "h-[18px] w-[18px]")} />
-                      {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+                      {!collapsed && <span className="text-sm font-medium">{label}</span>}
                       {isActive && (
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary-foreground rounded-r-full" />
                       )}
                       {collapsed && (
                         <span className="absolute left-full ml-2 px-2.5 py-1 rounded-lg bg-foreground text-background text-xs font-medium whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
-                          {item.label}
+                          {label}
                         </span>
                       )}
                     </Link>
@@ -240,7 +245,7 @@ export const Sidebar = memo(function Sidebar() {
               <button
                 onClick={handleLogout}
                 className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Çıkış Yap"
+                title={tAuth('logout')}
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -253,7 +258,7 @@ export const Sidebar = memo(function Sidebar() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">
-                    {user.displayName || 'Kullanıcı'}
+                    {user.displayName || t('user')}
                   </p>
                   <p className="text-[11px] text-muted-foreground truncate">
                     {user.email}
@@ -268,7 +273,7 @@ export const Sidebar = memo(function Sidebar() {
                 onClick={handleLogout}
               >
                 <LogOut className="h-4 w-4" />
-                Çıkış Yap
+                {tAuth('logout')}
               </Button>
             </>
           )}
@@ -284,7 +289,7 @@ export const Sidebar = memo(function Sidebar() {
         ref={hamburgerRef}
         onClick={() => setMobileOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2.5 rounded-xl bg-card/80 backdrop-blur-md border border-border/30 shadow-lg text-foreground hover:bg-accent/50 transition-colors"
-        aria-label="Menüyü aç"
+        aria-label={t('openMenu')}
         aria-expanded={mobileOpen}
         aria-controls="mobile-sidebar"
       >
@@ -305,7 +310,7 @@ export const Sidebar = memo(function Sidebar() {
         id="mobile-sidebar"
         role="dialog"
         aria-modal={mobileOpen}
-        aria-label="Mobil navigasyon menüsü"
+        aria-label={t('mobileNav')}
         className={cn(
           "lg:hidden fixed top-0 left-0 z-50 h-full w-[85vw] max-w-[288px] bg-sidebar border-r border-sidebar-border flex flex-col shadow-2xl transition-transform duration-300 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
