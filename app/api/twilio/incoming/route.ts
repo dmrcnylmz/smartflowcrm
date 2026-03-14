@@ -25,11 +25,13 @@ import {
     resolveTenantFromPhone,
     validateTwilioSignature,
     getTwilioConfig,
+    buildPhoneTtsUrl,
     type TwilioCallEvent,
 } from '@/lib/twilio/telephony';
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
 import { gpuManager } from '@/lib/voice/gpu-manager';
+import { isCartesiaConfigured } from '@/lib/voice/tts-cartesia';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:incoming');
@@ -255,7 +257,13 @@ export async function POST(request: NextRequest) {
         // Check if recording is enabled for this tenant
         const recordCall = tenantData?.settings?.callRecording === true;
 
-        // Generate TwiML: Say greeting, then gather speech (optionally record)
+        // Build Cartesia audio URL for high-quality greeting (fallback to <Say> if not configured)
+        const cartesiaLang = language === 'en-US' ? 'en' : 'tr';
+        const greetingAudioUrl = isCartesiaConfigured()
+            ? buildPhoneTtsUrl(baseUrl, greeting, cartesiaLang)
+            : undefined;
+
+        // Generate TwiML: Play/Say greeting, then gather speech (optionally record)
         const twiml = generateGatherTwiML({
             gatherUrl,
             message: greeting,
@@ -263,6 +271,7 @@ export async function POST(request: NextRequest) {
             statusCallbackUrl: statusUrl,
             recordCall,
             recordingCallbackUrl: recordingUrl,
+            audioUrl: greetingAudioUrl,
         });
 
         // Record the call in Firestore

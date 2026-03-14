@@ -70,6 +70,7 @@ const mockGenerateGatherTwiML = vi.fn().mockReturnValue('<Response><Gather/></Re
 const mockGenerateUnavailableTwiML = vi.fn().mockReturnValue('<Response><Say>Unavailable</Say></Response>');
 const mockGenerateVoicemailTwiML = vi.fn().mockReturnValue('<Response><Record/></Response>');
 const mockGenerateResponseAndGatherTwiML = vi.fn().mockReturnValue('<Response><Say>AI response</Say><Gather/></Response>');
+const mockBuildPhoneTtsUrl = vi.fn().mockReturnValue('https://mock-tts.callception.com/audio.wav');
 
 vi.mock('@/lib/twilio/telephony', () => ({
     validateTwilioSignature: (...args: unknown[]) => mockValidateTwilioSignature(...args),
@@ -79,6 +80,13 @@ vi.mock('@/lib/twilio/telephony', () => ({
     generateUnavailableTwiML: (...args: unknown[]) => mockGenerateUnavailableTwiML(...args),
     generateVoicemailTwiML: (...args: unknown[]) => mockGenerateVoicemailTwiML(...args),
     generateResponseAndGatherTwiML: (...args: unknown[]) => mockGenerateResponseAndGatherTwiML(...args),
+    buildPhoneTtsUrl: (...args: unknown[]) => mockBuildPhoneTtsUrl(...args),
+}));
+
+// ── Cartesia TTS mock (prevents actual API calls in tests) ──
+vi.mock('@/lib/voice/tts-cartesia', () => ({
+    isCartesiaConfigured: vi.fn().mockReturnValue(false),
+    synthesizeCartesiaTTS: vi.fn().mockResolvedValue(null),
 }));
 
 // ── Billing mocks ──

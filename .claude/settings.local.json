@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /Users/pc/Desktop/smartflow-crm/.env*)",
+      "Bash(npm run build)",
+      "Bash(npx next build)",
+      "Bash(wc -l /Users/pc/Desktop/smartflow-crm/lib/ai/*.ts)",
+      "Bash(grep \"^export\" /Users/pc/Desktop/smartflow-crm/lib/ai/*.ts)",
+      "Bash(/Users/pc/Desktop/smartflow-crm/components/ui/badge.tsx:*)",
+      "Bash(/Users/pc/Desktop/smartflow-crm/components/ui/textarea.tsx:*)",
+      "Bash(npx next build --no-turbopack)",
+      "Bash(NEXT_TURBOPACK=0 npx next build)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}

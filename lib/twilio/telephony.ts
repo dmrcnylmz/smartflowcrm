@@ -8,7 +8,7 @@
  * - Signature validation
  */
 
-import crypto from 'crypto';
+import crypto, { createHmac } from 'crypto';
 
 // =============================================
 // Types
@@ -261,17 +261,19 @@ export function generateGatherTwiML(options: {
     statusCallbackUrl?: string;
     recordCall?: boolean;
     recordingCallbackUrl?: string;
+    audioUrl?: string; // Cartesia <Play> URL — if provided, uses <Play> instead of <Say> for greeting
 }): string {
     const {
         gatherUrl,
         message,
         language = 'tr-TR',
-        voice = 'Google.tr-TR-Standard-A',
+        voice = 'Google.tr-TR-Wavenet-A',
         timeout = 10,
         speechTimeout = 'auto',
         statusCallbackUrl,
         recordCall = false,
         recordingCallbackUrl,
+        audioUrl,
     } = options;
 
     // Optional call recording directive
@@ -279,13 +281,24 @@ export function generateGatherTwiML(options: {
         ? `<Record recordingStatusCallback="${escapeXml(recordingCallbackUrl || '')}" recordingStatusCallbackMethod="POST" trim="trim-silence" maxLength="3600" />\n  `
         : '';
 
+    const langAttr = `language="${escapeXml(language)}"`;
+    const voiceAttr = `voice="${escapeXml(voice)}"`;
+    const gatherAttr = `input="speech" action="${escapeXml(gatherUrl)}" method="POST" ${langAttr} speechTimeout="${speechTimeout}" timeout="${timeout}"`;
+
+    // Use <Play> for Cartesia audio, fall back to <Say> for Google TTS
+    const greetingTag = audioUrl
+        ? `<Play>${escapeXml(audioUrl)}</Play>`
+        : `<Say ${langAttr} ${voiceAttr}>${escapeXml(message)}</Say>`;
+
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  ${recordDirective}<Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(message)}</Say>
-  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}">
-    <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Dinliyorum...</Say>
+  ${recordDirective}${greetingTag}
+  <Gather ${gatherAttr}>
+    <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'I am listening...' : 'Dinliyorum...'}</Say>
   </Gather>
-  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Ses algılanamadı. Aradığınız için teşekkür ederiz. İyi günler.</Say>
+  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'I could not hear you. Could you please repeat?' : 'Sizi duyamadım, tekrar söyleyebilir misiniz?'}</Say>
+  <Gather ${gatherAttr}/>
+  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Thank you for calling. Goodbye.' : 'Aradığınız için teşekkür ederiz. İyi günler.'}</Say>
   ${statusCallbackUrl ? `<Redirect>${escapeXml(statusCallbackUrl)}</Redirect>` : '<Hangup/>'}
 </Response>`;
 }
@@ -302,32 +315,67 @@ export function generateResponseAndGatherTwiML(options: {
     timeout?: number;
     speechTimeout?: string;
     shouldHangup?: boolean;
+    audioUrl?: string; // Cartesia <Play> URL — if provided, uses <Play> instead of <Say> for AI response
 }): string {
     const {
         gatherUrl,
         aiResponse,
         language = 'tr-TR',
-        voice = 'Google.tr-TR-Standard-A',
+        voice = 'Google.tr-TR-Wavenet-A',
         timeout = 10,
         speechTimeout = 'auto',
         shouldHangup = false,
+        audioUrl,
     } = options;
+
+    const langAttr = `language="${escapeXml(language)}"`;
+    const voiceAttr = `voice="${escapeXml(voice)}"`;
+    const gatherAttr = `input="speech" action="${escapeXml(gatherUrl)}" method="POST" ${langAttr} speechTimeout="${speechTimeout}" timeout="${timeout}"`;
+
+    // Use <Play> for Cartesia audio, fall back to <Say> for Google TTS
+    const responseTag = audioUrl
+        ? `<Play>${escapeXml(audioUrl)}</Play>`
+        : `<Say ${langAttr} ${voiceAttr}>${escapeXml(aiResponse)}</Say>`;
 
     if (shouldHangup) {
         return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(aiResponse)}</Say>
+  ${responseTag}
   <Hangup/>
 </Response>`;
     }
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">${escapeXml(aiResponse)}</Say>
-  <Gather input="speech" action="${escapeXml(gatherUrl)}" method="POST" language="${escapeXml(language)}" speechTimeout="${speechTimeout}" timeout="${timeout}"/>
-  <Say language="${escapeXml(language)}" voice="${escapeXml(voice)}">Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.</Say>
+  ${responseTag}
+  <Gather ${gatherAttr}/>
+  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Are you still there?' : 'Hâlâ orada mısınız?'}</Say>
+  <Gather ${gatherAttr}/>
+  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Thank you for calling. Goodbye.' : 'Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.'}</Say>
   <Hangup/>
 </Response>`;
+}
+
+// =============================================
+// Phone TTS URL Builder (Cartesia via <Play>)
+// =============================================
+
+/**
+ * Build a signed URL for the phone TTS endpoint.
+ * Twilio fetches this URL when processing <Play> tags.
+ *
+ * @param baseUrl  - e.g. "https://callception.com"
+ * @param text     - Text to synthesize
+ * @param lang     - 'tr' | 'en'
+ * @param voiceId  - Cartesia voice UUID (optional, defaults to Leyla/Katie)
+ */
+export function buildPhoneTtsUrl(baseUrl: string, text: string, lang: string, voiceId?: string): string {
+    const secret = process.env.TWILIO_AUTH_TOKEN || '';
+    const vid = voiceId || '';
+    const textB64 = Buffer.from(text).toString('base64url');
+    const data = `${text}:${lang}:${vid}`;
+    const sig = createHmac('sha256', secret).update(data).digest('hex').slice(0, 16);
+    return `${baseUrl}/api/voice/tts/phone?t=${textB64}&l=${encodeURIComponent(lang)}&v=${encodeURIComponent(vid)}&s=${sig}`;
 }
 
 // =============================================

@@ -28,12 +28,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initAdmin } from '@/lib/auth/firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig } from '@/lib/twilio/telephony';
+import { generateResponseAndGatherTwiML, generateUnavailableTwiML, validateTwilioSignature, getTwilioConfig, buildPhoneTtsUrl } from '@/lib/twilio/telephony';
 import { detectIntentFast, shouldShortcut, getShortcutResponse } from '@/lib/ai/intent-fast';
 import { generateWithFallback } from '@/lib/ai/llm-fallback-chain';
 import { sendWebhook } from '@/lib/n8n/client';
 import { getResponseCache, buildCacheKey } from '@/lib/ai/response-cache';
 import { optimizeForPhoneTTS } from '@/lib/twilio/text-optimizer';
+import { isCartesiaConfigured } from '@/lib/voice/tts-cartesia';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:gather');
@@ -172,7 +173,8 @@ export async function POST(request: NextRequest) {
         // Build gather URL once (used in multiple places)
         const host = request.headers.get('host') || 'localhost:3000';
         const protocol = host.includes('localhost') ? 'http' : 'https';
-        const gatherUrl = `${protocol}://${host}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}${agentIdParam ? `&agentId=${agentIdParam}` : ''}`;
+        const baseUrl = `${protocol}://${host}`;
+        const gatherUrl = `${baseUrl}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}${agentIdParam ? `&agentId=${agentIdParam}` : ''}`;
 
         if (!speechResult) {
             // ── Consecutive Silence Detection ────────────────────────────
@@ -376,12 +378,19 @@ export async function POST(request: NextRequest) {
             },
         }).catch(() => {});
 
-        // 7. Build TwiML response
+        // 7. Build TwiML response — use Cartesia <Play> if configured, else Google WaveNet <Say>
+        const cartesiaLang = language === 'en' ? 'en' : 'tr';
+        const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
+        const responseAudioUrl = isCartesiaConfigured()
+            ? buildPhoneTtsUrl(baseUrl, aiResponse, cartesiaLang, voiceId)
+            : undefined;
+
         const twiml = generateResponseAndGatherTwiML({
             gatherUrl,
             aiResponse,
             language: language === 'en' ? 'en-US' : 'tr-TR',
             shouldHangup: shouldEndCall,
+            audioUrl: responseAudioUrl,
         });
 
         return new NextResponse(twiml, {
