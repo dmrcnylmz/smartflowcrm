@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const envPath = resolve(__dirname, '../.env.local');
 
-let envVars = {};
+const envVars = {};
 try {
   const envFile = readFileSync(envPath, 'utf-8');
   envFile.split('\n').forEach(line => {

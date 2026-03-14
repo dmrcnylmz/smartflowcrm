@@ -15,7 +15,7 @@ const __dirname = dirname(__filename);
 const envPath = resolve(__dirname, '../.env.local');
 
 // .env.local dosyasını manuel parse et (Node.js native için)
-let envVars = {};
+const envVars = {};
 try {
   const envFile = readFileSync(envPath, 'utf-8');
   envFile.split('\n').forEach(line => {

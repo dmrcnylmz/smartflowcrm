@@ -1,16 +1,14 @@
 'use client';
 
 import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { useState, useRef, useEffect, useTransition } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import { locales, localeNames, localeFlags, type Locale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils';
 
 export function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
     const locale = useLocale() as Locale;
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
+    const [isPending, setIsPending] = useState(false);
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -30,17 +28,18 @@ export function LanguageSwitcher({ collapsed }: { collapsed?: boolean }) {
             setOpen(false);
             return;
         }
+        setIsPending(true);
         try {
             await fetch('/api/locale', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ locale: newLocale }),
             });
-            startTransition(() => {
-                router.refresh();
-            });
+            // Full page reload ensures the server reads the new NEXT_LOCALE cookie
+            // router.refresh() has a race condition where the cookie may not be sent back
+            window.location.reload();
         } catch {
-            // Silently fail — cookie will be set on next visit via middleware
+            setIsPending(false);
         }
         setOpen(false);
     }
