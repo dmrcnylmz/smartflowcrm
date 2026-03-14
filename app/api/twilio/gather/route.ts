@@ -222,11 +222,28 @@ export async function POST(request: NextRequest) {
             .update({ consecutiveSilence: 0 })
             .catch(() => {});
 
-        // ── Load call document for turn & duration guards ────────────
-        const callDoc = await getDb()
-            .collection('tenants').doc(tenantId)
-            .collection('calls').doc(callSid)
-            .get();
+        // ── Paralel Firestore okumaları: callDoc + tenant + agent (cache'e bakarak) ──
+        // Üçünü aynı anda okuyarak ~150-250ms tasarruf vs sıralı okumalar.
+        const agentCacheKey = agentIdParam ? `${tenantId}:${agentIdParam}` : `${tenantId}:_first_active`;
+        const tenantCacheHit = !!getCachedTenantData(tenantId);
+        const cachedAgentBefore = getCachedAgentData(agentCacheKey);
+        const agentCacheHit = cachedAgentBefore !== undefined;
+
+        const fsReadStart = Date.now();
+        const [callDoc, tenantSnapMaybe, agentDocMaybe] = await Promise.all([
+            // Her zaman: call doc (history, tur sayısı, süre)
+            getDb().collection('tenants').doc(tenantId).collection('calls').doc(callSid).get(),
+            // Yalnızca cache miss ise tenant oku
+            !tenantCacheHit
+                ? getDb().collection('tenants').doc(tenantId).get()
+                : Promise.resolve(null),
+            // Yalnızca cache miss + doğrudan agentId varsa agent oku
+            !agentCacheHit && agentIdParam
+                ? getDb().collection('tenants').doc(tenantId).collection('agents').doc(agentIdParam).get()
+                : Promise.resolve(null),
+        ]);
+        const firestoreMs = Date.now() - fsReadStart;
+
         const callData = callDoc.data();
         const history = callData?.conversationHistory || [];
         const turnCount = Math.floor(history.length / 2);
@@ -259,45 +276,34 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // ── Load tenant config (cached) ──────────────────────────────
+        // ── Tenant config işle (paralel prefetch veya cache'ten) ────────
         let tenantData = getCachedTenantData(tenantId);
-        const tenantCacheHit = !!tenantData;
         if (!tenantData) {
-            const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
-            tenantData = tenantSnap.data() || {};
+            tenantData = tenantSnapMaybe?.data() || {};
             setCachedTenantData(tenantId, tenantData);
         }
         const language = tenantData?.language === 'en' ? 'en' : 'tr';
 
-        // ── Load agent config (cached) ───────────────────────────────
-        const agentCacheKey = agentIdParam ? `${tenantId}:${agentIdParam}` : `${tenantId}:_first_active`;
+        // ── Agent config işle (paralel prefetch veya cache'ten) ──────────
         let activeAgent: FirebaseFirestore.DocumentData | null = null;
-        const cachedAgent = getCachedAgentData(agentCacheKey);
-        const agentCacheHit = cachedAgent !== undefined;
         if (agentCacheHit) {
-            activeAgent = cachedAgent;
-        } else {
+            // Cache'ten al
+            activeAgent = cachedAgentBefore ?? null;
+        } else if (agentIdParam && agentDocMaybe?.exists) {
+            // Yukarıda paralel prefetch edildi
+            activeAgent = agentDocMaybe.data() || null;
+            setCachedAgentData(agentCacheKey, activeAgent);
+        } else if (!agentCacheHit) {
+            // Legacy fallback: agentId olmadan ilk aktif agent sorgusu
             try {
-                if (agentIdParam) {
-                    const agentDoc = await getDb()
-                        .collection('tenants').doc(tenantId)
-                        .collection('agents').doc(agentIdParam)
-                        .get();
-                    if (agentDoc.exists) {
-                        activeAgent = agentDoc.data() || null;
-                    }
-                }
-                if (!activeAgent) {
-                    // Legacy fallback: find first active agent
-                    const agentsSnap = await getDb()
-                        .collection('tenants').doc(tenantId)
-                        .collection('agents')
-                        .where('isActive', '==', true)
-                        .limit(1)
-                        .get();
-                    if (!agentsSnap.empty) {
-                        activeAgent = agentsSnap.docs[0].data();
-                    }
+                const agentsSnap = await getDb()
+                    .collection('tenants').doc(tenantId)
+                    .collection('agents')
+                    .where('isActive', '==', true)
+                    .limit(1)
+                    .get();
+                if (!agentsSnap.empty) {
+                    activeAgent = agentsSnap.docs[0].data();
                 }
             } catch { /* Fallback to tenant-level config */ }
             setCachedAgentData(agentCacheKey, activeAgent);
@@ -339,9 +345,9 @@ export async function POST(request: NextRequest) {
                             aiResponse.toLowerCase().includes('goodbye');
         }
 
-        // 4. Optimize text for phone TTS
+        // 4. Optimize text for phone TTS (160 char limit → Cartesia ~400ms daha hızlı)
         const preOptLen = aiResponse.length;
-        aiResponse = optimizeForPhoneTTS(aiResponse);
+        aiResponse = optimizeForPhoneTTS(aiResponse, 160);
         const postOptLen = aiResponse.length;
 
         // 5. Pre-generate Cartesia audio + Firestore write in PARALLEL
@@ -386,6 +392,7 @@ export async function POST(request: NextRequest) {
             configCache: { tenant: tenantCacheHit, agent: agentCacheHit },
             ttsOpt: preOptLen !== postOptLen ? { before: preOptLen, after: postOptLen } : 'no-change',
             shouldEnd: shouldEndCall,
+            firestoreMs,
             cartesiaMs: Date.now() - cartesiaStart,
             totalMs: Date.now() - reqStart,
         });
@@ -506,7 +513,7 @@ Kurallar:
                 ...chatHistory,
                 { role: 'user', content: userMessage },
             ],
-            { maxTokens: 120, temperature: 0.3, language },
+            { maxTokens: 80, temperature: 0.3, language },
         );
 
         return result.text || 'Yanıt oluşturulamadı.';
