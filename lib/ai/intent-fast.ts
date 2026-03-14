@@ -29,7 +29,7 @@ export interface IntentResult {
     intent: IntentCategory;
     confidence: ConfidenceLevel;
     detectedKeywords: string[];
-    language: 'tr' | 'en';
+    language: 'tr' | 'en' | 'de' | 'fr';
 }
 
 // --- Keyword Maps ---
@@ -216,15 +216,167 @@ const ENGLISH_RULES: KeywordRule[] = [
     },
 ];
 
+const GERMAN_RULES: KeywordRule[] = [
+    {
+        intent: 'appointment',
+        roots: ['termin', 'buchung', 'reservier', 'vereinbar'],
+        phrases: ['termin buchen', 'termin vereinbaren', 'wann sind sie verfügbar', 'termin machen'],
+        confidence: 'high',
+    },
+    {
+        intent: 'complaint',
+        roots: ['beschwerd', 'problem', 'reklamation', 'defekt', 'kaputt', 'mangel'],
+        phrases: ['beschwerde einreichen', 'funktioniert nicht', 'bin nicht zufrieden', 'es ist kaputt', 'problem melden'],
+        confidence: 'high',
+    },
+    {
+        intent: 'pricing',
+        roots: ['preis', 'kosten', 'tarif', 'gebühr', 'rabatt', 'angebot'],
+        phrases: ['wie viel kostet', 'was kostet', 'preis erfahren', 'preisliste', 'gibt es rabatt'],
+        confidence: 'high',
+    },
+    {
+        intent: 'cancellation',
+        roots: ['kündig', 'stornier', 'abbestell', 'widerruf'],
+        phrases: ['kündigen möchte', 'vertrag kündigen', 'abo kündigen', 'stornieren möchte', 'abonnement kündigen'],
+        confidence: 'high',
+    },
+    {
+        intent: 'greeting',
+        roots: [],
+        phrases: ['hallo', 'guten tag', 'guten morgen', 'guten abend', 'grüß gott', 'servus', 'moin'],
+        confidence: 'high',
+    },
+    {
+        intent: 'farewell',
+        roots: [],
+        phrases: ['auf wiedersehen', 'tschüss', 'bis bald', 'schönen tag', 'auf wiederhören', 'ciao'],
+        confidence: 'high',
+    },
+    {
+        intent: 'escalation',
+        roots: ['vorgesetzt', 'leiter', 'manager', 'verantwortlich'],
+        phrases: ['mit vorgesetzten sprechen', 'mit dem chef sprechen', 'verantwortlichen sprechen', 'echte person', 'mensch sprechen'],
+        confidence: 'high',
+    },
+    {
+        intent: 'thanks',
+        roots: ['dank'],
+        phrases: ['danke', 'vielen dank', 'herzlichen dank', 'dankeschön', 'danke schön'],
+        confidence: 'high',
+    },
+    {
+        intent: 'out_of_scope',
+        roots: ['taxi', 'hotel', 'flug', 'pizza', 'wetter', 'rezept', 'film', 'musik', 'spiel', 'sport'],
+        phrases: [
+            'taxi bestellen', 'taxi rufen', 'hotel buchen', 'hotel finden',
+            'flug buchen', 'flugticket', 'essen bestellen', 'pizza bestellen',
+            'wie wird das wetter', 'wettervorhersage', 'musik abspielen',
+            'witz erzählen', 'route berechnen', 'navigiere zu',
+            'paket verfolgen', 'lieferstatus',
+        ],
+        confidence: 'high',
+    },
+    {
+        intent: 'info',
+        roots: ['info', 'auskunft', 'frag', 'wiss'],
+        phrases: ['ich möchte wissen', 'können sie mir sagen', 'information über', 'auskunft bitte'],
+        confidence: 'medium',
+    },
+];
+
+const FRENCH_RULES: KeywordRule[] = [
+    {
+        intent: 'appointment',
+        roots: ['rendez', 'réserv', 'planifi'],
+        phrases: ['prendre rendez-vous', 'réserver un créneau', 'planifier une réunion', 'quand êtes-vous disponible'],
+        confidence: 'high',
+    },
+    {
+        intent: 'complaint',
+        roots: ['plainte', 'réclamation', 'problème', 'panne', 'défaut', 'mécontent'],
+        phrases: ['déposer une plainte', 'ne fonctionne pas', 'pas satisfait', 'problème avec', 'faire une réclamation'],
+        confidence: 'high',
+    },
+    {
+        intent: 'pricing',
+        roots: ['prix', 'tarif', 'coût', 'remise', 'offre', 'devis'],
+        phrases: ['combien ça coûte', 'quel est le prix', 'tarif pour', 'demande de devis', 'y a-t-il une remise'],
+        confidence: 'high',
+    },
+    {
+        intent: 'cancellation',
+        roots: ['annul', 'résili', 'désabonn'],
+        phrases: ['annuler mon', 'je veux annuler', 'résilier mon', 'désabonner', 'annuler abonnement'],
+        confidence: 'high',
+    },
+    {
+        intent: 'greeting',
+        roots: [],
+        phrases: ['bonjour', 'salut', 'bonsoir', 'bonne journée', 'enchanté', 'coucou'],
+        confidence: 'high',
+    },
+    {
+        intent: 'farewell',
+        roots: [],
+        phrases: ['au revoir', 'à bientôt', 'bonne journée', 'bonne soirée', 'adieu', 'salut'],
+        confidence: 'high',
+    },
+    {
+        intent: 'escalation',
+        roots: ['responsable', 'superviseur', 'directeur', 'supérieur'],
+        phrases: ['parler au responsable', 'parler à quelqu\'un', 'personne réelle', 'agent humain', 'parler au directeur'],
+        confidence: 'high',
+    },
+    {
+        intent: 'thanks',
+        roots: ['merci', 'remerci'],
+        phrases: ['merci', 'merci beaucoup', 'je vous remercie', 'c\'est gentil'],
+        confidence: 'high',
+    },
+    {
+        intent: 'out_of_scope',
+        roots: ['taxi', 'hôtel', 'vol', 'pizza', 'météo', 'recette', 'film', 'musique', 'jeu', 'sport'],
+        phrases: [
+            'appeler un taxi', 'commander un taxi', 'réserver un hôtel', 'trouver un hôtel',
+            'réserver un vol', 'billet d\'avion', 'commander à manger', 'commander une pizza',
+            'quel temps fait-il', 'prévisions météo', 'jouer de la musique',
+            'raconter une blague', 'itinéraire vers', 'naviguer vers',
+            'suivre mon colis', 'statut de livraison',
+        ],
+        confidence: 'high',
+    },
+    {
+        intent: 'info',
+        roots: ['info', 'renseign', 'question', 'savoir'],
+        phrases: ['je voudrais savoir', 'pouvez-vous me dire', 'information sur', 'renseignement'],
+        confidence: 'medium',
+    },
+];
+
 // --- Language Detection ---
 
-function detectLanguage(text: string): 'tr' | 'en' {
-    // Turkish-specific characters
-    const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
+function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'fr' {
+    // Turkish-specific characters (ç/Ç removed — shared with French)
+    const turkishChars = /[ğışĞİŞ]/; // ğ, ı, ş are unique to Turkish
     if (turkishChars.test(text)) return 'tr';
 
+    // German-specific characters + common German words
+    const germanChars = /[äÄßẞ]/;
+    if (germanChars.test(text)) return 'de';
+
+    const germanWords = /\b(ich|und|das|ist|ein|eine|für|mit|nicht|auf|der|die|den|des|dem|hallo|guten|danke|bitte|möchte|können|haben|termin|beschwerde|kündigen|wie|viel|kostet|sprechen|wiedersehen|tschüss|mein|ihr|wir|sie)\b/i;
+    if (germanWords.test(text)) return 'de';
+
+    // French-specific characters + common French words
+    const frenchChars = /[éèêëàâùûîïôœæç]/i;
+    if (frenchChars.test(text)) return 'fr';
+
+    const frenchWords = /\b(je|nous|vous|les|une|des|est|sont|pour|avec|pas|sur|bonjour|merci|rendez|plainte|annuler|combien|comment|voudrais|pouvez|revoir|bonsoir|oui|non|mon|votre|notre|cette)\b/i;
+    if (frenchWords.test(text)) return 'fr';
+
     // Common Turkish words (including those without special characters)
-    const turkishWords = /\b(bir|ve|bu|için|ile|var|olan|da|de|mi|mı|ne|nasıl|merhaba|selam|evet|hayır|tamam|randevu|fiyat|istiyorum|nedir|almak|etmek|olarak|benim|sizin|lütfen)\b/i;
+    const turkishWords = /\b(bir|ve|bu|için|ile|var|olan|da|mi|mı|ne|nasıl|merhaba|selam|evet|hayır|tamam|randevu|fiyat|istiyorum|nedir|almak|etmek|olarak|benim|sizin|lütfen)\b/i;
     if (turkishWords.test(text)) return 'tr';
 
     return 'en';
@@ -246,7 +398,13 @@ export function detectIntentFast(text: string): IntentResult {
     }
 
     const language = detectLanguage(normalized);
-    const rules = language === 'tr' ? TURKISH_RULES : ENGLISH_RULES;
+    const rulesMap: Record<string, KeywordRule[]> = {
+        tr: TURKISH_RULES,
+        en: ENGLISH_RULES,
+        de: GERMAN_RULES,
+        fr: FRENCH_RULES,
+    };
+    const rules = rulesMap[language] || ENGLISH_RULES;
 
     let bestMatch: IntentResult = {
         intent: 'unknown',
@@ -305,7 +463,7 @@ export function hasEnoughTokensForIntent(partialText: string): boolean {
 /**
  * Get safe response template based on intent (used when LLM/RAG fails).
  */
-export function getSafeResponse(intent: IntentCategory, language: 'tr' | 'en'): string {
+export function getSafeResponse(intent: IntentCategory, language: 'tr' | 'en' | 'de' | 'fr'): string {
     const responses: Record<string, Record<IntentCategory, string>> = {
         tr: {
             appointment: 'Randevu talebinizi aldım. Sizi ilgili birime yönlendiriyorum.',
@@ -332,6 +490,32 @@ export function getSafeResponse(intent: IntentCategory, language: 'tr' | 'en'): 
             thanks: 'You\'re welcome. Is there anything else I can help you with?',
             out_of_scope: 'I\'m sorry, I can\'t help with that. I can only assist with our company\'s services. Is there anything else related to our business I can help you with?',
             unknown: 'I understand. Let me connect you with someone who can best assist you.',
+        },
+        de: {
+            appointment: 'Ich habe Ihre Terminanfrage notiert. Ich verbinde Sie mit der zuständigen Abteilung.',
+            complaint: 'Ihre Beschwerde wurde aufgenommen. Jemand wird sich in Kürze bei Ihnen melden.',
+            pricing: 'Ich verbinde Sie mit jemandem, der Ihnen bei den Preisinformationen helfen kann.',
+            info: 'Ich habe Ihre Anfrage notiert. Wir melden uns so schnell wie möglich bei Ihnen.',
+            cancellation: 'Ich habe Ihre Kündigungsanfrage notiert. Ich verbinde Sie mit der zuständigen Abteilung.',
+            greeting: 'Hallo, wie kann ich Ihnen helfen?',
+            farewell: 'Vielen Dank für Ihren Anruf. Auf Wiederhören.',
+            escalation: 'Ich verbinde Sie sofort mit einem Vorgesetzten.',
+            thanks: 'Gerne geschehen. Kann ich Ihnen noch bei etwas anderem helfen?',
+            out_of_scope: 'Es tut mir leid, dabei kann ich Ihnen nicht helfen. Ich kann nur bei Fragen zu unseren Dienstleistungen unterstützen. Kann ich Ihnen bei etwas anderem helfen?',
+            unknown: 'Ich verstehe. Lassen Sie mich Sie mit jemandem verbinden, der Ihnen am besten helfen kann.',
+        },
+        fr: {
+            appointment: 'J\'ai noté votre demande de rendez-vous. Je vous mets en relation avec le bon service.',
+            complaint: 'Votre réclamation a été enregistrée. Quelqu\'un vous recontactera sous peu.',
+            pricing: 'Je vous mets en relation avec quelqu\'un qui peut vous renseigner sur les tarifs.',
+            info: 'J\'ai noté votre demande. Nous vous recontacterons dès que possible.',
+            cancellation: 'J\'ai noté votre demande d\'annulation. Je vous mets en relation avec le service concerné.',
+            greeting: 'Bonjour, comment puis-je vous aider ?',
+            farewell: 'Merci de votre appel. Bonne journée.',
+            escalation: 'Je vous mets immédiatement en relation avec un responsable.',
+            thanks: 'Je vous en prie. Puis-je vous aider pour autre chose ?',
+            out_of_scope: 'Je suis désolé, je ne peux pas vous aider avec cela. Je ne peux vous assister que pour les services de notre entreprise. Puis-je vous aider pour autre chose ?',
+            unknown: 'Je comprends. Permettez-moi de vous mettre en relation avec quelqu\'un qui pourra mieux vous aider.',
         },
     };
 
@@ -369,10 +553,10 @@ export function shouldShortcut(intentResult: IntentResult): boolean {
  */
 export function getShortcutResponse(
     intent: IntentCategory,
-    language: 'tr' | 'en',
+    language: 'tr' | 'en' | 'de' | 'fr',
     agentName?: string,
 ): string {
-    const name = agentName || (language === 'tr' ? 'Ben' : 'I');
+    const name = agentName || (language === 'tr' ? 'Ben' : language === 'de' ? 'Ich' : language === 'fr' ? 'Je' : 'I');
 
     const responses: Record<string, Record<IntentCategory, string>> = {
         tr: {
@@ -391,6 +575,24 @@ export function getShortcutResponse(
             thanks: `You're welcome! Is there anything else I can help you with?`,
             escalation: `Let me connect you with a supervisor right away. Please hold.`,
             out_of_scope: `I'm sorry, that's outside the scope of our services. I can only help with our company's offerings. Is there anything else I can assist you with?`,
+            appointment: '', complaint: '', pricing: '', info: '',
+            cancellation: '', unknown: '',
+        },
+        de: {
+            greeting: `Hallo! Wie kann ich Ihnen heute helfen?`,
+            farewell: `Schönen Tag noch! Rufen Sie uns gerne jederzeit wieder an.`,
+            thanks: `Gerne geschehen! Kann ich Ihnen noch bei etwas anderem helfen?`,
+            escalation: `Ich verbinde Sie sofort mit einem Vorgesetzten. Bitte bleiben Sie dran.`,
+            out_of_scope: `Es tut mir leid, das liegt außerhalb unseres Leistungsbereichs. Ich kann nur bei Fragen zu unseren Dienstleistungen helfen.`,
+            appointment: '', complaint: '', pricing: '', info: '',
+            cancellation: '', unknown: '',
+        },
+        fr: {
+            greeting: `Bonjour ! Comment puis-je vous aider aujourd'hui ?`,
+            farewell: `Bonne journée ! N'hésitez pas à nous rappeler.`,
+            thanks: `Je vous en prie ! Puis-je vous aider pour autre chose ?`,
+            escalation: `Je vous mets immédiatement en relation avec un responsable. Veuillez patienter.`,
+            out_of_scope: `Je suis désolé, cela ne relève pas de nos services. Je ne peux vous aider que pour les offres de notre entreprise.`,
             appointment: '', complaint: '', pricing: '', info: '',
             cancellation: '', unknown: '',
         },

@@ -310,4 +310,118 @@ describe('getShortcutResponse', () => {
         const response = getShortcutResponse('greeting', 'tr', 'SmartBot');
         expect(response).toContain('SmartBot');
     });
+
+    it('should return greeting response in German', () => {
+        const response = getShortcutResponse('greeting', 'de');
+        expect(response).toContain('Hallo');
+    });
+
+    it('should return greeting response in French', () => {
+        const response = getShortcutResponse('greeting', 'fr');
+        expect(response).toContain('Bonjour');
+    });
+});
+
+// ── German Intent Detection ──
+
+describe('German intent detection', () => {
+    it('should detect German from ß/ä/ö/ü characters', () => {
+        const result = detectIntentFast('Ich möchte einen Termin für nächste Woche');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect appointment from "Termin buchen"', () => {
+        const result = detectIntentFast('Ich möchte einen Termin buchen');
+        expect(result.intent).toBe('appointment');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect complaint from "Beschwerde"', () => {
+        const result = detectIntentFast('Ich möchte eine Beschwerde einreichen');
+        expect(result.intent).toBe('complaint');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect greeting from "Hallo"', () => {
+        const result = detectIntentFast('Hallo, guten Tag');
+        expect(result.intent).toBe('greeting');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect farewell from "Auf Wiedersehen"', () => {
+        const result = detectIntentFast('Auf Wiedersehen, schönen Tag');
+        expect(result.intent).toBe('farewell');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect pricing from "wie viel kostet"', () => {
+        const result = detectIntentFast('Wie viel kostet das Paket?');
+        expect(result.intent).toBe('pricing');
+        expect(result.language).toBe('de');
+    });
+
+    it('should detect cancellation from "kündigen"', () => {
+        const result = detectIntentFast('Ich möchte mein Abo kündigen');
+        expect(result.intent).toBe('cancellation');
+        expect(result.language).toBe('de');
+    });
+});
+
+// ── French Intent Detection ──
+
+describe('French intent detection', () => {
+    it('should detect French from accented characters', () => {
+        const result = detectIntentFast('Je voudrais prendre un rendez-vous');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect appointment from "rendez-vous"', () => {
+        const result = detectIntentFast('Je voudrais prendre rendez-vous');
+        expect(result.intent).toBe('appointment');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect complaint from "réclamation"', () => {
+        const result = detectIntentFast('Je veux faire une réclamation');
+        expect(result.intent).toBe('complaint');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect greeting from "Bonjour"', () => {
+        const result = detectIntentFast('Bonjour, bonne journée');
+        expect(result.intent).toBe('greeting');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect farewell from "Au revoir"', () => {
+        const result = detectIntentFast('Au revoir, bonne journée');
+        expect(result.intent).toBe('farewell');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect pricing from "combien ça coûte"', () => {
+        const result = detectIntentFast('Combien ça coûte le service ?');
+        expect(result.intent).toBe('pricing');
+        expect(result.language).toBe('fr');
+    });
+
+    it('should detect cancellation from "annuler"', () => {
+        const result = detectIntentFast('Je veux annuler mon abonnement');
+        expect(result.intent).toBe('cancellation');
+        expect(result.language).toBe('fr');
+    });
+});
+
+// ── German/French Safe & Shortcut Responses ──
+
+describe('getSafeResponse multilingual', () => {
+    it('should return German response', () => {
+        const response = getSafeResponse('greeting', 'de');
+        expect(response).toContain('Hallo');
+    });
+
+    it('should return French response', () => {
+        const response = getSafeResponse('greeting', 'fr');
+        expect(response).toContain('Bonjour');
+    });
 });

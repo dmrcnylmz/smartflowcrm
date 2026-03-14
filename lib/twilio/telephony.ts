@@ -139,13 +139,15 @@ export function generateVoicemailTwiML(options?: {
     message?: string;
     maxLength?: number;
     recordingStatusCallbackUrl?: string;
+    language?: string;
 }): string {
     const message = options?.message || 'Şu anda müsait değiliz. Lütfen kısa bir mesaj bırakın.';
     const maxLength = options?.maxLength || 120;
+    const language = options?.language || 'tr-TR';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say language="tr-TR">${escapeXml(message)}</Say>
+  <Say language="${escapeXml(language)}">${escapeXml(message)}</Say>
   <Record maxLength="${maxLength}" playBeep="true" ${options?.recordingStatusCallbackUrl
             ? `recordingStatusCallback="${escapeXml(options.recordingStatusCallbackUrl)}"`
             : ''
@@ -294,9 +296,9 @@ export function generateGatherTwiML(options: {
 <Response>
   ${recordDirective}${greetingTag}
   <Gather ${gatherAttr}/>
-  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'I could not hear you. Could you please repeat?' : 'Sizi duyamadım, tekrar söyleyebilir misiniz?'}</Say>
+  <Say ${langAttr} ${voiceAttr}>${getTwiMLMessage(language, 'couldNotHear')}</Say>
   <Gather ${gatherAttr}/>
-  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Thank you for calling. Goodbye.' : 'Aradığınız için teşekkür ederiz. İyi günler.'}</Say>
+  <Say ${langAttr} ${voiceAttr}>${getTwiMLMessage(language, 'thankYou')}</Say>
   ${statusCallbackUrl ? `<Redirect>${escapeXml(statusCallbackUrl)}</Redirect>` : '<Hangup/>'}
 </Response>`;
 }
@@ -356,9 +358,9 @@ export function generateResponseAndGatherTwiML(options: {
 <Response>
   ${responseTag}
   <Gather ${gatherAttr}/>
-  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Are you still there?' : 'Hâlâ orada mısınız?'}</Say>
+  <Say ${langAttr} ${voiceAttr}>${getTwiMLMessage(language, 'stillThere')}</Say>
   <Gather ${gatherAttr}/>
-  <Say ${langAttr} ${voiceAttr}>${language === 'en-US' ? 'Thank you for calling. Goodbye.' : 'Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.'}</Say>
+  <Say ${langAttr} ${voiceAttr}>${getTwiMLMessage(language, 'goodbye')}</Say>
   <Hangup/>
 </Response>`;
 }
@@ -383,6 +385,43 @@ export function buildPhoneTtsUrl(baseUrl: string, text: string, lang: string, vo
     const data = `${text}:${lang}:${vid}`;
     const sig = createHmac('sha256', secret).update(data).digest('hex').slice(0, 16);
     return `${baseUrl}/api/voice/tts/phone?t=${textB64}&l=${encodeURIComponent(lang)}&v=${encodeURIComponent(vid)}&s=${sig}`;
+}
+
+// =============================================
+// Multi-language TwiML Messages
+// =============================================
+
+type TwiMLMessageKey = 'couldNotHear' | 'thankYou' | 'stillThere' | 'goodbye';
+
+const TWIML_MESSAGES: Record<string, Record<TwiMLMessageKey, string>> = {
+    'tr-TR': {
+        couldNotHear: 'Sizi duyamadım, tekrar söyleyebilir misiniz?',
+        thankYou: 'Aradığınız için teşekkür ederiz. İyi günler.',
+        stillThere: 'Hâlâ orada mısınız?',
+        goodbye: 'Başka bir sorunuz yoksa, aradığınız için teşekkür ederiz. İyi günler.',
+    },
+    'en-US': {
+        couldNotHear: 'I could not hear you. Could you please repeat?',
+        thankYou: 'Thank you for calling. Goodbye.',
+        stillThere: 'Are you still there?',
+        goodbye: 'Thank you for calling. Goodbye.',
+    },
+    'de-DE': {
+        couldNotHear: 'Ich konnte Sie nicht hören. Könnten Sie das bitte wiederholen?',
+        thankYou: 'Vielen Dank für Ihren Anruf. Auf Wiederhören.',
+        stillThere: 'Sind Sie noch da?',
+        goodbye: 'Falls Sie keine weiteren Fragen haben, vielen Dank für Ihren Anruf. Auf Wiederhören.',
+    },
+    'fr-FR': {
+        couldNotHear: 'Je n\'ai pas pu vous entendre. Pourriez-vous répéter s\'il vous plaît ?',
+        thankYou: 'Merci de votre appel. Au revoir.',
+        stillThere: 'Êtes-vous toujours là ?',
+        goodbye: 'Si vous n\'avez pas d\'autres questions, merci de votre appel. Au revoir.',
+    },
+};
+
+function getTwiMLMessage(language: string, key: TwiMLMessageKey): string {
+    return TWIML_MESSAGES[language]?.[key] || TWIML_MESSAGES['tr-TR'][key];
 }
 
 // =============================================

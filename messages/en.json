@@ -34,7 +34,15 @@
         "knowledge": "Knowledge Base",
         "billing": "Billing",
         "settings": "Settings",
-        "voicePipeline": "Voice Pipeline"
+        "voicePipeline": "Voice Pipeline",
+        "mainMenu": "Main Menu",
+        "operations": "Operations",
+        "aiAnalysis": "AI & Analysis",
+        "management": "Management",
+        "calls": "Calls",
+        "appointments": "Appointments",
+        "complaints": "Complaints",
+        "reports": "Reports"
     },
     "dashboard": {
         "title": "Dashboard",

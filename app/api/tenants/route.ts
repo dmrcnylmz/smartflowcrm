@@ -35,17 +35,15 @@ export async function POST(request: NextRequest) {
 
         const { companyName, sector, language, agent, business, voice } = body;
 
+        // Validate language
+        const VALID_LANGUAGES = ['tr', 'en', 'de', 'fr', 'tr-en'];
+        const resolvedLanguage = VALID_LANGUAGES.includes(language) ? language : 'tr';
+
         const tenantData: Omit<TenantConfig, 'id' | 'createdAt' | 'updatedAt'> = {
             companyName,
             sector: sector || '',
-            language: language || 'tr',
-            agent: agent || {
-                name: 'Asistan',
-                role: 'Müşteri Temsilcisi',
-                traits: ['profesyonel', 'nazik'],
-                greeting: `Merhaba, ${companyName}'ye hoş geldiniz. Size nasıl yardımcı olabilirim?`,
-                farewell: 'Aradığınız için teşekkür ederiz. İyi günler.',
-            },
+            language: resolvedLanguage,
+            agent: agent || getDefaultAgent(resolvedLanguage, companyName),
             business: business || {
                 workingHours: '09:00-18:00',
                 workingDays: 'Pazartesi-Cuma',
@@ -166,5 +164,46 @@ export async function PUT(request: NextRequest) {
 
     } catch (error) {
         return handleApiError(error, 'Tenants PUT');
+    }
+}
+
+// =============================================
+// Language-aware defaults
+// =============================================
+
+function getDefaultAgent(language: string, companyName: string) {
+    switch (language) {
+        case 'en':
+            return {
+                name: 'Assistant',
+                role: 'Customer Representative',
+                traits: ['professional', 'kind'],
+                greeting: `Hello, welcome to ${companyName}. How can I help you?`,
+                farewell: 'Thank you for calling. Have a great day.',
+            };
+        case 'de':
+            return {
+                name: 'Assistent',
+                role: 'Kundenberater',
+                traits: ['professionell', 'freundlich'],
+                greeting: `Hallo, willkommen bei ${companyName}. Wie kann ich Ihnen helfen?`,
+                farewell: 'Vielen Dank für Ihren Anruf. Schönen Tag noch.',
+            };
+        case 'fr':
+            return {
+                name: 'Assistant',
+                role: 'Conseiller clientèle',
+                traits: ['professionnel', 'aimable'],
+                greeting: `Bonjour, bienvenue chez ${companyName}. Comment puis-je vous aider ?`,
+                farewell: 'Merci de votre appel. Bonne journée.',
+            };
+        default:
+            return {
+                name: 'Asistan',
+                role: 'Müşteri Temsilcisi',
+                traits: ['profesyonel', 'nazik'],
+                greeting: `Merhaba, ${companyName}'ye hoş geldiniz. Size nasıl yardımcı olabilirim?`,
+                farewell: 'Aradığınız için teşekkür ederiz. İyi günler.',
+            };
     }
 }

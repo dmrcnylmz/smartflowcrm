@@ -21,7 +21,7 @@ export interface TenantConfig {
     sector: string;
 
     /** Primary language support */
-    language: 'tr' | 'en' | 'tr-en';
+    language: 'tr' | 'en' | 'de' | 'fr' | 'tr-en';
 
     /** AI agent persona */
     agent: AgentPersona;
@@ -201,7 +201,7 @@ export interface TenantQuotas {
 export interface VoiceSessionState {
     sessionId: string;
     tenantId: string;
-    language: 'tr' | 'en';
+    language: 'tr' | 'en' | 'de' | 'fr';
     startedAt: Date;
     conversationHistory: ConversationTurn[];
     currentIntent: string | null;

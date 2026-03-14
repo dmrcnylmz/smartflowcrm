@@ -104,11 +104,14 @@ export async function generateWithFallback(
     }
 
     // 4. Graceful fallback (no LLM available)
-    const isEnglish = language === 'en';
+    const fallbackMessages: Record<string, string> = {
+        tr: 'Özür dilerim, kısa bir teknik sorun yaşıyoruz. Lütfen bir dakika sonra tekrar deneyin veya sizi bir müşteri temsilcisine bağlayabilirim.',
+        en: 'I apologize, we are experiencing a brief technical issue. Please try again in a moment, or I can connect you with a human agent.',
+        de: 'Ich entschuldige mich, wir haben gerade ein kurzes technisches Problem. Bitte versuchen Sie es in einem Moment erneut, oder ich kann Sie mit einem Mitarbeiter verbinden.',
+        fr: 'Je m\'excuse, nous rencontrons un bref problème technique. Veuillez réessayer dans un instant, ou je peux vous mettre en relation avec un agent.',
+    };
     return {
-        text: isEnglish
-            ? 'I apologize, we are experiencing a brief technical issue. Please try again in a moment, or I can connect you with a human agent.'
-            : 'Özür dilerim, kısa bir teknik sorun yaşıyoruz. Lütfen bir dakika sonra tekrar deneyin veya sizi bir müşteri temsilcisine bağlayabilirim.',
+        text: fallbackMessages[language] || fallbackMessages.en,
         source: 'graceful-fallback',
     };
 }

@@ -32,9 +32,44 @@ import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueez
 import { gpuManager } from '@/lib/voice/gpu-manager';
 import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
+import { localeBCP47 } from '@/lib/i18n/config';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:incoming');
+
+type VoiceLang = 'tr' | 'en' | 'de' | 'fr';
+
+/** Resolve tenant/agent language to a valid voice lang */
+function resolveVoiceLang(lang?: string | null): VoiceLang {
+    if (lang === 'en' || lang === 'de' || lang === 'fr') return lang;
+    return 'tr';
+}
+
+/** Language-aware greeting templates */
+function buildAgentGreeting(lang: VoiceLang, agentName: string, companyName: string): string {
+    switch (lang) {
+        case 'en': return `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`;
+        case 'de': return `Hallo, hier ist ${agentName || 'der Assistent'}${companyName ? ` von ${companyName}` : ''}. Wie kann ich Ihnen helfen?`;
+        case 'fr': return `Bonjour, ici ${agentName || 'l\'assistant'}${companyName ? ` de ${companyName}` : ''}. Comment puis-je vous aider ?`;
+        default: return `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+    }
+}
+
+/** Default greetings per language */
+const DEFAULT_GREETINGS: Record<VoiceLang, string> = {
+    tr: 'Merhaba, size nasıl yardımcı olabilirim?',
+    en: 'Hello, how can I help you?',
+    de: 'Hallo, wie kann ich Ihnen helfen?',
+    fr: 'Bonjour, comment puis-je vous aider ?',
+};
+
+/** Disabled assistant messages per language */
+const DISABLED_MESSAGES: Record<VoiceLang, string> = {
+    tr: 'Şu anda asistanımız aktif değildir. Lütfen daha sonra tekrar arayınız. İyi günler.',
+    en: 'Our assistant is currently unavailable. Please call again later. Have a good day.',
+    de: 'Unser Assistent ist derzeit nicht verfügbar. Bitte rufen Sie später erneut an. Schönen Tag.',
+    fr: 'Notre assistant est actuellement indisponible. Veuillez rappeler plus tard. Bonne journée.',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -149,10 +184,8 @@ export async function POST(request: NextRequest) {
                     const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
                     const agentName = agentData?.name || '';
                     if (companyName || agentName) {
-                        const lang = activeAgentLanguage || 'tr';
-                        activeAgentGreeting = lang === 'en'
-                            ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
-                            : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+                        const lang = resolveVoiceLang(activeAgentLanguage);
+                        activeAgentGreeting = buildAgentGreeting(lang, agentName, companyName);
                     }
                 }
             } else {
@@ -170,10 +203,8 @@ export async function POST(request: NextRequest) {
                     const companyName = agentData?.variables?.find((v: { key: string }) => v.key === 'company_name')?.defaultValue || '';
                     const agentName = agentData?.name || '';
                     if (companyName || agentName) {
-                        const lang = activeAgentLanguage || 'tr';
-                        activeAgentGreeting = lang === 'en'
-                            ? `Hello, this is ${agentName || 'the assistant'}${companyName ? ` from ${companyName}` : ''}. How can I help you?`
-                            : `Merhaba, ${companyName ? `${companyName} ` : ''}${agentName || 'asistan'} olarak size nasıl yardımcı olabilirim?`;
+                        const lang = resolveVoiceLang(activeAgentLanguage);
+                        activeAgentGreeting = buildAgentGreeting(lang, agentName, companyName);
                     }
                 }
             }
@@ -181,17 +212,15 @@ export async function POST(request: NextRequest) {
             // Fallback to tenant-level greeting
         }
 
-        const greeting = activeAgentGreeting || tenantData?.agent?.greeting || 'Merhaba, size nasıl yardımcı olabilirim?';
-        const language = (activeAgentLanguage === 'en' || tenantData?.language === 'en') ? 'en-US' : 'tr-TR';
+        const resolvedLang = resolveVoiceLang(activeAgentLanguage || tenantData?.language);
+        const greeting = activeAgentGreeting || tenantData?.agent?.greeting || DEFAULT_GREETINGS[resolvedLang];
+        const language = localeBCP47[resolvedLang];
 
         // ── Check if AI assistant is enabled ─────────────────────────
         const assistantEnabled = tenantData?.settings?.assistantEnabled ?? false;
         if (!assistantEnabled) {
-            const disabledMessage = language === 'en-US'
-                ? 'Our assistant is currently unavailable. Please call again later. Have a good day.'
-                : 'Şu anda asistanımız aktif değildir. Lütfen daha sonra tekrar arayınız. İyi günler.';
             const disabledTwiml = generateUnavailableTwiML({
-                message: disabledMessage,
+                message: DISABLED_MESSAGES[resolvedLang],
                 language,
             });
             return new NextResponse(disabledTwiml, {
@@ -258,7 +287,7 @@ export async function POST(request: NextRequest) {
         const recordCall = tenantData?.settings?.callRecording === true;
 
         // Pre-generate Cartesia greeting audio + Firestore write in PARALLEL
-        const cartesiaLang = language === 'en-US' ? 'en' : 'tr';
+        const cartesiaLang = resolvedLang; // Already resolved to 'tr'|'en'|'de'|'fr'
         const agentVoiceId = undefined; // no voiceId binding at phone level yet
 
         const [cartesiaResult] = await Promise.all([

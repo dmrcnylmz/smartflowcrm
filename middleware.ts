@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractBearerToken } from '@/lib/auth/token-verify';
 import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit } from '@/lib/utils/rate-limiter';
 
+// --- Locale Detection ---
+const SUPPORTED_LOCALES = ['tr', 'en', 'de', 'fr'] as const;
+
+function detectBrowserLocale(acceptLang: string): string | null {
+    if (!acceptLang) return null;
+    const parts = acceptLang.split(',').map(p => {
+        const [tag, qPart] = p.trim().split(';');
+        return { lang: tag.split('-')[0].toLowerCase(), q: qPart ? parseFloat(qPart.split('=')[1]) : 1 };
+    });
+    parts.sort((a, b) => b.q - a.q);
+    for (const { lang } of parts) {
+        if ((SUPPORTED_LOCALES as readonly string[]).includes(lang)) return lang;
+    }
+    return null;
+}
+
 // --- Configuration ---
 
 /** API routes that do NOT require authentication.
@@ -30,6 +46,7 @@ const PUBLIC_API_PATHS = [
     '/api/chat/support',
     '/api/chat/support/tts',
     '/api/leads',
+    '/api/locale',  // Locale switching — sets NEXT_LOCALE cookie, no sensitive data
     // Security: test & diagnostic endpoints moved behind auth
     // '/api/voice/test-e2e', '/api/twilio/test', '/api/billing/alert-test', '/api/system/go-live-check'
 ];
@@ -282,7 +299,22 @@ export async function middleware(req: NextRequest) {
         return response;
     }
 
-    // 3. Page routes — let AuthGuard handle client-side
+    // 3. Page routes — locale detection for first-time visitors
+    const localeCookie = req.cookies.get('NEXT_LOCALE')?.value;
+    if (!localeCookie) {
+        const acceptLang = req.headers.get('accept-language') || '';
+        const detected = detectBrowserLocale(acceptLang);
+        if (detected) {
+            const response = NextResponse.next();
+            response.cookies.set('NEXT_LOCALE', detected, {
+                path: '/',
+                maxAge: 365 * 24 * 60 * 60, // 1 year
+                sameSite: 'lax',
+            });
+            return response;
+        }
+    }
+
     return NextResponse.next();
 }
 

@@ -11,7 +11,7 @@
 
 export type TTSProvider = 'google' | 'openai' | 'kokoro' | 'cartesia' | 'murf';
 export type VoiceGender = 'female' | 'male';
-export type VoiceLanguage = 'tr' | 'en' | 'multi';
+export type VoiceLanguage = 'tr' | 'en' | 'de' | 'fr' | 'multi';
 export type VoiceTier = 'premium' | 'standard' | 'free';
 
 export interface VoiceCatalogEntry {
@@ -46,6 +46,8 @@ export interface VoiceCatalogEntry {
 export const PREVIEW_SAMPLES = {
     tr: 'Merhaba, size nasıl yardımcı olabilirim? Randevu almak veya bilgi almak isterseniz ben buradayım.',
     en: 'Hello, how can I help you today? I\'m here to assist with appointments or any questions you may have.',
+    de: 'Hallo, wie kann ich Ihnen helfen? Ich bin hier, um Sie bei Terminen oder Fragen zu unterstützen.',
+    fr: 'Bonjour, comment puis-je vous aider ? Je suis là pour vous assister avec vos rendez-vous ou vos questions.',
 } as const;
 
 // =============================================
@@ -212,6 +214,92 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
     },
 
     // ─────────────────────────────────────────
+    // Cartesia Sonic-3 — German (DE) voices
+    // Multilingual voices — same voice speaks all 42 languages.
+    // ─────────────────────────────────────────
+    {
+        id: 'ct-katie-de',
+        provider: 'cartesia',
+        voiceId: 'f786b574-daa5-4673-aa0c-cbe3e8534c02',
+        name: 'Katie',
+        gender: 'female',
+        language: 'de',
+        tone: 'Natürlich & Hilfsbereit',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+        recommended: true,
+    },
+    {
+        id: 'ct-blake-de',
+        provider: 'cartesia',
+        voiceId: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',
+        name: 'Blake',
+        gender: 'male',
+        language: 'de',
+        tone: 'Energisch & Engagiert',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+        recommended: true,
+    },
+    {
+        id: 'ct-brooke-de',
+        provider: 'cartesia',
+        voiceId: 'e07c00bc-4134-4eae-9ea4-1a55fb45746b',
+        name: 'Brooke',
+        gender: 'female',
+        language: 'de',
+        tone: 'Selbstsicher & Entspannt',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+
+    // ─────────────────────────────────────────
+    // Cartesia Sonic-3 — French (FR) voices
+    // Multilingual voices — same voice speaks all 42 languages.
+    // ─────────────────────────────────────────
+    {
+        id: 'ct-katie-fr',
+        provider: 'cartesia',
+        voiceId: 'f786b574-daa5-4673-aa0c-cbe3e8534c02',
+        name: 'Katie',
+        gender: 'female',
+        language: 'fr',
+        tone: 'Naturelle & Serviable',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+        recommended: true,
+    },
+    {
+        id: 'ct-blake-fr',
+        provider: 'cartesia',
+        voiceId: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',
+        name: 'Blake',
+        gender: 'male',
+        language: 'fr',
+        tone: 'Dynamique & Engageant',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+        recommended: true,
+    },
+    {
+        id: 'ct-jacqueline-fr',
+        provider: 'cartesia',
+        voiceId: '9626c31c-bec5-4cca-baa8-f8ba9e84c8bc',
+        name: 'Jacqueline',
+        gender: 'female',
+        language: 'fr',
+        tone: 'Empathique & Bienveillante',
+        model: 'sonic-3',
+        tier: 'premium',
+        avgLatencyMs: 40,
+    },
+
+    // ─────────────────────────────────────────
     // Murf Falcon — Budget-friendly EN fallback (~130ms TTFB)
     // Türkçe desteği YOK. Sadece İngilizce voice agent'lar için.
     // $0.01/1K chars — en ucuz premium ses.
@@ -335,14 +423,14 @@ export function getVoicesByProvider(provider: TTSProvider): VoiceCatalogEntry[] 
 }
 
 /** Dile göre filtrele (multi dil tüm dillere dahil) */
-export function getVoicesByLanguage(lang: 'tr' | 'en'): VoiceCatalogEntry[] {
+export function getVoicesByLanguage(lang: VoiceLanguage): VoiceCatalogEntry[] {
     return VOICE_CATALOG.filter(v => v.language === lang || v.language === 'multi');
 }
 
 /** Provider + dil bazında filtrele */
 export function filterVoices(filters: {
     provider?: TTSProvider;
-    language?: 'tr' | 'en';
+    language?: VoiceLanguage;
     gender?: VoiceGender;
 }): VoiceCatalogEntry[] {
     return VOICE_CATALOG.filter(v => {

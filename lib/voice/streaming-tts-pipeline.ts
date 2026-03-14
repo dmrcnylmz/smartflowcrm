@@ -90,7 +90,7 @@ export interface StreamingPipelineResult {
 export async function streamLLMWithChunkedTTS(
     messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
     options: {
-        lang: 'tr' | 'en';
+        lang: 'tr' | 'en' | 'de' | 'fr';
         voiceId?: string;
         maxTokens?: number;
         temperature?: number;

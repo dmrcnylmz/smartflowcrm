@@ -263,7 +263,7 @@ export default function OnboardingPage() {
                     voice: {
                         voiceId: data.voiceId,
                         ttsModel: 'eleven_flash_v2_5',
-                        sttLanguage: data.language === 'en' ? 'en' : 'tr',
+                        sttLanguage: data.language,
                         stability: 0.5,
                         similarityBoost: 0.75,
                     },
@@ -519,16 +519,18 @@ function StepCompanyInfo({
             {/* Language & Working Hours */}
             <div className="space-y-5">
                 <div>
-                    <label className="block text-sm text-white/70 mb-2">Dil</label>
-                    <div className="flex gap-2">
+                    <label className="block text-sm text-white/70 mb-2">Dil / Language</label>
+                    <div className="grid grid-cols-2 gap-2">
                         {[
                             { id: 'tr', flag: '🇹🇷', name: 'Türkçe' },
                             { id: 'en', flag: '🇬🇧', name: 'English' },
+                            { id: 'de', flag: '🇩🇪', name: 'Deutsch' },
+                            { id: 'fr', flag: '🇫🇷', name: 'Français' },
                         ].map(({ id, flag, name }) => (
                             <button
                                 key={id}
                                 onClick={() => updateData({ language: id })}
-                                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all border
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all border
                                     ${data.language === id
                                         ? 'bg-inception-red/10 text-inception-red border-inception-red/40 shadow-sm'
                                         : 'bg-white/[0.03] border-white/[0.06] text-white/50 hover:bg-white/[0.06] hover:border-white/[0.12] hover:text-white/80'

@@ -3,7 +3,9 @@
  *
  * Cleans and optimizes LLM responses for Twilio <Say> TTS.
  * Strips emoji, markdown, collapses whitespace, truncates at sentence boundary.
- * Preserves Turkish characters (çğıöşüÇĞİÖŞÜ).
+ * Preserves all Latin-script characters including Turkish (çğışüö),
+ * German (äöüß), and French (éèêçàùûîïô) — emoji stripping uses
+ * Unicode symbol ranges that don't overlap with Latin-1/Extended blocks.
  */
 
 /**
@@ -14,7 +16,7 @@
 export function optimizeForPhoneTTS(text: string, maxChars: number = 300): string {
     let result = text;
 
-    // Strip emoji and unicode symbols (preserve Turkish chars)
+    // Strip emoji and unicode symbols (preserves TR/EN/DE/FR Latin characters)
     result = result.replace(/[\u{1F600}-\u{1F64F}]/gu, '');   // emoticons
     result = result.replace(/[\u{1F300}-\u{1F5FF}]/gu, '');   // symbols & pictographs
     result = result.replace(/[\u{1F680}-\u{1F6FF}]/gu, '');   // transport & map

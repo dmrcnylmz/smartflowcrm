@@ -37,9 +37,65 @@ import { optimizeForPhoneTTS } from '@/lib/twilio/text-optimizer';
 import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
 import { streamLLMWithChunkedTTS } from '@/lib/voice/streaming-tts-pipeline';
+import { localeBCP47 } from '@/lib/i18n/config';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:gather');
+
+// ─── Multi-language helpers ─────────────────────────────────────────────────
+type VoiceLang = 'tr' | 'en' | 'de' | 'fr';
+
+/** Resolve tenant language to a valid voice pipeline language */
+function resolveVoiceLang(tenantLang?: string): VoiceLang {
+    if (tenantLang === 'en' || tenantLang === 'de' || tenantLang === 'fr') return tenantLang;
+    return 'tr';
+}
+
+/** Language-aware voice messages for silence, turn limits, etc. */
+const VOICE_MESSAGES: Record<VoiceLang, {
+    silence: string;
+    silenceHangup: string;
+    turnLimit: string;
+    durationLimit: string;
+    error: string;
+}> = {
+    tr: {
+        silence: 'Sizi duyamadım. Lütfen tekrar söyler misiniz?',
+        silenceHangup: 'Görüşüyor olduğunuzdan emin değiliz. Bizi tekrar arayabilirsiniz. İyi günler!',
+        turnLimit: 'Aramanız için teşekkür ederiz. Başka sorularınız için tekrar arayabilirsiniz. İyi günler!',
+        durationLimit: 'Uzun görüşmemiz için teşekkür ederiz. Başka sorularınız için tekrar arayabilirsiniz. İyi günler!',
+        error: 'Bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar arayın.',
+    },
+    en: {
+        silence: 'I couldn\'t hear you. Could you please repeat?',
+        silenceHangup: 'It seems we\'ve lost the connection. Please feel free to call us back. Have a great day!',
+        turnLimit: 'Thank you for your call. Please call us again if you have more questions. Have a great day!',
+        durationLimit: 'Thank you for the extended conversation. Please call again if you need more help. Have a great day!',
+        error: 'We are experiencing a technical issue. Please try again later.',
+    },
+    de: {
+        silence: 'Ich konnte Sie nicht hören. Könnten Sie das bitte wiederholen?',
+        silenceHangup: 'Es scheint, als hätten wir die Verbindung verloren. Bitte rufen Sie uns gerne wieder an. Schönen Tag!',
+        turnLimit: 'Vielen Dank für Ihren Anruf. Rufen Sie uns gerne wieder an. Auf Wiederhören!',
+        durationLimit: 'Vielen Dank für das ausführliche Gespräch. Bitte rufen Sie bei weiteren Fragen erneut an. Auf Wiederhören!',
+        error: 'Wir haben gerade ein technisches Problem. Bitte versuchen Sie es später erneut.',
+    },
+    fr: {
+        silence: 'Je n\'ai pas pu vous entendre. Pourriez-vous répéter s\'il vous plaît ?',
+        silenceHangup: 'Il semble que nous ayons perdu la connexion. N\'hésitez pas à nous rappeler. Bonne journée !',
+        turnLimit: 'Merci de votre appel. N\'hésitez pas à nous rappeler. Bonne journée !',
+        durationLimit: 'Merci pour cette longue conversation. N\'hésitez pas à rappeler si nécessaire. Bonne journée !',
+        error: 'Nous rencontrons un problème technique. Veuillez réessayer plus tard.',
+    },
+};
+
+/** Farewell phrases per language for call-end detection */
+const FAREWELL_PATTERNS: Record<VoiceLang, string[]> = {
+    tr: ['iyi günler', 'hoşça kalın', 'görüşürüz'],
+    en: ['goodbye', 'have a great day', 'bye bye'],
+    de: ['auf wiedersehen', 'tschüss', 'auf wiederhören', 'schönen tag'],
+    fr: ['au revoir', 'bonne journée', 'à bientôt', 'adieu'],
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -179,6 +235,11 @@ export async function POST(request: NextRequest) {
         const gatherUrl = `${baseUrl}/api/twilio/gather?tenantId=${tenantId}&callSid=${callSid}${agentIdParam ? `&agentId=${agentIdParam}` : ''}`;
 
         if (!speechResult) {
+            // Resolve language early from cache for silence messages
+            const earlyTenantData = getCachedTenantData(tenantId);
+            const earlyLang = resolveVoiceLang(earlyTenantData?.language);
+            const msgs = VOICE_MESSAGES[earlyLang];
+
             // ── Consecutive Silence Detection ────────────────────────────
             // Track silent gathers; after MAX_CONSECUTIVE_SILENCE → auto-hangup
             let silenceCount = 0;
@@ -197,10 +258,9 @@ export async function POST(request: NextRequest) {
 
             if (silenceCount >= MAX_CONSECUTIVE_SILENCE) {
                 rlog.warn('zombie:silence_hangup', { silenceCount, elapsed: Date.now() - reqStart });
-                const endMsg = 'Görüşüyor olduğunuzdan emin değiliz. Bizi tekrar arayabilirsiniz. İyi günler!';
                 const twiml = generateResponseAndGatherTwiML({
                     gatherUrl,
-                    aiResponse: endMsg,
+                    aiResponse: msgs.silenceHangup,
                     shouldHangup: true,
                 });
                 return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } });
@@ -209,7 +269,7 @@ export async function POST(request: NextRequest) {
             rlog.debug('silence', { silenceCount });
             const twiml = generateResponseAndGatherTwiML({
                 gatherUrl,
-                aiResponse: 'Sizi duyamadım. Lütfen tekrar söyler misiniz?',
+                aiResponse: msgs.silence,
             });
             return new NextResponse(twiml, {
                 headers: { 'Content-Type': 'text/xml' },
@@ -249,13 +309,21 @@ export async function POST(request: NextRequest) {
         const history = callData?.conversationHistory || [];
         const turnCount = Math.floor(history.length / 2);
 
+        // ── Tenant config işle (paralel prefetch veya cache'ten) ────────
+        let tenantData = getCachedTenantData(tenantId);
+        if (!tenantData) {
+            tenantData = tenantSnapMaybe?.data() || {};
+            setCachedTenantData(tenantId, tenantData);
+        }
+        const language = resolveVoiceLang(tenantData?.language);
+        const langMessages = VOICE_MESSAGES[language];
+
         // ── Turn Limit Guard ─────────────────────────────────────────
         if (turnCount >= MAX_GATHER_TURNS) {
             rlog.warn('zombie:turn_limit', { turnCount, maxTurns: MAX_GATHER_TURNS });
-            const endMsg = 'Aramanız için teşekkür ederiz. Başka sorularınız için tekrar arayabilirsiniz. İyi günler!';
             const twiml = generateResponseAndGatherTwiML({
                 gatherUrl,
-                aiResponse: endMsg,
+                aiResponse: langMessages.turnLimit,
                 shouldHangup: true,
             });
             return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } });
@@ -267,23 +335,14 @@ export async function POST(request: NextRequest) {
             const elapsedSec = (Date.now() - new Date(startedAt).getTime()) / 1000;
             if (elapsedSec > MAX_CALL_DURATION_SEC) {
                 rlog.warn('zombie:duration_limit', { elapsedSec: Math.round(elapsedSec), maxSec: MAX_CALL_DURATION_SEC });
-                const endMsg = 'Uzun görüşmemiz için teşekkür ederiz. Başka sorularınız için tekrar arayabilirsiniz. İyi günler!';
                 const twiml = generateResponseAndGatherTwiML({
                     gatherUrl,
-                    aiResponse: endMsg,
+                    aiResponse: langMessages.durationLimit,
                     shouldHangup: true,
                 });
                 return new NextResponse(twiml, { headers: { 'Content-Type': 'text/xml' } });
             }
         }
-
-        // ── Tenant config işle (paralel prefetch veya cache'ten) ────────
-        let tenantData = getCachedTenantData(tenantId);
-        if (!tenantData) {
-            tenantData = tenantSnapMaybe?.data() || {};
-            setCachedTenantData(tenantId, tenantData);
-        }
-        const language = tenantData?.language === 'en' ? 'en' : 'tr';
 
         // ── Agent config işle (paralel prefetch veya cache'ten) ──────────
         let activeAgent: FirebaseFirestore.DocumentData | null = null;
@@ -320,7 +379,7 @@ export async function POST(request: NextRequest) {
         let responseSource: 'shortcut' | 'cache' | 'llm' = 'llm';
         let responseAudioUrls: string[] = [];
 
-        const cartesiaLang = language === 'en' ? 'en' : 'tr';
+        const cartesiaLang = language; // Already resolved to 'tr'|'en'|'de'|'fr'
         const voiceId = activeAgent?.voiceConfig?.voiceId as string | undefined;
         const cartesiaStart = Date.now();
 
@@ -377,10 +436,9 @@ export async function POST(request: NextRequest) {
                 cache.set(cacheKey, aiResponse, intent.intent);
             }
 
-            // Aramanın bitmesi gerekip gerekmediğini kontrol et
-            shouldEndCall = aiResponse.toLowerCase().includes('iyi günler') ||
-                            aiResponse.toLowerCase().includes('hoşça kalın') ||
-                            aiResponse.toLowerCase().includes('goodbye');
+            // Aramanın bitmesi gerekip gerekmediğini kontrol et (tüm diller)
+            const responseLower = aiResponse.toLowerCase();
+            shouldEndCall = FAREWELL_PATTERNS[language].some(p => responseLower.includes(p));
         }
 
         // 4. Metin optimizasyonu (emoji/markdown temizleme)
@@ -447,7 +505,7 @@ export async function POST(request: NextRequest) {
         const twiml = generateResponseAndGatherTwiML({
             gatherUrl,
             aiResponse,
-            language: language === 'en' ? 'en-US' : 'tr-TR',
+            language: localeBCP47[language],
             shouldHangup: shouldEndCall,
             audioUrls: responseAudioUrls.length > 0 ? responseAudioUrls : undefined,
         });
@@ -480,6 +538,26 @@ function buildPhoneMessages(
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
     let systemPrompt: string;
 
+    // Language-specific phone call rules
+    const phoneRules: Record<string, string> = {
+        tr: `Telefon Görüşmesi Kuralları:
+- Doğal ve akıcı konuş, gereksiz uzatmaktan kaçın
+- Türkçe konuş (müşteri farklı dilde konuşursa bilgilendir)
+- Samimi ve yardımsever bir üslup kullan`,
+        en: `Phone Call Rules:
+- Speak naturally and concisely
+- Speak English unless the customer speaks a different language
+- Be friendly and helpful`,
+        de: `Telefongesprächsregeln:
+- Sprechen Sie natürlich und prägnant
+- Sprechen Sie Deutsch, es sei denn der Kunde spricht eine andere Sprache
+- Seien Sie freundlich und hilfsbereit`,
+        fr: `Règles d'appel téléphonique:
+- Parlez naturellement et de manière concise
+- Parlez français sauf si le client parle une autre langue
+- Soyez aimable et serviable`,
+    };
+
     if (activeAgent?.systemPrompt) {
         systemPrompt = activeAgent.systemPrompt;
         const variables = activeAgent.variables || [];
@@ -491,34 +569,74 @@ function buildPhoneMessages(
                 );
             }
         }
-        if (!systemPrompt.includes('telefon görüşmesi')) {
-            systemPrompt += `\n\nTelefon Görüşmesi Kuralları:
-- Doğal ve akıcı konuş, gereksiz uzatmaktan kaçın
-- ${language === 'tr' ? 'Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)' : 'Speak English unless the customer speaks Turkish'}
-- Samimi ve yardımsever bir üslup kullan`;
+        if (!systemPrompt.includes('telefon') && !systemPrompt.includes('phone') && !systemPrompt.includes('Telefon') && !systemPrompt.includes('appel')) {
+            systemPrompt += `\n\n${phoneRules[language] || phoneRules.en}`;
         }
     } else {
-        const agentName = tenantData?.agent?.name || 'Asistan';
-        const companyName = tenantData?.companyName || 'Şirket';
-        const agentRole = tenantData?.agent?.role || 'Müşteri Temsilcisi';
-        const traits = tenantData?.agent?.traits?.join(', ') || 'profesyonel, nazik';
+        const agentName = tenantData?.agent?.name || (language === 'de' ? 'Assistent' : language === 'fr' ? 'Assistant' : language === 'en' ? 'Assistant' : 'Asistan');
+        const companyName = tenantData?.companyName || (language === 'de' ? 'Unternehmen' : language === 'fr' ? 'Entreprise' : language === 'en' ? 'Company' : 'Şirket');
+        const agentRole = tenantData?.agent?.role || (language === 'de' ? 'Kundenberater' : language === 'fr' ? 'Conseiller clientèle' : language === 'en' ? 'Customer Representative' : 'Müşteri Temsilcisi');
+        const traits = tenantData?.agent?.traits?.join(', ') || (language === 'de' ? 'professionell, freundlich' : language === 'fr' ? 'professionnel, aimable' : language === 'en' ? 'professional, kind' : 'profesyonel, nazik');
         const services = tenantData?.business?.services?.join(', ') || '';
         const workingHours = tenantData?.business?.workingHours || '09:00-18:00';
-        const workingDays = tenantData?.business?.workingDays || 'Pazartesi-Cuma';
+        const workingDays = tenantData?.business?.workingDays || (language === 'de' ? 'Montag-Freitag' : language === 'fr' ? 'Lundi-Vendredi' : language === 'en' ? 'Monday-Friday' : 'Pazartesi-Cuma');
 
-        systemPrompt = `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
+        const systemTemplates: Record<string, string> = {
+            tr: `Sen ${companyName} şirketinin ${agentRole}'sin. İsmin ${agentName}.
 Karakter özelliklerin: ${traits}.
 ${services ? `Sunduğun hizmetler: ${services}.` : ''}
 Çalışma saatleri: ${workingDays}, ${workingHours}.
 
 Kurallar:
 - Doğal ve akıcı konuş, gereksiz uzatmaktan kaçın
-- Türkçe konuş (müşteri İngilizce konuşursa İngilizce yanıt ver)
+- Türkçe konuş (müşteri farklı dilde konuşursa bilgilendir)
 - Randevu, şikayet, bilgi talebi gibi işlemleri yönet
 - Fiyat, kontrat detayı verme (sadece bilgi al, kaydet)
 - Çözemediğin konularda müşteriye yetkili birine yönlendir
 - Doğal ve samimi bir üslup kullan
-- Müşterinin adını sor ve kullan`;
+- Müşterinin adını sor ve kullan`,
+            en: `You are a ${agentRole} at ${companyName}. Your name is ${agentName}.
+Your personality traits: ${traits}.
+${services ? `Services you offer: ${services}.` : ''}
+Working hours: ${workingDays}, ${workingHours}.
+
+Rules:
+- Speak naturally and concisely
+- Speak English
+- Handle appointments, complaints, and information requests
+- Do not disclose prices or contract details (only collect information)
+- Escalate to a human when you cannot resolve an issue
+- Be friendly and professional
+- Ask for the customer's name and use it`,
+            de: `Sie sind ${agentRole} bei ${companyName}. Ihr Name ist ${agentName}.
+Ihre Eigenschaften: ${traits}.
+${services ? `Angebotene Dienstleistungen: ${services}.` : ''}
+Arbeitszeiten: ${workingDays}, ${workingHours}.
+
+Regeln:
+- Sprechen Sie natürlich und prägnant
+- Sprechen Sie Deutsch
+- Bearbeiten Sie Termine, Beschwerden und Informationsanfragen
+- Geben Sie keine Preise oder Vertragsdetails preis (nur Informationen sammeln)
+- Leiten Sie bei unlösbaren Problemen an einen Mitarbeiter weiter
+- Seien Sie freundlich und professionell
+- Fragen Sie nach dem Namen des Kunden und verwenden Sie ihn`,
+            fr: `Vous êtes ${agentRole} chez ${companyName}. Votre nom est ${agentName}.
+Vos traits de caractère : ${traits}.
+${services ? `Services proposés : ${services}.` : ''}
+Heures de travail : ${workingDays}, ${workingHours}.
+
+Règles :
+- Parlez naturellement et de manière concise
+- Parlez français
+- Gérez les rendez-vous, réclamations et demandes d'informations
+- Ne divulguez pas les prix ou les détails contractuels (collectez uniquement les informations)
+- Transférez à un responsable en cas de problème insoluble
+- Soyez aimable et professionnel
+- Demandez le nom du client et utilisez-le`,
+        };
+
+        systemPrompt = systemTemplates[language] || systemTemplates.en;
     }
 
     const chatHistory = (existingHistory || [])
@@ -563,8 +681,12 @@ async function generateLLMResponse(
         return result.text || 'Yanıt oluşturulamadı.';
 
     } catch {
-        return language === 'tr'
-            ? 'Bir aksaklık yaşıyoruz. Sizi yetkili bir temsilcimize aktarabilir miyim?'
-            : 'We are experiencing an issue. May I transfer you to a representative?';
+        const errorMessages: Record<string, string> = {
+            tr: 'Bir aksaklık yaşıyoruz. Sizi yetkili bir temsilcimize aktarabilir miyim?',
+            en: 'We are experiencing an issue. May I transfer you to a representative?',
+            de: 'Wir haben gerade ein technisches Problem. Darf ich Sie an einen Mitarbeiter weiterleiten?',
+            fr: 'Nous rencontrons un problème. Puis-je vous transférer à un responsable ?',
+        };
+        return errorMessages[language] || errorMessages.en;
     }
 }

@@ -34,7 +34,15 @@
         "knowledge": "Bilgi Bankası",
         "billing": "Faturalandırma",
         "settings": "Ayarlar",
-        "voicePipeline": "Ses Pipeline"
+        "voicePipeline": "Ses Pipeline",
+        "mainMenu": "Ana Menü",
+        "operations": "Operasyonlar",
+        "aiAnalysis": "AI & Analiz",
+        "management": "Yönetim",
+        "calls": "Çağrılar",
+        "appointments": "Randevular",
+        "complaints": "Şikayetler",
+        "reports": "Raporlar"
     },
     "dashboard": {
         "title": "Gösterge Paneli",

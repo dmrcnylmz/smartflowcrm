@@ -32,13 +32,19 @@ export function isCartesiaConfigured(): boolean {
 }
 
 // =============================================
+// Supported voice languages
+// =============================================
+
+export type CartesiaLang = 'tr' | 'en' | 'de' | 'fr';
+
+// =============================================
 // Default Voice Mapping (language-aware)
 // =============================================
 // TR: Native Turkish voices from Cartesia's Turkish voice library
-// EN: Multilingual voices recommended for voice agent use cases
+// EN/DE/FR: Multilingual Sonic-3 voices — same voice speaks all 42 languages
 // =============================================
 
-const CARTESIA_DEFAULT_VOICES = {
+const CARTESIA_DEFAULT_VOICES: Record<CartesiaLang, { female: string; male: string }> = {
     tr: {
         female: 'fa7bfcdc-603c-4bf1-a600-a371400d2f8c', // Leyla — Story Companion (TR native)
         male: '39f753ef-b0eb-41cd-aa53-2f3c284f948f',   // Emre — Calming Speaker (TR native)
@@ -47,7 +53,15 @@ const CARTESIA_DEFAULT_VOICES = {
         female: 'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie — Friendly Fixer (multilingual)
         male: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',   // Blake — Helpful Agent (multilingual)
     },
-} as const;
+    de: {
+        female: 'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie — multilingual (speaks native German)
+        male: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',   // Blake — multilingual (speaks native German)
+    },
+    fr: {
+        female: 'f786b574-daa5-4673-aa0c-cbe3e8534c02', // Katie — multilingual (speaks native French)
+        male: 'a167e0f3-df7e-4d52-a9c3-f949145efdab',   // Blake — multilingual (speaks native French)
+    },
+};
 
 // =============================================
 // Synthesize Function
@@ -63,7 +77,7 @@ const CARTESIA_DEFAULT_VOICES = {
  */
 export async function synthesizeCartesiaTTS(
     text: string,
-    lang: 'tr' | 'en',
+    lang: CartesiaLang,
     voiceId?: string,
 ): Promise<Response | null> {
     const apiKey = getCartesiaApiKey();

@@ -28,6 +28,7 @@ import { useAuth } from '@/lib/firebase/auth-context';
 import { Button } from '@/components/ui/button';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { Logo } from '@/components/layout/Logo';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 interface NavSection {
   title: string;
@@ -235,6 +236,7 @@ export const Sidebar = memo(function Sidebar() {
               <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/10">
                 <User className="h-4 w-4 text-primary" />
               </div>
+              <LanguageSwitcher collapsed />
               <button
                 onClick={handleLogout}
                 className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
@@ -258,6 +260,7 @@ export const Sidebar = memo(function Sidebar() {
                   </p>
                 </div>
               </div>
+              <LanguageSwitcher />
               <Button
                 variant="ghost"
                 size="sm"

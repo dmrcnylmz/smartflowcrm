@@ -34,7 +34,7 @@ describe('Voice Catalog', () => {
                 expect(voice.voiceId).toBeTruthy();
                 expect(voice.name).toBeTruthy();
                 expect(['female', 'male']).toContain(voice.gender);
-                expect(['tr', 'en', 'multi']).toContain(voice.language);
+                expect(['tr', 'en', 'de', 'fr', 'multi']).toContain(voice.language);
                 expect(['premium', 'standard', 'free']).toContain(voice.tier);
                 expect(voice.avgLatencyMs).toBeGreaterThan(0);
                 expect(voice.model).toBeTruthy();
@@ -132,6 +132,18 @@ describe('Voice Catalog', () => {
             const voices = getVoicesByLanguage('en');
             expect(voices.length).toBeGreaterThan(0);
             expect(voices.every(v => v.language === 'en' || v.language === 'multi')).toBe(true);
+        });
+
+        it('returns DE voices (including multi)', () => {
+            const voices = getVoicesByLanguage('de');
+            expect(voices.length).toBeGreaterThan(0);
+            expect(voices.every(v => v.language === 'de' || v.language === 'multi')).toBe(true);
+        });
+
+        it('returns FR voices (including multi)', () => {
+            const voices = getVoicesByLanguage('fr');
+            expect(voices.length).toBeGreaterThan(0);
+            expect(voices.every(v => v.language === 'fr' || v.language === 'multi')).toBe(true);
         });
     });
 
