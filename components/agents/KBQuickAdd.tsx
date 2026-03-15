@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { useTranslations } from 'next-intl';
 import { useToast } from '@/components/ui/toast';
 
 // =============================================
@@ -36,6 +37,7 @@ interface KBQuickAddProps {
 export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat }: KBQuickAddProps) {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('agents');
     const [textContent, setTextContent] = useState('');
     const [urlInput, setUrlInput] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -43,7 +45,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
 
     const handleAddText = async () => {
         if (!textContent.trim() || textContent.trim().length < 20) {
-            toast({ title: 'Yetersiz içerik', description: 'En az 20 karakter gerekli.', variant: 'error' });
+            toast({ title: t('kbQuickAdd.insufficientContent'), description: t('kbQuickAdd.minCharsRequired'), variant: 'error' });
             return;
         }
 
@@ -53,20 +55,20 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: agentName ? `${agentName} - Metin` : 'Hızlı Metin Ekleme',
+                    title: agentName ? t('kbQuickAdd.textTitle', { name: agentName }) : t('kbQuickAdd.defaultTextTitle'),
                     sourceType: 'text',
                     content: textContent.trim(),
                     ...(agentId ? { agentId } : {}),
                 }),
             });
-            if (!res.ok) throw new Error('Yükleme başarısız');
+            if (!res.ok) throw new Error(t('kbQuickAdd.uploadFailed'));
 
             setAddedDocs(prev => [...prev, { title: textContent.slice(0, 50) + '...', type: 'text' }]);
             setTextContent('');
-            toast({ title: 'Eklendi', description: 'Metin bilgisi başarıyla eklendi.' });
+            toast({ title: t('kbQuickAdd.added'), description: t('kbQuickAdd.textAdded') });
             onDocumentAdded?.();
         } catch {
-            toast({ title: 'Hata', description: 'Metin eklenirken hata oluştu.', variant: 'error' });
+            toast({ title: t('voiceTest.errorLabel'), description: t('kbQuickAdd.textAddError'), variant: 'error' });
         } finally {
             setIsUploading(false);
         }
@@ -77,7 +79,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
         try {
             new URL(urlInput.trim());
         } catch {
-            toast({ title: 'Geçersiz URL', description: 'Lütfen geçerli bir URL girin.', variant: 'error' });
+            toast({ title: t('kbQuickAdd.invalidUrl'), description: t('kbQuickAdd.invalidUrlDesc'), variant: 'error' });
             return;
         }
 
@@ -87,20 +89,20 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: agentName ? `${agentName} - Web` : 'Web Kaynağı',
+                    title: agentName ? t('kbQuickAdd.urlTitle', { name: agentName }) : t('kbQuickAdd.defaultUrlTitle'),
                     sourceType: 'url',
                     source: urlInput.trim(),
                     ...(agentId ? { agentId } : {}),
                 }),
             });
-            if (!res.ok) throw new Error('URL tarama başarısız');
+            if (!res.ok) throw new Error(t('kbQuickAdd.urlScanFailed'));
 
             setAddedDocs(prev => [...prev, { title: urlInput.trim(), type: 'url' }]);
             setUrlInput('');
-            toast({ title: 'Eklendi', description: 'Web kaynağı başarıyla tarandı.' });
+            toast({ title: t('kbQuickAdd.added'), description: t('kbQuickAdd.urlAdded') });
             onDocumentAdded?.();
         } catch {
-            toast({ title: 'Hata', description: 'URL taranırken hata oluştu.', variant: 'error' });
+            toast({ title: t('voiceTest.errorLabel'), description: t('kbQuickAdd.urlAddError'), variant: 'error' });
         } finally {
             setIsUploading(false);
         }
@@ -112,7 +114,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
             <div className="px-4 py-3 border-b border-white/[0.06]">
                 <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-inception-teal" />
-                    <span className="text-xs text-white/50">Hızlı bilgi ekleyin, sonra test edin</span>
+                    <span className="text-xs text-white/50">{t('kbQuickAdd.quickAddInfo')}</span>
                 </div>
             </div>
 
@@ -121,12 +123,12 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <FileText className="h-3.5 w-3.5 text-violet-400" />
-                        <span className="text-xs font-medium text-white/60">Metin Yapıştır</span>
+                        <span className="text-xs font-medium text-white/60">{t('kbQuickAdd.pasteText')}</span>
                     </div>
                     <Textarea
                         value={textContent}
                         onChange={(e) => setTextContent(e.target.value)}
-                        placeholder="SSS, ürün bilgisi, şirket açıklaması vb. yapıştırın..."
+                        placeholder={t('kbQuickAdd.pasteTextPlaceholder')}
                         rows={4}
                         maxLength={5000}
                         className="rounded-lg resize-none bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-violet-500/50 text-xs"
@@ -139,7 +141,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium bg-violet-600/80 hover:bg-violet-600 text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                            Ekle
+                            {t('kbQuickAdd.add')}
                         </button>
                     </div>
                 </div>
@@ -147,7 +149,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                 {/* Divider */}
                 <div className="flex items-center gap-2">
                     <div className="h-px flex-1 bg-white/[0.06]" />
-                    <span className="text-[10px] text-white/20">VEYA</span>
+                    <span className="text-[10px] text-white/20">{t('kbQuickAdd.or')}</span>
                     <div className="h-px flex-1 bg-white/[0.06]" />
                 </div>
 
@@ -155,7 +157,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
                         <Globe className="h-3.5 w-3.5 text-inception-teal" />
-                        <span className="text-xs font-medium text-white/60">Web Sitesi Tara</span>
+                        <span className="text-xs font-medium text-white/60">{t('kbQuickAdd.scanWebsite')}</span>
                     </div>
                     <div className="flex gap-2">
                         <Input
@@ -170,7 +172,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium bg-inception-teal/20 hover:bg-inception-teal/30 text-inception-teal border border-inception-teal/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                         >
                             {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
-                            Tara
+                            {t('kbQuickAdd.scan')}
                         </button>
                     </div>
                 </div>
@@ -180,7 +182,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                     <div className="bg-emerald-500/5 rounded-lg border border-emerald-500/20 p-3">
                         <div className="flex items-center gap-2 mb-2">
                             <CheckCircle className="h-3.5 w-3.5 text-emerald-400" />
-                            <span className="text-xs text-emerald-300 font-medium">{addedDocs.length} belge eklendi</span>
+                            <span className="text-xs text-emerald-300 font-medium">{t('kbQuickAdd.docsAdded', { count: addedDocs.length })}</span>
                         </div>
                         <div className="space-y-1">
                             {addedDocs.map((doc, i) => (
@@ -198,7 +200,7 @@ export function KBQuickAdd({ agentId, agentName, onDocumentAdded, onSwitchToChat
                                 className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-violet-600/80 hover:bg-violet-600 text-white transition-all"
                             >
                                 <MessageCircle className="h-3 w-3" />
-                                Şimdi Test Et
+                                {t('kbQuickAdd.testNow')}
                                 <ArrowRight className="h-3 w-3" />
                             </button>
                         )}

@@ -26,6 +26,7 @@ import {
     Construction,
 } from 'lucide-react';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { useTranslations } from 'next-intl';
 
 // =============================================
 // Types
@@ -59,6 +60,7 @@ interface PortingRequest {
 export default function PhoneManagementTab() {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('phoneManagement');
 
     // State
     const [numbers, setNumbers] = useState<PhoneNumber[]>([]);
@@ -128,14 +130,14 @@ export default function PhoneManagementTab() {
 
             const data = await res.json();
             if (res.ok) {
-                toast({ title: 'Numara Alındı', description: `${data.phoneNumber?.phoneNumber} başarıyla tahsis edildi`, variant: 'success' });
+                toast({ title: t('numberAcquired'), description: t('numberAcquiredDesc', { number: data.phoneNumber?.phoneNumber }), variant: 'success' });
                 setShowProvisionForm(false);
                 fetchData();
             } else {
-                toast({ title: 'Hata', description: data.error || 'Numara alınamadı', variant: 'error' });
+                toast({ title: t('error'), description: data.error || t('numberAcquireFailed'), variant: 'error' });
             }
         } catch {
-            toast({ title: 'Hata', description: 'Numara alınırken bir sorun oluştu', variant: 'error' });
+            toast({ title: t('error'), description: t('numberAcquireError'), variant: 'error' });
         } finally {
             setProvisioning(false);
         }
@@ -143,7 +145,7 @@ export default function PhoneManagementTab() {
 
     // ─── Release Number ───
     async function handleRelease(phoneNumber: string) {
-        if (!confirm(`${phoneNumber} numarasını serbest bırakmak istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+        if (!confirm(t('releaseConfirm', { number: phoneNumber }))) return;
 
         setReleasing(phoneNumber);
         try {
@@ -154,14 +156,14 @@ export default function PhoneManagementTab() {
             });
 
             if (res.ok) {
-                toast({ title: 'Numara Serbest Bırakıldı', description: `${phoneNumber} başarıyla kaldırıldı`, variant: 'success' });
+                toast({ title: t('numberReleased'), description: t('numberReleasedDesc', { number: phoneNumber }), variant: 'success' });
                 fetchData();
             } else {
                 const data = await res.json();
-                toast({ title: 'Hata', description: data.error || 'Numara serbest bırakılamadı', variant: 'error' });
+                toast({ title: t('error'), description: data.error || t('numberReleaseFailed'), variant: 'error' });
             }
         } catch {
-            toast({ title: 'Hata', description: 'İşlem sırasında bir sorun oluştu', variant: 'error' });
+            toast({ title: t('error'), description: t('operationError'), variant: 'error' });
         } finally {
             setReleasing(null);
         }
@@ -186,17 +188,17 @@ export default function PhoneManagementTab() {
 
             const data = await res.json();
             if (res.ok) {
-                toast({ title: 'Taşıma Talebi Oluşturuldu', description: 'Numara taşıma talebiniz alındı. Durum güncellemeleri için bu sayfayı takip edin.', variant: 'success' });
+                toast({ title: t('portingRequestCreated'), description: t('portingRequestCreatedDesc'), variant: 'success' });
                 setShowPortingForm(false);
                 setPortingPhone('');
                 setPortingCarrier('');
                 setPortingNotes('');
                 fetchData();
             } else {
-                toast({ title: 'Hata', description: data.error || 'Taşıma talebi oluşturulamadı', variant: 'error' });
+                toast({ title: t('error'), description: data.error || t('portingRequestFailed'), variant: 'error' });
             }
         } catch {
-            toast({ title: 'Hata', description: 'İşlem sırasında bir sorun oluştu', variant: 'error' });
+            toast({ title: t('error'), description: t('operationError'), variant: 'error' });
         } finally {
             setSubmittingPorting(false);
         }
@@ -221,24 +223,24 @@ export default function PhoneManagementTab() {
                         <div>
                             <CardTitle className="flex items-center gap-2">
                                 <Phone className="h-5 w-5 text-emerald-500" />
-                                Telefon Numaraları
+                                {t('phoneNumbers')}
                             </CardTitle>
                             <CardDescription>
-                                İşletmenize atanmış telefon numaraları ve numara yönetimi
+                                {t('phoneNumbersDesc')}
                             </CardDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={fetchData} className="gap-2">
                                 <RefreshCw className="h-3.5 w-3.5" />
-                                Yenile
+                                {t('refresh')}
                             </Button>
                             <Button size="sm" onClick={() => setShowProvisionForm(!showProvisionForm)} className="gap-2">
                                 <Plus className="h-3.5 w-3.5" />
-                                Numara Al
+                                {t('getNumber')}
                             </Button>
                             <Button variant="outline" size="sm" onClick={() => setShowPortingForm(!showPortingForm)} className="gap-2">
                                 <ArrowRightLeft className="h-3.5 w-3.5" />
-                                Numara Taşı
+                                {t('portNumber')}
                             </Button>
                         </div>
                     </div>
@@ -247,21 +249,21 @@ export default function PhoneManagementTab() {
                     {/* Provision Form */}
                     {showProvisionForm && (
                         <div className="border rounded-xl p-4 mb-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
-                            <h4 className="text-sm font-medium">Yeni Numara Al</h4>
+                            <h4 className="text-sm font-medium">{t('getNewNumber')}</h4>
                             <div className="flex gap-3 items-end">
                                 <div className="flex-1">
-                                    <Label htmlFor="provCountry">Ülke</Label>
+                                    <Label htmlFor="provCountry">{t('country')}</Label>
                                     <select
                                         id="provCountry"
                                         value={provisionCountry}
                                         onChange={(e) => setProvisionCountry(e.target.value)}
                                         className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
                                     >
-                                        <option value="TR">🇹🇷 Türkiye (+90) — SIP Trunk</option>
-                                        <option value="US">🇺🇸 ABD (+1) — Twilio</option>
-                                        <option value="GB">🇬🇧 İngiltere (+44) — Twilio</option>
-                                        <option value="DE">🇩🇪 Almanya (+49) — Twilio</option>
-                                        <option value="NL">🇳🇱 Hollanda (+31) — Twilio</option>
+                                        <option value="TR">{t('countryTR')}</option>
+                                        <option value="US">{t('countryUS')}</option>
+                                        <option value="GB">{t('countryGB')}</option>
+                                        <option value="DE">{t('countryDE')}</option>
+                                        <option value="NL">{t('countryNL')}</option>
                                     </select>
                                 </div>
                                 <Button
@@ -270,10 +272,10 @@ export default function PhoneManagementTab() {
                                     className="gap-2"
                                 >
                                     {provisioning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                    {provisionCountry === 'TR' ? 'Havuzdan Al' : 'Satın Al'}
+                                    {provisionCountry === 'TR' ? t('getFromPool') : t('purchase')}
                                 </Button>
                                 <Button variant="ghost" onClick={() => setShowProvisionForm(false)}>
-                                    İptal
+                                    {t('cancel')}
                                 </Button>
                             </div>
 
@@ -283,11 +285,10 @@ export default function PhoneManagementTab() {
                                     <Construction className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
                                     <div>
                                         <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                                            Bakım Modu
+                                            {t('maintenanceMode')}
                                         </p>
                                         <p className="text-xs text-muted-foreground mt-0.5">
-                                            Türkiye numara havuzu şu anda bakımdadır. Yeni numara tahsisi geçici olarak kullanılamaz.
-                                            Lütfen daha sonra tekrar deneyin veya diğer ülke seçeneklerini değerlendirin.
+                                            {t('maintenanceModeDesc')}
                                         </p>
                                     </div>
                                 </div>
@@ -295,7 +296,7 @@ export default function PhoneManagementTab() {
 
                             {provisionCountry === 'TR' && !trPoolMaintenance && (
                                 <p className="text-xs text-muted-foreground">
-                                    Türkiye numaraları önceden satın alınmış havuzdan atanır (SIP Trunk).
+                                    {t('trPoolInfo')}
                                 </p>
                             )}
                         </div>
@@ -304,10 +305,10 @@ export default function PhoneManagementTab() {
                     {/* Porting Form */}
                     {showPortingForm && (
                         <div className="border rounded-xl p-4 mb-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
-                            <h4 className="text-sm font-medium">Numara Taşıma (BYON)</h4>
+                            <h4 className="text-sm font-medium">{t('numberPorting')}</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
-                                    <Label htmlFor="portPhone">Taşınacak Numara</Label>
+                                    <Label htmlFor="portPhone">{t('numberToPort')}</Label>
                                     <Input
                                         id="portPhone"
                                         value={portingPhone}
@@ -317,7 +318,7 @@ export default function PhoneManagementTab() {
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="portCarrier">Mevcut Operatör</Label>
+                                    <Label htmlFor="portCarrier">{t('currentCarrier')}</Label>
                                     <Input
                                         id="portCarrier"
                                         value={portingCarrier}
@@ -327,7 +328,7 @@ export default function PhoneManagementTab() {
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="portTarget">Hedef Operatör</Label>
+                                    <Label htmlFor="portTarget">{t('targetCarrier')}</Label>
                                     <select
                                         id="portTarget"
                                         value={portingTarget}
@@ -339,7 +340,7 @@ export default function PhoneManagementTab() {
                                     </select>
                                 </div>
                                 <div>
-                                    <Label htmlFor="portNotes">Notlar (opsiyonel)</Label>
+                                    <Label htmlFor="portNotes">{t('notesOptional')}</Label>
                                     <Input
                                         id="portNotes"
                                         value={portingNotes}
@@ -352,10 +353,10 @@ export default function PhoneManagementTab() {
                             <div className="flex gap-2">
                                 <Button onClick={handlePortingSubmit} disabled={submittingPorting || !portingPhone || !portingCarrier} className="gap-2">
                                     {submittingPorting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-                                    Taşıma Talebi Oluştur
+                                    {t('createPortingRequest')}
                                 </Button>
                                 <Button variant="ghost" onClick={() => setShowPortingForm(false)}>
-                                    İptal
+                                    {t('cancel')}
                                 </Button>
                             </div>
                         </div>
@@ -365,9 +366,9 @@ export default function PhoneManagementTab() {
                     {numbers.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             <Phone className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">Henüz atanmış numara yok</p>
+                            <p className="text-sm">{t('noNumbersYet')}</p>
                             <p className="text-xs mt-1">
-                                &ldquo;Numara Al&rdquo; butonuyla yeni bir numara edinin
+                                {t('noNumbersHint')}
                             </p>
                         </div>
                     ) : (
@@ -414,7 +415,7 @@ export default function PhoneManagementTab() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-base">
                             <ArrowRightLeft className="h-5 w-5 text-blue-500" />
-                            Numara Taşıma Talepleri
+                            {t('portingRequests')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -462,12 +463,13 @@ function ProviderBadge({ providerType, sipCarrier }: { providerType: string; sip
 }
 
 function PortingStatusBadge({ status }: { status: string }) {
+    const t = useTranslations('phoneManagement');
     const config: Record<string, { label: string; icon: React.ElementType; className: string }> = {
-        pending: { label: 'Beklemede', icon: Clock, className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
-        submitted: { label: 'Gönderildi', icon: CheckCircle, className: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-        in_progress: { label: 'İşleniyor', icon: Loader2, className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
-        completed: { label: 'Tamamlandı', icon: CheckCircle, className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
-        rejected: { label: 'Reddedildi', icon: XCircle, className: 'bg-red-500/10 text-red-600 border-red-500/20' },
+        pending: { label: t('statusPending'), icon: Clock, className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+        submitted: { label: t('statusSubmitted'), icon: CheckCircle, className: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+        in_progress: { label: t('statusInProgress'), icon: Loader2, className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+        completed: { label: t('statusCompleted'), icon: CheckCircle, className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+        rejected: { label: t('statusRejected'), icon: XCircle, className: 'bg-red-500/10 text-red-600 border-red-500/20' },
     };
 
     const c = config[status] || config.pending;

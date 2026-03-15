@@ -37,6 +37,7 @@ import {
     Filter,
     MessageSquare,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 // ─── Types ───
 
@@ -56,42 +57,24 @@ interface PortingRequest {
 
 type PortingStatus = 'pending' | 'submitted' | 'in_progress' | 'completed' | 'rejected';
 
-const STATUS_CONFIG: Record<PortingStatus, {
-    label: string;
+const STATUS_STYLE: Record<PortingStatus, {
     icon: React.ElementType;
     variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success';
     color: string;
 }> = {
-    pending: {
-        label: 'Beklemede',
-        icon: Clock,
-        variant: 'secondary',
-        color: 'text-yellow-600',
-    },
-    submitted: {
-        label: 'Gönderildi',
-        icon: Send,
-        variant: 'default',
-        color: 'text-blue-600',
-    },
-    in_progress: {
-        label: 'İşleniyor',
-        icon: ArrowRightLeft,
-        variant: 'outline',
-        color: 'text-orange-600',
-    },
-    completed: {
-        label: 'Tamamlandı',
-        icon: CheckCircle2,
-        variant: 'success',
-        color: 'text-emerald-600',
-    },
-    rejected: {
-        label: 'Reddedildi',
-        icon: XCircle,
-        variant: 'destructive',
-        color: 'text-red-600',
-    },
+    pending: { icon: Clock, variant: 'secondary', color: 'text-yellow-600' },
+    submitted: { icon: Send, variant: 'default', color: 'text-blue-600' },
+    in_progress: { icon: ArrowRightLeft, variant: 'outline', color: 'text-orange-600' },
+    completed: { icon: CheckCircle2, variant: 'success', color: 'text-emerald-600' },
+    rejected: { icon: XCircle, variant: 'destructive', color: 'text-red-600' },
+};
+
+const STATUS_LABEL_KEYS: Record<PortingStatus, string> = {
+    pending: 'statusPending',
+    submitted: 'statusSubmitted',
+    in_progress: 'statusInProgress',
+    completed: 'statusCompleted',
+    rejected: 'statusRejected',
 };
 
 const NEXT_STATUS_OPTIONS: Record<string, PortingStatus[]> = {
@@ -107,6 +90,7 @@ const NEXT_STATUS_OPTIONS: Record<string, PortingStatus[]> = {
 export default function PortingAdmin() {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('phoneManagement');
 
     const [requests, setRequests] = useState<PortingRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -125,13 +109,13 @@ export default function PortingAdmin() {
         try {
             setLoading(true);
             const res = await authFetch('/api/phone/porting?all=true');
-            if (!res.ok) throw new Error('Porting istekleri yüklenemedi');
+            if (!res.ok) throw new Error(t('portingLoadFailed'));
             const data = await res.json();
             setRequests(data.requests || []);
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: err instanceof Error ? err.message : 'Bilinmeyen hata',
+                title: t('error'),
+                description: err instanceof Error ? err.message : t('unknownError'),
                 variant: 'error',
             });
         } finally {
@@ -167,12 +151,13 @@ export default function PortingAdmin() {
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'Güncelleme başarısız');
+                throw new Error(err.error || t('updateFailed'));
             }
 
+            const statusLabel = t(STATUS_LABEL_KEYS[newStatus as PortingStatus] || 'statusPending');
             toast({
-                title: 'Güncellendi',
-                description: `Porting durumu "${STATUS_CONFIG[newStatus as PortingStatus]?.label}" olarak güncellendi.`,
+                title: t('updated'),
+                description: t('portingStatusUpdated', { status: statusLabel }),
             });
 
             setEditingId(null);
@@ -181,8 +166,8 @@ export default function PortingAdmin() {
             await fetchRequests();
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: err instanceof Error ? err.message : 'Güncelleme başarısız',
+                title: t('error'),
+                description: err instanceof Error ? err.message : t('updateFailed'),
                 variant: 'error',
             });
         } finally {
@@ -223,25 +208,25 @@ export default function PortingAdmin() {
                 <Card>
                     <CardContent className="pt-4 pb-3">
                         <div className="text-2xl font-bold">{stats.total}</div>
-                        <p className="text-xs text-muted-foreground">Toplam İstek</p>
+                        <p className="text-xs text-muted-foreground">{t('totalRequests')}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-4 pb-3">
                         <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
-                        <p className="text-xs text-muted-foreground">Beklemede</p>
+                        <p className="text-xs text-muted-foreground">{t('statusPending')}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-4 pb-3">
                         <div className="text-2xl font-bold text-orange-600">{stats.inProgress}</div>
-                        <p className="text-xs text-muted-foreground">İşlemde</p>
+                        <p className="text-xs text-muted-foreground">{t('statusInProgress')}</p>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="pt-4 pb-3">
                         <div className="text-2xl font-bold text-emerald-600">{stats.completed}</div>
-                        <p className="text-xs text-muted-foreground">Tamamlandı</p>
+                        <p className="text-xs text-muted-foreground">{t('statusCompleted')}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -251,7 +236,7 @@ export default function PortingAdmin() {
                 <div className="flex items-center gap-2 flex-1">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Numara, tenant veya operatör ara..."
+                        placeholder={t('searchPlaceholder')}
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
                         className="max-w-sm"
@@ -259,20 +244,20 @@ export default function PortingAdmin() {
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Durum filtrele" />
+                        <SelectValue placeholder={t('filterByStatus')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Tümü</SelectItem>
-                        <SelectItem value="pending">Beklemede</SelectItem>
-                        <SelectItem value="submitted">Gönderildi</SelectItem>
-                        <SelectItem value="in_progress">İşleniyor</SelectItem>
-                        <SelectItem value="completed">Tamamlandı</SelectItem>
-                        <SelectItem value="rejected">Reddedildi</SelectItem>
+                        <SelectItem value="all">{t('all')}</SelectItem>
+                        <SelectItem value="pending">{t('statusPending')}</SelectItem>
+                        <SelectItem value="submitted">{t('statusSubmitted')}</SelectItem>
+                        <SelectItem value="in_progress">{t('statusInProgress')}</SelectItem>
+                        <SelectItem value="completed">{t('statusCompleted')}</SelectItem>
+                        <SelectItem value="rejected">{t('statusRejected')}</SelectItem>
                     </SelectContent>
                 </Select>
                 <Button variant="outline" size="sm" onClick={fetchRequests} disabled={loading}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    Yenile
+                    {t('refresh')}
                 </Button>
             </div>
 
@@ -287,16 +272,17 @@ export default function PortingAdmin() {
                         <FileText className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
                         <p className="text-muted-foreground">
                             {requests.length === 0
-                                ? 'Henüz porting isteği yok.'
-                                : 'Filtrelere uygun istek bulunamadı.'}
+                                ? t('noPortingRequests')
+                                : t('noFilterResults')}
                         </p>
                     </CardContent>
                 </Card>
             ) : (
                 <div className="space-y-3">
                     {filtered.map(req => {
-                        const config = STATUS_CONFIG[req.status as PortingStatus] || STATUS_CONFIG.pending;
-                        const StatusIcon = config.icon;
+                        const style = STATUS_STYLE[req.status as PortingStatus] || STATUS_STYLE.pending;
+                        const statusLabel = t(STATUS_LABEL_KEYS[req.status as PortingStatus] || 'statusPending');
+                        const StatusIcon = style.icon;
                         const isEditing = editingId === req.id;
                         const nextOptions = NEXT_STATUS_OPTIONS[req.status] || [];
 
@@ -310,29 +296,29 @@ export default function PortingAdmin() {
                                                 <span className="font-mono font-semibold text-sm">
                                                     {req.phoneNumber}
                                                 </span>
-                                                <Badge variant={config.variant} className="gap-1">
+                                                <Badge variant={style.variant} className="gap-1">
                                                     <StatusIcon className="h-3 w-3" />
-                                                    {config.label}
+                                                    {statusLabel}
                                                 </Badge>
                                             </div>
 
                                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                                                <span>Tenant: <span className="font-mono">{req.tenantId.slice(0, 12)}...</span></span>
+                                                <span>{t('tenant')}: <span className="font-mono">{req.tenantId.slice(0, 12)}...</span></span>
                                                 <span>{req.currentCarrier} → {req.targetCarrier}</span>
                                                 {req.estimatedCompletionDate && (
-                                                    <span>Tahmini: {req.estimatedCompletionDate}</span>
+                                                    <span>{t('estimated')}: {req.estimatedCompletionDate}</span>
                                                 )}
                                             </div>
 
                                             {req.notes && (
                                                 <p className="text-xs text-muted-foreground mt-1">
-                                                    <span className="font-medium">Tenant notu:</span> {req.notes}
+                                                    <span className="font-medium">{t('tenantNote')}:</span> {req.notes}
                                                 </p>
                                             )}
 
                                             {req.adminNotes && (
                                                 <p className="text-xs mt-1">
-                                                    <span className="font-medium text-orange-600">Admin notu:</span>{' '}
+                                                    <span className="font-medium text-orange-600">{t('adminNote')}:</span>{' '}
                                                     {req.adminNotes}
                                                 </p>
                                             )}
@@ -350,7 +336,7 @@ export default function PortingAdmin() {
                                                         setAdminNote('');
                                                     }}
                                                 >
-                                                    Güncelle
+                                                    {t('update')}
                                                 </Button>
                                             )}
                                         </div>
@@ -362,12 +348,12 @@ export default function PortingAdmin() {
                                             <div className="flex gap-3">
                                                 <Select value={newStatus} onValueChange={setNewStatus}>
                                                     <SelectTrigger className="w-[200px]">
-                                                        <SelectValue placeholder="Yeni durum seç" />
+                                                        <SelectValue placeholder={t('selectNewStatus')} />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         {nextOptions.map(s => (
                                                             <SelectItem key={s} value={s}>
-                                                                {STATUS_CONFIG[s].label}
+                                                                {t(STATUS_LABEL_KEYS[s])}
                                                             </SelectItem>
                                                         ))}
                                                     </SelectContent>
@@ -377,7 +363,7 @@ export default function PortingAdmin() {
                                             <div className="flex items-start gap-2">
                                                 <MessageSquare className="h-4 w-4 mt-2.5 text-muted-foreground shrink-0" />
                                                 <Textarea
-                                                    placeholder="Admin notu (opsiyonel)..."
+                                                    placeholder={t('adminNotePlaceholder')}
                                                     value={adminNote}
                                                     onChange={e => setAdminNote(e.target.value)}
                                                     rows={2}
@@ -392,7 +378,7 @@ export default function PortingAdmin() {
                                                     onClick={() => setEditingId(null)}
                                                     disabled={updating}
                                                 >
-                                                    İptal
+                                                    {t('cancel')}
                                                 </Button>
                                                 <Button
                                                     size="sm"
@@ -400,7 +386,7 @@ export default function PortingAdmin() {
                                                     disabled={!newStatus || updating}
                                                 >
                                                     {updating && <Loader2 className="h-3 w-3 mr-2 animate-spin" />}
-                                                    Kaydet
+                                                    {t('save')}
                                                 </Button>
                                             </div>
                                         </div>

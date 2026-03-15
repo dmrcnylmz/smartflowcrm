@@ -11,6 +11,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     MessageSquare,
@@ -61,13 +62,6 @@ type VoiceState = 'idle' | 'listening' | 'processing' | 'speaking';
 
 const MAX_MESSAGE_LENGTH = 500;
 
-const WELCOME_MESSAGE: ChatMessage = {
-    id: 'welcome',
-    role: 'assistant',
-    content: 'Merhaba! Ben Ayla, Callception destek asistaniyim. Size nasil yardimci olabilirim?',
-    timestamp: Date.now(),
-};
-
 // ─── Speech Recognition Helper ──────────────────────────────────────────────
 
 function getSpeechRecognition(): SpeechRecognitionLike | null {
@@ -89,10 +83,17 @@ function hasSpeechSupport(): boolean {
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function SupportChatWidget() {
+    const t = useTranslations('supportChat');
+
     // --- State ---
     const [widgetState, setWidgetState] = useState<WidgetState>('closed');
     const [mode, setMode] = useState<ChatMode>('text');
-    const [messages, setMessages] = useState<ChatMessage[]>([WELCOME_MESSAGE]);
+    const [messages, setMessages] = useState<ChatMessage[]>(() => [{
+        id: 'welcome',
+        role: 'assistant' as const,
+        content: '',
+        timestamp: Date.now(),
+    }]);
     const [input, setInput] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [voiceState, setVoiceState] = useState<VoiceState>('idle');
@@ -108,6 +109,13 @@ export function SupportChatWidget() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const volumeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+    // --- Set welcome message with translation ---
+    useEffect(() => {
+        setMessages(prev => prev.map(m =>
+            m.id === 'welcome' ? { ...m, content: t('welcomeMessage') } : m
+        ));
+    }, [t]);
 
     // --- Init ---
     useEffect(() => {
@@ -190,8 +198,8 @@ export function SupportChatWidget() {
 
             if (!res.ok) {
                 const errorText = res.status === 429
-                    ? 'Cok fazla istek gonderdiniz. Lutfen biraz bekleyin.'
-                    : 'Bir hata olustu. Lutfen tekrar deneyin.';
+                    ? t('rateLimitError')
+                    : t('genericError');
                 setMessages(prev =>
                     prev.map(m => (m.id === assistantId ? { ...m, content: errorText } : m)),
                 );
@@ -240,7 +248,7 @@ export function SupportChatWidget() {
             setMessages(prev =>
                 prev.map(m =>
                     m.id === assistantId
-                        ? { ...m, content: 'Baglanti hatasi. Lutfen tekrar deneyin.' }
+                        ? { ...m, content: t('connectionError') }
                         : m,
                 ),
             );
@@ -248,7 +256,7 @@ export function SupportChatWidget() {
             setIsStreaming(false);
             abortRef.current = null;
         }
-    }, [isStreaming]);
+    }, [isStreaming, t]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -351,7 +359,7 @@ export function SupportChatWidget() {
                 const errMsg: ChatMessage = {
                     id: crypto.randomUUID(),
                     role: 'assistant',
-                    content: 'Bir hata olustu. Lutfen tekrar deneyin.',
+                    content: t('genericError'),
                     timestamp: Date.now(),
                 };
                 setMessages(prev => [...prev, errMsg]);
@@ -380,12 +388,12 @@ export function SupportChatWidget() {
             const errMsg: ChatMessage = {
                 id: crypto.randomUUID(),
                 role: 'assistant',
-                content: 'Baglanti hatasi. Lutfen tekrar deneyin.',
+                content: t('connectionError'),
                 timestamp: Date.now(),
             };
             setMessages(prev => [...prev, errMsg]);
         }
-    }, [speakResponse]);
+    }, [speakResponse, t]);
 
     const startListening = useCallback(() => {
         const recognition = getSpeechRecognition();
@@ -471,7 +479,7 @@ export function SupportChatWidget() {
                         whileTap={{ scale: 0.95 }}
                         onClick={toggleWidget}
                         className={`fixed right-6 ${buttonBottom} z-[9990] h-14 w-14 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center transition-[bottom] duration-300`}
-                        aria-label="Canli destek"
+                        aria-label={t('liveSupport')}
                     >
                         <MessageSquare className="h-6 w-6" />
 
@@ -504,11 +512,11 @@ export function SupportChatWidget() {
 
                             <div className="flex-1 min-w-0">
                                 <h3 className="text-sm font-semibold text-white truncate">
-                                    Callception Destek
+                                    {t('headerTitle')}
                                 </h3>
                                 <div className="flex items-center gap-1.5">
                                     <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                                    <span className="text-xs text-slate-400">Cevrimici</span>
+                                    <span className="text-xs text-slate-400">{t('online')}</span>
                                 </div>
                             </div>
 
@@ -517,7 +525,7 @@ export function SupportChatWidget() {
                                 <button
                                     onClick={() => switchMode(mode === 'text' ? 'voice' : 'text')}
                                     className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                                    title={mode === 'text' ? 'Sesli moda gec' : 'Yazili moda gec'}
+                                    title={mode === 'text' ? t('switchToVoice') : t('switchToText')}
                                 >
                                     {mode === 'text' ? (
                                         <Volume2 className="h-4 w-4" />
@@ -531,7 +539,7 @@ export function SupportChatWidget() {
                             <button
                                 onClick={toggleWidget}
                                 className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
-                                aria-label="Kapat"
+                                aria-label={t('close')}
                             >
                                 <X className="h-4 w-4" />
                             </button>
@@ -563,7 +571,7 @@ export function SupportChatWidget() {
                                             value={input}
                                             onChange={e => setInput(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
                                             onKeyDown={handleKeyDown}
-                                            placeholder="Mesajinizi yazin..."
+                                            placeholder={t('placeholder')}
                                             disabled={isStreaming}
                                             rows={1}
                                             className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 max-h-24 overflow-y-auto"
@@ -579,7 +587,7 @@ export function SupportChatWidget() {
                                         onClick={() => sendTextMessage(input)}
                                         disabled={!input.trim() || isStreaming}
                                         className="h-[42px] w-[42px] rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white flex items-center justify-center transition-colors flex-shrink-0"
-                                        aria-label="Gonder"
+                                        aria-label={t('send')}
                                     >
                                         <Send className="h-4 w-4" />
                                     </button>
@@ -672,11 +680,13 @@ function VoiceChatBody({
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
     const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.id !== 'welcome');
 
+    const t = useTranslations('supportChat');
+
     const statusText = {
-        idle: 'Konusmak icin mikrofona basin',
-        listening: 'Dinliyorum...',
-        processing: 'Dusunuyorum...',
-        speaking: 'Konusuyor...',
+        idle: t('voiceIdle'),
+        listening: t('voiceListening'),
+        processing: t('voiceProcessing'),
+        speaking: t('voiceSpeaking'),
     }[voiceState];
 
     const statusColor = {
@@ -731,7 +741,7 @@ function VoiceChatBody({
                             ? 'bg-blue-600 hover:bg-blue-500 text-white'
                             : 'bg-slate-700 hover:bg-slate-600 text-white disabled:opacity-50'
                     }`}
-                aria-label={voiceState === 'listening' ? 'Dinlemeyi durdur' : voiceState === 'speaking' ? 'Konusmayi durdur' : 'Dinlemeye basla'}
+                aria-label={voiceState === 'listening' ? t('stopListening') : voiceState === 'speaking' ? t('stopSpeaking') : t('startListening')}
             >
                 {voiceState === 'listening' ? (
                     <MicOff className="h-6 w-6" />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Cpu,
@@ -57,6 +58,7 @@ interface PipelineStatus {
 }
 
 export function VoiceAIStatus() {
+    const t = useTranslations('voice');
     const [health, setHealth] = useState<GPUHealth | null>(null);
     const [pipeline, setPipeline] = useState<PipelineStatus | null>(null);
     const [loading, setLoading] = useState(true);
@@ -127,17 +129,17 @@ export function VoiceAIStatus() {
     };
 
     const getStatusLabel = () => {
-        if (health?.status === 'healthy' && isTextOnly) return 'Metin Modu';
-        if (health?.status === 'healthy') return 'Çevrimiçi';
-        if (health?.status === 'degraded') return 'Kısıtlı';
-        return 'Çevrimdışı';
+        if (health?.status === 'healthy' && isTextOnly) return t('textMode');
+        if (health?.status === 'healthy') return t('online');
+        if (health?.status === 'degraded') return t('limited');
+        return t('offline');
     };
 
     const getModeLabel = () => {
-        if (health?.mode === 'live') return 'Canlı (GPU)';
-        if (health?.mode === 'text-only') return 'Metin Modu (LLM)';
-        if (health?.mode === 'mock') return 'Demo';
-        return 'Kapalı';
+        if (health?.mode === 'live') return t('liveGPU');
+        if (health?.mode === 'text-only') return t('textModeLLM');
+        if (health?.mode === 'mock') return t('demo');
+        return t('closed');
     };
 
     const getModeEmoji = () => {
@@ -157,7 +159,7 @@ export function VoiceAIStatus() {
                         ) : (
                             <Cpu className={`h-5 w-5 ${statusColor}`} />
                         )}
-                        Voice AI Durumu
+                        {t('voiceAIStatus')}
                     </CardTitle>
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
@@ -170,7 +172,7 @@ export function VoiceAIStatus() {
                             onClick={fetchHealth}
                             disabled={loading}
                             className="p-1 rounded-md hover:bg-white/10 transition-colors disabled:opacity-50"
-                            title="Yenile"
+                            title={t('refresh')}
                         >
                             <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? 'animate-spin' : ''}`} />
                         </button>
@@ -188,10 +190,10 @@ export function VoiceAIStatus() {
                 {/* LLM Provider Status */}
                 {health?.capabilities && (
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                        <ProviderBadge name="GPU" active={health.capabilities.gpu} />
-                        <ProviderBadge name="OpenAI" active={health.capabilities.openai} />
-                        <ProviderBadge name="Groq" active={health.capabilities.groq} />
-                        <ProviderBadge name="Gemini" active={health.capabilities.gemini} />
+                        <ProviderBadge name="GPU" active={health.capabilities.gpu} t={t} />
+                        <ProviderBadge name="OpenAI" active={health.capabilities.openai} t={t} />
+                        <ProviderBadge name="Groq" active={health.capabilities.groq} t={t} />
+                        <ProviderBadge name="Gemini" active={health.capabilities.gemini} t={t} />
                     </div>
                 )}
 
@@ -208,21 +210,21 @@ export function VoiceAIStatus() {
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
                             <Users className="h-4 w-4 text-blue-400 shrink-0" />
                             <div>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Oturumlar</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('sessions')}</p>
                                 <p className="text-xs font-medium">{health?.active_sessions ?? 0} / {health?.max_sessions ?? 0}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
                             <Zap className="h-4 w-4 text-amber-400 shrink-0" />
                             <div>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gecikme</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('latency')}</p>
                                 <p className="text-xs font-medium">{health?.latency_ms ? `${health.latency_ms}ms` : '—'}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
                             <Timer className="h-4 w-4 text-emerald-400 shrink-0" />
                             <div>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Çalışma</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('uptime')}</p>
                                 <p className="text-xs font-medium">{formatUptime(health?.uptime_seconds)}</p>
                             </div>
                         </div>
@@ -235,7 +237,7 @@ export function VoiceAIStatus() {
                         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
                             <Zap className="h-4 w-4 text-amber-400 shrink-0" />
                             <div>
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gecikme</p>
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('latency')}</p>
                                 <p className="text-xs font-medium">{health.latency_ms ? `${health.latency_ms}ms` : '—'}</p>
                             </div>
                         </div>
@@ -305,7 +307,7 @@ export function VoiceAIStatus() {
     );
 }
 
-function ProviderBadge({ name, active }: { name: string; active: boolean }) {
+function ProviderBadge({ name, active, t }: { name: string; active: boolean; t: (key: string) => string }) {
     return (
         <div className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
             {active ? (
@@ -316,7 +318,7 @@ function ProviderBadge({ name, active }: { name: string; active: boolean }) {
             <div>
                 <p className="text-xs font-medium">{name}</p>
                 <p className={`text-[10px] ${active ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                    {active ? 'Aktif' : 'Kapalı'}
+                    {active ? t('providerActive') : t('providerInactive')}
                 </p>
             </div>
         </div>

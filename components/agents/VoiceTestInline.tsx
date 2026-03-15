@@ -18,6 +18,7 @@ import { AudioWaveform } from '@/components/voice/AudioWaveform';
 import { PersonaplexClient, type TranscriptTurn, type SessionSummary } from '@/lib/voice/personaplex-client';
 import { AudioVisualizer } from '@/lib/voice/audio-stream';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { useTranslations } from 'next-intl';
 import type { AgentVoiceConfig } from '@/lib/agents/types';
 
 // Web Speech API type declarations (for STT only — NOT used for TTS)
@@ -103,6 +104,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
     onVoiceModeChange,
 }: VoiceTestInlineProps, ref: React.Ref<VoiceTestHandle>) {
     const authFetch = useAuthFetch();
+    const t = useTranslations('agents');
     const [callState, setCallState] = useState<CallState>('idle');
     const [voiceMode, setVoiceMode] = useState<VoiceMode>('gpu');
     const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
@@ -211,7 +213,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
         );
 
         if (!SpeechRecognition) {
-            setError('Tarayıcınız ses tanımayı desteklemiyor. Chrome kullanmanızı öneririz.');
+            setError(t('voiceTest.browserNotSupported'));
             setCallState('error');
             return;
         }
@@ -293,7 +295,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
         try {
             recognition.start();
         } catch {
-            setError('Mikrofon erişimi sağlanamadı');
+            setError(t('voiceTest.micAccessError'));
             setCallState('error');
         }
     }, [authFetch, systemPrompt, language, playCartesiaTTS]);
@@ -312,7 +314,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
             const isAvailable = status.status === 'healthy' || status.status === 'ok';
 
             if (!isAvailable) {
-                throw new Error('AI ses servisi şu anda erişilemez durumda');
+                throw new Error(t('voiceTest.aiServiceError'));
             }
 
             const mode = status.mode === 'live' ? 'gpu' : 'cartesia-fallback';
@@ -393,7 +395,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
             clientRef.current = client;
         } catch (err) {
             console.error('Voice test start error:', err);
-            setError(err instanceof Error ? err.message : 'Bağlantı hatası');
+            setError(err instanceof Error ? err.message : t('voiceTest.connectionError'));
             setCallState('error');
         }
     }, [authFetch, voiceConfig, language, startCartesiaFallbackMode]);
@@ -460,11 +462,11 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                             : 'bg-white/20'
                     }`} />
                     <span className="text-xs text-white/50">
-                        {callState === 'idle' && 'Hazır — Çağrıyı başlatın'}
-                        {callState === 'connecting' && 'Bağlanıyor...'}
-                        {callState === 'connected' && `Aktif Görüşme — ${formatDuration(callDuration)}`}
-                        {callState === 'ending' && 'Sonlandırılıyor...'}
-                        {callState === 'error' && 'Hata'}
+                        {callState === 'idle' && t('voiceTest.ready')}
+                        {callState === 'connecting' && t('voiceTest.connecting')}
+                        {callState === 'connected' && `${t('voiceTest.activeCall')} — ${formatDuration(callDuration)}`}
+                        {callState === 'ending' && t('voiceTest.ending')}
+                        {callState === 'error' && t('voiceTest.errorLabel')}
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -497,17 +499,16 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                         <div className="h-16 w-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
                             <Phone className="h-7 w-7 text-emerald-400" />
                         </div>
-                        <h3 className="text-sm font-semibold text-white/80 mb-1">Sesli Test Çağrısı</h3>
+                        <h3 className="text-sm font-semibold text-white/80 mb-1">{t('voiceTest.voiceTestTitle')}</h3>
                         <p className="text-xs text-white/30 max-w-xs mb-6 leading-relaxed">
-                            Mikrofon izni vererek <span className="text-white/60">{agentName}</span> ile gerçek bir sesli görüşme başlatın.
-                            Cartesia Sonic-3 ses kalitesiyle test edin.
+                            {t('voiceTest.voiceTestDesc', { name: agentName })}
                         </p>
                         <button
                             onClick={startCall}
                             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 transition-all"
                         >
                             <Phone className="h-4 w-4" />
-                            Çağrıyı Başlat
+                            {t('voiceTest.startCall')}
                         </button>
                     </div>
                 )}
@@ -515,8 +516,8 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                 {callState === 'connecting' && (
                     <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-8">
                         <Loader2 className="h-10 w-10 text-inception-red animate-spin mb-4" />
-                        <p className="text-sm text-white/50">Ses servisi bağlanıyor...</p>
-                        <p className="text-xs text-white/20 mt-1">Mikrofon izni isteniyor</p>
+                        <p className="text-sm text-white/50">{t('voiceTest.voiceConnecting')}</p>
+                        <p className="text-xs text-white/20 mt-1">{t('voiceTest.micPermission')}</p>
                     </div>
                 )}
 
@@ -526,11 +527,11 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                         <div className="px-4 py-3 border-b border-white/[0.04]">
                             <div className="flex items-center gap-2 mb-2">
                                 <Volume2 className="h-3 w-3 text-white/30" />
-                                <span className="text-[10px] text-white/30 uppercase tracking-widest">Ses Sinyali</span>
+                                <span className="text-[10px] text-white/30 uppercase tracking-widest">{t('voiceTest.audioSignal')}</span>
                                 {isProcessing && (
                                     <span className="text-[10px] text-amber-400 flex items-center gap-1">
                                         <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                        Yanıt oluşturuluyor...
+                                        {t('voiceTest.generatingResponse')}
                                     </span>
                                 )}
                             </div>
@@ -548,7 +549,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                             <div className="space-y-3">
                                 {transcript.length === 0 && (
                                     <p className="text-xs text-white/20 text-center py-4">
-                                        Konuşmaya başlayın...
+                                        {t('voiceTest.startSpeaking')}
                                     </p>
                                 )}
                                 {transcript.map((turn, i) => (
@@ -560,7 +561,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                                         }`}>
                                             <div className="flex items-center gap-1 mb-0.5">
                                                 {turn.speaker === 'user' ? <User className="h-2.5 w-2.5" /> : <Bot className="h-2.5 w-2.5 text-violet-400" />}
-                                                <span className="text-[9px] text-white/30">{turn.speaker === 'user' ? 'Siz' : agentName}</span>
+                                                <span className="text-[9px] text-white/30">{turn.speaker === 'user' ? t('voiceTest.you') : agentName}</span>
                                             </div>
                                             <p className="whitespace-pre-wrap text-xs">{turn.text}</p>
                                         </div>
@@ -587,7 +588,7 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                                 className="h-11 px-6 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center gap-2 text-sm font-medium transition-all shadow-lg shadow-red-500/20"
                             >
                                 <PhoneOff className="h-4 w-4" />
-                                Bitir
+                                {t('voiceTest.endCall')}
                             </button>
                         </div>
                     </>
@@ -598,13 +599,13 @@ export const VoiceTestInline = forwardRef<VoiceTestHandle, VoiceTestInlineProps>
                         <div className="h-14 w-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                             <AlertCircle className="h-7 w-7 text-red-400" />
                         </div>
-                        <p className="text-sm text-red-300 mb-2">{error || 'Bağlantı hatası'}</p>
-                        <p className="text-xs text-white/20 mb-4">Lütfen tekrar deneyin veya mikrofon izni verin.</p>
+                        <p className="text-sm text-red-300 mb-2">{error || t('voiceTest.connectionError')}</p>
+                        <p className="text-xs text-white/20 mb-4">{t('voiceTest.retryMessage')}</p>
                         <button
                             onClick={() => { setCallState('idle'); setError(null); }}
                             className="text-xs text-inception-red hover:text-inception-red-light flex items-center gap-1"
                         >
-                            Tekrar Dene
+                            {t('voiceTest.retry')}
                         </button>
                     </div>
                 )}

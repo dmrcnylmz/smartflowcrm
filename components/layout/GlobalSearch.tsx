@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Search, X, Phone, Users, Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ interface GlobalSearchProps {
 }
 
 export function GlobalSearch({ className }: GlobalSearchProps) {
+    const t = useTranslations('search');
     const router = useRouter();
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -46,28 +48,28 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
             // Mock customer results
             if ('müşteri'.includes(q) || 'customer'.includes(q) || q.length >= 2) {
                 mockResults.push(
-                    { id: '1', type: 'customer', title: 'Müşteri Ara', subtitle: `"${searchQuery}" için müşterilerde ara`, href: `/customers?search=${encodeURIComponent(searchQuery)}` },
+                    { id: '1', type: 'customer', title: t('searchCustomers'), subtitle: t('searchCustomersSub', { query: searchQuery }), href: `/customers?search=${encodeURIComponent(searchQuery)}` },
                 );
             }
 
             // Mock call results
             if ('çağrı'.includes(q) || 'call'.includes(q) || q.length >= 2) {
                 mockResults.push(
-                    { id: '2', type: 'call', title: 'Çağrılarda Ara', subtitle: `"${searchQuery}" için çağrılarda ara`, href: `/calls?search=${encodeURIComponent(searchQuery)}` },
+                    { id: '2', type: 'call', title: t('searchCalls'), subtitle: t('searchCallsSub', { query: searchQuery }), href: `/calls?search=${encodeURIComponent(searchQuery)}` },
                 );
             }
 
             // Mock appointment results
             if ('randevu'.includes(q) || 'appointment'.includes(q) || q.length >= 2) {
                 mockResults.push(
-                    { id: '3', type: 'appointment', title: 'Randevularda Ara', subtitle: `"${searchQuery}" için randevularda ara`, href: `/appointments?search=${encodeURIComponent(searchQuery)}` },
+                    { id: '3', type: 'appointment', title: t('searchAppointments'), subtitle: t('searchAppointmentsSub', { query: searchQuery }), href: `/appointments?search=${encodeURIComponent(searchQuery)}` },
                 );
             }
 
             // Mock complaint results
             if ('şikayet'.includes(q) || 'complaint'.includes(q) || q.length >= 2) {
                 mockResults.push(
-                    { id: '4', type: 'complaint', title: 'Şikayetlerde Ara', subtitle: `"${searchQuery}" için şikayetlerde ara`, href: `/complaints?search=${encodeURIComponent(searchQuery)}` },
+                    { id: '4', type: 'complaint', title: t('searchComplaints'), subtitle: t('searchComplaintsSub', { query: searchQuery }), href: `/complaints?search=${encodeURIComponent(searchQuery)}` },
                 );
             }
 
@@ -75,7 +77,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
             setLoading(false);
             setSelectedIndex(0);
         }, 150);
-    }, []);
+    }, [t]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -134,7 +136,7 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                 <Input
                     ref={inputRef}
                     type="text"
-                    placeholder="Ara... (müşteri, çağrı, randevu, şikayet)"
+                    placeholder={t('placeholder')}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => setIsOpen(true)}
@@ -162,11 +164,11 @@ export function GlobalSearch({ className }: GlobalSearchProps) {
                     {loading ? (
                         <div className="p-4 text-center text-muted-foreground">
                             <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" />
-                            Aranıyor...
+                            {t('searching')}
                         </div>
                     ) : results.length === 0 ? (
                         <div className="p-4 text-center text-muted-foreground">
-                            Sonuç bulunamadı
+                            {t('noResults')}
                         </div>
                     ) : (
                         <div className="py-2">

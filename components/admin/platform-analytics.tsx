@@ -28,28 +28,20 @@ import {
     MapPin, AlertTriangle, LogIn, MousePointerClick, UserCheck,
     FileText,
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
     Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 
-// ─── Country name mapping ───
-
-const COUNTRY_NAMES: Record<string, string> = {
-    TR: 'Türkiye', US: 'Amerika', FR: 'Fransa', DE: 'Almanya', GB: 'İngiltere',
-    NL: 'Hollanda', HK: 'Hong Kong', CA: 'Kanada', IN: 'Hindistan', SG: 'Singapur',
-    SA: 'S. Arabistan', RU: 'Rusya', CN: 'Çin', JP: 'Japonya', KR: 'G. Kore',
-    AU: 'Avustralya', BR: 'Brezilya', PL: 'Polonya', CH: 'İsviçre', IE: 'İrlanda',
-    FI: 'Finlandiya', BE: 'Belçika', SE: 'İsveç', ES: 'İspanya', PT: 'Portekiz',
-    AT: 'Avusturya', IT: 'İtalya', EG: 'Mısır', UA: 'Ukrayna', ID: 'Endonezya',
-    TH: 'Tayland', VN: 'Vietnam', ZA: 'G. Afrika', MX: 'Meksika', CL: 'Şili',
-    SK: 'Slovakya', BG: 'Bulgaristan', EE: 'Estonya', BD: 'Bangladeş',
-    BY: 'Belarus', GT: 'Guatemala', TW: 'Tayvan', KZ: 'Kazakistan', T1: 'Tor Ağı',
-};
-
-function getCountryName(code: string) {
-    return COUNTRY_NAMES[code] || code;
-}
+// Country codes for translation lookup
+const COUNTRY_CODES = [
+    'TR', 'US', 'FR', 'DE', 'GB', 'NL', 'HK', 'CA', 'IN', 'SG',
+    'SA', 'RU', 'CN', 'JP', 'KR', 'AU', 'BR', 'PL', 'CH', 'IE',
+    'FI', 'BE', 'SE', 'ES', 'PT', 'AT', 'IT', 'EG', 'UA', 'ID',
+    'TH', 'VN', 'ZA', 'MX', 'CL', 'SK', 'BG', 'EE', 'BD',
+    'BY', 'GT', 'TW', 'KZ', 'T1',
+] as const;
 
 // Country flag emoji
 function getFlag(code: string) {
@@ -177,9 +169,18 @@ const BAR_COLORS = [
 
 export default function PlatformAnalytics() {
     const authFetch = useAuthFetch();
+    const t = useTranslations('platformAnalytics');
+    const tc = useTranslations('countries');
     const [data, setData] = useState<AnalyticsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [range, setRange] = useState('7d');
+
+    function getCountryName(code: string) {
+        if (COUNTRY_CODES.includes(code as typeof COUNTRY_CODES[number])) {
+            return tc(code);
+        }
+        return code;
+    }
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -230,20 +231,20 @@ export default function PlatformAnalytics() {
         <div className="space-y-6">
             {/* Header with controls */}
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-white">Platform Analitik</h3>
+                <h3 className="text-lg font-semibold text-white">{t('title')}</h3>
                 <div className="flex items-center gap-3">
                     <Select value={range} onValueChange={setRange}>
                         <SelectTrigger className="w-[120px] border-white/10 bg-white/5">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="24h">Son 24 Saat</SelectItem>
-                            <SelectItem value="7d">Son 7 Gün</SelectItem>
-                            <SelectItem value="30d">Son 30 Gün</SelectItem>
+                            <SelectItem value="24h">{t('last24h')}</SelectItem>
+                            <SelectItem value="7d">{t('last7d')}</SelectItem>
+                            <SelectItem value="30d">{t('last30d')}</SelectItem>
                         </SelectContent>
                     </Select>
                     <Button variant="outline" size="sm" onClick={fetchData} className="border-white/10">
-                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Yenile
+                        <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> {t('refresh')}
                     </Button>
                 </div>
             </div>
@@ -251,15 +252,15 @@ export default function PlatformAnalytics() {
             {/* Section 1: Cloudflare KPI Cards */}
             {cf ? (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <KpiCard icon={Activity} label="İstekler" value={cf.requests} color="text-blue-400" />
-                    <KpiCard icon={HardDrive} label="Bant Genişliği" value={`${cf.bandwidthMB.toFixed(1)} MB`} color="text-cyan-400" />
-                    <KpiCard icon={Eye} label="Sayfa Görüntüleme" value={cf.pageViews} color="text-amber-400" />
-                    <KpiCard icon={Users} label="Benzersiz Ziyaretçi" value={cf.uniqueVisitors} color="text-emerald-400" />
+                    <KpiCard icon={Activity} label={t('requests')} value={cf.requests} color="text-blue-400" />
+                    <KpiCard icon={HardDrive} label={t('bandwidth')} value={`${cf.bandwidthMB.toFixed(1)} MB`} color="text-cyan-400" />
+                    <KpiCard icon={Eye} label={t('pageViews')} value={cf.pageViews} color="text-amber-400" />
+                    <KpiCard icon={Users} label={t('uniqueVisitors')} value={cf.uniqueVisitors} color="text-emerald-400" />
                     <KpiCard
                         icon={ShieldAlert}
-                        label="Tehditler"
+                        label={t('threats')}
                         value={totalThreats}
-                        subtitle={totalThreats > 0 ? `${threatCountries.length} ülkeden` : 'Engellendi'}
+                        subtitle={totalThreats > 0 ? t('fromCountries', { count: threatCountries.length }) : t('blocked')}
                         color={totalThreats > 0 ? 'text-red-400' : 'text-green-400'}
                     />
                 </div>
@@ -267,8 +268,8 @@ export default function PlatformAnalytics() {
                 <Card className="border-white/10 bg-white/[0.02]">
                     <CardContent className="p-6 text-center text-white/40">
                         <Globe className="h-8 w-8 mx-auto mb-3 opacity-40" />
-                        <p className="text-sm">Cloudflare Analytics yapılandırılmamış</p>
-                        <p className="text-xs mt-1">CLOUDFLARE_API_TOKEN ve CLOUDFLARE_ZONE_ID env var&apos;larını ekleyin</p>
+                        <p className="text-sm">{t('cfNotConfigured')}</p>
+                        <p className="text-xs mt-1">{t('cfNotConfiguredHint')}</p>
                     </CardContent>
                 </Card>
             )}
@@ -281,7 +282,7 @@ export default function PlatformAnalytics() {
                         <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <BarChart3 className="h-4 w-4 text-blue-400" />
-                                <span className="text-sm font-medium text-white/70">Günlük İstekler</span>
+                                <span className="text-sm font-medium text-white/70">{t('dailyRequests')}</span>
                             </div>
                             <ResponsiveContainer width="100%" height={220}>
                                 <AreaChart data={cf.dailyData}>
@@ -295,7 +296,7 @@ export default function PlatformAnalytics() {
                                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                     <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Area type="monotone" dataKey="requests" name="İstekler" stroke="#3b82f6" fill="url(#requestGrad)" strokeWidth={2} />
+                                    <Area type="monotone" dataKey="requests" name={t('requests')} stroke="#3b82f6" fill="url(#requestGrad)" strokeWidth={2} />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -306,7 +307,7 @@ export default function PlatformAnalytics() {
                         <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <Eye className="h-4 w-4 text-amber-400" />
-                                <span className="text-sm font-medium text-white/70">Sayfa Görüntüleme & Tehditler</span>
+                                <span className="text-sm font-medium text-white/70">{t('pageViewsAndThreats')}</span>
                             </div>
                             <ResponsiveContainer width="100%" height={220}>
                                 <BarChart data={cf.dailyData}>
@@ -314,8 +315,8 @@ export default function PlatformAnalytics() {
                                     <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                     <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="pageViews" name="Sayfa Görüntüleme" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="threats" name="Tehditler" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="pageViews" name={t('pageViews')} fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="threats" name={t('threats')} fill="#ef4444" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </CardContent>
@@ -331,7 +332,7 @@ export default function PlatformAnalytics() {
                         <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <Globe className="h-4 w-4 text-violet-400" />
-                                <span className="text-sm font-medium text-white/70">Ülkelere Göre Trafik (Top 15)</span>
+                                <span className="text-sm font-medium text-white/70">{t('trafficByCountry')}</span>
                             </div>
                             <ResponsiveContainer width="100%" height={400}>
                                 <BarChart data={topCountries} layout="vertical" margin={{ left: 80 }}>
@@ -344,7 +345,7 @@ export default function PlatformAnalytics() {
                                         width={75}
                                     />
                                     <Tooltip content={<CustomTooltip />} />
-                                    <Bar dataKey="requests" name="İstekler" radius={[0, 4, 4, 0]}>
+                                    <Bar dataKey="requests" name={t('requests')} radius={[0, 4, 4, 0]}>
                                         {topCountries.map((_, i) => (
                                             <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
                                         ))}
@@ -359,16 +360,16 @@ export default function PlatformAnalytics() {
                         <CardContent className="p-5">
                             <div className="flex items-center gap-2 mb-4">
                                 <MapPin className="h-4 w-4 text-violet-400" />
-                                <span className="text-sm font-medium text-white/70">Ülke Detayları</span>
+                                <span className="text-sm font-medium text-white/70">{t('countryDetails')}</span>
                             </div>
                             <div className="overflow-auto max-h-[400px]">
                                 <Table>
                                     <TableHeader>
                                         <TableRow className="border-white/5">
-                                            <TableHead className="text-white/50">Ülke</TableHead>
-                                            <TableHead className="text-white/50 text-right">İstek</TableHead>
-                                            <TableHead className="text-white/50 text-right">Bant (MB)</TableHead>
-                                            <TableHead className="text-white/50 text-right">Tehdit</TableHead>
+                                            <TableHead className="text-white/50">{t('country')}</TableHead>
+                                            <TableHead className="text-white/50 text-right">{t('request')}</TableHead>
+                                            <TableHead className="text-white/50 text-right">{t('bandwidthMB')}</TableHead>
+                                            <TableHead className="text-white/50 text-right">{t('threat')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -409,9 +410,9 @@ export default function PlatformAnalytics() {
                     <CardContent className="p-5">
                         <div className="flex items-center gap-2 mb-4">
                             <AlertTriangle className="h-4 w-4 text-red-400" />
-                            <span className="text-sm font-medium text-red-300">Güvenlik Tehditleri</span>
+                            <span className="text-sm font-medium text-red-300">{t('securityThreats')}</span>
                             <Badge variant="outline" className="bg-red-500/20 text-red-300 border-red-500/30 ml-auto">
-                                {totalThreats} toplam tehdit
+                                {t('totalThreats', { count: totalThreats })}
                             </Badge>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
@@ -427,7 +428,7 @@ export default function PlatformAnalytics() {
                         </div>
                         <div className="mt-4 flex items-center gap-2 text-xs text-white/40">
                             <Shield className="h-3.5 w-3.5" />
-                            <span>Cloudflare WAF tarafından otomatik engellendi</span>
+                            <span>{t('autoBlockedByWAF')}</span>
                         </div>
                     </CardContent>
                 </Card>
@@ -437,10 +438,10 @@ export default function PlatformAnalytics() {
             {pf && (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <KpiCard icon={Building2} label="Toplam Tenant" value={pf.totalTenants} subtitle={`${pf.activeTenants} aktif`} color="text-violet-400" />
-                        <KpiCard icon={Users} label="Toplam Kullanıcı" value={pf.totalUsers} color="text-pink-400" />
-                        <KpiCard icon={Phone} label="Bu Ay Çağrı" value={pf.totalCallsThisMonth} subtitle={`${pf.totalMinutesThisMonth} dakika`} color="text-green-400" />
-                        <KpiCard icon={TrendingUp} label="Enterprise" value={pf.enterpriseTenants} subtitle="enterprise tenant" color="text-purple-400" />
+                        <KpiCard icon={Building2} label={t('totalTenants')} value={pf.totalTenants} subtitle={t('activeCount', { count: pf.activeTenants })} color="text-violet-400" />
+                        <KpiCard icon={Users} label={t('totalUsers')} value={pf.totalUsers} color="text-pink-400" />
+                        <KpiCard icon={Phone} label={t('callsThisMonth')} value={pf.totalCallsThisMonth} subtitle={t('minutes', { count: pf.totalMinutesThisMonth })} color="text-green-400" />
+                        <KpiCard icon={TrendingUp} label="Enterprise" value={pf.enterpriseTenants} subtitle={t('enterpriseTenants')} color="text-purple-400" />
                     </div>
 
                     {/* Recent Registrations Table */}
@@ -449,16 +450,16 @@ export default function PlatformAnalytics() {
                             <CardContent className="p-5">
                                 <div className="flex items-center gap-2 mb-4">
                                     <Calendar className="h-4 w-4 text-blue-400" />
-                                    <span className="text-sm font-medium text-white/70">Son Kayıtlar</span>
+                                    <span className="text-sm font-medium text-white/70">{t('recentRegistrations')}</span>
                                 </div>
                                 <div className="overflow-auto max-h-80">
                                     <Table>
                                         <TableHeader>
                                             <TableRow className="border-white/5">
-                                                <TableHead className="text-white/50">Şirket</TableHead>
-                                                <TableHead className="text-white/50">E-posta</TableHead>
-                                                <TableHead className="text-white/50">Plan</TableHead>
-                                                <TableHead className="text-white/50">Kayıt Tarihi</TableHead>
+                                                <TableHead className="text-white/50">{t('company')}</TableHead>
+                                                <TableHead className="text-white/50">{t('email')}</TableHead>
+                                                <TableHead className="text-white/50">{t('plan')}</TableHead>
+                                                <TableHead className="text-white/50">{t('registrationDate')}</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -472,7 +473,7 @@ export default function PlatformAnalytics() {
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-white/50 text-sm">
-                                                        {new Date(reg.createdAt).toLocaleDateString('tr-TR')}
+                                                        {new Date(reg.createdAt).toLocaleDateString()}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -491,7 +492,7 @@ export default function PlatformAnalytics() {
                     {/* Divider */}
                     <div className="flex items-center gap-3 pt-2">
                         <div className="h-px flex-1 bg-white/10" />
-                        <span className="text-xs text-white/40 uppercase tracking-wider">Kullanıcı Aktivitesi</span>
+                        <span className="text-xs text-white/40 uppercase tracking-wider">{t('userActivity')}</span>
                         <div className="h-px flex-1 bg-white/10" />
                     </div>
 
@@ -499,30 +500,30 @@ export default function PlatformAnalytics() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <KpiCard
                             icon={LogIn}
-                            label="Toplam Giriş"
+                            label={t('totalLogins')}
                             value={data.userActivity.totalLogins}
-                            subtitle={`Son ${data.days} gün`}
+                            subtitle={t('lastNDays', { count: data.days })}
                             color="text-teal-400"
                         />
                         <KpiCard
                             icon={UserCheck}
-                            label="Aktif Kullanıcı"
+                            label={t('activeUsers')}
                             value={data.userActivity.uniqueActiveUsers}
-                            subtitle="Benzersiz kullanıcı"
+                            subtitle={t('uniqueUsers')}
                             color="text-sky-400"
                         />
                         <KpiCard
                             icon={MousePointerClick}
-                            label="Sayfa Görüntüleme"
+                            label={t('pageViews')}
                             value={data.userActivity.totalPageViews}
-                            subtitle="Uygulama içi"
+                            subtitle={t('inApp')}
                             color="text-orange-400"
                         />
                         <KpiCard
                             icon={FileText}
-                            label="Popüler Sayfa"
+                            label={t('popularPage')}
                             value={data.userActivity.topPages?.[0]?.page || '—'}
-                            subtitle={data.userActivity.topPages?.[0] ? `${data.userActivity.topPages[0].views} görüntüleme` : undefined}
+                            subtitle={data.userActivity.topPages?.[0] ? t('viewCount', { count: data.userActivity.topPages[0].views }) : undefined}
                             color="text-indigo-400"
                         />
                     </div>
@@ -535,7 +536,7 @@ export default function PlatformAnalytics() {
                                 <CardContent className="p-5">
                                     <div className="flex items-center gap-2 mb-4">
                                         <LogIn className="h-4 w-4 text-teal-400" />
-                                        <span className="text-sm font-medium text-white/70">Günlük Giriş & Aktif Kullanıcılar</span>
+                                        <span className="text-sm font-medium text-white/70">{t('dailyLoginsAndActiveUsers')}</span>
                                     </div>
                                     <ResponsiveContainer width="100%" height={260}>
                                         <AreaChart data={data.userActivity.dailyLogins}>
@@ -553,8 +554,8 @@ export default function PlatformAnalytics() {
                                             <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                             <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                             <Tooltip content={<CustomTooltip />} />
-                                            <Area type="monotone" dataKey="logins" name="Giriş" stroke="#2dd4bf" fill="url(#loginGrad)" strokeWidth={2} />
-                                            <Area type="monotone" dataKey="activeUsers" name="Aktif Kullanıcı" stroke="#38bdf8" fill="url(#activeGrad)" strokeWidth={2} />
+                                            <Area type="monotone" dataKey="logins" name={t('logins')} stroke="#2dd4bf" fill="url(#loginGrad)" strokeWidth={2} />
+                                            <Area type="monotone" dataKey="activeUsers" name={t('activeUsers')} stroke="#38bdf8" fill="url(#activeGrad)" strokeWidth={2} />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 </CardContent>
@@ -567,16 +568,16 @@ export default function PlatformAnalytics() {
                                 <CardContent className="p-5">
                                     <div className="flex items-center gap-2 mb-4">
                                         <FileText className="h-4 w-4 text-indigo-400" />
-                                        <span className="text-sm font-medium text-white/70">En Çok Ziyaret Edilen Sayfalar</span>
+                                        <span className="text-sm font-medium text-white/70">{t('mostVisitedPages')}</span>
                                     </div>
                                     <div className="overflow-auto max-h-[280px]">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow className="border-white/5">
                                                     <TableHead className="text-white/50">#</TableHead>
-                                                    <TableHead className="text-white/50">Sayfa</TableHead>
-                                                    <TableHead className="text-white/50 text-right">Görüntüleme</TableHead>
-                                                    <TableHead className="text-white/50 text-right">Oran</TableHead>
+                                                    <TableHead className="text-white/50">{t('page')}</TableHead>
+                                                    <TableHead className="text-white/50 text-right">{t('views')}</TableHead>
+                                                    <TableHead className="text-white/50 text-right">{t('rate')}</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -623,7 +624,7 @@ export default function PlatformAnalytics() {
                             <CardContent className="p-5">
                                 <div className="flex items-center gap-2 mb-4">
                                     <MousePointerClick className="h-4 w-4 text-orange-400" />
-                                    <span className="text-sm font-medium text-white/70">Günlük Uygulama Sayfa Görüntüleme</span>
+                                    <span className="text-sm font-medium text-white/70">{t('dailyAppPageViews')}</span>
                                 </div>
                                 <ResponsiveContainer width="100%" height={200}>
                                     <BarChart data={data.userActivity.dailyLogins}>
@@ -631,7 +632,7 @@ export default function PlatformAnalytics() {
                                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                         <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} />
                                         <Tooltip content={<CustomTooltip />} />
-                                        <Bar dataKey="pageViews" name="Sayfa Görüntüleme" fill="#f97316" radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="pageViews" name={t('pageViews')} fill="#f97316" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </CardContent>

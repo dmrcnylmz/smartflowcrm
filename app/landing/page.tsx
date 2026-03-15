@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,6 +50,7 @@ function AnimateOnScroll({ children, className = '', delay = 0 }: { children: Re
 // =============================================
 
 function LeadCaptureForm() {
+    const t = useTranslations('landing');
     const [email, setEmail] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
@@ -79,7 +81,7 @@ function LeadCaptureForm() {
         return (
             <div className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 max-w-md mx-auto">
                 <CheckCircle2 className="h-5 w-5 flex-shrink-0" />
-                <span className="text-sm font-medium">Teşekkürler! En kısa sürede sizinle iletişime geçeceğiz.</span>
+                <span className="text-sm font-medium">{t('leadForm.success')}</span>
             </div>
         );
     }
@@ -90,7 +92,7 @@ function LeadCaptureForm() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="E-posta adresiniz"
+                placeholder={t('leadForm.placeholder')}
                 required
                 className="w-full sm:flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 text-sm"
             />
@@ -99,10 +101,10 @@ function LeadCaptureForm() {
                 disabled={status === 'loading'}
                 className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 px-6 py-3 rounded-xl whitespace-nowrap"
             >
-                {status === 'loading' ? 'Gönderiliyor...' : 'Demo Talep Et'}
+                {status === 'loading' ? t('leadForm.sending') : t('leadForm.submit')}
             </Button>
             {status === 'error' && (
-                <p className="text-xs text-red-400 w-full text-center sm:text-left">Bir hata oluştu, tekrar deneyin.</p>
+                <p className="text-xs text-red-400 w-full text-center sm:text-left">{t('leadForm.error')}</p>
             )}
         </form>
     );
@@ -113,8 +115,131 @@ function LeadCaptureForm() {
 // =============================================
 
 export default function LandingPage() {
+    const t = useTranslations('landing');
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+    const features = [
+        {
+            icon: Bot,
+            titleKey: 'features.aiAssistantTitle' as const,
+            descKey: 'features.aiAssistantDesc' as const,
+            gradient: 'from-blue-500 to-indigo-600',
+        },
+        {
+            icon: Calendar,
+            titleKey: 'features.appointmentTitle' as const,
+            descKey: 'features.appointmentDesc' as const,
+            gradient: 'from-purple-500 to-pink-600',
+        },
+        {
+            icon: MessageSquare,
+            titleKey: 'features.complaintTitle' as const,
+            descKey: 'features.complaintDesc' as const,
+            gradient: 'from-amber-500 to-orange-600',
+        },
+        {
+            icon: BarChart3,
+            titleKey: 'features.reportingTitle' as const,
+            descKey: 'features.reportingDesc' as const,
+            gradient: 'from-green-500 to-emerald-600',
+        },
+        {
+            icon: Users,
+            titleKey: 'features.crmTitle' as const,
+            descKey: 'features.crmDesc' as const,
+            gradient: 'from-cyan-500 to-blue-600',
+        },
+        {
+            icon: Shield,
+            titleKey: 'features.securityTitle' as const,
+            descKey: 'features.securityDesc' as const,
+            gradient: 'from-rose-500 to-red-600',
+        },
+    ];
+
+    const steps = [
+        { titleKey: 'howItWorks.step1Title' as const, descKey: 'howItWorks.step1Desc' as const },
+        { titleKey: 'howItWorks.step2Title' as const, descKey: 'howItWorks.step2Desc' as const },
+        { titleKey: 'howItWorks.step3Title' as const, descKey: 'howItWorks.step3Desc' as const },
+    ];
+
+    const pricingPlans = [
+        {
+            nameKey: 'pricing.starterName' as const,
+            price: '990',
+            icon: Sparkles,
+            gradient: 'from-blue-500 to-indigo-600',
+            popular: false,
+            featureKeys: [
+                'pricing.starterFeature1' as const,
+                'pricing.starterFeature2' as const,
+                'pricing.starterFeature3' as const,
+                'pricing.starterFeature4' as const,
+                'pricing.starterFeature5' as const,
+                'pricing.starterFeature6' as const,
+            ],
+        },
+        {
+            nameKey: 'pricing.proName' as const,
+            price: '2.990',
+            icon: Award,
+            gradient: 'from-purple-500 to-pink-600',
+            popular: true,
+            featureKeys: [
+                'pricing.proFeature1' as const,
+                'pricing.proFeature2' as const,
+                'pricing.proFeature3' as const,
+                'pricing.proFeature4' as const,
+                'pricing.proFeature5' as const,
+                'pricing.proFeature6' as const,
+                'pricing.proFeature7' as const,
+            ],
+        },
+        {
+            nameKey: 'pricing.enterpriseName' as const,
+            price: '7.990',
+            icon: Building2,
+            gradient: 'from-amber-500 to-orange-600',
+            popular: false,
+            featureKeys: [
+                'pricing.enterpriseFeature1' as const,
+                'pricing.enterpriseFeature2' as const,
+                'pricing.enterpriseFeature3' as const,
+                'pricing.enterpriseFeature4' as const,
+                'pricing.enterpriseFeature5' as const,
+                'pricing.enterpriseFeature6' as const,
+                'pricing.enterpriseFeature7' as const,
+            ],
+        },
+    ];
+
+    const testimonials = [
+        {
+            name: 'Ahmet Y\u0131lmaz',
+            roleKey: 'testimonials.testimonial1Role' as const,
+            textKey: 'testimonials.testimonial1Text' as const,
+        },
+        {
+            name: 'Zeynep Kara',
+            roleKey: 'testimonials.testimonial2Role' as const,
+            textKey: 'testimonials.testimonial2Text' as const,
+        },
+        {
+            name: 'Murat Demir',
+            roleKey: 'testimonials.testimonial3Role' as const,
+            textKey: 'testimonials.testimonial3Text' as const,
+        },
+    ];
+
+    const faqs = [
+        { qKey: 'faq.q1' as const, aKey: 'faq.a1' as const },
+        { qKey: 'faq.q2' as const, aKey: 'faq.a2' as const },
+        { qKey: 'faq.q3' as const, aKey: 'faq.a3' as const },
+        { qKey: 'faq.q4' as const, aKey: 'faq.a4' as const },
+        { qKey: 'faq.q5' as const, aKey: 'faq.a5' as const },
+        { qKey: 'faq.q6' as const, aKey: 'faq.a6' as const },
+    ];
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -131,22 +256,22 @@ export default function LandingPage() {
 
                         {/* Desktop Nav */}
                         <div className="hidden md:flex items-center gap-8">
-                            <a href="#features" className="text-sm text-slate-300 hover:text-white transition-colors">Özellikler</a>
-                            <a href="#how-it-works" className="text-sm text-slate-300 hover:text-white transition-colors">Nasıl Çalışır</a>
-                            <a href="#pricing" className="text-sm text-slate-300 hover:text-white transition-colors">Fiyatlandırma</a>
-                            <Link href="/pricing" className="text-sm text-slate-300 hover:text-white transition-colors">Pricing</Link>
-                            <a href="#faq" className="text-sm text-slate-300 hover:text-white transition-colors">SSS</a>
+                            <a href="#features" className="text-sm text-slate-300 hover:text-white transition-colors">{t('nav.features')}</a>
+                            <a href="#how-it-works" className="text-sm text-slate-300 hover:text-white transition-colors">{t('nav.howItWorks')}</a>
+                            <a href="#pricing" className="text-sm text-slate-300 hover:text-white transition-colors">{t('nav.pricing')}</a>
+                            <Link href="/pricing" className="text-sm text-slate-300 hover:text-white transition-colors">{t('nav.pricingPage')}</Link>
+                            <a href="#faq" className="text-sm text-slate-300 hover:text-white transition-colors">{t('nav.faq')}</a>
                         </div>
 
                         <div className="hidden md:flex items-center gap-3">
                             <Link href="/login">
                                 <Button variant="ghost" className="text-slate-300 hover:text-white">
-                                    Giriş Yap
+                                    {t('nav.login')}
                                 </Button>
                             </Link>
                             <Link href="/onboarding">
                                 <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/20">
-                                    Ücretsiz Dene
+                                    {t('nav.freeTrial')}
                                     <ArrowRight className="ml-2 h-4 w-4" />
                                 </Button>
                             </Link>
@@ -162,17 +287,17 @@ export default function LandingPage() {
                 {/* Mobile Menu */}
                 {mobileMenuOpen && (
                     <div className="md:hidden bg-slate-900 border-t border-white/5 px-4 py-6 space-y-4">
-                        <a href="#features" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Özellikler</a>
-                        <a href="#how-it-works" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Nasıl Çalışır</a>
-                        <a href="#pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Fiyatlandırma</a>
-                        <Link href="/pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
-                        <a href="#faq" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>SSS</a>
+                        <a href="#features" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>{t('nav.features')}</a>
+                        <a href="#how-it-works" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>{t('nav.howItWorks')}</a>
+                        <a href="#pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>{t('nav.pricing')}</a>
+                        <Link href="/pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>{t('nav.pricingPage')}</Link>
+                        <a href="#faq" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>{t('nav.faq')}</a>
                         <div className="pt-4 space-y-3 border-t border-white/10">
                             <Link href="/login" className="block">
-                                <Button variant="outline" className="w-full border-white/20">Giriş Yap</Button>
+                                <Button variant="outline" className="w-full border-white/20">{t('nav.login')}</Button>
                             </Link>
                             <Link href="/onboarding" className="block">
-                                <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600">Ücretsiz Dene</Button>
+                                <Button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600">{t('nav.freeTrial')}</Button>
                             </Link>
                         </div>
                     </div>
@@ -189,33 +314,31 @@ export default function LandingPage() {
                 <div className="max-w-5xl mx-auto text-center relative z-10">
                     <Badge className="mb-6 bg-blue-500/10 text-blue-400 border-blue-500/20 px-4 py-1.5 text-sm">
                         <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                        Yapay Zeka Destekli Müşteri Hizmetleri
+                        {t('hero.badge')}
                     </Badge>
 
                     <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold leading-tight tracking-tight">
-                        Telefonları{' '}
+                        {t('hero.titleBefore')}{' '}
                         <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                            AI Asistanın
+                            {t('hero.titleHighlight')}
                         </span>{' '}
-                        Yanıt Versin
+                        {t('hero.titleAfter')}
                     </h1>
 
                     <p className="mt-6 text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-                        Callception ile gelen çağrıları yapay zeka otomatik yanıtlar, randevu alır,
-                        şikayet kaydeder ve müşteri memnuniyetini arttırır.
-                        7/24 kesintisiz hizmet, sıfır bekleme süresi.
+                        {t('hero.description')}
                     </p>
 
                     <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                         <Link href="/onboarding">
                             <Button size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 text-lg px-8 py-6 rounded-xl">
-                                14 Gün Ücretsiz Başlat
+                                {t('hero.ctaStart')}
                                 <ArrowRight className="ml-2 h-5 w-5" />
                             </Button>
                         </Link>
                         <Button size="lg" variant="outline" className="border-white/20 hover:bg-white/5 text-lg px-8 py-6 rounded-xl">
                             <Play className="mr-2 h-5 w-5" />
-                            Demo İzle
+                            {t('hero.ctaDemo')}
                         </Button>
                     </div>
 
@@ -223,19 +346,19 @@ export default function LandingPage() {
                     <div className="mt-16 flex flex-wrap items-center justify-center gap-8 text-sm text-slate-500">
                         <div className="flex items-center gap-2">
                             <Shield className="h-4 w-4" />
-                            <span>KVKK Uyumlu</span>
+                            <span>{t('trust.kvkk')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Globe2 className="h-4 w-4" />
-                            <span>Türkiye Lokasyonu</span>
+                            <span>{t('trust.location')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
-                            <span>7/24 Aktif</span>
+                            <span>{t('trust.active247')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Headphones className="h-4 w-4" />
-                            <span>Türkçe Doğal Dil</span>
+                            <span>{t('trust.naturalLanguage')}</span>
                         </div>
                     </div>
                 </div>
@@ -246,10 +369,10 @@ export default function LandingPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
                         {[
-                            { value: '%95', label: 'Çağrı Karşılama Oranı', icon: Phone },
-                            { value: '< 2sn', label: 'Ortalama Yanıt Süresi', icon: Zap },
-                            { value: '7/24', label: 'Kesintisiz Hizmet', icon: Clock },
-                            { value: '%40', label: 'Maliyet Tasarrufu', icon: TrendingUp },
+                            { value: '%95', label: t('stats.callRate'), icon: Phone },
+                            { value: '< 2sn', label: t('stats.responseTime'), icon: Zap },
+                            { value: '7/24', label: t('stats.nonstopService'), icon: Clock },
+                            { value: '%40', label: t('stats.costSaving'), icon: TrendingUp },
                         ].map((stat, i) => (
                             <div key={i} className="space-y-2">
                                 <stat.icon className="h-6 w-6 text-blue-400 mx-auto mb-2" />
@@ -267,10 +390,10 @@ export default function LandingPage() {
             <section id="features" className="py-24 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <Badge className="mb-4 bg-blue-500/10 text-blue-400 border-blue-500/20">Özellikler</Badge>
-                        <h2 className="text-3xl sm:text-4xl font-bold">İşletmenize Güç Katan Özellikler</h2>
+                        <Badge className="mb-4 bg-blue-500/10 text-blue-400 border-blue-500/20">{t('features.badge')}</Badge>
+                        <h2 className="text-3xl sm:text-4xl font-bold">{t('features.title')}</h2>
                         <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-                            Callception, müşteri hizmetlerinizi uçtan uca dijitalleştiren kapsamlı bir platform sunar.
+                            {t('features.subtitle')}
                         </p>
                     </div>
 
@@ -282,8 +405,8 @@ export default function LandingPage() {
                                         <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                                             <feature.icon className="h-6 w-6 text-white" />
                                         </div>
-                                        <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                                        <p className="text-sm text-slate-400 leading-relaxed">{feature.description}</p>
+                                        <h3 className="text-lg font-semibold mb-2">{t(feature.titleKey)}</h3>
+                                        <p className="text-sm text-slate-400 leading-relaxed">{t(feature.descKey)}</p>
                                     </CardContent>
                                 </Card>
                             </AnimateOnScroll>
@@ -296,9 +419,9 @@ export default function LandingPage() {
             <section id="how-it-works" className="py-24 px-4 sm:px-6 lg:px-8 bg-white/[0.02] border-y border-white/5">
                 <div className="max-w-5xl mx-auto">
                     <div className="text-center mb-16">
-                        <Badge className="mb-4 bg-indigo-500/10 text-indigo-400 border-indigo-500/20">Nasıl Çalışır?</Badge>
-                        <h2 className="text-3xl sm:text-4xl font-bold">3 Adımda Başlatın</h2>
-                        <p className="mt-4 text-slate-400">Kurulum 10 dakikadan az sürer. Teknik bilgi gerektirmez.</p>
+                        <Badge className="mb-4 bg-indigo-500/10 text-indigo-400 border-indigo-500/20">{t('howItWorks.badge')}</Badge>
+                        <h2 className="text-3xl sm:text-4xl font-bold">{t('howItWorks.title')}</h2>
+                        <p className="mt-4 text-slate-400">{t('howItWorks.subtitle')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -308,8 +431,8 @@ export default function LandingPage() {
                                     <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-500/20 flex items-center justify-center mx-auto mb-6">
                                         <span className="text-2xl font-bold text-blue-400">{i + 1}</span>
                                     </div>
-                                    <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                                    <p className="text-sm text-slate-400 leading-relaxed">{step.description}</p>
+                                    <h3 className="text-xl font-semibold mb-3">{t(step.titleKey)}</h3>
+                                    <p className="text-sm text-slate-400 leading-relaxed">{t(step.descKey)}</p>
                                     {i < 2 && (
                                         <div className="hidden md:block absolute top-8 left-[calc(50%+40px)] w-[calc(100%-80px)] border-t-2 border-dashed border-blue-500/20" />
                                     )}
@@ -324,9 +447,9 @@ export default function LandingPage() {
             <section id="pricing" className="py-24 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/20">Fiyatlandırma</Badge>
-                        <h2 className="text-3xl sm:text-4xl font-bold">İşletmenize Uygun Plan Seçin</h2>
-                        <p className="mt-4 text-slate-400">14 gün ücretsiz deneme. Kredi kartı gerekmez.</p>
+                        <Badge className="mb-4 bg-purple-500/10 text-purple-400 border-purple-500/20">{t('pricing.badge')}</Badge>
+                        <h2 className="text-3xl sm:text-4xl font-bold">{t('pricing.title')}</h2>
+                        <p className="mt-4 text-slate-400">{t('pricing.subtitle')}</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -341,7 +464,7 @@ export default function LandingPage() {
                             >
                                 {plan.popular && (
                                     <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-center text-xs font-semibold py-1.5 tracking-wider uppercase">
-                                        En Popüler
+                                        {t('pricing.popular')}
                                     </div>
                                 )}
                                 <CardContent className="p-8">
@@ -350,20 +473,20 @@ export default function LandingPage() {
                                             <plan.icon className="h-5 w-5 text-white" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-bold">{plan.name}</h3>
+                                            <h3 className="text-xl font-bold">{t(plan.nameKey)}</h3>
                                         </div>
                                     </div>
 
                                     <div className="mt-6 mb-8">
                                         <span className="text-5xl font-bold">{plan.price}</span>
-                                        <span className="text-slate-400 ml-1">TL/ay</span>
+                                        <span className="text-slate-400 ml-1">{t('pricing.perMonth')}</span>
                                     </div>
 
                                     <div className="space-y-3 mb-8">
-                                        {plan.features.map((feature, fi) => (
+                                        {plan.featureKeys.map((featureKey, fi) => (
                                             <div key={fi} className="flex items-start gap-2.5 text-sm">
                                                 <CheckCircle2 className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
-                                                <span className="text-slate-300">{feature}</span>
+                                                <span className="text-slate-300">{t(featureKey)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -375,7 +498,7 @@ export default function LandingPage() {
                                                 : 'bg-white/5 hover:bg-white/10 border border-white/10'
                                                 }`}
                                         >
-                                            Ücretsiz Dene
+                                            {t('pricing.cta')}
                                             <ArrowRight className="ml-2 h-4 w-4" />
                                         </Button>
                                     </Link>
@@ -391,12 +514,12 @@ export default function LandingPage() {
             <section className="py-24 px-4 sm:px-6 lg:px-8 bg-white/[0.02] border-y border-white/5">
                 <div className="max-w-5xl mx-auto">
                     <div className="text-center mb-16">
-                        <Badge className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/20">Referanslar</Badge>
-                        <h2 className="text-3xl sm:text-4xl font-bold">Müşterilerimiz Ne Diyor?</h2>
+                        <Badge className="mb-4 bg-amber-500/10 text-amber-400 border-amber-500/20">{t('testimonials.badge')}</Badge>
+                        <h2 className="text-3xl sm:text-4xl font-bold">{t('testimonials.title')}</h2>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {testimonials.map((t, i) => (
+                        {testimonials.map((tm, i) => (
                             <AnimateOnScroll key={i} delay={i * 100}>
                                 <Card className="bg-white/[0.03] border-white/5 rounded-2xl h-full">
                                     <CardContent className="p-6">
@@ -405,14 +528,14 @@ export default function LandingPage() {
                                                 <Star key={si} className="h-4 w-4 fill-amber-400 text-amber-400" />
                                             ))}
                                         </div>
-                                        <p className="text-sm text-slate-300 leading-relaxed mb-6">{t.text}</p>
+                                        <p className="text-sm text-slate-300 leading-relaxed mb-6">{t(tm.textKey)}</p>
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-sm font-bold">
-                                                {t.name.charAt(0)}
+                                                {tm.name.charAt(0)}
                                             </div>
                                             <div>
-                                                <div className="text-sm font-semibold">{t.name}</div>
-                                                <div className="text-xs text-slate-500">{t.role}</div>
+                                                <div className="text-sm font-semibold">{tm.name}</div>
+                                                <div className="text-xs text-slate-500">{t(tm.roleKey)}</div>
                                             </div>
                                         </div>
                                     </CardContent>
@@ -427,8 +550,8 @@ export default function LandingPage() {
             <section id="faq" className="py-24 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-3xl mx-auto">
                     <div className="text-center mb-16">
-                        <Badge className="mb-4 bg-green-500/10 text-green-400 border-green-500/20">SSS</Badge>
-                        <h2 className="text-3xl sm:text-4xl font-bold">Sık Sorulan Sorular</h2>
+                        <Badge className="mb-4 bg-green-500/10 text-green-400 border-green-500/20">{t('faq.badge')}</Badge>
+                        <h2 className="text-3xl sm:text-4xl font-bold">{t('faq.title')}</h2>
                     </div>
 
                     <div className="space-y-3">
@@ -439,7 +562,7 @@ export default function LandingPage() {
                                         className="w-full flex items-center justify-between px-6 py-4 text-left"
                                         onClick={() => setOpenFaq(openFaq === i ? null : i)}
                                     >
-                                        <span className="font-medium pr-4">{faq.question}</span>
+                                        <span className="font-medium pr-4">{t(faq.qKey)}</span>
                                         <ChevronDown className={`h-5 w-5 text-slate-400 shrink-0 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
                                     </button>
                                     <div
@@ -448,7 +571,7 @@ export default function LandingPage() {
                                     >
                                         <div className="overflow-hidden">
                                             <div className="px-6 pb-4 text-sm text-slate-400 leading-relaxed">
-                                                {faq.answer}
+                                                {t(faq.aKey)}
                                             </div>
                                         </div>
                                     </div>
@@ -466,11 +589,10 @@ export default function LandingPage() {
                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(59,130,246,0.1),transparent_60%)]" />
                         <div className="relative z-10">
                             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-                                Müşteri Hizmetlerinizi Dönüştürmeye Hazır mısınız?
+                                {t('cta.title')}
                             </h2>
                             <p className="text-slate-400 mb-8 max-w-2xl mx-auto">
-                                14 gün ücretsiz deneyin. Kurulum 10 dakikadan az sürer.
-                                Kredi kartı gerekmez, istediğiniz zaman iptal edin.
+                                {t('cta.subtitle')}
                             </p>
 
                             {/* Lead Capture Form */}
@@ -479,13 +601,13 @@ export default function LandingPage() {
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-6">
                                 <Link href="/onboarding">
                                     <Button size="lg" className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-500/25 text-lg px-8 py-6 rounded-xl">
-                                        Hemen Başlat
+                                        {t('cta.startNow')}
                                         <ArrowRight className="ml-2 h-5 w-5" />
                                     </Button>
                                 </Link>
                                 <Link href="/login">
                                     <Button size="lg" variant="outline" className="border-white/20 hover:bg-white/5 text-lg px-8 py-6 rounded-xl">
-                                        Giriş Yap
+                                        {t('cta.login')}
                                     </Button>
                                 </Link>
                             </div>
@@ -506,48 +628,48 @@ export default function LandingPage() {
                                 <span className="text-lg font-bold">Callception</span>
                             </div>
                             <p className="text-sm text-slate-500 leading-relaxed">
-                                Yapay zeka destekli müşteri hizmetleri ve CRM platformu. Türkiye&apos;nin en gelişmiş AI resepsiyonisti.
+                                {t('footer.description')}
                             </p>
                         </div>
 
                         <div>
-                            <h4 className="font-semibold mb-4 text-sm">Ürün</h4>
+                            <h4 className="font-semibold mb-4 text-sm">{t('footer.product')}</h4>
                             <div className="space-y-2 text-sm text-slate-500">
-                                <a href="#features" className="block hover:text-white transition-colors">Özellikler</a>
-                                <a href="#pricing" className="block hover:text-white transition-colors">Fiyatlandırma</a>
-                                <a href="#how-it-works" className="block hover:text-white transition-colors">Nasıl Çalışır</a>
-                                <a href="#faq" className="block hover:text-white transition-colors">SSS</a>
-                                <Link href="/changelog" className="block hover:text-white transition-colors">Değişiklik Günlüğü</Link>
+                                <a href="#features" className="block hover:text-white transition-colors">{t('footer.features')}</a>
+                                <a href="#pricing" className="block hover:text-white transition-colors">{t('footer.pricing')}</a>
+                                <a href="#how-it-works" className="block hover:text-white transition-colors">{t('footer.howItWorks')}</a>
+                                <a href="#faq" className="block hover:text-white transition-colors">{t('footer.faq')}</a>
+                                <Link href="/changelog" className="block hover:text-white transition-colors">{t('footer.changelog')}</Link>
                             </div>
                         </div>
 
                         <div>
-                            <h4 className="font-semibold mb-4 text-sm">Şirket</h4>
+                            <h4 className="font-semibold mb-4 text-sm">{t('footer.company')}</h4>
                             <div className="space-y-2 text-sm text-slate-500">
-                                <a href="#features" className="block hover:text-white transition-colors">Hakkımızda</a>
-                                <a href="#how-it-works" className="block hover:text-white transition-colors">Nasıl Çalışır</a>
-                                <a href="#faq" className="block hover:text-white transition-colors">Yardım Merkezi</a>
-                                <a href="mailto:info@callception.com" className="block hover:text-white transition-colors">İletişim</a>
+                                <a href="#features" className="block hover:text-white transition-colors">{t('footer.about')}</a>
+                                <a href="#how-it-works" className="block hover:text-white transition-colors">{t('footer.howItWorks')}</a>
+                                <a href="#faq" className="block hover:text-white transition-colors">{t('footer.helpCenter')}</a>
+                                <a href="mailto:info@callception.com" className="block hover:text-white transition-colors">{t('footer.contact')}</a>
                             </div>
                         </div>
 
                         <div>
-                            <h4 className="font-semibold mb-4 text-sm">Yasal</h4>
+                            <h4 className="font-semibold mb-4 text-sm">{t('footer.legal')}</h4>
                             <div className="space-y-2 text-sm text-slate-500">
-                                <Link href="/privacy" className="block hover:text-white transition-colors">Gizlilik Politikası</Link>
-                                <Link href="/terms" className="block hover:text-white transition-colors">Kullanım Şartları</Link>
-                                <Link href="/privacy" className="block hover:text-white transition-colors">KVKK Aydınlatma</Link>
+                                <Link href="/privacy" className="block hover:text-white transition-colors">{t('footer.privacy')}</Link>
+                                <Link href="/terms" className="block hover:text-white transition-colors">{t('footer.terms')}</Link>
+                                <Link href="/privacy" className="block hover:text-white transition-colors">{t('footer.kvkk')}</Link>
                             </div>
                         </div>
                     </div>
 
                     <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
                         <p className="text-xs text-slate-600">
-                            &copy; {new Date().getFullYear()} Callception. Tüm hakları saklıdır.
+                            &copy; {new Date().getFullYear()} Callception. {t('footer.copyright')}
                         </p>
                         <div className="flex items-center gap-2 text-xs text-slate-600">
                             <Shield className="h-3.5 w-3.5" />
-                            <span>256-bit SSL | KVKK Uyumlu | ISO 27001</span>
+                            <span>{t('footer.security')}</span>
                         </div>
                     </div>
                 </div>
@@ -555,156 +677,3 @@ export default function LandingPage() {
         </div>
     );
 }
-
-// =============================================
-// Data
-// =============================================
-
-const features = [
-    {
-        icon: Bot,
-        title: 'AI Sesli Asistan',
-        description: 'Türkçe doğal dil işleme ile gelen çağrıları otomatik yanıtlar. Müşteri niyetini anlar ve uygun aksiyonu alır.',
-        gradient: 'from-blue-500 to-indigo-600',
-    },
-    {
-        icon: Calendar,
-        title: 'Otomatik Randevu',
-        description: 'AI asistan müşteri taleplerini dinler ve uygun saatlere randevu planlar. Hatırlatma e-postaları otomatik gider.',
-        gradient: 'from-purple-500 to-pink-600',
-    },
-    {
-        icon: MessageSquare,
-        title: 'Şikayet Yönetimi',
-        description: 'Müşteri şikayetlerini kategorize eder, önceliklendirir ve ilgili departmana yönlendirir.',
-        gradient: 'from-amber-500 to-orange-600',
-    },
-    {
-        icon: BarChart3,
-        title: 'Akıllı Raporlama',
-        description: 'Çağrı istatistikleri, müşteri memnuniyeti ve performans metrikleri tek panelde.',
-        gradient: 'from-green-500 to-emerald-600',
-    },
-    {
-        icon: Users,
-        title: 'CRM Entegrasyonu',
-        description: 'Müşteri bilgileri, çağrı geçmişi ve etkileşim kayıtları entegre CRM sisteminde.',
-        gradient: 'from-cyan-500 to-blue-600',
-    },
-    {
-        icon: Shield,
-        title: 'Güvenlik ve KVKK',
-        description: 'Verileriniz Türkiye lokasyonunda, KVKK uyumlu altyapı ile korunur. End-to-end şifreleme.',
-        gradient: 'from-rose-500 to-red-600',
-    },
-];
-
-const steps = [
-    {
-        title: 'Kayıt Olun',
-        description: 'Şirket bilgilerinizi girin, AI asistan kişiliğini ve karşılama mesajını belirleyin. 5 dakikada tamamlanır.',
-    },
-    {
-        title: 'Numaranızı Bağlatın',
-        description: 'Size özel bir telefon numarası atanır veya mevcut numaranızı yönlendirin. Entegrasyon otomatiktir.',
-    },
-    {
-        title: 'Çağrıları Karşılayın',
-        description: 'AI asistanınız gelen çağrıları yanıtlamaya başlar. Dashboard\'dan canlı takip edin ve raporları inceleyin.',
-    },
-];
-
-const pricingPlans = [
-    {
-        name: 'Başlangıç',
-        price: '990',
-        icon: Sparkles,
-        gradient: 'from-blue-500 to-indigo-600',
-        popular: false,
-        features: [
-            'AI Sesli Asistan',
-            '100 dakika/ay konuşma',
-            'Temel CRM',
-            'E-posta bildirimleri',
-            '2 eşzamanlı oturum',
-            'Standart destek',
-        ],
-    },
-    {
-        name: 'Profesyonel',
-        price: '2.990',
-        icon: Award,
-        gradient: 'from-purple-500 to-pink-600',
-        popular: true,
-        features: [
-            'Gelişmiş AI Asistan',
-            '500 dakika/ay konuşma',
-            'Gelişmiş CRM + Raporlama',
-            'Bilgi Bankası (RAG)',
-            '5 eşzamanlı oturum',
-            'n8n Otomasyon',
-            'Öncelikli destek',
-        ],
-    },
-    {
-        name: 'Kurumsal',
-        price: '7.990',
-        icon: Building2,
-        gradient: 'from-amber-500 to-orange-600',
-        popular: false,
-        features: [
-            'Tüm Pro özellikleri',
-            '2.000 dakika/ay konuşma',
-            'Özel AI modeli eğitimi',
-            '20 eşzamanlı oturum',
-            'API erişimi',
-            'SLA garantisi',
-            'Özel hesap yöneticisi',
-        ],
-    },
-];
-
-const testimonials = [
-    {
-        name: 'Ahmet Yılmaz',
-        role: 'Kurucu, TechStart',
-        text: 'Callception sayesinde kaçırılan çağrı oranı %30\'dan %3\'e düştü. AI asistan müşterilerimizi biz kadar iyi tanıyor.',
-    },
-    {
-        name: 'Zeynep Kara',
-        role: 'Operasyon Müdürü, HealthCare Plus',
-        text: 'Randevu yönetimi tamamen otomatik hale geldi. Personelimiz artık daha değerli işlere odaklanabiliyor.',
-    },
-    {
-        name: 'Murat Demir',
-        role: 'CEO, E-Ticaret Pro',
-        text: 'Müşteri memnuniyeti %40 arttı. 7/24 kesintisiz hizmet sunabilmek oyunun kurallarını değiştirdi.',
-    },
-];
-
-const faqs = [
-    {
-        question: 'Callception nasıl çalışır?',
-        answer: 'Callception, işletmenize özel bir telefon numarası atar. Gelen çağrılar yapay zeka tarafından yanıtlanır, müşteri niyeti anlaşılır ve uygun aksiyonlar (randevu, şikayet kaydı, bilgi verme) otomatik olarak gerçekleştirilir.',
-    },
-    {
-        question: 'Kurulum ne kadar sürer?',
-        answer: 'Tipik bir kurulum 10 dakikadan az sürer. Şirket bilgilerinizi ve AI asistan tercihlerinizi girdikten sonra hemen çağrı almaya başlayabilirsiniz.',
-    },
-    {
-        question: 'Türkçe\'yi ne kadar iyi anlıyor?',
-        answer: 'Callception, Google ve Deepgram\'in gelişmiş Türkçe doğal dil işleme motorlarını kullanır. Lehçe farklılıkları, argo ve sektöre özel terimleri başarıyla anlar.',
-    },
-    {
-        question: 'Mevcut CRM\'imle entegre olabilir mi?',
-        answer: 'Evet! Callception yerleşik CRM sunmanın yanı sıra, n8n otomasyon entegrasyonu ile Salesforce, HubSpot, Zendesk gibi platformlarla da çalışabilir.',
-    },
-    {
-        question: 'Verilerim güvenli mi?',
-        answer: 'Evet. Tüm veriler Türkiye lokasyonundaki sunucularda, KVKK uyumlu altyapıda saklanır. End-to-end şifreleme, rol tabanlı erişim kontrolü ve düzenli güvenlik denetimleri uygulanır.',
-    },
-    {
-        question: 'Deneme süresi nasıl işler?',
-        answer: '14 gün boyunca seçtiğiniz planı tamamen ücretsiz kullanabilirsiniz. Kredi kartı bilgisi gerekmez. Deneme süresi dolmadan iptal edebilirsiniz.',
-    },
-];

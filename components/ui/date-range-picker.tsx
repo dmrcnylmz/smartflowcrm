@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   endOfMonth,
   endOfWeek,
@@ -35,7 +36,7 @@ type DateRangePickerProps = {
 
 type QuickRange = {
   key: string;
-  label: string;
+  labelKey: string;
   getRange: () => { from: Date; to: Date };
 };
 
@@ -44,7 +45,7 @@ const WEEK_OPTIONS = { weekStartsOn: 1 as const };
 const QUICK_RANGES: QuickRange[] = [
   {
     key: "today",
-    label: "Bugün",
+    labelKey: "today",
     getRange: () => {
       const today = new Date();
       return { from: today, to: today };
@@ -52,7 +53,7 @@ const QUICK_RANGES: QuickRange[] = [
   },
   {
     key: "yesterday",
-    label: "Dün",
+    labelKey: "yesterday",
     getRange: () => {
       const yesterday = subDays(new Date(), 1);
       return { from: yesterday, to: yesterday };
@@ -60,7 +61,7 @@ const QUICK_RANGES: QuickRange[] = [
   },
   {
     key: "last7",
-    label: "Son 7 Gün",
+    labelKey: "last7Days",
     getRange: () => {
       const end = new Date();
       const start = subDays(end, 6);
@@ -69,7 +70,7 @@ const QUICK_RANGES: QuickRange[] = [
   },
   {
     key: "thisWeek",
-    label: "Bu Hafta",
+    labelKey: "thisWeek",
     getRange: () => {
       const now = new Date();
       return {
@@ -80,7 +81,7 @@ const QUICK_RANGES: QuickRange[] = [
   },
   {
     key: "thisMonth",
-    label: "Bu Ay",
+    labelKey: "thisMonth",
     getRange: () => {
       const now = new Date();
       return { from: startOfMonth(now), to: endOfMonth(now) };
@@ -94,10 +95,12 @@ export function DateRangePicker({
   onStartDateChange = () => {},
   onEndDateChange = () => {},
   onClear,
-  label = "Tarih Aralığı",
+  label,
   className,
   disabled = false,
 }: DateRangePickerProps) {
+  const t = useTranslations('datePicker');
+  const resolvedLabel = label ?? t('dateRange');
   const [open, setOpen] = React.useState(false);
 
   const selectedRange = React.useMemo<DateRange | undefined>(() => {
@@ -113,8 +116,8 @@ export function DateRangePicker({
     }
     if (startDate) return `${formatDisplayDate(startDate)} → `;
     if (endDate) return `← ${formatDisplayDate(endDate)}`;
-    return "Tarih seçin";
-  }, [startDate, endDate]);
+    return t('selectDate');
+  }, [startDate, endDate, t]);
 
   function updateRange(range?: DateRange) {
     if (!range) {
@@ -151,8 +154,8 @@ export function DateRangePicker({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {label && (
-        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      {resolvedLabel && (
+        <p className="text-sm font-medium text-muted-foreground">{resolvedLabel}</p>
       )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <Popover open={open} onOpenChange={setOpen}>
@@ -182,8 +185,8 @@ export function DateRangePicker({
             <div className="flex items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
               <div>
                 {selectedRange?.from
-                  ? `Seçilen: ${displayValue}`
-                  : "Tarih aralığı seçin"}
+                  ? t('selected', { value: displayValue })
+                  : t('selectDateRange')}
               </div>
               <Button
                 type="button"
@@ -196,7 +199,7 @@ export function DateRangePicker({
                 }}
               >
                 <X className="h-3.5 w-3.5" />
-                Temizle
+                {t('clear')}
               </Button>
             </div>
           </PopoverContent>
@@ -218,7 +221,7 @@ export function DateRangePicker({
               ) : (
                 <CalendarRange className="h-3.5 w-3.5" />
               )}
-              {quick.label}
+              {t(quick.labelKey)}
             </Button>
           ))}
         </div>

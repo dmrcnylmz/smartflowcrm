@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-    title: 'Faturalandırma',
+    title: 'Billing',
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -35,6 +35,7 @@ import {
     AlertTriangle,
 } from 'lucide-react';
 import { useAgentKBCheck } from '@/lib/hooks/useAgentKBCheck';
+import { useTranslations } from 'next-intl';
 
 // =============================================
 // Types
@@ -52,11 +53,11 @@ interface PhoneNumber {
     agentId?: string;
 }
 
-const PHONE_COUNTRIES = [
-    { code: 'TR', flag: '🇹🇷', name: 'Türkiye', description: 'SIP trunk havuzundan (ücretsiz)', badge: 'Önerilen' },
-    { code: 'US', flag: '🇺🇸', name: 'ABD', description: '~$1.15/ay', badge: null },
-    { code: 'GB', flag: '🇬🇧', name: 'İngiltere', description: '~$1.15/ay', badge: null },
-    { code: 'DE', flag: '🇩🇪', name: 'Almanya', description: '~$1.15/ay', badge: null },
+const PHONE_COUNTRIES_BASE = [
+    { code: 'TR', flag: '🇹🇷', nameKey: 'activation.countryTR' as const, descriptionKey: 'activation.sipTrunkFree' as const, hasBadge: true },
+    { code: 'US', flag: '🇺🇸', nameKey: 'activation.countryUS' as const, description: '~$1.15/ay', hasBadge: false },
+    { code: 'GB', flag: '🇬🇧', nameKey: 'activation.countryGB' as const, description: '~$1.15/ay', hasBadge: false },
+    { code: 'DE', flag: '🇩🇪', nameKey: 'activation.countryDE' as const, description: '~$1.15/ay', hasBadge: false },
 ];
 
 // =============================================
@@ -91,6 +92,7 @@ export function AgentActivationFlow({
 
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('agents');
 
     // Reset state when dialog opens
     useEffect(() => {
@@ -198,13 +200,13 @@ export function AgentActivationFlow({
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.message || 'Aktivasyon başarısız');
+                throw new Error(data.message || t('activation.activationFailed'));
             }
 
             setActivated(true);
             toast({
-                title: 'Asistan Canlıda! 🎉',
-                description: `"${agent.name}" artık ${data.phoneNumber} numarasında çağrı yanıtlıyor.`,
+                title: t('activation.agentLive'),
+                description: t('activation.agentLiveDesc', { name: agent.name, phone: data.phoneNumber }),
             });
 
             // Brief delay for animation, then close
@@ -214,8 +216,8 @@ export function AgentActivationFlow({
             }, 2000);
 
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Aktivasyon başarısız';
-            toast({ title: 'Hata', description: msg, variant: 'error' });
+            const msg = err instanceof Error ? err.message : t('activation.activationFailed');
+            toast({ title: t('voiceTest.errorLabel'), description: msg, variant: 'error' });
         } finally {
             setActivating(false);
         }
@@ -227,10 +229,10 @@ export function AgentActivationFlow({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Zap className="h-5 w-5 text-violet-500" />
-                        Asistanı Canlıya Al
+                        {t('activation.goLiveTitle')}
                     </DialogTitle>
                     <DialogDescription>
-                        &quot;{agent.name}&quot; asistanını gerçek çağrıları yanıtlamak üzere aktifleştir.
+                        {t('activation.goLiveDesc', { name: agent.name })}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -255,6 +257,7 @@ export function AgentActivationFlow({
                             hasKB={hasKB}
                             documentCount={documentCount}
                             onContinue={goToStep1}
+                            t={t}
                         />
                     )}
                     {step === 1 && (
@@ -263,6 +266,7 @@ export function AgentActivationFlow({
                             subscriptionOk={subscriptionOk}
                             planName={planName}
                             onContinue={goToStep2}
+                            t={t}
                         />
                     )}
                     {step === 2 && (
@@ -275,6 +279,7 @@ export function AgentActivationFlow({
                             onSelectExisting={selectExistingNumber}
                             onSelectNew={selectNewNumber}
                             onContinue={goToStep3}
+                            t={t}
                         />
                     )}
                     {step === 3 && (
@@ -286,6 +291,7 @@ export function AgentActivationFlow({
                             activating={activating}
                             activated={activated}
                             onActivate={handleActivate}
+                            t={t}
                         />
                     )}
                 </div>
@@ -298,22 +304,27 @@ export function AgentActivationFlow({
 // Step 0: KB Check
 // =============================================
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TFunc = (key: string, values?: Record<string, any>) => string;
+
 function StepKBCheck({
     checkingKB,
     hasKB,
     documentCount,
     onContinue,
+    t,
 }: {
     checkingKB: boolean;
     hasKB: boolean | null;
     documentCount: number;
     onContinue: () => void;
+    t: TFunc;
 }) {
     if (checkingKB || hasKB === null) {
         return (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-                <p className="text-sm text-muted-foreground">Bilgi Bankası kontrol ediliyor...</p>
+                <p className="text-sm text-muted-foreground">{t('activation.checkingKB')}</p>
             </div>
         );
     }
@@ -324,10 +335,9 @@ function StepKBCheck({
                 <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
                     <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-semibold text-sm">Bilgi Bankası Gerekli</h4>
+                        <h4 className="font-semibold text-sm">{t('activation.kbRequired')}</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Asistanı canlıya almak icin en az 1 bilgi kaynagı eklemelisiniz.
-                            Bilgi bankası olmadan asistanınız dogru yanıt veremez.
+                            {t('activation.kbRequiredDesc')}
                         </p>
                     </div>
                 </div>
@@ -338,7 +348,7 @@ function StepKBCheck({
                         className="gap-2"
                     >
                         <BookOpen className="h-4 w-4" />
-                        Bilgi Ekle
+                        {t('activation.addKnowledge')}
                     </Button>
                 </div>
             </div>
@@ -350,15 +360,15 @@ function StepKBCheck({
             <div className="flex items-start gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                 <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                 <div>
-                    <h4 className="font-semibold text-sm">Bilgi Bankası Hazır</h4>
+                    <h4 className="font-semibold text-sm">{t('activation.kbReady')}</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                        {documentCount} belge yuklu — Asistanınız bilgi bankasından yanıt verebilir.
+                        {t('activation.kbReadyDesc', { count: documentCount })}
                     </p>
                 </div>
             </div>
             <div className="flex justify-end">
                 <Button onClick={onContinue} className="gap-2">
-                    Devam Et
+                    {t('activation.continue')}
                     <ArrowRight className="h-4 w-4" />
                 </Button>
             </div>
@@ -375,17 +385,19 @@ function StepSubscriptionCheck({
     subscriptionOk,
     planName,
     onContinue,
+    t,
 }: {
     checking: boolean;
     subscriptionOk: boolean | null;
     planName: string;
     onContinue: () => void;
+    t: TFunc;
 }) {
     if (checking) {
         return (
             <div className="flex flex-col items-center justify-center py-8 gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
-                <p className="text-sm text-muted-foreground">Abonelik durumu kontrol ediliyor...</p>
+                <p className="text-sm text-muted-foreground">{t('activation.checkingSubscription')}</p>
             </div>
         );
     }
@@ -396,10 +408,9 @@ function StepSubscriptionCheck({
                 <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-xl">
                     <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-semibold text-sm">Aktif Abonelik Gerekli</h4>
+                        <h4 className="font-semibold text-sm">{t('activation.subscriptionRequired')}</h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                            Asistanı canlıya almak için aktif bir ödeme planınız olmalıdır.
-                            Asistanı ücretsiz test edebilirsiniz, ancak gerçek çağrıları yanıtlaması için abonelik gereklidir.
+                            {t('activation.subscriptionRequiredDesc')}
                         </p>
                     </div>
                 </div>
@@ -410,7 +421,7 @@ function StepSubscriptionCheck({
                         className="gap-2"
                     >
                         <CreditCard className="h-4 w-4" />
-                        Plan Seçin
+                        {t('activation.selectPlan')}
                     </Button>
                 </div>
             </div>
@@ -422,15 +433,15 @@ function StepSubscriptionCheck({
             <div className="flex items-start gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                 <CheckCircle className="h-5 w-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                 <div>
-                    <h4 className="font-semibold text-sm">Abonelik Aktif</h4>
+                    <h4 className="font-semibold text-sm">{t('activation.subscriptionActive')}</h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                        {planName ? `Plan: ${planName}` : 'Ödeme planınız aktif.'} — Asistanı canlıya almaya hazırsınız.
+                        {planName ? t('activation.planLabel', { name: planName }) : t('activation.subscriptionActiveDesc')} — {t('activation.subscriptionReadyDesc')}
                     </p>
                 </div>
             </div>
             <div className="flex justify-end">
                 <Button onClick={onContinue} className="gap-2">
-                    Devam Et
+                    {t('activation.continue')}
                     <ArrowRight className="h-4 w-4" />
                 </Button>
             </div>
@@ -451,6 +462,7 @@ function StepPhoneSelection({
     onSelectExisting,
     onSelectNew,
     onContinue,
+    t,
 }: {
     loading: boolean;
     availableNumbers: PhoneNumber[];
@@ -460,6 +472,7 @@ function StepPhoneSelection({
     onSelectExisting: (phone: string) => void;
     onSelectNew: (country: string) => void;
     onContinue: () => void;
+    t: TFunc;
 }) {
     const canContinue = !!selectedNumber || !!selectedCountry;
 
@@ -469,12 +482,12 @@ function StepPhoneSelection({
             {loading ? (
                 <div className="flex items-center gap-2 py-4 justify-center">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Numaralar yükleniyor...</span>
+                    <span className="text-sm text-muted-foreground">{t('activation.loadingNumbers')}</span>
                 </div>
             ) : availableNumbers.length > 0 ? (
                 <div className="space-y-2">
-                    <label className="text-sm font-medium">Mevcut Numaralar</label>
-                    <p className="text-xs text-muted-foreground">Atanmamış bir numaranızı kullanabilirsiniz.</p>
+                    <label className="text-sm font-medium">{t('activation.existingNumbers')}</label>
+                    <p className="text-xs text-muted-foreground">{t('activation.existingNumbersDesc')}</p>
                     <div className="grid gap-2 max-h-[120px] overflow-y-auto">
                         {availableNumbers.map((num) => (
                             <button
@@ -502,10 +515,10 @@ function StepPhoneSelection({
             <div className="space-y-2">
                 <div className="flex items-center gap-2">
                     <Plus className="h-4 w-4 text-muted-foreground" />
-                    <label className="text-sm font-medium">Yeni Numara Al</label>
+                    <label className="text-sm font-medium">{t('activation.getNewNumber')}</label>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                    {PHONE_COUNTRIES.map((country) => (
+                    {PHONE_COUNTRIES_BASE.map((country) => (
                         <button
                             key={country.code}
                             onClick={() => onSelectNew(country.code)}
@@ -516,15 +529,15 @@ function StepPhoneSelection({
                                 }
                             `}
                         >
-                            {country.badge && (
+                            {country.hasBadge && (
                                 <span className="absolute -top-1.5 right-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                                    {country.badge}
+                                    {t('activation.recommended')}
                                 </span>
                             )}
                             <span className="text-lg">{country.flag}</span>
                             <div>
-                                <div className="text-xs font-medium">{country.name}</div>
-                                <div className="text-[10px] text-muted-foreground">{country.description}</div>
+                                <div className="text-xs font-medium">{t(country.nameKey)}</div>
+                                <div className="text-[10px] text-muted-foreground">{country.descriptionKey ? t(country.descriptionKey) : country.description}</div>
                             </div>
                         </button>
                     ))}
@@ -533,7 +546,7 @@ function StepPhoneSelection({
 
             <div className="flex justify-end pt-2">
                 <Button onClick={onContinue} disabled={!canContinue} className="gap-2">
-                    Devam Et
+                    {t('activation.continue')}
                     <ArrowRight className="h-4 w-4" />
                 </Button>
             </div>
@@ -553,6 +566,7 @@ function StepConfirmation({
     activating,
     activated,
     onActivate,
+    t,
 }: {
     agentName: string;
     selectedNumber: string | null;
@@ -561,6 +575,7 @@ function StepConfirmation({
     activating: boolean;
     activated: boolean;
     onActivate: () => void;
+    t: TFunc;
 }) {
     if (activated) {
         return (
@@ -569,19 +584,20 @@ function StepConfirmation({
                     <CheckCircle className="h-8 w-8 text-emerald-500" />
                 </div>
                 <div className="text-center">
-                    <h3 className="font-bold text-lg">Asistan Canlıda! 🎉</h3>
+                    <h3 className="font-bold text-lg">{t('activation.agentLive')}</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                        &quot;{agentName}&quot; artık gerçek çağrıları yanıtlıyor.
+                        {t('activation.agentNowLive', { name: agentName })}
                     </p>
                 </div>
             </div>
         );
     }
 
+    const countryNameKey = PHONE_COUNTRIES_BASE.find(c => c.code === selectedCountry)?.nameKey;
     const numberDisplay = selectedNumber
         ? selectedNumber
         : isNewNumber && selectedCountry
-            ? `Yeni ${PHONE_COUNTRIES.find(c => c.code === selectedCountry)?.name || selectedCountry} numarası`
+            ? t('activation.newNumberLabel', { country: countryNameKey ? t(countryNameKey) : selectedCountry })
             : '—';
 
     return (
@@ -589,23 +605,22 @@ function StepConfirmation({
             <div className="p-4 bg-muted/50 rounded-xl border space-y-3">
                 <h4 className="font-semibold text-sm flex items-center gap-2">
                     <PhoneCall className="h-4 w-4 text-violet-500" />
-                    Aktivasyon Özeti
+                    {t('activation.activationSummary')}
                 </h4>
                 <div className="space-y-2 text-sm">
                     <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Asistan</span>
+                        <span className="text-muted-foreground">{t('activation.assistant')}</span>
                         <span className="font-medium">{agentName}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Telefon Numarası</span>
+                        <span className="text-muted-foreground">{t('activation.phoneNumber')}</span>
                         <span className="font-mono text-xs">{numberDisplay}</span>
                     </div>
                 </div>
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Bu asistan, atanan telefon numarasına gelen tüm aramaları yanıtlayacaktır.
-                İstediğiniz zaman &quot;Devre Dışı Bırak&quot; ile deaktif edebilirsiniz.
+                {t('activation.activationNote')}
             </p>
 
             <div className="flex justify-end">
@@ -617,12 +632,12 @@ function StepConfirmation({
                     {activating ? (
                         <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Aktifleştiriliyor...
+                            {t('activation.activating')}
                         </>
                     ) : (
                         <>
                             <Rocket className="h-4 w-4" />
-                            Canlıya Al
+                            {t('activation.goLiveBtn')}
                         </>
                     )}
                 </Button>

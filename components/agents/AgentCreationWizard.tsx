@@ -23,6 +23,7 @@ import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useToast } from '@/components/ui/toast';
 import { useTenantSettings } from '@/lib/hooks/useTenantSettings';
 import { useAgentKBCheck } from '@/lib/hooks/useAgentKBCheck';
+import { useTranslations } from 'next-intl';
 import { AgentTestPanel } from '@/components/agents/AgentTestPanel';
 import { getTemplateById } from '@/lib/agents/templates';
 import type { AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
@@ -57,6 +58,7 @@ interface AgentCreationWizardProps {
 export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreationWizardProps) {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('agents');
     const { settings: tenantSettings, resolveSmartVariables, isSmartVariable, getSmartValue } = useTenantSettings();
 
     const [currentStep, setCurrentStep] = useState(0);
@@ -205,7 +207,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.error || 'Asistan oluşturulamadı.');
+                throw new Error(data.error || t('wizard.creationFailed'));
             }
 
             const data = await response.json();
@@ -220,14 +222,14 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
             }
 
             toast({
-                title: 'Asistan Oluşturuldu',
-                description: `${agentName} başarıyla oluşturuldu.`,
+                title: t('wizard.agentCreated'),
+                description: t('wizard.agentCreatedDesc', { name: agentName }),
             });
             setCreatedAgentId(data.id);
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Bilinmeyen hata';
+            const msg = err instanceof Error ? err.message : t('wizard.unknownError');
             setError(msg);
-            toast({ title: 'Hata', description: msg, variant: 'error' });
+            toast({ title: t('voiceTest.errorLabel'), description: msg, variant: 'error' });
         } finally {
             setIsSubmitting(false);
         }
@@ -311,8 +313,8 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                             <Wand2 className="h-5 w-5 text-inception-red" />
                         </div>
                         <div>
-                            <h1 className="text-base font-bold text-white font-display tracking-wider">ASİSTAN SİHİRBAZI</h1>
-                            <p className="text-xs text-white/40">Yeni asistan oluştur</p>
+                            <h1 className="text-base font-bold text-white font-display tracking-wider">{t('wizard.title')}</h1>
+                            <p className="text-xs text-white/40">{t('wizard.subtitle')}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -412,11 +414,10 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                             <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
                                             <div className="flex-1">
                                                 <h4 className="text-sm font-semibold text-amber-300">
-                                                    Bilgi Bankası olmadan devam ediyorsunuz
+                                                    {t('wizard.kbSkipWarningTitle')}
                                                 </h4>
                                                 <p className="text-xs text-amber-200/60 mt-1 leading-relaxed">
-                                                    Asistanınız bilgi bankası olmadan dogru yanıt veremeyecektir.
-                                                    Test etmeden once bilgi eklemeniz onerilir.
+                                                    {t('wizard.kbSkipWarningDesc')}
                                                 </p>
                                                 <div className="flex items-center gap-3 mt-3">
                                                     <button
@@ -424,7 +425,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition-all"
                                                     >
                                                         <BookOpen className="h-3 w-3" />
-                                                        Bilgi Ekle
+                                                        {t('wizard.kbSkipAddKB')}
                                                     </button>
                                                     <button
                                                         onClick={() => {
@@ -434,7 +435,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                                         }}
                                                         className="text-xs text-white/40 hover:text-white/60 transition-colors"
                                                     >
-                                                        Yine de Devam Et →
+                                                        {t('wizard.kbSkipContinue')}
                                                     </button>
                                                 </div>
                                             </div>
@@ -468,13 +469,13 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                             >
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-sm font-medium text-white/70">
-                                        {agentName} Test Paneli
+                                        {t('wizard.testPanel', { name: agentName })}
                                     </h3>
                                     <button
                                         onClick={() => onComplete(createdAgentId)}
                                         className="text-xs text-white/40 hover:text-white/70 flex items-center gap-1 transition-colors"
                                     >
-                                        Asistanlar Sayfasına Dön
+                                        {t('wizard.backToAgents')}
                                         <ChevronRight className="h-3 w-3" />
                                     </button>
                                 </div>
@@ -512,7 +513,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 }`}
                         >
                             <ChevronLeft className="h-4 w-4" />
-                            Geri
+                            {t('wizard.back')}
                         </button>
 
                         {currentStep < WIZARD_STEPS.length - 1 ? (
@@ -525,7 +526,7 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                         : 'bg-white/[0.04] border-white/[0.08] text-white/20 cursor-not-allowed'
                                     }`}
                             >
-                                Devam Et
+                                {t('wizard.continueBtn')}
                                 <ChevronRight className="h-4 w-4" />
                             </button>
                         ) : (
@@ -537,12 +538,12 @@ export function AgentCreationWizard({ open, onComplete, onCancel }: AgentCreatio
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Oluşturuluyor...
+                                        {t('wizard.creating')}
                                     </>
                                 ) : (
                                     <>
                                         <Sparkles className="h-4 w-4" />
-                                        Asistanı Oluştur
+                                        {t('wizard.createBtn')}
                                     </>
                                 )}
                             </button>

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useTheme } from '@/lib/theme/ThemeProvider';
 import type { ThemePreset } from '@/lib/theme/presets';
 import { useToast } from '@/components/ui/toast';
+import { useTranslations } from 'next-intl';
 
 // =============================================
 // Mini Preview Component — Shows a mockup of the theme
@@ -143,6 +144,7 @@ function ThemeIcon({ preset }: { preset: ThemePreset }) {
 export default function ThemeSettingsTab() {
   const { activeTheme, setTheme, presets } = useTheme();
   const { toast } = useToast();
+  const t = useTranslations('admin');
   const [applying, setApplying] = useState<string | null>(null);
 
   async function handleThemeSelect(preset: ThemePreset) {
@@ -158,8 +160,8 @@ export default function ThemeSettingsTab() {
     setApplying(null);
 
     toast({
-      title: 'Tema Değiştirildi',
-      description: `"${preset.name}" teması başarıyla uygulandı.`,
+      title: t('themeChanged'),
+      description: t('themeApplied', { name: preset.name }),
       variant: 'default',
     });
   }
@@ -172,16 +174,16 @@ export default function ThemeSettingsTab() {
           <Palette className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold">Görünüm Ayarları</h2>
+          <h2 className="text-lg font-semibold">{t('appearanceSettings')}</h2>
           <p className="text-sm text-muted-foreground">
-            Uygulamanızın kurumsal görünümünü özelleştirin
+            {t('appearanceSettingsDesc')}
           </p>
         </div>
       </div>
 
       {/* Aktif Tema Badge */}
       <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Aktif Tema:</span>
+        <span className="text-muted-foreground">{t('activeTheme')}:</span>
         <span
           className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
           style={{
@@ -226,7 +228,7 @@ export default function ThemeSettingsTab() {
                   </div>
                   {isActive && (
                     <span className="text-[10px] font-medium uppercase tracking-wider text-primary">
-                      Aktif
+                      {t('active')}
                     </span>
                   )}
                 </div>
@@ -239,27 +241,27 @@ export default function ThemeSettingsTab() {
                   <div
                     className="w-5 h-5 rounded-full ring-1 ring-white/10"
                     style={{ backgroundColor: preset.preview.bgColor }}
-                    title="Arka Plan"
+                    title={t('background')}
                   />
                   <div
                     className="w-5 h-5 rounded-full ring-1 ring-white/10"
                     style={{ backgroundColor: preset.preview.primaryColor }}
-                    title="Ana Renk"
+                    title={t('primaryColor')}
                   />
                   <div
                     className="w-5 h-5 rounded-full ring-1 ring-white/10"
                     style={{ backgroundColor: preset.preview.accentColor }}
-                    title="Vurgu Rengi"
+                    title={t('accentColor')}
                   />
                   <div
                     className="w-5 h-5 rounded-full ring-1 ring-white/10"
                     style={{ backgroundColor: preset.preview.cardColor }}
-                    title="Kart Rengi"
+                    title={t('cardColor')}
                   />
                   <div className="flex-1" />
                   {!isActive && (
                     <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                      Tıkla & Uygula
+                      {t('clickAndApply')}
                     </span>
                   )}
                 </div>
@@ -269,7 +271,7 @@ export default function ThemeSettingsTab() {
               {isApplying && (
                 <div className="mt-3 flex items-center gap-2 text-xs text-primary">
                   <div className="h-3 w-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  Uygulanıyor...
+                  {t('applying')}
                 </div>
               )}
             </button>
@@ -280,9 +282,7 @@ export default function ThemeSettingsTab() {
       {/* Info box */}
       <div className="rounded-xl border border-border bg-muted/30 p-4">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Bilgi:</strong> Tema tercihiniz hesabınıza kaydedilir ve
-          tüm oturumlarınızda geçerli olur. Tema değişikliği anında uygulanır ve
-          sidebar, kartlar, butonlar dahil tüm arayüz öğelerini etkiler.
+          <strong className="text-foreground">{t('info')}:</strong> {t('themeInfoText')}
         </p>
       </div>
     </div>

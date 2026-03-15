@@ -8,6 +8,7 @@
 
 import { motion } from 'framer-motion';
 import { Check, ChevronRight, MessageCircle, BookOpen } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { successCheckVariants, fadeUpVariants } from './wizard-animations';
 
 interface SuccessScreenProps {
@@ -23,6 +24,7 @@ interface SuccessScreenProps {
 const CONFETTI_COLORS = ['#dc2626', '#10b981', '#6366f1', '#f59e0b', '#ec4899'];
 
 export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAddKBClick }: SuccessScreenProps) {
+    const t = useTranslations('agents');
     const showKBPrompt = hasKB === false;
 
     return (
@@ -71,7 +73,7 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAd
                 custom={0.3}
                 className="text-2xl font-bold text-white font-display tracking-wide mb-2"
             >
-                Tebrikler!
+                {t('wizard.congratulations')}
             </motion.h2>
             <motion.p
                 variants={fadeUpVariants}
@@ -80,10 +82,10 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAd
                 custom={0.4}
                 className="text-white/50 max-w-md mx-auto mb-8"
             >
-                <span className="text-white font-medium">{agentName}</span> basariyla olusturuldu.
+                {t('wizard.successCreated', { name: agentName })}
                 {showKBPrompt
-                    ? ' Test etmeden once bilgi bankası eklemeniz onerilir.'
-                    : ' Simdi test ederek dogru calistigini dogrulayabilirsiniz.'}
+                    ? ` ${t('wizard.successKBPrompt')}`
+                    : ` ${t('wizard.successTestPrompt')}`}
             </motion.p>
             <motion.div
                 variants={fadeUpVariants}
@@ -99,14 +101,14 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAd
                             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
                         >
                             <BookOpen className="h-4 w-4" />
-                            Bilgi Bankası Ekle
+                            {t('wizard.addKB')}
                         </button>
                         <button
                             onClick={onTestClick}
                             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
                         >
                             <MessageCircle className="h-4 w-4" />
-                            Yine de Test Et
+                            {t('wizard.testAnyway')}
                         </button>
                     </>
                 ) : (
@@ -116,13 +118,13 @@ export function SuccessScreen({ agentName, onTestClick, onDoneClick, hasKB, onAd
                             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium bg-violet-600 border border-violet-500 text-white shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 hover:bg-violet-500 transition-all font-display tracking-wide"
                         >
                             <MessageCircle className="h-4 w-4" />
-                            Simdi Test Et
+                            {t('wizard.testNow')}
                         </button>
                         <button
                             onClick={onDoneClick}
                             className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] text-white/70 hover:text-white transition-all"
                         >
-                            Asistanlar Sayfasına Don
+                            {t('wizard.backToAgentsPage')}
                             <ChevronRight className="h-4 w-4" />
                         </button>
                     </>

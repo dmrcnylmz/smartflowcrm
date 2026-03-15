@@ -32,13 +32,10 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
     );
 }
 
-/** Map voice style values to translated labels */
-const VOICE_STYLE_LABELS: Record<string, Record<string, string>> = {
-    professional: { tr: 'Profesyonel', en: 'Professional', de: 'Professionell', fr: 'Professionnel' },
-    friendly: { tr: 'Samimi', en: 'Friendly', de: 'Freundlich', fr: 'Amical' },
-    formal: { tr: 'Resmi', en: 'Formal', de: 'Formell', fr: 'Formel' },
-    casual: { tr: 'Doğal', en: 'Casual', de: 'Locker', fr: 'Décontracté' },
-    empathetic: { tr: 'Empatik', en: 'Empathetic', de: 'Einfühlsam', fr: 'Empathique' },
+/** Map voice style values to translation keys in agents namespace */
+const VOICE_STYLE_TRANSLATION_KEYS: Record<string, string> = {
+    casual: 'wizard.casual',
+    empathetic: 'wizard.empathetic',
 };
 
 export function StepReview({
@@ -50,9 +47,10 @@ export function StepReview({
     const template = selectedTemplateId && selectedTemplateId !== 'scratch' ? getTemplateById(selectedTemplateId) : null;
 
     const getStyleLabel = (styleValue: string) => {
-        const labels = VOICE_STYLE_LABELS[styleValue];
-        // Try current locale from language prop, fallback to value
-        return labels?.[language] || labels?.['en'] || styleValue;
+        const translationKey = VOICE_STYLE_TRANSLATION_KEYS[styleValue];
+        if (translationKey) return t(translationKey);
+        // Capitalize first letter as fallback for non-translated styles
+        return styleValue.charAt(0).toUpperCase() + styleValue.slice(1);
     };
 
     return (

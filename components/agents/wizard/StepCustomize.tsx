@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useTranslations } from 'next-intl';
 import type { AgentVariable, FallbackRule, AgentVoiceConfig } from '@/lib/agents/types';
 import { VOICE_STYLES } from '@/lib/agents/types';
 import { VoiceSelector } from '@/components/voice/VoiceSelector';
@@ -46,6 +47,7 @@ export function StepCustomize({
     isSmartVariable, getSmartValue,
     language, authFetch, isEnterprise,
 }: StepCustomizeProps) {
+    const t = useTranslations('agents');
     const [showPrompt, setShowPrompt] = useState(false);
 
     const updateVariable = (index: number, value: string) => {
@@ -158,14 +160,14 @@ export function StepCustomize({
                         <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-4 space-y-4">
                             <h4 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
                                 <Volume2 className="h-3.5 w-3.5" />
-                                Ses Ayarları
+                                {t('wizard.voiceSettings')}
                             </h4>
 
                             {/* TTS Voice Selection */}
                             <div>
-                                <Label className="text-white/70 text-sm mb-2 block">TTS Ses Seçimi</Label>
+                                <Label className="text-white/70 text-sm mb-2 block">{t('wizard.ttsVoiceSelection')}</Label>
                                 <p className="text-xs text-white/40 mb-3">
-                                    Asistanınızın telefonda kullanacağı sesi seçin. Dinlemek için ▶ tıklayın.
+                                    {t('wizard.ttsVoiceDesc')}
                                 </p>
 
                                 {/* Current voice badge */}
@@ -274,7 +276,7 @@ export function StepCustomize({
                                         }}
                                         className="h-8 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-xs px-2"
                                     >
-                                        <option value="inform">Bilgilendir</option>
+                                        <option value="inform">{t('wizard.inform')}</option>
                                         <option value="transfer">Transfer</option>
                                         <option value="escalate">Yükselt</option>
                                     </select>

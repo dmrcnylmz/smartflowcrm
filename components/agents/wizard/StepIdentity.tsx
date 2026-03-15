@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { getTemplateById } from '@/lib/agents/templates';
 import { AGENT_LANGUAGES } from '@/lib/agents/types';
+import { useTranslations } from 'next-intl';
 import { getIcon, ROLES } from './wizard-constants';
 
 interface StepIdentityProps {
@@ -28,6 +29,7 @@ export function StepIdentity({
     language, setLanguage,
     selectedTemplateId,
 }: StepIdentityProps) {
+    const t = useTranslations('agents');
     const template = selectedTemplateId ? getTemplateById(selectedTemplateId) : null;
 
     return (
@@ -50,7 +52,7 @@ export function StepIdentity({
                     <Input
                         value={agentName}
                         onChange={(e) => setAgentName(e.target.value)}
-                        placeholder="örn: Ayşe, Destek Asistanı"
+                        placeholder={t('wizard.agentNamePlaceholder')}
                         className="h-12 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:border-inception-red/50 focus:ring-inception-red/20"
                     />
                     <p className="text-xs text-white/20 mt-1.5">Müşterilerinizin asistanı tanıyacağı isim</p>

@@ -25,6 +25,7 @@ import {
     CheckCircle, Clock, User,
 } from 'lucide-react';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
+import { useTranslations } from 'next-intl';
 
 // =============================================
 // Types
@@ -54,6 +55,7 @@ interface PoolNumber {
 export default function NumberPoolAdmin() {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('phoneManagement');
 
     const [stats, setStats] = useState<PoolStats | null>(null);
     const [numbers, setNumbers] = useState<PoolNumber[]>([]);
@@ -112,18 +114,18 @@ export default function NumberPoolAdmin() {
             const data = await res.json();
             if (res.ok) {
                 toast({
-                    title: 'Numara Eklendi',
-                    description: `${data.added} numara havuza eklendi${data.skipped ? `, ${data.skipped} atlandı` : ''}`,
+                    title: t('numberAdded'),
+                    description: t('numberAddedDesc', { added: data.added, skipped: data.skipped || 0 }),
                     variant: 'success',
                 });
                 setAddPhone('');
                 setShowAddForm(false);
                 fetchPool();
             } else {
-                toast({ title: 'Hata', description: data.error, variant: 'error' });
+                toast({ title: t('error'), description: data.error, variant: 'error' });
             }
         } catch {
-            toast({ title: 'Hata', description: 'Numara eklenirken bir sorun oluştu', variant: 'error' });
+            toast({ title: t('error'), description: t('numberAddError'), variant: 'error' });
         } finally {
             setAdding(false);
         }
@@ -131,7 +133,7 @@ export default function NumberPoolAdmin() {
 
     // ─── Remove Number ───
     async function handleRemove(poolEntryId: string) {
-        if (!confirm('Bu numarayı havuzdan çıkarmak istediğinize emin misiniz?')) return;
+        if (!confirm(t('poolRemoveConfirm'))) return;
 
         setRemoving(poolEntryId);
         try {
@@ -142,14 +144,14 @@ export default function NumberPoolAdmin() {
             });
 
             if (res.ok) {
-                toast({ title: 'Numara Çıkarıldı', description: 'Numara havuzdan kaldırıldı', variant: 'success' });
+                toast({ title: t('numberRemoved'), description: t('numberRemovedDesc'), variant: 'success' });
                 fetchPool();
             } else {
                 const data = await res.json();
-                toast({ title: 'Hata', description: data.error, variant: 'error' });
+                toast({ title: t('error'), description: data.error, variant: 'error' });
             }
         } catch {
-            toast({ title: 'Hata', description: 'İşlem sırasında bir sorun oluştu', variant: 'error' });
+            toast({ title: t('error'), description: t('operationError'), variant: 'error' });
         } finally {
             setRemoving(null);
         }
@@ -172,10 +174,10 @@ export default function NumberPoolAdmin() {
             {/* Stats Cards */}
             {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <StatCard label="Toplam" value={stats.total} icon={Database} color="text-blue-500" bgColor="bg-blue-500/10" />
-                    <StatCard label="Müsait" value={stats.available} icon={CheckCircle} color="text-emerald-500" bgColor="bg-emerald-500/10" />
-                    <StatCard label="Atanmış" value={stats.assigned} icon={User} color="text-purple-500" bgColor="bg-purple-500/10" />
-                    <StatCard label="Rezerve" value={stats.reserved} icon={Clock} color="text-amber-500" bgColor="bg-amber-500/10" />
+                    <StatCard label={t('poolTotal')} value={stats.total} icon={Database} color="text-blue-500" bgColor="bg-blue-500/10" />
+                    <StatCard label={t('poolAvailable')} value={stats.available} icon={CheckCircle} color="text-emerald-500" bgColor="bg-emerald-500/10" />
+                    <StatCard label={t('poolAssigned')} value={stats.assigned} icon={User} color="text-purple-500" bgColor="bg-purple-500/10" />
+                    <StatCard label={t('poolReserved')} value={stats.reserved} icon={Clock} color="text-amber-500" bgColor="bg-amber-500/10" />
                 </div>
             )}
 
@@ -184,7 +186,7 @@ export default function NumberPoolAdmin() {
                 <div className="flex gap-3">
                     {Object.entries(stats.byCarrier).map(([carrier, data]) => (
                         <Badge key={carrier} variant="outline" className="px-3 py-1">
-                            {carrier}: {data.available}/{data.total} müsait
+                            {carrier}: {data.available}/{data.total} {t('poolAvailable').toLowerCase()}
                         </Badge>
                     ))}
                 </div>
@@ -197,10 +199,10 @@ export default function NumberPoolAdmin() {
                         <div>
                             <CardTitle className="flex items-center gap-2">
                                 <Database className="h-5 w-5 text-blue-500" />
-                                Numara Havuzu
+                                {t('numberPool')}
                             </CardTitle>
                             <CardDescription>
-                                +90 SIP Trunk numara havuzu yönetimi
+                                {t('numberPoolDesc')}
                             </CardDescription>
                         </div>
                         <div className="flex gap-2">
@@ -209,7 +211,7 @@ export default function NumberPoolAdmin() {
                             </Button>
                             <Button size="sm" onClick={() => setShowAddForm(!showAddForm)} className="gap-2">
                                 <Plus className="h-3.5 w-3.5" />
-                                Numara Ekle
+                                {t('addNumber')}
                             </Button>
                         </div>
                     </div>
@@ -218,10 +220,10 @@ export default function NumberPoolAdmin() {
                     {/* Add Form */}
                     {showAddForm && (
                         <div className="border rounded-xl p-4 mb-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
-                            <h4 className="text-sm font-medium">Havuza Numara Ekle</h4>
+                            <h4 className="text-sm font-medium">{t('addNumberToPool')}</h4>
                             <div className="flex gap-3 items-end">
                                 <div className="flex-1">
-                                    <Label htmlFor="poolPhone">Telefon Numarası</Label>
+                                    <Label htmlFor="poolPhone">{t('phoneNumber')}</Label>
                                     <Input
                                         id="poolPhone"
                                         value={addPhone}
@@ -231,7 +233,7 @@ export default function NumberPoolAdmin() {
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="poolCarrier">Operatör</Label>
+                                    <Label htmlFor="poolCarrier">{t('carrier')}</Label>
                                     <select
                                         id="poolCarrier"
                                         value={addCarrier}
@@ -255,7 +257,7 @@ export default function NumberPoolAdmin() {
                                 </div>
                                 <Button onClick={handleAdd} disabled={adding || !addPhone} className="gap-2">
                                     {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                    Ekle
+                                    {t('add')}
                                 </Button>
                             </div>
                         </div>
@@ -268,17 +270,17 @@ export default function NumberPoolAdmin() {
                             onChange={(e) => setFilterStatus(e.target.value)}
                             className="flex h-8 rounded-lg border border-input bg-background px-2 py-1 text-xs"
                         >
-                            <option value="">Tüm Durumlar</option>
-                            <option value="available">Müsait</option>
-                            <option value="assigned">Atanmış</option>
-                            <option value="reserved">Rezerve</option>
+                            <option value="">{t('allStatuses')}</option>
+                            <option value="available">{t('poolAvailable')}</option>
+                            <option value="assigned">{t('poolAssigned')}</option>
+                            <option value="reserved">{t('poolReserved')}</option>
                         </select>
                         <select
                             value={filterCarrier}
                             onChange={(e) => setFilterCarrier(e.target.value)}
                             className="flex h-8 rounded-lg border border-input bg-background px-2 py-1 text-xs"
                         >
-                            <option value="">Tüm Operatörler</option>
+                            <option value="">{t('allCarriers')}</option>
                             <option value="netgsm">Netgsm</option>
                             <option value="bulutfon">Bulutfon</option>
                         </select>
@@ -288,7 +290,7 @@ export default function NumberPoolAdmin() {
                     {numbers.length === 0 ? (
                         <div className="text-center py-12 text-muted-foreground">
                             <Database className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm">Havuzda numara yok</p>
+                            <p className="text-sm">{t('noNumbersInPool')}</p>
                         </div>
                     ) : (
                         <div className="divide-y">
@@ -359,10 +361,11 @@ function StatCard({ label, value, icon: Icon, color, bgColor }: {
 }
 
 function PoolStatusBadge({ status }: { status: string }) {
+    const t = useTranslations('phoneManagement');
     const config: Record<string, { label: string; className: string }> = {
-        available: { label: 'Müsait', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
-        assigned: { label: 'Atanmış', className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
-        reserved: { label: 'Rezerve', className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+        available: { label: t('poolAvailable'), className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+        assigned: { label: t('poolAssigned'), className: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+        reserved: { label: t('poolReserved'), className: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
     };
 
     const c = config[status] || config.available;
