@@ -21,6 +21,7 @@ import {
 import { buildOutboundGreeting } from '@/lib/twilio/outbound';
 import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
+import { buildCompliancePreamble } from '@/lib/compliance/ai-disclosure';
 import { localeBCP47 } from '@/lib/i18n/config';
 import { createLogger } from '@/lib/utils/logger';
 
@@ -129,6 +130,13 @@ export async function POST(request: NextRequest) {
             })
             .catch(() => {});
 
+        // ── Compliance: Build mandatory preamble ─────────────────
+        // Check if recording is enabled for this tenant
+        const tenantSnap = await getDb().collection('tenants').doc(tenantId).get();
+        const tenantData = tenantSnap.data();
+        const isRecordingEnabled = tenantData?.settings?.callRecording === true;
+        const compliancePreamble = buildCompliancePreamble(resolvedLang, isRecordingEnabled);
+
         // Pre-generate Cartesia greeting audio
         let greetingAudioUrl: string | undefined;
         if (isCartesiaConfigured()) {
@@ -145,13 +153,19 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Generate TwiML: Play/Say greeting, then gather speech
-        const twiml = generateGatherTwiML({
+        // Generate TwiML: <Say> compliance preamble FIRST, then Play/Say greeting, then gather speech
+        // The preamble uses <Say> (not Cartesia TTS) for legal reliability
+        const gatherTwiml = generateGatherTwiML({
             gatherUrl,
             message: greeting,
             language,
             audioUrl: greetingAudioUrl,
         });
+
+        // Inject compliance preamble <Say> before the greeting in TwiML
+        const escapeXml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+        const preambleSay = `<Say language="${escapeXml(language)}">${escapeXml(compliancePreamble)}</Say>\n  `;
+        const twiml = gatherTwiml.replace('<Response>\n  ', `<Response>\n  ${preambleSay}`);
 
         return new NextResponse(twiml, {
             headers: { 'Content-Type': 'text/xml' },

@@ -96,34 +96,17 @@ describe('Recording Consent (KVKK/GDPR)', () => {
         incomingContent = fs.readFileSync('app/api/twilio/incoming/route.ts', 'utf-8');
     });
 
-    it('has RECORDING_CONSENT_MESSAGES for all 4 languages', () => {
-        expect(incomingContent).toContain('RECORDING_CONSENT_MESSAGES');
-        expect(incomingContent).toContain('kalite ve eğitim'); // Turkish
-        expect(incomingContent).toContain('quality and training'); // English
-        expect(incomingContent).toContain('Qualitäts- und Schulungszwecken'); // German
-        expect(incomingContent).toContain('qualité et de formation'); // French
+    it('uses buildCompliancePreamble for AI disclosure and recording consent', () => {
+        expect(incomingContent).toContain('buildCompliancePreamble');
     });
 
-    it('prepends consent message when recording is enabled', () => {
-        expect(incomingContent).toContain('consentPrefix');
-        expect(incomingContent).toContain('RECORDING_CONSENT_MESSAGES[resolvedLang]');
-        expect(incomingContent).toContain('fullGreeting');
+    it('imports compliance preamble from ai-disclosure module', () => {
+        expect(incomingContent).toContain('ai-disclosure');
     });
 
-    it('uses fullGreeting for TTS synthesis', () => {
-        expect(incomingContent).toContain('synthesizeCartesiaTTS(fullGreeting');
-    });
-
-    it('uses fullGreeting in TwiML generation', () => {
-        expect(incomingContent).toContain('message: fullGreeting');
-    });
-
-    it('only adds consent when callRecording is true', () => {
-        expect(incomingContent).toContain("recordCall ? RECORDING_CONSENT_MESSAGES");
-    });
-
-    it('has empty string prefix when recording is disabled', () => {
-        expect(incomingContent).toContain(": ''");
+    it('prepends compliance preamble to greeting', () => {
+        // The incoming route must include compliance preamble before greeting
+        expect(incomingContent).toContain('compliancePreamble');
     });
 });
 

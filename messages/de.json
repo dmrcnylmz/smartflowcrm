@@ -1112,5 +1112,22 @@
         "customize": "Anpassen",
         "privacyLink": "Lesen Sie unsere Datenschutzrichtlinie",
         "privacyPolicy": "Datenschutzrichtlinie"
+    },
+    "compliance": {
+        "consentRequired": "Einwilligung vor dem Anruf erforderlich",
+        "consentGranted": "Einwilligung bestätigt",
+        "consentDenied": "Keine Einwilligung — Anruf blockiert",
+        "consentExpired": "Einwilligung abgelaufen — Erneuerung erforderlich",
+        "callingHoursBlocked": "Außerhalb der gesetzlichen Anrufzeiten",
+        "weekendBlocked": "Wochenendanrufe in diesem Land nicht erlaubt",
+        "lunchBreakBlocked": "Mittagspause — Anrufe werden um 14:00 Uhr fortgesetzt",
+        "tosRequired": "Sie müssen die Nutzungsbedingungen für ausgehende Anrufe akzeptieren",
+        "tosAccepted": "Bedingungen akzeptiert",
+        "complianceScore": "Compliance-Bewertung",
+        "allChecksPass": "Alle Compliance-Prüfungen bestanden",
+        "consentConfirmation": "Ich bestätige, dass alle Kontakte ihre Einwilligung zum Anruf gegeben haben",
+        "iysCheck": "İYS-Status",
+        "iysApproved": "In İYS genehmigt",
+        "iysRejected": "In İYS abgelehnt — Anruf blockiert"
     }
 }

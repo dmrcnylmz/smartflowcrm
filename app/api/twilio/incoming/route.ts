@@ -32,6 +32,7 @@ import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueez
 import { gpuManager } from '@/lib/voice/gpu-manager';
 import { isCartesiaConfigured, synthesizeCartesiaTTS } from '@/lib/voice/tts-cartesia';
 import { cachePhoneAudio } from '@/lib/voice/phone-audio-cache';
+import { buildCompliancePreamble } from '@/lib/compliance/ai-disclosure';
 import { localeBCP47 } from '@/lib/i18n/config';
 import { createLogger } from '@/lib/utils/logger';
 
@@ -300,9 +301,10 @@ export async function POST(request: NextRequest) {
         // Check if recording is enabled for this tenant
         const recordCall = tenantData?.settings?.callRecording === true;
 
-        // KVKK/GDPR: Prepend recording consent message before greeting when recording is enabled
-        const consentPrefix = recordCall ? RECORDING_CONSENT_MESSAGES[resolvedLang] + ' ' : '';
-        const fullGreeting = consentPrefix + greeting;
+        // ── Compliance: Mandatory AI disclosure + recording disclaimer ──
+        // Uses buildCompliancePreamble() — HARD-CODED, cannot be disabled by users
+        const compliancePreamble = buildCompliancePreamble(resolvedLang, recordCall);
+        const fullGreeting = compliancePreamble + ' ' + greeting;
 
         // Pre-generate Cartesia greeting audio + Firestore write in PARALLEL
         const cartesiaLang = resolvedLang; // Already resolved to 'tr'|'en'|'de'|'fr'

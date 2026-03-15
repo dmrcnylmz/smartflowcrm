@@ -1112,5 +1112,22 @@
         "customize": "Personnaliser",
         "privacyLink": "Consultez notre politique de confidentialité",
         "privacyPolicy": "Politique de confidentialité"
+    },
+    "compliance": {
+        "consentRequired": "Consentement requis avant l'appel",
+        "consentGranted": "Consentement vérifié",
+        "consentDenied": "Pas de consentement — appel bloqué",
+        "consentExpired": "Consentement expiré — renouvellement requis",
+        "callingHoursBlocked": "En dehors des heures d'appel légales",
+        "weekendBlocked": "Appels le week-end non autorisés dans ce pays",
+        "lunchBreakBlocked": "Pause déjeuner — les appels reprennent à 14h00",
+        "tosRequired": "Vous devez accepter les conditions d'utilisation des appels sortants",
+        "tosAccepted": "Conditions acceptées",
+        "complianceScore": "Score de conformité",
+        "allChecksPass": "Tous les contrôles de conformité réussis",
+        "consentConfirmation": "Je confirme que tous les contacts ont donné leur consentement pour être appelés",
+        "iysCheck": "Statut İYS",
+        "iysApproved": "Approuvé dans İYS",
+        "iysRejected": "Rejeté dans İYS — appel bloqué"
     }
 }

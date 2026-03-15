@@ -17,6 +17,10 @@ import { createOutboundCall } from '@/lib/twilio/outbound';
 import { getTwilioConfig } from '@/lib/twilio/telephony';
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
+import { isCallingAllowed } from '@/lib/compliance/calling-hours';
+import { checkOutboundConsent, isConsentValid } from '@/lib/compliance/consent-manager';
+import { logAudit } from '@/lib/compliance/audit';
+import { runOutboundComplianceCheck } from '@/lib/compliance/outbound-compliance';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:outbound');
@@ -85,6 +89,76 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: usageCheck.reason || 'Monthly usage limit reached.' },
                 { status: 429 },
+            );
+        }
+
+        // ── Compliance: Calling Hours Guard ─────────────────────────
+        const complianceCheck = isCallingAllowed(toNumber);
+
+        // Log compliance check to Firestore audit trail (fire-and-forget)
+        getDb()
+            .collection('tenants').doc(tenantId)
+            .collection('audit_logs').doc()
+            .set({
+                action: 'compliance.calling_hours_check',
+                tenantId,
+                phoneNumber: toNumber,
+                country: complianceCheck.country,
+                localTime: complianceCheck.localTime,
+                allowed: complianceCheck.allowed,
+                reason: complianceCheck.reason || null,
+                timestamp: FieldValue.serverTimestamp(),
+            }).catch(() => {});
+
+        if (!complianceCheck.allowed) {
+            log.warn('outbound:blocked_compliance', {
+                tenantId,
+                to: toNumber,
+                country: complianceCheck.country,
+                reason: complianceCheck.reason,
+            });
+            return NextResponse.json(
+                {
+                    error: 'Call blocked by compliance rules',
+                    reason: complianceCheck.reason,
+                    country: complianceCheck.country,
+                    localTime: complianceCheck.localTime,
+                    nextAllowedTime: complianceCheck.nextAllowedTime,
+                },
+                { status: 403 },
+            );
+        }
+
+        // ── Compliance: Consent Check ────────────────────────────
+        const consentRecord = await checkOutboundConsent(getDb(), tenantId, toNumber);
+        const hasValidConsent = isConsentValid(consentRecord);
+
+        // Log full compliance check to audit (fire-and-forget)
+        logAudit(getDb(), {
+            tenantId,
+            userId: auth.uid,
+            action: 'consent.granted',
+            resource: 'outbound_compliance_check',
+            details: {
+                phoneNumber: toNumber,
+                consentValid: hasValidConsent,
+                callingHoursAllowed: complianceCheck.allowed,
+            },
+        }).catch(() => {});
+
+        if (!hasValidConsent) {
+            log.warn('outbound:blocked_no_consent', {
+                tenantId,
+                to: toNumber,
+            });
+            return NextResponse.json(
+                {
+                    error: 'No valid consent found for this number',
+                    reason: consentRecord
+                        ? `Consent status: ${consentRecord.consentStatus}`
+                        : 'No consent record exists',
+                },
+                { status: 403 },
             );
         }
 

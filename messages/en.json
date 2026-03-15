@@ -1112,5 +1112,22 @@
         "customize": "Customize",
         "privacyLink": "Review our privacy policy",
         "privacyPolicy": "Privacy Policy"
+    },
+    "compliance": {
+        "consentRequired": "Consent required before calling",
+        "consentGranted": "Consent verified",
+        "consentDenied": "No consent — call blocked",
+        "consentExpired": "Consent expired — renewal required",
+        "callingHoursBlocked": "Outside legal calling hours",
+        "weekendBlocked": "Weekend calls not allowed in this country",
+        "lunchBreakBlocked": "Lunch break — calls resume at 14:00",
+        "tosRequired": "You must accept the outbound calling terms of service",
+        "tosAccepted": "Terms accepted",
+        "complianceScore": "Compliance Score",
+        "allChecksPass": "All compliance checks passed",
+        "consentConfirmation": "I confirm all contacts have given consent to be called",
+        "iysCheck": "IYS Status",
+        "iysApproved": "Approved in IYS",
+        "iysRejected": "Rejected in IYS — call blocked"
     }
 }

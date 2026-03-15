@@ -1112,5 +1112,22 @@
         "customize": "Özelleştir",
         "privacyLink": "Gizlilik politikamızı inceleyin",
         "privacyPolicy": "Gizlilik Politikası"
+    },
+    "compliance": {
+        "consentRequired": "Arama öncesi onay gereklidir",
+        "consentGranted": "Onay doğrulandı",
+        "consentDenied": "Onay yok — arama engellendi",
+        "consentExpired": "Onay süresi doldu — yenileme gerekli",
+        "callingHoursBlocked": "Yasal arama saatleri dışında",
+        "weekendBlocked": "Bu ülkede hafta sonu aramaları yapılamaz",
+        "lunchBreakBlocked": "Öğle arası — aramalar 14:00'te devam eder",
+        "tosRequired": "Giden arama hizmet şartlarını kabul etmelisiniz",
+        "tosAccepted": "Şartlar kabul edildi",
+        "complianceScore": "Uyumluluk Puanı",
+        "allChecksPass": "Tüm uyumluluk kontrolleri başarılı",
+        "consentConfirmation": "Tüm kişilerin aranmak için onay verdiğini onaylıyorum",
+        "iysCheck": "İYS Durumu",
+        "iysApproved": "İYS'de onaylı",
+        "iysRejected": "İYS'de reddedildi — arama engellendi"
     }
 }
