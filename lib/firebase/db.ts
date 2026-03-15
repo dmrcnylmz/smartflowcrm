@@ -14,14 +14,15 @@ import {
   QueryConstraint,
   DocumentReference,
   Query,
-  writeBatch
 } from 'firebase/firestore';
 
-// startAfter type workaround — firebase v11 exports it at runtime
-// but some TS configurations don't resolve the type export.
+// startAfter & writeBatch type workaround — firebase v11 exports them at runtime
+// but Vercel's TS build doesn't resolve these type exports correctly.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { startAfter } = require('firebase/firestore') as {
+const { startAfter, writeBatch } = require('firebase/firestore') as {
   startAfter: (...fieldValues: unknown[]) => QueryConstraint;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  writeBatch: (firestore: any) => { set: (ref: any, data: any) => void; commit: () => Promise<void> };
 };
 import { db, auth } from './config';
 import type {
