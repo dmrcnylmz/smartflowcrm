@@ -233,7 +233,7 @@ describe('Twilio Call API Routes', () => {
             const body = await response.text();
             expect(body).toContain('Unavailable');
             expect(mockGenerateUnavailableTwiML).toHaveBeenCalledWith(
-                expect.objectContaining({ message: expect.stringContaining('yapılandırılmamış') })
+                expect.objectContaining({ message: expect.stringContaining('not yet configured') })
             );
         });
 
@@ -255,7 +255,7 @@ describe('Twilio Call API Routes', () => {
             const body = await response.text();
             expect(body).toContain('Unavailable');
             expect(mockGenerateUnavailableTwiML).toHaveBeenCalledWith(
-                expect.objectContaining({ message: expect.stringContaining('aboneliği sona ermiştir') })
+                expect.objectContaining({ message: expect.stringContaining('subscription') })
             );
         });
 

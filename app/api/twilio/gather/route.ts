@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
         // Rate limiting
         const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
         if (!checkGatherRateLimit(ip)) {
-            const twiml = generateUnavailableTwiML({ message: 'Çok fazla istek. Lütfen bekleyin.' });
+            const twiml = generateUnavailableTwiML({ message: 'Too many requests. Please wait.' });
             return new NextResponse(twiml, { status: 429, headers: { 'Content-Type': 'text/xml' } });
         }
 
@@ -198,13 +198,13 @@ export async function POST(request: NextRequest) {
         if (config.authToken) {
             if (!validateTwilioSignature(config.authToken, request.url, params, signature)) {
                 console.error('[twilio/gather] Invalid Twilio signature — rejecting');
-                const twiml = generateUnavailableTwiML({ message: 'Yetkisiz istek.' });
+                const twiml = generateUnavailableTwiML({ message: 'Unauthorized request.' });
                 return new NextResponse(twiml, { status: 403, headers: { 'Content-Type': 'text/xml' } });
             }
         } else if (process.env.NODE_ENV === 'production') {
             console.error('[twilio/gather] TWILIO_AUTH_TOKEN not configured in production');
             return new NextResponse(
-                generateUnavailableTwiML({ message: 'Sistem hatası.' }),
+                generateUnavailableTwiML({ message: 'System error.' }),
                 { headers: { 'Content-Type': 'text/xml' } },
             );
         }
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId || !callSid) {
             return new NextResponse(
-                generateUnavailableTwiML({ message: 'Bir hata oluştu. Lütfen tekrar arayın.' }),
+                generateUnavailableTwiML({ message: 'An error occurred. Please call again.' }),
                 { headers: { 'Content-Type': 'text/xml' } }
             );
         }
@@ -517,7 +517,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
         log.error('gather:error', { requestId, error: err instanceof Error ? err.message : String(err), totalMs: Date.now() - reqStart });
         const fallback = generateUnavailableTwiML({
-            message: 'Bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar arayın.',
+            message: VOICE_MESSAGES.en.error,
         });
         return new NextResponse(fallback, {
             headers: { 'Content-Type': 'text/xml', 'x-request-id': requestId },
@@ -678,7 +678,13 @@ async function generateLLMResponse(
         // maxTokens: 150 — kısa yanıta ZORLAMIYORUZ, LLM doğal uzunluğu seçer
         const result = await generateWithFallback(messages, { maxTokens: 150, temperature: 0.3, language });
 
-        return result.text || 'Yanıt oluşturulamadı.';
+        const noResponseMessages: Record<string, string> = {
+            tr: 'Yanıt oluşturulamadı.',
+            en: 'Could not generate a response.',
+            de: 'Antwort konnte nicht generiert werden.',
+            fr: 'Impossible de générer une réponse.',
+        };
+        return result.text || noResponseMessages[language] || noResponseMessages.en;
 
     } catch {
         const errorMessages: Record<string, string> = {

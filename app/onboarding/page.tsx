@@ -104,6 +104,18 @@ export default function OnboardingPage() {
         }
     }, [authLoading, user, router]);
 
+    // Auto-detect browser language on mount
+    useEffect(() => {
+        const cookie = document.cookie.split('; ').find(c => c.startsWith('NEXT_LOCALE='));
+        const cookieLang = cookie?.split('=')[1];
+        const browserLang = (cookieLang || navigator.language || '').slice(0, 2).toLowerCase();
+        const supported = ['tr', 'en', 'de', 'fr'];
+        if (supported.includes(browserLang) && browserLang !== data.language) {
+            updateData({ language: browserLang });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const updateData = useCallback((updates: Partial<OnboardingData>) => {
         setData(prev => ({ ...prev, ...updates }));
     }, []);

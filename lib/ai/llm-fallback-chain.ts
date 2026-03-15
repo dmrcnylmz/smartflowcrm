@@ -23,7 +23,7 @@ interface ChatMessage {
 interface FallbackOptions {
     maxTokens?: number;
     temperature?: number;
-    language?: string;
+    language?: 'tr' | 'en' | 'de' | 'fr';
 }
 
 interface FallbackResult {

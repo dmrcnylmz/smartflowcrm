@@ -46,13 +46,16 @@ export async function POST(request: NextRequest) {
             agent: agent || getDefaultAgent(resolvedLanguage, companyName),
             business: business || {
                 workingHours: '09:00-18:00',
-                workingDays: 'Pazartesi-Cuma',
+                workingDays: resolvedLanguage === 'de' ? 'Montag-Freitag'
+                    : resolvedLanguage === 'fr' ? 'Lundi-Vendredi'
+                    : resolvedLanguage === 'en' ? 'Monday-Friday'
+                    : 'Pazartesi-Cuma',
                 services: [],
             },
             voice: voice || {
                 voiceId: 'EXAVITQu4vr4xnSDxMaL',
                 ttsModel: 'eleven_flash_v2_5',
-                sttLanguage: language === 'en' ? 'en' : 'tr',
+                sttLanguage: (['en', 'de', 'fr'].includes(language) ? language : 'tr') as string,
                 stability: 0.5,
                 similarityBoost: 0.75,
             },

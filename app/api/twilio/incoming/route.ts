@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         } else if (process.env.NODE_ENV === 'production') {
             console.error('[twilio/incoming] TWILIO_AUTH_TOKEN not configured in production — rejecting');
             return new NextResponse(
-                generateUnavailableTwiML({ message: 'Sistem bakımda. Lütfen daha sonra arayın.' }),
+                generateUnavailableTwiML({ message: 'System maintenance. Please call again later.' }),
                 { headers: { 'Content-Type': 'text/xml' } },
             );
         }
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
         if (!tenantId) {
             const twiml = generateUnavailableTwiML({
-                message: 'Bu numara henüz yapılandırılmamış. Lütfen daha sonra tekrar deneyin.',
+                message: 'This number is not yet configured. Please try again later.',
             });
             return new NextResponse(twiml, {
                 headers: { 'Content-Type': 'text/xml' },
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
         const subscription = await getSubscription(getDb(), tenantId);
         if (subscription && !isSubscriptionActive(subscription)) {
             const twiml = generateUnavailableTwiML({
-                message: 'Bu hattın aboneliği sona ermiştir. Lütfen hesabınızı yenileyip tekrar deneyin.',
+                message: 'The subscription for this line has expired. Please renew your account.',
             });
             return new NextResponse(twiml, {
                 headers: { 'Content-Type': 'text/xml' },
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
         const usageCheck = await checkCallAllowed(getDb(), tenantId, tierName);
         if (!usageCheck.allowed) {
             const twiml = generateUnavailableTwiML({
-                message: usageCheck.reason || 'Aylık kullanım limitiniz dolmuştur. Lütfen planınızı yükseltin.',
+                message: usageCheck.reason || 'Your monthly usage limit has been reached. Please upgrade your plan.',
             });
             return new NextResponse(twiml, {
                 headers: { 'Content-Type': 'text/xml' },
@@ -250,8 +250,14 @@ export async function POST(request: NextRequest) {
         const tenantTimezone = tenantData?.timezone;             // e.g. "Europe/Istanbul"
 
         if (workingHours && isOutsideWorkingHours(workingHours, workingDays, tenantTimezone)) {
+            const afterHoursDefaults: Record<VoiceLang, string> = {
+                tr: 'Şu anda mesai saatleri dışındayız. Lütfen bip sesinden sonra mesajınızı bırakın.',
+                en: 'We are currently outside working hours. Please leave a message after the beep.',
+                de: 'Wir sind derzeit außerhalb der Geschäftszeiten. Bitte hinterlassen Sie eine Nachricht nach dem Signalton.',
+                fr: 'Nous sommes actuellement en dehors des heures de travail. Veuillez laisser un message après le bip.',
+            };
             const afterHoursMsg = tenantData?.agent?.farewell
-                || 'Şu anda mesai saatleri dışındayız. Lütfen bip sesinden sonra mesajınızı bırakın.';
+                || afterHoursDefaults[resolvedLang];
 
             const voicemailTwiml = generateVoicemailTwiML({
                 message: afterHoursMsg,
@@ -358,7 +364,7 @@ export async function POST(request: NextRequest) {
 
     } catch {
         const fallback = generateUnavailableTwiML({
-            message: 'Bir teknik sorun yaşıyoruz. Lütfen daha sonra tekrar arayın.',
+            message: 'We are experiencing a technical issue. Please try again later.',
         });
         return new NextResponse(fallback, {
             headers: { 'Content-Type': 'text/xml' },
@@ -371,10 +377,18 @@ export async function POST(request: NextRequest) {
 // =============================================
 
 const DAY_MAP: Record<string, number> = {
+    // Turkish
     'pazar': 0, 'pazartesi': 1, 'salı': 2,
     'çarşamba': 3, 'perşembe': 4, 'cuma': 5, 'cumartesi': 6,
+    // English
     'sunday': 0, 'monday': 1, 'tuesday': 2,
     'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6,
+    // German
+    'sonntag': 0, 'montag': 1, 'dienstag': 2,
+    'mittwoch': 3, 'donnerstag': 4, 'freitag': 5, 'samstag': 6,
+    // French
+    'dimanche': 0, 'lundi': 1, 'mardi': 2,
+    'mercredi': 3, 'jeudi': 4, 'vendredi': 5, 'samedi': 6,
 };
 
 /**

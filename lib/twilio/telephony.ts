@@ -91,7 +91,7 @@ export function generateConversationRelayTwiML(options: {
 }): string {
     const {
         wsUrl,
-        welcomeGreeting = 'Merhaba, Callception sesli asistanına hoşgeldiniz. Size nasıl yardımcı olabilirim?',
+        welcomeGreeting = 'Hello, welcome to the Callception voice assistant. How can I help you?',
         language = 'tr-TR',
         voice = 'Google.tr-TR-Standard-A',
         dtmfDetection = true,
@@ -122,7 +122,7 @@ export function generateUnavailableTwiML(options?: {
     message?: string;
     language?: string;
 }): string {
-    const message = options?.message || 'Şu anda hizmetlerimiz aktif değil. Lütfen çalışma saatleri içinde tekrar arayın.';
+    const message = options?.message || 'Our services are currently unavailable. Please call again during working hours.';
     const language = options?.language || 'tr-TR';
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -141,7 +141,7 @@ export function generateVoicemailTwiML(options?: {
     recordingStatusCallbackUrl?: string;
     language?: string;
 }): string {
-    const message = options?.message || 'Şu anda müsait değiliz. Lütfen kısa bir mesaj bırakın.';
+    const message = options?.message || 'We are currently unavailable. Please leave a short message.';
     const maxLength = options?.maxLength || 120;
     const language = options?.language || 'tr-TR';
 
