@@ -342,7 +342,7 @@ describe('EmailVerificationBanner Error Feedback', () => {
     });
 
     it('shows error message to user', () => {
-        expect(content).toContain('Gönderilemedi');
+        expect(content).toContain("t('sendFailed')");
     });
 
     it('clears error after timeout for retry', () => {

@@ -5,12 +5,13 @@
  *
  * Opens when a row is clicked in the tenant analytics table.
  * Tabs:
- *   1. Genel Bakış — Usage KPIs + 6-month bar chart + cost breakdown
- *   2. Üyeler — Member table with roles
- *   3. Abonelik — Plan info, billing details
+ *   1. Overview — Usage KPIs + 6-month bar chart + cost breakdown
+ *   2. Members — Member table with roles
+ *   3. Subscription — Plan info, billing details
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -97,24 +98,7 @@ interface TenantDetail {
     };
 }
 
-// ─── Helpers ───
-
-const PLAN_LABELS: Record<string, string> = {
-    starter: 'Başlangıç',
-    professional: 'Profesyonel',
-    enterprise: 'Kurumsal',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    active: 'Aktif',
-    on_trial: 'Deneme',
-    trialing: 'Deneme',
-    cancelled: 'İptal',
-    expired: 'Süresi Dolmuş',
-    past_due: 'Ödeme Gecikmiş',
-    none: 'Abonelik Yok',
-    unknown: 'Bilinmiyor',
-};
+// ─── Color Helpers (no labels — labels come from translations) ───
 
 const STATUS_COLORS: Record<string, 'success' | 'default' | 'destructive' | 'secondary' | 'outline'> = {
     active: 'success',
@@ -127,28 +111,12 @@ const STATUS_COLORS: Record<string, 'success' | 'default' | 'destructive' | 'sec
     unknown: 'secondary',
 };
 
-const ROLE_LABELS: Record<string, string> = {
-    owner: 'Sahip',
-    admin: 'Yönetici',
-    agent: 'Ajan',
-    viewer: 'İzleyici',
-};
-
 const ROLE_COLORS: Record<string, 'default' | 'secondary' | 'success' | 'outline'> = {
     owner: 'default',
     admin: 'success',
     agent: 'secondary',
     viewer: 'outline',
 };
-
-function formatDate(dateStr: string | null | undefined) {
-    if (!dateStr) return '-';
-    try {
-        return new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-        return String(dateStr);
-    }
-}
 
 // ─── Mini KPI Card ───
 
@@ -164,7 +132,7 @@ function MiniKpi({ icon: Icon, label, value, color }: {
                 <Icon className="h-4 w-4" />
             </div>
             <div>
-                <div className="text-lg font-bold">{typeof value === 'number' ? value.toLocaleString('tr-TR') : value}</div>
+                <div className="text-lg font-bold">{typeof value === 'number' ? value.toLocaleString() : value}</div>
                 <p className="text-[11px] text-muted-foreground">{label}</p>
             </div>
         </div>
@@ -179,10 +147,47 @@ interface TenantDetailDialogProps {
 }
 
 export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDialogProps) {
+    const t = useTranslations('tenantDetail');
+    const ta = useTranslations('adminAnalytics');
     const authFetch = useAuthFetch();
     const [data, setData] = useState<TenantDetail | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Build label maps from translations
+    const PLAN_LABELS: Record<string, string> = useMemo(() => ({
+        starter: ta('starter'),
+        professional: ta('professional'),
+        enterprise: ta('enterprise'),
+    }), [ta]);
+
+    const STATUS_LABELS: Record<string, string> = useMemo(() => ({
+        active: ta('active'),
+        on_trial: ta('trial'),
+        trialing: ta('trial'),
+        cancelled: ta('cancelled'),
+        expired: ta('expired'),
+        past_due: ta('pastDue'),
+        none: ta('noSubscription'),
+        unknown: ta('unknown'),
+    }), [ta]);
+
+    const ROLE_LABELS: Record<string, string> = useMemo(() => ({
+        owner: t('owner'),
+        admin: t('admin'),
+        agent: t('agent'),
+        viewer: t('viewer'),
+    }), [t]);
+
+    // Format date helper
+    const formatDate = useCallback((dateStr: string | null | undefined) => {
+        if (!dateStr) return '-';
+        try {
+            return new Date(dateStr).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch {
+            return String(dateStr);
+        }
+    }, []);
 
     const fetchDetail = useCallback(async (id: string) => {
         try {
@@ -190,15 +195,15 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
             setError(null);
             setData(null);
             const res = await authFetch(`/api/admin/tenant-analytics/${id}`);
-            if (!res.ok) throw new Error('Tenant detayı yüklenemedi');
+            if (!res.ok) throw new Error(t('loadError'));
             const json: TenantDetail = await res.json();
             setData(json);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+            setError(err instanceof Error ? err.message : ta('unknownError'));
         } finally {
             setLoading(false);
         }
-    }, [authFetch]);
+    }, [authFetch, t, ta]);
 
     useEffect(() => {
         if (tenantId) {
@@ -229,7 +234,7 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                         {data?.tenant.companyName || tenantId}
                     </DialogTitle>
                     <DialogDescription>
-                        {data ? `${data.tenant.sector} • ${data.tenant.id}` : 'Yükleniyor...'}
+                        {data ? `${data.tenant.sector} • ${data.tenant.id}` : t('loading')}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -254,34 +259,34 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                 {data && (
                     <Tabs defaultValue="overview" className="mt-2">
                         <TabsList className="grid w-full grid-cols-3">
-                            <TabsTrigger value="overview">Genel Bakış</TabsTrigger>
-                            <TabsTrigger value="members">Üyeler ({data.members.length})</TabsTrigger>
-                            <TabsTrigger value="subscription">Abonelik</TabsTrigger>
+                            <TabsTrigger value="overview">{t('overview')}</TabsTrigger>
+                            <TabsTrigger value="members">{t('membersTab')} ({data.members.length})</TabsTrigger>
+                            <TabsTrigger value="subscription">{t('subscription')}</TabsTrigger>
                         </TabsList>
 
                         {/* ─── Overview Tab ─── */}
                         <TabsContent value="overview" className="space-y-4">
                             {/* Usage KPIs */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <MiniKpi icon={Phone} label="Toplam Çağrı" value={data.entityCounts.calls} color="bg-purple-500/10 text-purple-600" />
-                                <MiniKpi icon={CalendarDays} label="Randevu" value={data.entityCounts.appointments} color="bg-blue-500/10 text-blue-600" />
-                                <MiniKpi icon={MessageSquare} label="Şikayet" value={data.entityCounts.complaints} color="bg-orange-500/10 text-orange-600" />
-                                <MiniKpi icon={UserCheck} label="Müşteri" value={data.entityCounts.customers} color="bg-emerald-500/10 text-emerald-600" />
+                                <MiniKpi icon={Phone} label={t('totalCalls')} value={data.entityCounts.calls} color="bg-purple-500/10 text-purple-600" />
+                                <MiniKpi icon={CalendarDays} label={t('appointments')} value={data.entityCounts.appointments} color="bg-blue-500/10 text-blue-600" />
+                                <MiniKpi icon={MessageSquare} label={t('complaints')} value={data.entityCounts.complaints} color="bg-orange-500/10 text-orange-600" />
+                                <MiniKpi icon={UserCheck} label={t('customers')} value={data.entityCounts.customers} color="bg-emerald-500/10 text-emerald-600" />
                             </div>
 
                             {/* Current Usage Summary */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                <MiniKpi icon={Phone} label="Bu Ay Çağrı" value={data.currentUsage.totalCalls || 0} color="bg-purple-500/10 text-purple-600" />
-                                <MiniKpi icon={Clock} label="Bu Ay Dakika" value={data.currentUsage.totalMinutes || 0} color="bg-orange-500/10 text-orange-600" />
-                                <MiniKpi icon={DollarSign} label="Altyapı Maliyeti" value={`$${data.currentUsage.costBreakdown.infraCost.toFixed(2)}`} color="bg-red-500/10 text-red-600" />
-                                <MiniKpi icon={DollarSign} label="Toplam Gelir" value={`$${data.currentUsage.costBreakdown.total.toFixed(2)}`} color="bg-green-500/10 text-green-600" />
+                                <MiniKpi icon={Phone} label={t('callsThisMonth')} value={data.currentUsage.totalCalls || 0} color="bg-purple-500/10 text-purple-600" />
+                                <MiniKpi icon={Clock} label={t('minutesThisMonth')} value={data.currentUsage.totalMinutes || 0} color="bg-orange-500/10 text-orange-600" />
+                                <MiniKpi icon={DollarSign} label={t('infraCost')} value={`$${data.currentUsage.costBreakdown.infraCost.toFixed(2)}`} color="bg-red-500/10 text-red-600" />
+                                <MiniKpi icon={DollarSign} label={t('totalRevenue')} value={`$${data.currentUsage.costBreakdown.total.toFixed(2)}`} color="bg-green-500/10 text-green-600" />
                             </div>
 
                             {/* Usage History Chart */}
                             {chartData.length > 0 && (
                                 <Card>
                                     <CardHeader className="pb-2">
-                                        <CardTitle className="text-sm font-medium">Aylık Kullanım Geçmişi</CardTitle>
+                                        <CardTitle className="text-sm font-medium">{t('monthlyUsageHistory')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <ResponsiveContainer width="100%" height={220}>
@@ -293,8 +298,8 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                                                     contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }}
                                                     labelStyle={{ fontWeight: 600 }}
                                                 />
-                                                <Bar dataKey="calls" name="Çağrı" fill="hsl(270, 70%, 55%)" radius={[4, 4, 0, 0]} />
-                                                <Bar dataKey="minutes" name="Dakika" fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />
+                                                <Bar dataKey="calls" name={ta('calls')} fill="hsl(270, 70%, 55%)" radius={[4, 4, 0, 0]} />
+                                                <Bar dataKey="minutes" name={ta('minutes')} fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </CardContent>
@@ -304,32 +309,32 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                             {/* Cost Breakdown */}
                             <Card>
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium">Maliyet Detayı (Bu Ay)</CardTitle>
+                                    <CardTitle className="text-sm font-medium">{t('costDetail')}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="grid grid-cols-2 gap-3 text-sm">
                                         <div className="flex justify-between p-2 rounded border">
-                                            <span className="text-muted-foreground">Plan Ücreti</span>
+                                            <span className="text-muted-foreground">{t('planFee')}</span>
                                             <span className="font-medium">${data.currentUsage.costBreakdown.baseCost}</span>
                                         </div>
                                         <div className="flex justify-between p-2 rounded border">
-                                            <span className="text-muted-foreground">Ses Maliyeti</span>
+                                            <span className="text-muted-foreground">{t('voiceCost')}</span>
                                             <span className="font-medium">${data.currentUsage.costBreakdown.voiceCost}</span>
                                         </div>
                                         <div className="flex justify-between p-2 rounded border">
-                                            <span className="text-muted-foreground">TTS Maliyeti</span>
+                                            <span className="text-muted-foreground">{t('ttsCost')}</span>
                                             <span className="font-medium">${data.currentUsage.costBreakdown.ttsCost}</span>
                                         </div>
                                         <div className="flex justify-between p-2 rounded border">
-                                            <span className="text-muted-foreground">LLM Maliyeti</span>
+                                            <span className="text-muted-foreground">{t('llmCost')}</span>
                                             <span className="font-medium">${data.currentUsage.costBreakdown.llmCost}</span>
                                         </div>
                                         <div className="flex justify-between p-2 rounded border">
-                                            <span className="text-muted-foreground">Aşım Ücreti</span>
+                                            <span className="text-muted-foreground">{t('overageFee')}</span>
                                             <span className="font-medium">${data.currentUsage.costBreakdown.overageCost}</span>
                                         </div>
                                         <div className="flex justify-between p-2 rounded border bg-muted/50">
-                                            <span className="font-medium">Marjin</span>
+                                            <span className="font-medium">{t('margin')}</span>
                                             <span className={`font-bold ${data.currentUsage.costBreakdown.margin >= 0 ? 'text-emerald-600' : 'text-destructive'}`}>
                                                 ${data.currentUsage.costBreakdown.margin.toFixed(2)}
                                             </span>
@@ -337,7 +342,7 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                                     </div>
                                     {data.currentUsage.costBreakdown.avgCostPerCall > 0 && (
                                         <p className="text-xs text-muted-foreground mt-3">
-                                            Ortalama çağrı başı maliyet: <span className="font-medium">${data.currentUsage.costBreakdown.avgCostPerCall.toFixed(3)}</span>
+                                            {t('avgCostPerCall')}: <span className="font-medium">${data.currentUsage.costBreakdown.avgCostPerCall.toFixed(3)}</span>
                                         </p>
                                     )}
                                 </CardContent>
@@ -349,16 +354,16 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                             {data.members.length === 0 ? (
                                 <div className="py-12 text-center text-sm text-muted-foreground">
                                     <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                                    Henüz üye bulunmuyor
+                                    {t('noMembersYet')}
                                 </div>
                             ) : (
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>E-posta</TableHead>
-                                            <TableHead>Ad</TableHead>
-                                            <TableHead>Rol</TableHead>
-                                            <TableHead>Katılma Tarihi</TableHead>
+                                            <TableHead>{t('email')}</TableHead>
+                                            <TableHead>{t('name')}</TableHead>
+                                            <TableHead>{t('role')}</TableHead>
+                                            <TableHead>{t('joinDate')}</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -388,32 +393,32 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                             {!data.subscription ? (
                                 <div className="py-12 text-center text-sm text-muted-foreground">
                                     <CreditCard className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                                    Abonelik bilgisi bulunamadı
+                                    {t('noSubscriptionInfo')}
                                 </div>
                             ) : (
                                 <>
                                     {/* Plan Info */}
                                     <Card>
                                         <CardHeader className="pb-2">
-                                            <CardTitle className="text-sm font-medium">Plan Bilgisi</CardTitle>
+                                            <CardTitle className="text-sm font-medium">{t('planInfo')}</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Plan</span>
+                                                <span className="text-sm text-muted-foreground">{ta('plan')}</span>
                                                 <Badge variant="default">
                                                     {PLAN_LABELS[data.subscription.planId] || data.subscription.planName}
                                                 </Badge>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Durum</span>
+                                                <span className="text-sm text-muted-foreground">{ta('status')}</span>
                                                 <Badge variant={STATUS_COLORS[data.subscription.status] || 'secondary'}>
                                                     {STATUS_LABELS[data.subscription.status] || data.subscription.status}
                                                 </Badge>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Faturalama</span>
+                                                <span className="text-sm text-muted-foreground">{t('billingInterval')}</span>
                                                 <span className="text-sm font-medium">
-                                                    {data.subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'}
+                                                    {data.subscription.billingInterval === 'yearly' ? t('yearly') : t('monthly')}
                                                 </span>
                                             </div>
                                         </CardContent>
@@ -422,19 +427,19 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                                     {/* Billing Period */}
                                     <Card>
                                         <CardHeader className="pb-2">
-                                            <CardTitle className="text-sm font-medium">Faturalama Dönemi</CardTitle>
+                                            <CardTitle className="text-sm font-medium">{t('billingPeriod')}</CardTitle>
                                         </CardHeader>
                                         <CardContent className="space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Dönem Başlangıcı</span>
+                                                <span className="text-sm text-muted-foreground">{t('periodStart')}</span>
                                                 <span className="text-sm">{formatDate(data.subscription.currentPeriodStart)}</span>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Dönem Bitişi</span>
+                                                <span className="text-sm text-muted-foreground">{t('periodEnd')}</span>
                                                 <span className="text-sm">{formatDate(data.subscription.currentPeriodEnd)}</span>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <span className="text-sm text-muted-foreground">Yenilenme Tarihi</span>
+                                                <span className="text-sm text-muted-foreground">{t('renewalDate')}</span>
                                                 <span className="text-sm">{formatDate(data.subscription.renewsAt)}</span>
                                             </div>
                                         </CardContent>
@@ -444,13 +449,13 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                                     {data.subscription.cardLastFour && (
                                         <Card>
                                             <CardHeader className="pb-2">
-                                                <CardTitle className="text-sm font-medium">Ödeme Yöntemi</CardTitle>
+                                                <CardTitle className="text-sm font-medium">{t('paymentMethod')}</CardTitle>
                                             </CardHeader>
                                             <CardContent>
                                                 <div className="flex items-center gap-3">
                                                     <CreditCard className="h-5 w-5 text-muted-foreground" />
                                                     <span className="text-sm font-medium">
-                                                        {data.subscription.cardBrand || 'Kart'} •••• {data.subscription.cardLastFour}
+                                                        {data.subscription.cardBrand || t('card')} •••• {data.subscription.cardLastFour}
                                                     </span>
                                                 </div>
                                             </CardContent>
@@ -462,41 +467,41 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                             {/* Tenant Business Info */}
                             <Card>
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium">İşletme Bilgileri</CardTitle>
+                                    <CardTitle className="text-sm font-medium">{t('businessInfo')}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     <div className="flex items-center gap-2 text-sm">
                                         <Building2 className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Sektör:</span>
+                                        <span className="text-muted-foreground">{t('sector')}:</span>
                                         <span>{data.tenant.sector}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
                                         <Globe className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Dil:</span>
+                                        <span className="text-muted-foreground">{t('language')}:</span>
                                         <span>{data.tenant.language}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
                                         <Clock className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Çalışma Saatleri:</span>
+                                        <span className="text-muted-foreground">{t('workingHours')}:</span>
                                         <span>{data.tenant.business.workingHours} ({data.tenant.business.workingDays})</span>
                                     </div>
                                     {data.tenant.business.email && (
                                         <div className="flex items-center gap-2 text-sm">
                                             <Mail className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">E-posta:</span>
+                                            <span className="text-muted-foreground">{t('email')}:</span>
                                             <span>{data.tenant.business.email}</span>
                                         </div>
                                     )}
                                     {data.tenant.business.phone && (
                                         <div className="flex items-center gap-2 text-sm">
                                             <Phone className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-muted-foreground">Telefon:</span>
+                                            <span className="text-muted-foreground">{t('phone')}:</span>
                                             <span>{data.tenant.business.phone}</span>
                                         </div>
                                     )}
                                     <div className="flex items-center gap-2 text-sm">
                                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                                        <span className="text-muted-foreground">Kayıt Tarihi:</span>
+                                        <span className="text-muted-foreground">{ta('registrationDate')}:</span>
                                         <span>{formatDate(data.tenant.createdAt)}</span>
                                     </div>
                                 </CardContent>
@@ -505,21 +510,21 @@ export default function TenantDetailDialog({ tenantId, onClose }: TenantDetailDi
                             {/* Quotas */}
                             <Card>
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium">Kotalar</CardTitle>
+                                    <CardTitle className="text-sm font-medium">{t('quotas')}</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="grid grid-cols-3 gap-3 text-sm">
                                         <div className="text-center p-2 rounded border">
                                             <div className="text-lg font-bold">{data.tenant.quotas.dailyMinutes}</div>
-                                            <p className="text-[11px] text-muted-foreground">Günlük dk</p>
+                                            <p className="text-[11px] text-muted-foreground">{t('dailyMinutes')}</p>
                                         </div>
                                         <div className="text-center p-2 rounded border">
-                                            <div className="text-lg font-bold">{data.tenant.quotas.monthlyCalls.toLocaleString('tr-TR')}</div>
-                                            <p className="text-[11px] text-muted-foreground">Aylık çağrı</p>
+                                            <div className="text-lg font-bold">{data.tenant.quotas.monthlyCalls.toLocaleString()}</div>
+                                            <p className="text-[11px] text-muted-foreground">{t('monthlyCalls')}</p>
                                         </div>
                                         <div className="text-center p-2 rounded border">
                                             <div className="text-lg font-bold">{data.tenant.quotas.maxConcurrentSessions}</div>
-                                            <p className="text-[11px] text-muted-foreground">Eş zamanlı</p>
+                                            <p className="text-[11px] text-muted-foreground">{t('concurrent')}</p>
                                         </div>
                                     </div>
                                 </CardContent>

@@ -21,9 +21,10 @@ describe('Error Pages', () => {
 
             render(<ErrorPage error={mockError} reset={mockReset} />);
 
-            expect(screen.getByText('Bir Hata Oluştu')).toBeDefined();
-            expect(screen.getByText('Tekrar Dene')).toBeDefined();
-            expect(screen.getByText('Ana Sayfa')).toBeDefined();
+            // Default locale is 'en' when no NEXT_LOCALE cookie is set
+            expect(screen.getByText('An Error Occurred')).toBeDefined();
+            expect(screen.getByText('Try Again')).toBeDefined();
+            expect(screen.getByText('Home')).toBeDefined();
         });
 
         it('should call reset when retry button is clicked', async () => {
@@ -34,7 +35,7 @@ describe('Error Pages', () => {
 
             render(<ErrorPage error={mockError} reset={mockReset} />);
 
-            await userEvent.click(screen.getByText('Tekrar Dene'));
+            await userEvent.click(screen.getByText('Try Again'));
             expect(mockReset).toHaveBeenCalledOnce();
         });
 
@@ -48,7 +49,7 @@ describe('Error Pages', () => {
 
             // In test env (NODE_ENV=test), it may not show dev details
             // But the component should render without errors
-            expect(screen.getByText('Bir Hata Oluştu')).toBeDefined();
+            expect(screen.getByText('An Error Occurred')).toBeDefined();
         });
     });
 
@@ -59,8 +60,9 @@ describe('Error Pages', () => {
             render(<NotFoundPage />);
 
             expect(screen.getByText('404')).toBeDefined();
-            expect(screen.getByText('Sayfa Bulunamadı')).toBeDefined();
-            expect(screen.getByText('Ana Sayfa')).toBeDefined();
+            // Default locale is 'en'
+            expect(screen.getByText('Page Not Found')).toBeDefined();
+            expect(screen.getByText('Home')).toBeDefined();
         });
 
         it('should have a link to home page', async () => {
@@ -68,7 +70,7 @@ describe('Error Pages', () => {
 
             render(<NotFoundPage />);
 
-            const homeLink = screen.getByText('Ana Sayfa').closest('a');
+            const homeLink = screen.getByText('Home').closest('a');
             expect(homeLink).toBeDefined();
             expect(homeLink?.getAttribute('href')).toBe('/');
         });

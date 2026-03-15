@@ -292,7 +292,7 @@ describe('Error Handling Improvements', () => {
     it('EmailVerificationBanner shows error state', () => {
         const content = fs.readFileSync('components/layout/EmailVerificationBanner.tsx', 'utf-8');
         expect(content).toContain('setError(true)');
-        expect(content).toContain('Gönderilemedi');
+        expect(content).toContain("t('sendFailed')");
     });
 
     it('Login page wraps localStorage.getItem in try-catch', () => {

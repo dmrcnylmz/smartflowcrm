@@ -5,10 +5,28 @@
  *
  * Unlike app/error.tsx, this component must render its own <html>/<body>
  * because the root layout itself may have failed.
+ *
+ * Cannot use next-intl or any React context. Translations are fully inline
+ * and the locale is read from the NEXT_LOCALE cookie via document.cookie.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
+
+const ERROR_TRANSLATIONS = {
+    tr: { title: 'Kritik Hata', desc: 'Uygulama başlatılırken beklenmeyen bir hata oluştu. Lütfen sayfayı yenileyin veya sorun devam ederse yöneticinize başvurun.', errorCode: 'Hata kodu', retry: 'Tekrar Dene', home: 'Ana Sayfa' },
+    en: { title: 'Critical Error', desc: 'An unexpected error occurred while starting the application. Please refresh the page or contact your administrator if the problem persists.', errorCode: 'Error code', retry: 'Try Again', home: 'Home' },
+    de: { title: 'Kritischer Fehler', desc: 'Beim Starten der Anwendung ist ein unerwarteter Fehler aufgetreten. Bitte aktualisieren Sie die Seite oder kontaktieren Sie Ihren Administrator.', errorCode: 'Fehlercode', retry: 'Erneut versuchen', home: 'Startseite' },
+    fr: { title: 'Erreur Critique', desc: "Une erreur inattendue s'est produite lors du démarrage. Veuillez rafraîchir la page ou contacter votre administrateur.", errorCode: "Code d'erreur", retry: 'Réessayer', home: "Page d'accueil" },
+};
+
+function getLocale(): string {
+    if (typeof document !== 'undefined') {
+        const match = document.cookie.match(/NEXT_LOCALE=(\w+)/);
+        if (match && match[1] in ERROR_TRANSLATIONS) return match[1];
+    }
+    return 'en';
+}
 
 export default function GlobalError({
     error,
@@ -17,13 +35,21 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const [locale, setLocale] = useState('en');
+
+    useEffect(() => {
+        setLocale(getLocale());
+    }, []);
+
     useEffect(() => {
         console.error('Global error:', error);
         Sentry.captureException(error);
     }, [error]);
 
+    const t = ERROR_TRANSLATIONS[locale as keyof typeof ERROR_TRANSLATIONS];
+
     return (
-        <html lang="tr">
+        <html lang={locale}>
             <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
                 <div style={{
                     display: 'flex',
@@ -60,16 +86,15 @@ export default function GlobalError({
                         </div>
 
                         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111', marginBottom: '0.5rem' }}>
-                            Kritik Hata
+                            {t.title}
                         </h1>
                         <p style={{ color: '#666', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                            Uygulama başlatılırken beklenmeyen bir hata oluştu.
-                            Lütfen sayfayı yenileyin veya sorun devam ederse yöneticinize başvurun.
+                            {t.desc}
                         </p>
 
                         {error.digest && (
                             <p style={{ color: '#999', fontSize: '0.75rem', marginBottom: '1.5rem' }}>
-                                Hata kodu: {error.digest}
+                                {t.errorCode}: {error.digest}
                             </p>
                         )}
 
@@ -87,7 +112,7 @@ export default function GlobalError({
                                     cursor: 'pointer',
                                 }}
                             >
-                                Tekrar Dene
+                                {t.retry}
                             </button>
                             <a
                                 href="/"
@@ -104,7 +129,7 @@ export default function GlobalError({
                                     alignItems: 'center',
                                 }}
                             >
-                                Ana Sayfa
+                                {t.home}
                             </a>
                         </div>
                     </div>

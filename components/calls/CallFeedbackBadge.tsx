@@ -16,6 +16,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Star, Loader2, MessageSquare } from 'lucide-react';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useToast } from '@/components/ui/toast';
@@ -42,6 +43,8 @@ export function CallFeedbackBadge({
     feedbackType = null,
     compact = false,
 }: CallFeedbackBadgeProps) {
+    const t = useTranslations('feedback');
+    const tc = useTranslations('common');
     const [rating, setRating] = useState(initialRating);
     const [hoveredStar, setHoveredStar] = useState(0);
     const [isEditing, setIsEditing] = useState(false);
@@ -74,16 +77,16 @@ export function CallFeedbackBadge({
                 setType('manual');
                 setIsEditing(false);
                 setComment('');
-                toast({ variant: 'success', description: 'Değerlendirme kaydedildi' });
+                toast({ variant: 'success', description: t('saved') });
             } else {
-                toast({ variant: 'error', description: 'Değerlendirme kaydedilemedi' });
+                toast({ variant: 'error', description: t('saveFailed') });
             }
         } catch {
-            toast({ variant: 'error', description: 'Bağlantı hatası' });
+            toast({ variant: 'error', description: t('connectionError') });
         } finally {
             setSaving(false);
         }
-    }, [callId, comment, compact, isEditing, authFetch, toast]);
+    }, [callId, comment, compact, isEditing, authFetch, toast, t]);
 
     const handleSubmitWithComment = useCallback(async () => {
         if (rating === 0) return;
@@ -96,7 +99,7 @@ export function CallFeedbackBadge({
             <button
                 onClick={() => setIsEditing(true)}
                 className="inline-flex items-center gap-0.5 group"
-                title="Değerlendir"
+                title={t('rate')}
             >
                 {[1, 2, 3, 4, 5].map((star) => (
                     <Star
@@ -109,7 +112,7 @@ export function CallFeedbackBadge({
                     />
                 ))}
                 {type === 'auto' && rating > 0 && (
-                    <span className="text-[10px] text-slate-500 ml-1">oto</span>
+                    <span className="text-[10px] text-slate-500 ml-1">{t('auto')}</span>
                 )}
             </button>
         );
@@ -145,7 +148,7 @@ export function CallFeedbackBadge({
 
                 {type && rating > 0 && !saving && (
                     <span className="text-[10px] text-slate-500 ml-1">
-                        {type === 'auto' ? 'otomatik' : 'manuel'}
+                        {type === 'auto' ? t('auto') : t('manual')}
                     </span>
                 )}
 
@@ -153,7 +156,7 @@ export function CallFeedbackBadge({
                     <button
                         onClick={() => setIsEditing(true)}
                         className="ml-1 p-1 text-slate-500 hover:text-slate-300 transition-colors"
-                        title="Yorum ekle"
+                        title={t('addComment')}
                     >
                         <MessageSquare className="w-3 h-3" />
                     </button>
@@ -167,7 +170,7 @@ export function CallFeedbackBadge({
                         type="text"
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
-                        placeholder="Yorum ekle (opsiyonel)..."
+                        placeholder={t('addCommentOptional')}
                         className="flex-1 text-xs bg-slate-800 border border-slate-700 rounded-md px-2 py-1.5 text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSubmitWithComment();
@@ -179,13 +182,13 @@ export function CallFeedbackBadge({
                         disabled={saving || rating === 0}
                         className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 transition-colors"
                     >
-                        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Kaydet'}
+                        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : tc('save')}
                     </button>
                     <button
                         onClick={() => { setIsEditing(false); setComment(''); }}
                         className="text-xs px-2 py-1.5 text-slate-400 hover:text-slate-200 transition-colors"
                     >
-                        İptal
+                        {tc('cancel')}
                     </button>
                 </div>
             )}

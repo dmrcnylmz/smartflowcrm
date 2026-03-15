@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -90,6 +91,7 @@ export default function AdminPage() {
     const { user } = useAuth();
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('admin');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -138,7 +140,7 @@ export default function AdminPage() {
                 }));
             }
         } catch (err) {
-            setError('Ayarlar şu anda yüklenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.');
+            setError(t('settingsLoadError'));
         } finally {
             setLoading(false);
         }
@@ -194,18 +196,18 @@ export default function AdminPage() {
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || 'Kayıt başarısız');
+                throw new Error(err.error || t('saveFailed'));
             }
 
             toast({
-                title: 'Kaydedildi',
-                description: 'Ayarlar başarıyla güncellendi',
+                title: t('saved'),
+                description: t('settingsUpdated'),
                 variant: 'success',
             });
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: 'Ayarlar kaydedilemedi. Lütfen tekrar deneyin.',
+                title: t('error'),
+                description: t('settingsSaveError'),
                 variant: 'error',
             });
         } finally {
@@ -269,14 +271,14 @@ export default function AdminPage() {
                             <AlertTriangle className="h-6 w-6 text-amber-500" />
                         </div>
                         <div className="space-y-1">
-                            <h3 className="text-lg font-semibold text-foreground">Ayarlar Yüklenemedi</h3>
+                            <h3 className="text-lg font-semibold text-foreground">{t('settingsLoadFailed')}</h3>
                             <p className="text-sm text-muted-foreground max-w-md">
-                                Yönetim paneli ayarları şu anda görüntülenemiyor. Lütfen sayfayı yenileyip tekrar deneyin.
+                                {t('settingsLoadFailedDesc')}
                             </p>
                         </div>
                         <Button onClick={() => { setLoading(true); fetchSettings(); }} className="gap-2 mt-2">
                             <RefreshCw className="h-4 w-4" />
-                            Tekrar Dene
+                            {t('tryAgain')}
                         </Button>
                     </CardContent>
                 </Card>
@@ -286,13 +288,13 @@ export default function AdminPage() {
 
     // ─── Tab Config ───
     const tabs = [
-        { id: 'company' as const, label: 'Şirket Bilgileri', icon: Building2 },
-        { id: 'assistant' as const, label: 'AI Asistan', icon: Bot },
-        { id: 'features' as const, label: 'Özellikler', icon: Zap },
-        { id: 'phone' as const, label: 'Telefon', icon: Phone },
-        { id: 'users' as const, label: 'Kullanıcılar', icon: Users },
-        { id: 'system' as const, label: 'Sistem Durumu', icon: Activity },
-        { id: 'theme' as const, label: 'Görünüm', icon: Palette },
+        { id: 'company' as const, label: t('companyInfo'), icon: Building2 },
+        { id: 'assistant' as const, label: t('aiAssistant'), icon: Bot },
+        { id: 'features' as const, label: t('features'), icon: Zap },
+        { id: 'phone' as const, label: t('phone'), icon: Phone },
+        { id: 'users' as const, label: t('users'), icon: Users },
+        { id: 'system' as const, label: t('systemStatus'), icon: Activity },
+        { id: 'theme' as const, label: t('appearance'), icon: Palette },
     ];
 
     return (
@@ -302,10 +304,10 @@ export default function AdminPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
                         <Shield className="h-8 w-8 text-primary" />
-                        Yönetim Paneli
+                        {t('adminPanel')}
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Şirket ayarları, AI asistan yapılandırması ve sistem durumu
+                        {t('adminPanelDesc')}
                     </p>
                 </div>
                 {activeTab !== 'system' && activeTab !== 'theme' && (
@@ -315,7 +317,7 @@ export default function AdminPage() {
                         className="gap-2"
                     >
                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                        Kaydet
+                        {t('save')}
                     </Button>
                 )}
             </div>
@@ -344,16 +346,16 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Building2 className="h-5 w-5 text-blue-500" />
-                                Şirket Bilgileri
+                                {t('companyInfo')}
                             </CardTitle>
                             <CardDescription>
-                                İşletmenizin temel bilgilerini girin. Bu bilgiler AI asistan tarafından kullanılır.
+                                {t('companyInfoDesc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label htmlFor="companyName">Şirket Adı</Label>
+                                    <Label htmlFor="companyName">{t('companyName')}</Label>
                                     <Input
                                         id="companyName"
                                         value={settings.companyName}
@@ -363,7 +365,7 @@ export default function AdminPage() {
                                     />
                                 </div>
                                 <div>
-                                    <Label htmlFor="companyEmail">E-posta</Label>
+                                    <Label htmlFor="companyEmail">{t('email')}</Label>
                                     <div className="relative mt-1">
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
@@ -377,7 +379,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="companyPhone">Telefon</Label>
+                                    <Label htmlFor="companyPhone">{t('phone')}</Label>
                                     <div className="relative mt-1">
                                         <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
@@ -390,7 +392,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="companyWebsite">Web Sitesi</Label>
+                                    <Label htmlFor="companyWebsite">{t('website')}</Label>
                                     <div className="relative mt-1">
                                         <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
@@ -407,7 +409,7 @@ export default function AdminPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <Label htmlFor="language">Dil</Label>
+                                    <Label htmlFor="language">{t('language')}</Label>
                                     <div className="relative mt-1">
                                         <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                         <select
@@ -426,7 +428,7 @@ export default function AdminPage() {
                                     </div>
                                 </div>
                                 <div>
-                                    <Label htmlFor="timezone">Saat Dilimi</Label>
+                                    <Label htmlFor="timezone">{t('timezone')}</Label>
                                     <div className="relative mt-1">
                                         <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                         <select
@@ -456,15 +458,15 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Bot className="h-5 w-5 text-purple-500" />
-                                AI Asistan Yapılandırması
+                                {t('aiAssistantConfig')}
                             </CardTitle>
                             <CardDescription>
-                                Sesli asistanınızın davranışını ve kişiliğini özelleştirin.
+                                {t('aiAssistantConfigDesc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <Label htmlFor="agentName">Asistan Adı</Label>
+                                <Label htmlFor="agentName">{t('assistantName')}</Label>
                                 <Input
                                     id="agentName"
                                     value={settings.agentName}
@@ -473,12 +475,12 @@ export default function AdminPage() {
                                     className="mt-1"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Asistanınızın kendini tanıtırken kullandığı isim
+                                    {t('assistantNameDesc')}
                                 </p>
                             </div>
 
                             <div>
-                                <Label htmlFor="agentGreeting">Karşılama Mesajı</Label>
+                                <Label htmlFor="agentGreeting">{t('greetingMessage')}</Label>
                                 <Textarea
                                     id="agentGreeting"
                                     value={settings.agentGreeting}
@@ -488,12 +490,12 @@ export default function AdminPage() {
                                     className="mt-1"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    Gelen çağrılarda ilk söylenen mesaj
+                                    {t('greetingMessageDesc')}
                                 </p>
                             </div>
 
                             <div>
-                                <Label htmlFor="agentPersonality">Asistan Kişiliği</Label>
+                                <Label htmlFor="agentPersonality">{t('assistantPersonality')}</Label>
                                 <Textarea
                                     id="agentPersonality"
                                     value={settings.agentPersonality}
@@ -503,12 +505,12 @@ export default function AdminPage() {
                                     className="mt-1"
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
-                                    AI modelinin sistem prompt&apos;unda kullanılan kişilik tanımı
+                                    {t('assistantPersonalityDesc')}
                                 </p>
                             </div>
 
                             <div>
-                                <Label htmlFor="agentFallback">Anlamadığında Mesaj</Label>
+                                <Label htmlFor="agentFallback">{t('fallbackMessage')}</Label>
                                 <Input
                                     id="agentFallback"
                                     value={settings.agentFallbackMessage}
@@ -529,18 +531,18 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Zap className="h-5 w-5 text-amber-500" />
-                                Özellik Ayarları
+                                {t('featureSettings')}
                             </CardTitle>
                             <CardDescription>
-                                Hangi özelliklerin aktif olacağını yapılandırın.
+                                {t('featureSettingsDesc')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-1">
                             {/* AI Assistant */}
                             <FeatureToggle
                                 icon={Bot}
-                                title="AI Asistan"
-                                description="Gelen çağrılarda AI asistanı aktif edin. Enterprise planda GPU ile çalışır."
+                                title={t('aiAssistant')}
+                                description={t('aiAssistantToggleDesc')}
                                 enabled={settings.assistantEnabled}
                                 onChange={(v) => handleAssistantToggle(v)}
                                 color="text-emerald-500"
@@ -549,8 +551,8 @@ export default function AdminPage() {
                             {/* Call Recording */}
                             <FeatureToggle
                                 icon={Mic}
-                                title="Çağrı Kaydı"
-                                description="Gelen çağrıları otomatik kaydedin. Kayıtlar Twilio üzerinden saklanır."
+                                title={t('callRecording')}
+                                description={t('callRecordingDesc')}
                                 enabled={settings.callRecording}
                                 onChange={(v) => updateSetting('callRecording', v)}
                                 color="text-red-500"
@@ -559,8 +561,8 @@ export default function AdminPage() {
                             {/* Email Notifications */}
                             <FeatureToggle
                                 icon={Bell}
-                                title="E-posta Bildirimleri"
-                                description="Cevapsız çağrı, yeni şikayet ve randevu hatırlatmaları için e-posta gönderin."
+                                title={t('emailNotifications')}
+                                description={t('emailNotificationsDesc')}
                                 enabled={settings.emailNotifications}
                                 onChange={(v) => updateSetting('emailNotifications', v)}
                                 color="text-blue-500"
@@ -569,8 +571,8 @@ export default function AdminPage() {
                             {/* Auto Appointments */}
                             <FeatureToggle
                                 icon={FileText}
-                                title="Otomatik Randevu"
-                                description="AI asistan müşteri taleplerini algılayarak otomatik randevu oluştursun."
+                                title={t('autoAppointments')}
+                                description={t('autoAppointmentsDesc')}
                                 enabled={settings.autoAppointments}
                                 onChange={(v) => updateSetting('autoAppointments', v)}
                                 color="text-emerald-500"
@@ -602,7 +604,7 @@ export default function AdminPage() {
                                     </div>
                                     <div>
                                         <p className="text-2xl font-bold text-foreground">{membersLoading ? '—' : members.length}</p>
-                                        <p className="text-xs text-muted-foreground">Toplam Kullanıcı</p>
+                                        <p className="text-xs text-muted-foreground">{t('totalUsers')}</p>
                                     </div>
                                 </div>
                             </CardContent>
@@ -655,13 +657,13 @@ export default function AdminPage() {
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
                                         <Users className="h-5 w-5 text-blue-500" />
-                                        Kayıtlı Kullanıcılar
+                                        {t('registeredUsers')}
                                     </CardTitle>
-                                    <CardDescription>Bu tenant&apos;a atanmış tüm kullanıcılar</CardDescription>
+                                    <CardDescription>{t('registeredUsersDesc')}</CardDescription>
                                 </div>
                                 <Button variant="outline" size="sm" onClick={fetchMembers} className="gap-2">
                                     <RefreshCw className={`h-3.5 w-3.5 ${membersLoading ? 'animate-spin' : ''}`} />
-                                    Yenile
+                                    {t('refresh')}
                                 </Button>
                             </div>
                         </CardHeader>
@@ -675,7 +677,7 @@ export default function AdminPage() {
                             ) : members.length === 0 ? (
                                 <div className="text-center py-12 text-muted-foreground">
                                     <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                                    <p className="text-sm">Henüz kullanıcı yok</p>
+                                    <p className="text-sm">{t('noUsersYet')}</p>
                                 </div>
                             ) : (
                                 <div className="divide-y">
@@ -694,7 +696,7 @@ export default function AdminPage() {
                                                     )}
                                                     {member.assignedAt && (
                                                         <p className="text-xs text-muted-foreground">
-                                                            {new Date(member.assignedAt).toLocaleDateString('tr-TR')} tarihinde eklendi
+                                                            {t('addedOn', { date: new Date(member.assignedAt).toLocaleDateString() })}
                                                         </p>
                                                     )}
                                                 </div>
@@ -719,22 +721,22 @@ export default function AdminPage() {
                                 <div>
                                     <CardTitle className="flex items-center gap-2">
                                         <Activity className="h-5 w-5 text-emerald-500" />
-                                        Sistem Durumu
+                                        {t('systemStatus')}
                                     </CardTitle>
-                                    <CardDescription>Bağlı servisler ve sağlık kontrolü</CardDescription>
+                                    <CardDescription>{t('integrationsDesc')}</CardDescription>
                                 </div>
                                 <Button variant="outline" size="sm" onClick={fetchSettings} className="gap-2">
                                     <RefreshCw className="h-3.5 w-3.5" />
-                                    Yenile
+                                    {t('refresh')}
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
                                 <ServiceStatus
-                                    name="API Sunucusu"
+                                    name={t('apiServer')}
                                     status={healthData ? 'ok' : 'error'}
-                                    detail={healthData ? 'Çalışıyor' : 'Bağlantı hatası'}
+                                    detail={healthData ? t('running') : t('connectionError')}
                                 />
                                 <ServiceStatus
                                     name="Firebase / Firestore"
@@ -745,29 +747,29 @@ export default function AdminPage() {
                                     }
                                     detail={
                                         (healthData as Record<string, Record<string, Record<string, string>>>)?.services?.firestore?.status === 'ok'
-                                            ? 'Bağlı'
-                                            : healthData ? 'Kontrol edilemedi' : 'Bağlantı hatası'
+                                            ? t('connected')
+                                            : healthData ? t('checkFailed') : t('connectionError')
                                     }
                                 />
                                 <ServiceStatus
                                     name="OpenAI API"
                                     status={settings.openaiConfigured ? 'ok' : 'warning'}
-                                    detail={settings.openaiConfigured ? 'Aktif' : 'Yapılandırılmamış'}
+                                    detail={settings.openaiConfigured ? t('active') : t('notConfigured')}
                                 />
                                 <ServiceStatus
                                     name="Twilio Telefon"
                                     status={settings.twilioConfigured ? 'ok' : 'warning'}
-                                    detail={settings.twilioConfigured ? 'Bağlı' : 'Yapılandırılmamış'}
+                                    detail={settings.twilioConfigured ? t('connected') : t('notConfigured')}
                                 />
                                 <ServiceStatus
                                     name="Deepgram (STT)"
                                     status={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? 'ok' : 'warning'}
-                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
+                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.deepgram === 'configured' ? t('configured') : t('notConfigured')}
                                 />
                                 <ServiceStatus
                                     name="Resend (E-posta)"
                                     status={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'ok' : 'warning'}
-                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? 'Yapılandırılmış' : 'Yapılandırılmamış'}
+                                    detail={(healthData as Record<string, Record<string, string>>)?.config?.resend === 'configured' ? t('configured') : t('notConfigured')}
                                 />
                             </div>
                         </CardContent>
@@ -778,21 +780,21 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <Key className="h-5 w-5 text-amber-500" />
-                                Hesap Bilgileri
+                                {t('accountInfo')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <div className="flex items-center justify-between py-2">
-                                <span className="text-sm text-muted-foreground">Kullanıcı</span>
-                                <span className="text-sm font-medium">{user?.email || 'Bilinmiyor'}</span>
+                                <span className="text-sm text-muted-foreground">{t('user')}</span>
+                                <span className="text-sm font-medium">{user?.email || t('unknown')}</span>
                             </div>
                             <div className="flex items-center justify-between py-2">
-                                <span className="text-sm text-muted-foreground">Plan</span>
-                                <Badge>{settings.subscriptionPlan === 'free_trial' ? 'Ücretsiz Deneme' : settings.subscriptionPlan}</Badge>
+                                <span className="text-sm text-muted-foreground">{t('plan')}</span>
+                                <Badge>{settings.subscriptionPlan === 'free_trial' ? t('freeTrial') : settings.subscriptionPlan}</Badge>
                             </div>
                             <div className="flex items-center justify-between py-2">
-                                <span className="text-sm text-muted-foreground">Durum</span>
-                                <Badge variant="success">Aktif</Badge>
+                                <span className="text-sm text-muted-foreground">{t('status')}</span>
+                                <Badge variant="success">{t('active')}</Badge>
                             </div>
                         </CardContent>
                     </Card>

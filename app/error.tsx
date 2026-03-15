@@ -1,6 +1,21 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { getErrorLocale, ERROR_TRANSLATIONS, type ErrorLocale } from '@/lib/utils/error-boundary-translations';
+
+const PAGE_TITLES: Record<ErrorLocale, string> = {
+    tr: 'Bir Hata Oluştu',
+    en: 'An Error Occurred',
+    de: 'Ein Fehler ist aufgetreten',
+    fr: "Une erreur s'est produite",
+};
+
+const PAGE_DESCS: Record<ErrorLocale, string> = {
+    tr: 'Beklenmeyen bir hata meydana geldi. Lütfen tekrar deneyin veya sorun devam ederse yöneticinize başvurun.',
+    en: 'An unexpected error occurred. Please try again or contact your administrator if the problem persists.',
+    de: 'Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut oder kontaktieren Sie Ihren Administrator.',
+    fr: "Une erreur inattendue s'est produite. Veuillez réessayer ou contacter votre administrateur.",
+};
 
 export default function Error({
     error,
@@ -9,9 +24,17 @@ export default function Error({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const [locale, setLocale] = useState<ErrorLocale>('en');
+
+    useEffect(() => {
+        setLocale(getErrorLocale());
+    }, []);
+
     useEffect(() => {
         console.error('Application error:', error);
     }, [error]);
+
+    const t = ERROR_TRANSLATIONS[locale];
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -34,11 +57,10 @@ export default function Error({
                 </div>
 
                 <h1 className="mb-2 text-2xl font-bold text-foreground">
-                    Bir Hata Oluştu
+                    {PAGE_TITLES[locale]}
                 </h1>
                 <p className="mb-6 text-muted-foreground">
-                    Beklenmeyen bir hata meydana geldi. Lütfen tekrar deneyin veya sorun
-                    devam ederse yöneticinize başvurun.
+                    {PAGE_DESCS[locale]}
                 </p>
 
                 {process.env.NODE_ENV === 'development' && error.message && (
@@ -52,13 +74,13 @@ export default function Error({
                         onClick={reset}
                         className="inline-flex items-center justify-center rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                        Tekrar Dene
+                        {t.retry}
                     </button>
                     <a
                         href="/"
                         className="inline-flex items-center justify-center rounded-md border border-input bg-background px-6 py-2.5 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
-                        Ana Sayfa
+                        {t.home}
                     </a>
                 </div>
             </div>

@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -70,6 +71,7 @@ function TabLoader() {
 // ─── System Metrics Tab ───
 
 function SystemMetrics() {
+    const t = useTranslations('superAdmin');
     const authFetch = useAuthFetch();
     const [stats, setStats] = useState<SystemStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -80,11 +82,11 @@ function SystemMetrics() {
             setLoading(true);
             setError(null);
             const res = await authFetch('/api/admin/stats');
-            if (!res.ok) throw new Error('Sistem metrikleri yüklenemedi');
+            if (!res.ok) throw new Error(t('loadError'));
             const data = await res.json();
             setStats(data);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+            setError(err instanceof Error ? err.message : t('unknownError'));
         } finally {
             setLoading(false);
         }
@@ -103,7 +105,7 @@ function SystemMetrics() {
                     <AlertCircle className="h-10 w-10 mx-auto text-destructive/50 mb-3" />
                     <p className="text-sm text-destructive">{error}</p>
                     <Button variant="outline" size="sm" className="mt-4" onClick={fetchStats}>
-                        Tekrar Dene
+                        {t('tryAgain')}
                     </Button>
                 </CardContent>
             </Card>
@@ -116,10 +118,10 @@ function SystemMetrics() {
         <div className="space-y-6">
             {/* Header with refresh */}
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Sistem Genel Bakış</h3>
+                <h3 className="text-lg font-semibold">{t('systemOverview')}</h3>
                 <Button variant="outline" size="sm" onClick={fetchStats}>
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Yenile
+                    {t('refresh')}
                 </Button>
             </div>
 
@@ -133,7 +135,7 @@ function SystemMetrics() {
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{stats.tenants.total}</div>
-                                <p className="text-xs text-muted-foreground">Toplam Tenant</p>
+                                <p className="text-xs text-muted-foreground">{t('totalTenants')}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -147,7 +149,7 @@ function SystemMetrics() {
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{stats.phoneNumbers.total}</div>
-                                <p className="text-xs text-muted-foreground">Aktif Numara</p>
+                                <p className="text-xs text-muted-foreground">{t('activeNumbers')}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -161,7 +163,7 @@ function SystemMetrics() {
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{stats.pool.available}</div>
-                                <p className="text-xs text-muted-foreground">Havuz (Müsait)</p>
+                                <p className="text-xs text-muted-foreground">{t('poolAvailable')}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -175,7 +177,7 @@ function SystemMetrics() {
                             </div>
                             <div>
                                 <div className="text-2xl font-bold">{stats.porting.activeRequests}</div>
-                                <p className="text-xs text-muted-foreground">Aktif Porting</p>
+                                <p className="text-xs text-muted-foreground">{t('activePorting')}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -185,9 +187,9 @@ function SystemMetrics() {
             {/* Phone Number Breakdown */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Numara Dağılımı (Provider)</CardTitle>
+                    <CardTitle className="text-base">{t('numberDistribution')}</CardTitle>
                     <CardDescription>
-                        Aktif telefon numaralarının sağlayıcıya göre dağılımı
+                        {t('numberDistributionDesc')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -195,7 +197,7 @@ function SystemMetrics() {
                         <div className="flex items-center justify-between p-3 rounded-lg border">
                             <div>
                                 <p className="text-sm font-medium">SIP Trunk</p>
-                                <p className="text-xs text-muted-foreground">Netgsm / Bulutfon</p>
+                                <p className="text-xs text-muted-foreground">{t('localProviders')}</p>
                             </div>
                             <div className="text-right">
                                 <div className="text-lg font-bold">{stats.phoneNumbers.sipTrunk}</div>
@@ -206,7 +208,7 @@ function SystemMetrics() {
                         <div className="flex items-center justify-between p-3 rounded-lg border">
                             <div>
                                 <p className="text-sm font-medium">Twilio Native</p>
-                                <p className="text-xs text-muted-foreground">Uluslararası</p>
+                                <p className="text-xs text-muted-foreground">{t('international')}</p>
                             </div>
                             <div className="text-right">
                                 <div className="text-lg font-bold">{stats.phoneNumbers.twilioNative}</div>
@@ -217,11 +219,11 @@ function SystemMetrics() {
                         <div className="flex items-center justify-between p-3 rounded-lg border">
                             <div>
                                 <p className="text-sm font-medium">Legacy</p>
-                                <p className="text-xs text-muted-foreground">Eski sistem</p>
+                                <p className="text-xs text-muted-foreground">{t('legacySystem')}</p>
                             </div>
                             <div className="text-right">
                                 <div className="text-lg font-bold">{stats.phoneNumbers.legacy}</div>
-                                <Badge variant="outline" className="text-[10px]">migrasyon bekliyor</Badge>
+                                <Badge variant="outline" className="text-[10px]">{t('pendingMigration')}</Badge>
                             </div>
                         </div>
                     </div>
@@ -231,9 +233,9 @@ function SystemMetrics() {
             {/* Pool Breakdown */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Numara Havuzu Durumu</CardTitle>
+                    <CardTitle className="text-base">{t('numberPoolStatus')}</CardTitle>
                     <CardDescription>
-                        SIP numara havuzunun durumu ve operatör dağılımı
+                        {t('numberPoolStatusDesc')}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -241,16 +243,16 @@ function SystemMetrics() {
                     <div className="mb-4">
                         <div className="flex items-center gap-4 mb-2">
                             <span className="text-sm">
-                                <span className="font-semibold">{stats.pool.total}</span> toplam
+                                <span className="font-semibold">{stats.pool.total}</span> {t('total')}
                             </span>
                             <span className="text-sm text-emerald-600">
-                                <span className="font-semibold">{stats.pool.available}</span> müsait
+                                <span className="font-semibold">{stats.pool.available}</span> {t('available')}
                             </span>
                             <span className="text-sm text-blue-600">
-                                <span className="font-semibold">{stats.pool.assigned}</span> atanmış
+                                <span className="font-semibold">{stats.pool.assigned}</span> {t('assigned')}
                             </span>
                             <span className="text-sm text-orange-600">
-                                <span className="font-semibold">{stats.pool.reserved}</span> rezerve
+                                <span className="font-semibold">{stats.pool.reserved}</span> {t('reserved')}
                             </span>
                         </div>
 
@@ -298,28 +300,29 @@ function SystemMetrics() {
 // ─── Main Page ───
 
 export default function SuperAdminPage() {
+    const t = useTranslations('superAdmin');
     return (
         <Tabs defaultValue="metrics" className="space-y-6">
             <TabsList className="grid w-full grid-cols-5 max-w-3xl">
                 <TabsTrigger value="metrics" className="gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Metrikler</span>
+                    <span className="hidden sm:inline">{t('metrics')}</span>
                 </TabsTrigger>
                 <TabsTrigger value="analytics" className="gap-2">
                     <Building2 className="h-4 w-4" />
-                    <span className="hidden sm:inline">Tenant Analitik</span>
+                    <span className="hidden sm:inline">{t('tenantAnalytics')}</span>
                 </TabsTrigger>
                 <TabsTrigger value="pool" className="gap-2">
                     <Database className="h-4 w-4" />
-                    <span className="hidden sm:inline">Numara Havuzu</span>
+                    <span className="hidden sm:inline">{t('numberPool')}</span>
                 </TabsTrigger>
                 <TabsTrigger value="porting" className="gap-2">
                     <ArrowRightLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Porting</span>
+                    <span className="hidden sm:inline">{t('porting')}</span>
                 </TabsTrigger>
                 <TabsTrigger value="platform" className="gap-2">
                     <Globe className="h-4 w-4" />
-                    <span className="hidden sm:inline">Platform Analitik</span>
+                    <span className="hidden sm:inline">{t('platformAnalytics')}</span>
                 </TabsTrigger>
             </TabsList>
 

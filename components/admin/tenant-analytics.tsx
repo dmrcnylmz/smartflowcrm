@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -71,29 +72,12 @@ interface AnalyticsResponse {
 type SortField = 'companyName' | 'planId' | 'subscriptionStatus' | 'memberCount' | 'totalCalls' | 'totalMinutes' | 'estimatedCostUsd' | 'createdAt';
 type SortDir = 'asc' | 'desc';
 
-// ─── Plan/Status Label Helpers ───
-
-const PLAN_LABELS: Record<string, string> = {
-    starter: 'Başlangıç',
-    professional: 'Profesyonel',
-    enterprise: 'Kurumsal',
-};
+// ─── Color Helpers (no labels — labels come from translations) ───
 
 const PLAN_COLORS: Record<string, 'secondary' | 'default' | 'destructive'> = {
     starter: 'secondary',
     professional: 'default',
     enterprise: 'destructive',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-    active: 'Aktif',
-    on_trial: 'Deneme',
-    trialing: 'Deneme',
-    cancelled: 'İptal',
-    expired: 'Süresi Dolmuş',
-    past_due: 'Ödeme Gecikmiş',
-    none: 'Abonelik Yok',
-    unknown: 'Bilinmiyor',
 };
 
 const STATUS_COLORS: Record<string, 'success' | 'default' | 'destructive' | 'secondary' | 'outline'> = {
@@ -126,7 +110,7 @@ function KpiCard({ icon: Icon, label, value, color, prefix, suffix }: {
                     </div>
                     <div>
                         <div className="text-2xl font-bold">
-                            {prefix}{typeof value === 'number' ? value.toLocaleString('tr-TR') : value}{suffix}
+                            {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
                         </div>
                         <p className="text-xs text-muted-foreground">{label}</p>
                     </div>
@@ -182,10 +166,29 @@ function AnalyticsSkeleton() {
 // ─── Main Component ───
 
 export default function TenantAnalytics() {
+    const t = useTranslations('adminAnalytics');
     const authFetch = useAuthFetch();
     const [data, setData] = useState<AnalyticsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Build label maps from translations
+    const PLAN_LABELS: Record<string, string> = useMemo(() => ({
+        starter: t('starter'),
+        professional: t('professional'),
+        enterprise: t('enterprise'),
+    }), [t]);
+
+    const STATUS_LABELS: Record<string, string> = useMemo(() => ({
+        active: t('active'),
+        on_trial: t('trial'),
+        trialing: t('trial'),
+        cancelled: t('cancelled'),
+        expired: t('expired'),
+        past_due: t('pastDue'),
+        none: t('noSubscription'),
+        unknown: t('unknown'),
+    }), [t]);
 
     // Filters
     const [search, setSearch] = useState('');
@@ -204,15 +207,15 @@ export default function TenantAnalytics() {
             setLoading(true);
             setError(null);
             const res = await authFetch('/api/admin/tenant-analytics');
-            if (!res.ok) throw new Error('Tenant analitikleri yüklenemedi');
+            if (!res.ok) throw new Error(t('loadError'));
             const json: AnalyticsResponse = await res.json();
             setData(json);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+            setError(err instanceof Error ? err.message : t('unknownError'));
         } finally {
             setLoading(false);
         }
-    }, [authFetch]);
+    }, [authFetch, t]);
 
     useEffect(() => {
         fetchData();
@@ -311,7 +314,7 @@ export default function TenantAnalytics() {
     const formatDate = (dateStr: string) => {
         if (!dateStr) return '-';
         try {
-            return new Date(dateStr).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return new Date(dateStr).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
         } catch {
             return dateStr;
         }
@@ -326,7 +329,7 @@ export default function TenantAnalytics() {
                     <AlertCircle className="h-10 w-10 mx-auto text-destructive/50 mb-3" />
                     <p className="text-sm text-destructive">{error}</p>
                     <Button variant="outline" size="sm" className="mt-4" onClick={fetchData}>
-                        Tekrar Dene
+                        {t('refresh')}
                     </Button>
                 </CardContent>
             </Card>
@@ -341,21 +344,21 @@ export default function TenantAnalytics() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Tenant Analitik</h3>
+                <h3 className="text-lg font-semibold">{t('tenantAnalytics')}</h3>
                 <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                    Yenile
+                    {t('refresh')}
                 </Button>
             </div>
 
             {/* Platform KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <KpiCard icon={Building2} label="Toplam Tenant" value={platform.totalTenants} color="bg-blue-500/10 text-blue-600" />
-                <KpiCard icon={CheckCircle} label="Aktif Tenant" value={platform.activeTenants} color="bg-emerald-500/10 text-emerald-600" />
-                <KpiCard icon={Phone} label="Bu Ay Çağrı" value={platform.totalCallsThisMonth} color="bg-purple-500/10 text-purple-600" />
-                <KpiCard icon={Clock} label="Bu Ay Dakika" value={platform.totalMinutesThisMonth} color="bg-orange-500/10 text-orange-600" />
-                <KpiCard icon={DollarSign} label="Aylık Gelir (MRR)" value={platform.mrr} color="bg-green-500/10 text-green-600" prefix="$" />
-                <KpiCard icon={TrendingUp} label="Platform Marjın" value={platform.platformMargin} color="bg-cyan-500/10 text-cyan-600" prefix="$" />
+                <KpiCard icon={Building2} label={t('totalTenants')} value={platform.totalTenants} color="bg-blue-500/10 text-blue-600" />
+                <KpiCard icon={CheckCircle} label={t('activeTenants')} value={platform.activeTenants} color="bg-emerald-500/10 text-emerald-600" />
+                <KpiCard icon={Phone} label={t('callsThisMonth')} value={platform.totalCallsThisMonth} color="bg-purple-500/10 text-purple-600" />
+                <KpiCard icon={Clock} label={t('minutesThisMonth')} value={platform.totalMinutesThisMonth} color="bg-orange-500/10 text-orange-600" />
+                <KpiCard icon={DollarSign} label={t('monthlyRevenue')} value={platform.mrr} color="bg-green-500/10 text-green-600" prefix="$" />
+                <KpiCard icon={TrendingUp} label={t('platformMargin')} value={platform.platformMargin} color="bg-cyan-500/10 text-cyan-600" prefix="$" />
             </div>
 
             {/* Filters */}
@@ -363,7 +366,7 @@ export default function TenantAnalytics() {
                 <div className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Firma adı, ID veya sektör ara..."
+                        placeholder={t('searchPlaceholder')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-9"
@@ -372,26 +375,26 @@ export default function TenantAnalytics() {
 
                 <Select value={planFilter} onValueChange={setPlanFilter}>
                     <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Plan" />
+                        <SelectValue placeholder={t('plan')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Tüm Planlar</SelectItem>
-                        <SelectItem value="starter">Başlangıç</SelectItem>
-                        <SelectItem value="professional">Profesyonel</SelectItem>
-                        <SelectItem value="enterprise">Kurumsal</SelectItem>
+                        <SelectItem value="all">{t('allPlans')}</SelectItem>
+                        <SelectItem value="starter">{t('starter')}</SelectItem>
+                        <SelectItem value="professional">{t('professional')}</SelectItem>
+                        <SelectItem value="enterprise">{t('enterprise')}</SelectItem>
                     </SelectContent>
                 </Select>
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[160px]">
-                        <SelectValue placeholder="Durum" />
+                        <SelectValue placeholder={t('status')} />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Tüm Durumlar</SelectItem>
-                        <SelectItem value="active">Aktif</SelectItem>
-                        <SelectItem value="inactive">Pasif</SelectItem>
-                        <SelectItem value="on_trial">Deneme</SelectItem>
-                        <SelectItem value="cancelled">İptal</SelectItem>
+                        <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                        <SelectItem value="active">{t('active')}</SelectItem>
+                        <SelectItem value="inactive">{t('inactive')}</SelectItem>
+                        <SelectItem value="on_trial">{t('trial')}</SelectItem>
+                        <SelectItem value="cancelled">{t('cancelled')}</SelectItem>
                     </SelectContent>
                 </Select>
 
@@ -402,14 +405,14 @@ export default function TenantAnalytics() {
                         className="h-10"
                         onClick={() => { setSearch(''); setPlanFilter('all'); setStatusFilter('all'); }}
                     >
-                        Temizle
+                        {t('clear')}
                     </Button>
                 )}
             </div>
 
             {/* Result count */}
             <p className="text-sm text-muted-foreground">
-                {filteredTenants.length} / {data.tenants.length} tenant gösteriliyor
+                {t('showingTenants', { count: filteredTenants.length, total: data.tenants.length })}
             </p>
 
             {/* Tenant Table */}
@@ -417,14 +420,14 @@ export default function TenantAnalytics() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <SortableHeader label="Firma" field="companyName" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Plan" field="planId" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Durum" field="subscriptionStatus" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Üye" field="memberCount" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Çağrı" field="totalCalls" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Dakika" field="totalMinutes" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Maliyet ($)" field="estimatedCostUsd" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
-                            <SortableHeader label="Kayıt Tarihi" field="createdAt" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('company')} field="companyName" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('plan')} field="planId" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('status')} field="subscriptionStatus" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('members')} field="memberCount" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('calls')} field="totalCalls" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('minutes')} field="totalMinutes" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('costUsd')} field="estimatedCostUsd" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                            <SortableHeader label={t('registrationDate')} field="createdAt" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -432,8 +435,8 @@ export default function TenantAnalytics() {
                             <TableRow>
                                 <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
                                     {search || planFilter !== 'all' || statusFilter !== 'all'
-                                        ? 'Filtrelere uygun tenant bulunamadı'
-                                        : 'Henüz tenant bulunmuyor'}
+                                        ? t('noTenantsFiltered')
+                                        : t('noTenantsYet')}
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -460,8 +463,8 @@ export default function TenantAnalytics() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-center">{tenant.memberCount}</TableCell>
-                                    <TableCell className="text-right">{tenant.usage.totalCalls.toLocaleString('tr-TR')}</TableCell>
-                                    <TableCell className="text-right">{tenant.usage.totalMinutes.toLocaleString('tr-TR')}</TableCell>
+                                    <TableCell className="text-right">{tenant.usage.totalCalls.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right">{tenant.usage.totalMinutes.toLocaleString()}</TableCell>
                                     <TableCell className="text-right font-mono text-sm">${tenant.usage.estimatedCostUsd.toFixed(2)}</TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(tenant.createdAt)}</TableCell>
                                 </TableRow>

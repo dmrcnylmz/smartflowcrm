@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Mail, RefreshCw, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/lib/firebase/auth-context';
 
@@ -12,6 +13,7 @@ import { useAuth } from '@/lib/firebase/auth-context';
  */
 export function EmailVerificationBanner() {
     const { user, isEmailVerified, resendVerificationEmail } = useAuth();
+    const t = useTranslations('emailVerification');
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
     const [error, setError] = useState(false);
@@ -46,8 +48,8 @@ export function EmailVerificationBanner() {
                 <div className="flex items-center gap-2 min-w-0">
                     <Mail className="h-4 w-4 text-amber-500 flex-shrink-0" />
                     <p className="text-xs text-amber-200 truncate">
-                        <span className="font-medium">E-posta adresinizi doğrulayın.</span>{' '}
-                        <span className="text-amber-200/60">{user.email} adresine bir doğrulama bağlantısı gönderdik.</span>
+                        <span className="font-medium">{t('verifyEmail')}</span>{' '}
+                        <span className="text-amber-200/60">{t('verificationSent', { email: user.email || '' })}</span>
                     </p>
                 </div>
                 <button
@@ -58,17 +60,17 @@ export function EmailVerificationBanner() {
                     {sent ? (
                         <>
                             <CheckCircle className="h-3 w-3" />
-                            Gönderildi
+                            {t('sent')}
                         </>
                     ) : error ? (
                         <>
                             <RefreshCw className="h-3 w-3" />
-                            Gönderilemedi — Tekrar Dene
+                            {t('sendFailed')}
                         </>
                     ) : (
                         <>
                             <RefreshCw className={`h-3 w-3 ${sending ? 'animate-spin' : ''}`} />
-                            Tekrar Gönder
+                            {t('resend')}
                         </>
                     )}
                 </button>
