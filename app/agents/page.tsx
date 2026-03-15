@@ -1078,7 +1078,7 @@ export default function AgentsPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {VOICE_STYLES.map(s => (
-                                                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                                        <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>
                                                     ))}
                                                 </SelectContent>
                                             </Select>

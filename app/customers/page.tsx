@@ -812,7 +812,7 @@ function CustomersPageContent() {
                           <div className="bg-red-50/50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 shadow-sm rounded-xl p-4">
                             <div className="flex justify-between items-start mb-2">
                               <div>
-                                <p className="font-semibold text-sm text-red-900 dark:text-red-300">{t('complaintLabel', { category: complaint.category })}</p>
+                                <p className="font-semibold text-sm text-red-900 dark:text-red-300">{t('complaintLabel', { category: complaint.category || '' })}</p>
                                 <p className="text-xs text-muted-foreground mt-0.5">{format(toDate(complaint.createdAt) ?? new Date(), 'dd MMMM yyyy HH:mm', { locale: dateLocale })}</p>
                               </div>
                               <Badge variant={complaint.status === 'resolved' ? 'outline' : 'destructive'} className="shadow-none">

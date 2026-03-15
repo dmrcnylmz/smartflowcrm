@@ -795,7 +795,7 @@ function BillingPageContent() {
                                                 </p>
                                                 {displayPrice.savingPercent && displayPrice.savingPercent > 0 && (
                                                     <p className="text-[11px] text-emerald-400 font-semibold">
-                                                        {t('savingPercent', { percent: displayPrice.savingPercent, saving: displayPrice.monthlySaving?.toLocaleString(dateLocaleStr) })}
+                                                        {t('savingPercent', { percent: displayPrice.savingPercent, saving: (displayPrice.monthlySaving ?? 0).toLocaleString(dateLocaleStr) })}
                                                     </p>
                                                 )}
                                             </div>
