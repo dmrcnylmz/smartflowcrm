@@ -507,7 +507,7 @@ function StepTemplateSelection({
             {TEMPLATE_DEFS.map((template, idx) => {
                 const Icon = template.icon;
                 const isSelected = data.template === template.id;
-                const sectorKey = template.id as keyof typeof SECTOR_KEYS;
+                const sectorKey = template.id;
                 return (
                     <button
                         key={template.id}
