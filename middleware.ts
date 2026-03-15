@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken, extractBearerToken } from '@/lib/auth/token-verify';
-import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit } from '@/lib/utils/rate-limiter';
+import { checkGeneralLimit, checkSensitiveLimit, checkTenantLimit, checkAuthLimit, checkTenantCreationLimit } from '@/lib/utils/rate-limiter';
 
 // --- Locale Detection ---
 const SUPPORTED_LOCALES = ['tr', 'en', 'de', 'fr'] as const;
@@ -115,6 +115,9 @@ const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy'];
 // Sensitive endpoints get stricter limits
 const SENSITIVE_PREFIXES = ['/api/voice/connect', '/api/voice/session'];
 
+// Auth-sensitive endpoints — extra strict rate limiting (5 req/min)
+const AUTH_RATE_LIMITED_PATHS = ['/api/tenants'];
+
 // --- Helpers ---
 
 function getClientIp(req: NextRequest): string {
@@ -173,11 +176,39 @@ export async function middleware(req: NextRequest) {
 
         // Rate limiting for all API routes (Upstash Redis with in-memory fallback)
         const ip = getClientIp(req);
+
+        // Extra-strict rate limiting for auth-sensitive endpoints (tenant creation, etc.)
+        const isAuthPath = AUTH_RATE_LIMITED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+        if (isAuthPath && req.method === 'POST') {
+            const authRateResult = await checkTenantCreationLimit(ip);
+            if (!authRateResult.success) {
+                const retryAfter = Math.ceil((authRateResult.reset - Date.now()) / 1000);
+                return NextResponse.json(
+                    {
+                        error: 'Rate limit exceeded',
+                        message: 'Too many signup attempts. Please try again later.',
+                        retryAfter,
+                    },
+                    {
+                        status: 429,
+                        headers: {
+                            'x-request-id': requestId,
+                            'Retry-After': retryAfter.toString(),
+                            'X-RateLimit-Limit': '3',
+                            'X-RateLimit-Remaining': '0',
+                        },
+                    },
+                );
+            }
+        }
+
         const isSensitive = isSensitivePath(pathname);
         const rateResult = await (isSensitive
             ? checkSensitiveLimit(ip)
-            : checkGeneralLimit(ip));
-        const maxReqs = isSensitive ? 10 : 100;
+            : isAuthPath
+                ? checkAuthLimit(ip)
+                : checkGeneralLimit(ip));
+        const maxReqs = isSensitive ? 10 : isAuthPath ? 5 : 100;
         const { success: allowed, remaining, reset: resetTime } = rateResult;
 
         if (!allowed) {

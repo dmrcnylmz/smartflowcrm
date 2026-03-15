@@ -63,6 +63,14 @@ const DEFAULT_GREETINGS: Record<VoiceLang, string> = {
     fr: 'Bonjour, comment puis-je vous aider ?',
 };
 
+/** KVKK/GDPR recording consent messages — played before greeting when recording is enabled */
+const RECORDING_CONSENT_MESSAGES: Record<VoiceLang, string> = {
+    tr: 'Bu görüşme kalite ve eğitim amaçlı kaydedilmektedir. Devam ederek kaydı onaylamış olursunuz.',
+    en: 'This call may be recorded for quality and training purposes. By continuing, you consent to the recording.',
+    de: 'Dieses Gespräch kann zu Qualitäts- und Schulungszwecken aufgezeichnet werden. Durch Fortsetzung stimmen Sie der Aufzeichnung zu.',
+    fr: 'Cet appel peut être enregistré à des fins de qualité et de formation. En continuant, vous consentez à l\'enregistrement.',
+};
+
 /** Disabled assistant messages per language */
 const DISABLED_MESSAGES: Record<VoiceLang, string> = {
     tr: 'Şu anda asistanımız aktif değildir. Lütfen daha sonra tekrar arayınız. İyi günler.',
@@ -292,6 +300,10 @@ export async function POST(request: NextRequest) {
         // Check if recording is enabled for this tenant
         const recordCall = tenantData?.settings?.callRecording === true;
 
+        // KVKK/GDPR: Prepend recording consent message before greeting when recording is enabled
+        const consentPrefix = recordCall ? RECORDING_CONSENT_MESSAGES[resolvedLang] + ' ' : '';
+        const fullGreeting = consentPrefix + greeting;
+
         // Pre-generate Cartesia greeting audio + Firestore write in PARALLEL
         const cartesiaLang = resolvedLang; // Already resolved to 'tr'|'en'|'de'|'fr'
         const agentVoiceId = undefined; // no voiceId binding at phone level yet
@@ -299,7 +311,7 @@ export async function POST(request: NextRequest) {
         const [cartesiaResult] = await Promise.all([
             // Pre-generate greeting audio (Twilio will serve from cache instantly)
             isCartesiaConfigured()
-                ? synthesizeCartesiaTTS(greeting, cartesiaLang, agentVoiceId).catch(() => null)
+                ? synthesizeCartesiaTTS(fullGreeting, cartesiaLang, agentVoiceId).catch(() => null)
                 : Promise.resolve(null),
 
             // Record the call in Firestore (parallel — don't block TwiML)
@@ -347,10 +359,10 @@ export async function POST(request: NextRequest) {
             greetingAudioUrl = `${baseUrl}/api/voice/tts/phone?id=${audioId}`;
         }
 
-        // Generate TwiML: Play/Say greeting, then gather speech (optionally record)
+        // Generate TwiML: Play/Say greeting (with consent prefix if recording), then gather speech
         const twiml = generateGatherTwiML({
             gatherUrl,
-            message: greeting,
+            message: fullGreeting,
             language,
             statusCallbackUrl: statusUrl,
             recordCall,

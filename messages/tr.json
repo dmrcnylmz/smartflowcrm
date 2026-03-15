@@ -16,7 +16,13 @@
         "yes": "Evet",
         "no": "Hayır",
         "noData": "Veri bulunamadı",
-        "required": "Bu alan zorunludur"
+        "required": "Bu alan zorunludur",
+        "retry": "Tekrar Dene",
+        "refresh": "Yenile",
+        "noResults": "Sonuç bulunamadı",
+        "searching": "Aranıyor...",
+        "skipToContent": "Ana içeriğe geç",
+        "closeSidebar": "Menüyü kapat"
     },
     "auth": {
         "login": "Giriş Yap",
@@ -48,17 +54,34 @@
         "expandSidebar": "Sidebar genişlet",
         "collapseSidebar": "Sidebar daralt",
         "openMenu": "Menüyü aç",
+        "closeMenu": "Menüyü kapat",
         "mobileNav": "Mobil navigasyon menüsü",
         "user": "Kullanıcı"
     },
     "dashboard": {
-        "title": "Gösterge Paneli",
+        "title": "Genel Bakış",
         "totalCustomers": "Toplam Müşteri",
         "activeTickets": "Aktif Talepler",
         "avgResponseTime": "Ort. Yanıt Süresi",
         "ttsUsage": "TTS Kullanımı",
         "recentActivity": "Son Aktiviteler",
-        "callsToday": "Bugünkü Aramalar"
+        "callsToday": "Bugünkü Aramalar",
+        "subtitle": "Sistemin anlık durumu ve özet istatistikler.",
+        "todayCalls": "Bugünkü Çağrılar",
+        "missedCalls": "Kaçırılan Çağrılar",
+        "openComplaints": "Açık Şikayetler",
+        "upcomingAppointments": "Yaklaşan Randevular",
+        "monthlyCallCount": "Bu Ay Çağrı",
+        "recentActivityDesc": "Sistemdeki en son 10 işlem anlık olarak gösteriliyor.",
+        "noActivity": "Henüz aktivite bulunmuyor",
+        "activityLoadError": "Aktivite verileri şu anda görüntülenemiyor",
+        "demoMode": "Demo Modu",
+        "demoModeDesc": "Firebase bağlantısı kurulamadı. Demo veriler gösteriliyor.",
+        "callDataError": "Çağrı verileri yüklenemedi",
+        "complaintDataError": "Şikayet verileri yüklenemedi",
+        "appointmentDataError": "Randevu verileri yüklenemedi",
+        "autoRefresh": "Otomatik yenileme",
+        "off": "Kapalı"
     },
     "customers": {
         "title": "Müşteriler",
@@ -237,5 +260,13 @@
             "empathetic": "empatik",
             "cheerful": "güler yüzlü"
         }
+    },
+    "charts": {
+        "callTrend": "Son 7 Gün Çağrı Trendi",
+        "callTrendDesc": "Gelen, yanıtlanan ve kaçırılan çağrıların günlük değişimi.",
+        "complaintCategories": "Şikayet Kategorileri",
+        "complaintCategoriesDesc": "Aktif ve geçmiş şikayetlerin dağılımı",
+        "appointmentStatuses": "Randevu Durumları",
+        "appointmentStatusesDesc": "Son 7 gündeki randevuların işlem durumu"
     }
 }

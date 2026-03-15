@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { Loader2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface AuthGuardProps {
     children: React.ReactNode;
@@ -16,6 +17,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
+    const t = useTranslations('common');
 
     const isPublicPath = PUBLIC_PATHS.includes(pathname);
 
@@ -37,7 +39,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <div className="text-center">
                     <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                    <p className="mt-4 text-muted-foreground">Yükleniyor...</p>
+                    <p className="mt-4 text-muted-foreground">{t('loading')}</p>
                 </div>
             </div>
         );

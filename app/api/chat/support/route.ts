@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LLMStreaming, type ConversationTurn } from '@/lib/ai/llm-streaming';
 import { buildSupportPrompt } from '@/lib/ai/support-prompt';
-import { checkRateLimit } from '@/lib/utils/rate-limiter';
+import { checkSensitiveLimit } from '@/lib/utils/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -25,8 +25,6 @@ const MAX_MESSAGE_LENGTH = 500;
 const MAX_TURNS = 20;
 const SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_SESSIONS = 10_000;
-const RATE_LIMIT = { limit: 20, windowSeconds: 300, tier: 'support-chat' };
-
 // ─── In-Memory Session Store ────────────────────────────────────────────────
 
 interface Session {
@@ -86,7 +84,7 @@ export async function POST(request: NextRequest) {
     try {
         // Rate limit by IP
         const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-        const rateResult = await checkRateLimit(ip, RATE_LIMIT);
+        const rateResult = await checkSensitiveLimit(ip);
         if (!rateResult.success) {
             return NextResponse.json(
                 { error: 'Çok fazla istek gönderildi. Lütfen biraz bekleyin.' },

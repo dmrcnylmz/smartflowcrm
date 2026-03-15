@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { AuthProvider, useAuth } from '@/lib/firebase/auth-context';
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeProvider } from '@/lib/theme/ThemeProvider';
@@ -21,6 +22,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, loading, tenantId } = useAuth();
+    const t = useTranslations('common');
 
     const isPublicPage = PUBLIC_PAGES.some(
         (p) => pathname === p || pathname.startsWith(p + '/')
@@ -62,7 +64,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
         <>
             {/* Skip to content link for keyboard users */}
             <a href="#main-content" className="skip-to-content">
-                Ana içeriğe geç
+                {t('skipToContent')}
             </a>
 
             {isPublicPage ? (

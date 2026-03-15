@@ -19,8 +19,12 @@ const STORAGE_KEY = 'cookie_consent';
 
 export function getCookieConsent(): CookieConsentValue {
     if (typeof window === 'undefined') return null;
-    const val = localStorage.getItem(STORAGE_KEY);
-    if (val === 'all' || val === 'essential') return val;
+    try {
+        const val = localStorage.getItem(STORAGE_KEY);
+        if (val === 'all' || val === 'essential') return val;
+    } catch {
+        // Private browsing or localStorage disabled — treat as no consent
+    }
     return null;
 }
 
@@ -38,7 +42,11 @@ export function CookieConsent() {
     }, []);
 
     const handleAccept = (value: 'all' | 'essential') => {
-        localStorage.setItem(STORAGE_KEY, value);
+        try {
+            localStorage.setItem(STORAGE_KEY, value);
+        } catch {
+            // Private browsing or localStorage full — still hide the banner
+        }
         setVisible(false);
 
         // Consent event — Faz 2'de Google Analytics bunu dinleyecek

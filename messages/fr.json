@@ -16,7 +16,13 @@
         "yes": "Oui",
         "no": "Non",
         "noData": "Aucune donnée trouvée",
-        "required": "Ce champ est obligatoire"
+        "required": "Ce champ est obligatoire",
+        "retry": "Réessayer",
+        "refresh": "Actualiser",
+        "noResults": "Aucun résultat trouvé",
+        "searching": "Recherche en cours...",
+        "skipToContent": "Aller au contenu principal",
+        "closeSidebar": "Fermer la barre latérale"
     },
     "auth": {
         "login": "Se connecter",
@@ -48,17 +54,34 @@
         "expandSidebar": "Développer la barre latérale",
         "collapseSidebar": "Réduire la barre latérale",
         "openMenu": "Ouvrir le menu",
+        "closeMenu": "Fermer le menu",
         "mobileNav": "Menu de navigation mobile",
         "user": "Utilisateur"
     },
     "dashboard": {
-        "title": "Tableau de bord",
+        "title": "Vue d'ensemble",
         "totalCustomers": "Total clients",
         "activeTickets": "Tickets actifs",
         "avgResponseTime": "Temps de réponse moyen",
         "ttsUsage": "Utilisation TTS",
         "recentActivity": "Activité récente",
-        "callsToday": "Appels aujourd'hui"
+        "callsToday": "Appels aujourd'hui",
+        "subtitle": "État du système en temps réel et statistiques récapitulatives.",
+        "todayCalls": "Appels du jour",
+        "missedCalls": "Appels manqués",
+        "openComplaints": "Réclamations ouvertes",
+        "upcomingAppointments": "Rendez-vous à venir",
+        "monthlyCallCount": "Appels du mois",
+        "recentActivityDesc": "Les 10 derniers événements système sont affichés en temps réel.",
+        "noActivity": "Aucune activité",
+        "activityLoadError": "Les données d'activité sont actuellement indisponibles",
+        "demoMode": "Mode démo",
+        "demoModeDesc": "Impossible de se connecter à Firebase. Affichage des données de démonstration.",
+        "callDataError": "Échec du chargement des données d'appels",
+        "complaintDataError": "Échec du chargement des données de réclamations",
+        "appointmentDataError": "Échec du chargement des données de rendez-vous",
+        "autoRefresh": "Actualisation automatique",
+        "off": "Désactivé"
     },
     "customers": {
         "title": "Clients",
@@ -237,5 +260,13 @@
             "empathetic": "empathique",
             "cheerful": "jovial"
         }
+    },
+    "charts": {
+        "callTrend": "Tendance des appels — 7 derniers jours",
+        "callTrendDesc": "Évolution quotidienne des appels entrants, répondus et manqués.",
+        "complaintCategories": "Catégories de réclamations",
+        "complaintCategoriesDesc": "Répartition des réclamations actives et passées",
+        "appointmentStatuses": "Statuts des rendez-vous",
+        "appointmentStatusesDesc": "État des rendez-vous des 7 derniers jours"
     }
 }

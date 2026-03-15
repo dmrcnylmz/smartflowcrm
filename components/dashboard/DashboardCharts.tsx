@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTranslations } from 'next-intl';
 
 // --- Types ---
 
@@ -52,6 +53,7 @@ export default function DashboardCharts({
   appointmentStatusData,
   loading,
 }: DashboardChartsProps) {
+  const t = useTranslations('charts');
   return (
     <>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -59,8 +61,8 @@ export default function DashboardCharts({
         <div className="xl:col-span-2 animate-fade-in-up" style={{ animationDelay: '500ms' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl overflow-hidden h-full hover-lift">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xl">Son 7 Gün Çağrı Trendi</CardTitle>
-              <CardDescription>Gelen, yanıtlanan ve kaçırılan çağrıların günlük değişimi.</CardDescription>
+              <CardTitle className="text-xl">{t('callTrend')}</CardTitle>
+              <CardDescription>{t('callTrendDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
               {loading ? (
@@ -89,8 +91,8 @@ export default function DashboardCharts({
         <div className="xl:col-span-1 animate-fade-in-up" style={{ animationDelay: '620ms' }}>
           <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl h-full flex flex-col hover-lift">
             <CardHeader className="pb-2">
-              <CardTitle className="text-xl">Şikayet Kategorileri</CardTitle>
-              <CardDescription>Aktif ve geçmiş şikayetlerin dağılımı</CardDescription>
+              <CardTitle className="text-xl">{t('complaintCategories')}</CardTitle>
+              <CardDescription>{t('complaintCategoriesDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col justify-center pt-0">
               {loading ? (
@@ -127,8 +129,8 @@ export default function DashboardCharts({
       {/* Appointment Bar Chart */}
       <Card className="rounded-3xl border-white/10 shadow-lg bg-card/50 backdrop-blur-xl hover-lift animate-fade-in-up" style={{ animationDelay: '740ms' }}>
         <CardHeader>
-          <CardTitle className="text-xl">Randevu Durumları</CardTitle>
-          <CardDescription>Son 7 gündeki randevuların işlem durumu</CardDescription>
+          <CardTitle className="text-xl">{t('appointmentStatuses')}</CardTitle>
+          <CardDescription>{t('appointmentStatusesDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (

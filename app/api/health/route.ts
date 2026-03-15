@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { warnMissingOptionalKeys } from '@/lib/env';
+import { warnMissingOptionalKeys, getFeatureStatus } from '@/lib/env';
 import { cacheHeaders } from '@/lib/utils/cache-headers';
 import {
     gpuCircuitBreaker,
@@ -167,6 +167,9 @@ export async function GET() {
         ),
         config: Object.fromEntries(
             configChecks.map(s => [s.name, s.status])
+        ),
+        features: Object.fromEntries(
+            getFeatureStatus().map(f => [f.name, { ready: f.ready, detail: f.detail }])
         ),
         circuitBreakers,
         upstreamServices: upstreamHealth.length > 0

@@ -138,3 +138,13 @@ export function checkTenantLimit(tenantId: string) {
 export function checkInferenceLimit(ip: string) {
     return checkRateLimit(ip, { limit: 30, windowSeconds: 60, tier: 'inference' });
 }
+
+/** Auth / signup rate limit: 5 req/min per IP (brute-force protection) */
+export function checkAuthLimit(ip: string) {
+    return checkRateLimit(ip, { limit: 5, windowSeconds: 60, tier: 'auth' });
+}
+
+/** Tenant creation rate limit: 3 req/hour per IP (abuse protection) */
+export function checkTenantCreationLimit(ip: string) {
+    return checkRateLimit(ip, { limit: 3, windowSeconds: 3600, tier: 'tenant-create' });
+}

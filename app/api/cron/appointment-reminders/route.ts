@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
         // In production, CRON_SECRET must be set; in dev, allow without it
         const isProduction = process.env.NODE_ENV === 'production';
         if (isProduction && !cronSecret) {
-            return handleApiError(new Error('CRON_SECRET not configured in production'), 'CronReminders');
+            return NextResponse.json(
+                { error: 'Cron security not configured' },
+                { status: 503 },
+            );
         }
 
         if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {

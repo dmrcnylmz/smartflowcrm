@@ -35,9 +35,9 @@ export async function GET(request: NextRequest) {
 
         const isProduction = process.env.NODE_ENV === 'production';
         if (isProduction && !cronSecret) {
-            return handleApiError(
-                new Error('CRON_SECRET not configured in production'),
-                'CronWebhookRetry',
+            return NextResponse.json(
+                { error: 'Cron security not configured' },
+                { status: 503 },
             );
         }
 

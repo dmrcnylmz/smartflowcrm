@@ -319,6 +319,7 @@ export const Sidebar = memo(function Sidebar() {
         <button
           onClick={() => setMobileOpen(false)}
           className="absolute top-4 right-4 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors z-10"
+          aria-label={t('closeMenu')}
         >
           <X className="h-5 w-5" />
         </button>

@@ -159,3 +159,70 @@ export function warnMissingOptionalKeys(): string[] {
   }
   return missing.map(({ key }) => key);
 }
+
+/**
+ * Feature readiness status — checks which features are fully configured.
+ * Useful for admin dashboards, health checks, and go-live validation.
+ */
+export interface FeatureStatus {
+    name: string;
+    ready: boolean;
+    detail: string;
+}
+
+export function getFeatureStatus(): FeatureStatus[] {
+    const has = (key: string) => !!process.env[key];
+
+    return [
+        {
+            name: 'Voice Pipeline (STT)',
+            ready: has('DEEPGRAM_API_KEY'),
+            detail: has('DEEPGRAM_API_KEY') ? 'Deepgram configured' : 'DEEPGRAM_API_KEY missing — speech-to-text disabled',
+        },
+        {
+            name: 'Voice Pipeline (TTS)',
+            ready: has('CARTESIA_API_KEY'),
+            detail: has('CARTESIA_API_KEY') ? 'Cartesia configured' : 'CARTESIA_API_KEY missing — text-to-speech disabled',
+        },
+        {
+            name: 'LLM (Primary)',
+            ready: has('GROQ_API_KEY') || has('OPENAI_API_KEY'),
+            detail: has('GROQ_API_KEY') ? 'Groq configured (free tier)' : has('OPENAI_API_KEY') ? 'OpenAI configured' : 'No LLM key — AI responses disabled',
+        },
+        {
+            name: 'Telephony',
+            ready: has('TWILIO_ACCOUNT_SID') && has('TWILIO_AUTH_TOKEN'),
+            detail: has('TWILIO_ACCOUNT_SID') ? 'Twilio configured' : 'TWILIO_ACCOUNT_SID/AUTH_TOKEN missing — phone calls disabled',
+        },
+        {
+            name: 'Billing',
+            ready: has('LEMONSQUEEZY_API_KEY') && has('LEMONSQUEEZY_WEBHOOK_SECRET'),
+            detail: has('LEMONSQUEEZY_API_KEY') ? 'LemonSqueezy configured' : 'Billing keys missing — free mode only',
+        },
+        {
+            name: 'Email',
+            ready: has('RESEND_API_KEY'),
+            detail: has('RESEND_API_KEY') ? 'Resend configured' : 'RESEND_API_KEY missing — email notifications disabled',
+        },
+        {
+            name: 'Error Tracking',
+            ready: has('SENTRY_DSN'),
+            detail: has('SENTRY_DSN') ? 'Sentry configured' : 'SENTRY_DSN missing — errors only in console',
+        },
+        {
+            name: 'Distributed Cache',
+            ready: has('UPSTASH_REDIS_REST_URL') && has('UPSTASH_REDIS_REST_TOKEN'),
+            detail: has('UPSTASH_REDIS_REST_URL') ? 'Upstash Redis configured' : 'Redis not configured — using in-memory fallback',
+        },
+        {
+            name: 'Embeddings',
+            ready: has('GOOGLE_AI_API_KEY'),
+            detail: has('GOOGLE_AI_API_KEY') ? 'Google AI configured' : 'GOOGLE_AI_API_KEY missing — knowledge base search disabled',
+        },
+        {
+            name: 'Cron Security',
+            ready: has('CRON_SECRET'),
+            detail: has('CRON_SECRET') ? 'Cron secret configured' : 'CRON_SECRET missing — cron endpoints unprotected',
+        },
+    ];
+}

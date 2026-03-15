@@ -14,6 +14,7 @@ export function EmailVerificationBanner() {
     const { user, isEmailVerified, resendVerificationEmail } = useAuth();
     const [sending, setSending] = useState(false);
     const [sent, setSent] = useState(false);
+    const [error, setError] = useState(false);
 
     // Gostermeme kosullari:
     // - Kullanici yok
@@ -24,13 +25,16 @@ export function EmailVerificationBanner() {
     const handleResend = async () => {
         if (sending || sent) return;
         setSending(true);
+        setError(false);
         try {
             await resendVerificationEmail();
             setSent(true);
             // 60 saniye sonra tekrar gonderebilsin
             setTimeout(() => setSent(false), 60000);
         } catch {
-            // Error is handled by auth context
+            setError(true);
+            // Clear error after 5 seconds so user can retry
+            setTimeout(() => setError(false), 5000);
         } finally {
             setSending(false);
         }
@@ -55,6 +59,11 @@ export function EmailVerificationBanner() {
                         <>
                             <CheckCircle className="h-3 w-3" />
                             Gönderildi
+                        </>
+                    ) : error ? (
+                        <>
+                            <RefreshCw className="h-3 w-3" />
+                            Gönderilemedi — Tekrar Dene
                         </>
                     ) : (
                         <>

@@ -15,7 +15,7 @@ import {
     assignUserToTenant,
 } from '@/lib/tenant/admin';
 import type { TenantConfig } from '@/lib/tenant/types';
-import { handleApiError, requireFields, requireAuth, createApiError, errorResponse } from '@/lib/utils/error-handler';
+import { handleApiError, requireFields, createApiError, errorResponse } from '@/lib/utils/error-handler';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { cacheHeaders } from '@/lib/utils/cache-headers';
 
@@ -25,9 +25,9 @@ import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export async function POST(request: NextRequest) {
     try {
-        const userId = request.headers.get('x-user-uid');
-        const authErr = requireAuth(userId);
-        if (authErr) return errorResponse(authErr);
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+        const userId = auth.uid;
 
         const body = await request.json();
         const validation = requireFields(body, ['companyName']);
@@ -35,15 +35,25 @@ export async function POST(request: NextRequest) {
 
         const { companyName, sector, language, agent, business, voice } = body;
 
+        // Input validation: length limits and XSS prevention
+        if (typeof companyName !== 'string' || companyName.length > 100) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Company name must be 100 characters or less'));
+        }
+        if (sector && (typeof sector !== 'string' || sector.length > 50)) {
+            return errorResponse(createApiError('VALIDATION_ERROR', 'Sector must be 50 characters or less'));
+        }
+        // Strip HTML tags from companyName to prevent XSS
+        const sanitizedCompanyName = companyName.replace(/<[^>]*>/g, '');
+
         // Validate language
         const VALID_LANGUAGES = ['tr', 'en', 'de', 'fr', 'tr-en'];
         const resolvedLanguage = VALID_LANGUAGES.includes(language) ? language : 'tr';
 
         const tenantData: Omit<TenantConfig, 'id' | 'createdAt' | 'updatedAt'> = {
-            companyName,
+            companyName: sanitizedCompanyName,
             sector: sector || '',
             language: resolvedLanguage,
-            agent: agent || getDefaultAgent(resolvedLanguage, companyName),
+            agent: agent || getDefaultAgent(resolvedLanguage, sanitizedCompanyName),
             business: business || {
                 workingHours: '09:00-18:00',
                 workingDays: resolvedLanguage === 'de' ? 'Montag-Freitag'
@@ -76,11 +86,11 @@ export async function POST(request: NextRequest) {
         };
 
         const tenantId = await createTenant(tenantData);
-        await assignUserToTenant(userId!, tenantId, 'owner');
+        await assignUserToTenant(userId, tenantId, 'owner');
 
         return NextResponse.json({
             tenantId,
-            message: `Tenant "${companyName}" created successfully`,
+            message: `Tenant "${sanitizedCompanyName}" created successfully`,
             note: 'You have been assigned as owner. Please re-login to get updated JWT claims.',
         }, { status: 201 });
 

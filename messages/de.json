@@ -16,7 +16,13 @@
         "yes": "Ja",
         "no": "Nein",
         "noData": "Keine Daten gefunden",
-        "required": "Dieses Feld ist erforderlich"
+        "required": "Dieses Feld ist erforderlich",
+        "retry": "Erneut versuchen",
+        "refresh": "Aktualisieren",
+        "noResults": "Keine Ergebnisse gefunden",
+        "searching": "Suche läuft...",
+        "skipToContent": "Zum Hauptinhalt springen",
+        "closeSidebar": "Seitenleiste schließen"
     },
     "auth": {
         "login": "Anmelden",
@@ -48,17 +54,34 @@
         "expandSidebar": "Seitenleiste erweitern",
         "collapseSidebar": "Seitenleiste einklappen",
         "openMenu": "Menü öffnen",
+        "closeMenu": "Menü schließen",
         "mobileNav": "Mobiles Navigationsmenü",
         "user": "Benutzer"
     },
     "dashboard": {
-        "title": "Dashboard",
+        "title": "Übersicht",
         "totalCustomers": "Gesamtkunden",
         "activeTickets": "Aktive Tickets",
         "avgResponseTime": "Durchschn. Antwortzeit",
         "ttsUsage": "TTS-Nutzung",
         "recentActivity": "Letzte Aktivitäten",
-        "callsToday": "Anrufe heute"
+        "callsToday": "Anrufe heute",
+        "subtitle": "Echtzeit-Systemstatus und zusammenfassende Statistiken.",
+        "todayCalls": "Heutige Anrufe",
+        "missedCalls": "Verpasste Anrufe",
+        "openComplaints": "Offene Beschwerden",
+        "upcomingAppointments": "Bevorstehende Termine",
+        "monthlyCallCount": "Monatliche Anrufe",
+        "recentActivityDesc": "Die letzten 10 Systemereignisse werden in Echtzeit angezeigt.",
+        "noActivity": "Noch keine Aktivität",
+        "activityLoadError": "Aktivitätsdaten sind derzeit nicht verfügbar",
+        "demoMode": "Demo-Modus",
+        "demoModeDesc": "Verbindung zu Firebase fehlgeschlagen. Demodaten werden angezeigt.",
+        "callDataError": "Anrufdaten konnten nicht geladen werden",
+        "complaintDataError": "Beschwerdedaten konnten nicht geladen werden",
+        "appointmentDataError": "Termindaten konnten nicht geladen werden",
+        "autoRefresh": "Automatische Aktualisierung",
+        "off": "Aus"
     },
     "customers": {
         "title": "Kunden",
@@ -237,5 +260,13 @@
             "empathetic": "einfühlsam",
             "cheerful": "fröhlich"
         }
+    },
+    "charts": {
+        "callTrend": "Anruftrend — Letzte 7 Tage",
+        "callTrendDesc": "Tägliche Änderungen bei eingehenden, beantworteten und verpassten Anrufen.",
+        "complaintCategories": "Beschwerdekategorien",
+        "complaintCategoriesDesc": "Verteilung aktiver und vergangener Beschwerden",
+        "appointmentStatuses": "Terminstatus",
+        "appointmentStatusesDesc": "Status der Termine der letzten 7 Tage"
     }
 }

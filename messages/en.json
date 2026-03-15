@@ -16,7 +16,13 @@
         "yes": "Yes",
         "no": "No",
         "noData": "No data found",
-        "required": "This field is required"
+        "required": "This field is required",
+        "retry": "Retry",
+        "refresh": "Refresh",
+        "noResults": "No results found",
+        "searching": "Searching...",
+        "skipToContent": "Skip to main content",
+        "closeSidebar": "Close sidebar"
     },
     "auth": {
         "login": "Log In",
@@ -48,17 +54,34 @@
         "expandSidebar": "Expand sidebar",
         "collapseSidebar": "Collapse sidebar",
         "openMenu": "Open menu",
+        "closeMenu": "Close menu",
         "mobileNav": "Mobile navigation menu",
         "user": "User"
     },
     "dashboard": {
-        "title": "Dashboard",
+        "title": "Overview",
         "totalCustomers": "Total Customers",
         "activeTickets": "Active Tickets",
         "avgResponseTime": "Avg Response Time",
         "ttsUsage": "TTS Usage",
         "recentActivity": "Recent Activity",
-        "callsToday": "Calls Today"
+        "callsToday": "Calls Today",
+        "subtitle": "Real-time system status and summary statistics.",
+        "todayCalls": "Today's Calls",
+        "missedCalls": "Missed Calls",
+        "openComplaints": "Open Complaints",
+        "upcomingAppointments": "Upcoming Appointments",
+        "monthlyCallCount": "Monthly Calls",
+        "recentActivityDesc": "Showing the last 10 system events in real-time.",
+        "noActivity": "No activity yet",
+        "activityLoadError": "Activity data is currently unavailable",
+        "demoMode": "Demo Mode",
+        "demoModeDesc": "Could not connect to Firebase. Showing demo data.",
+        "callDataError": "Failed to load call data",
+        "complaintDataError": "Failed to load complaint data",
+        "appointmentDataError": "Failed to load appointment data",
+        "autoRefresh": "Auto-refresh",
+        "off": "Off"
     },
     "customers": {
         "title": "Customers",
@@ -237,5 +260,13 @@
             "empathetic": "empathetic",
             "cheerful": "cheerful"
         }
+    },
+    "charts": {
+        "callTrend": "Call Trend — Last 7 Days",
+        "callTrendDesc": "Daily changes in incoming, answered, and missed calls.",
+        "complaintCategories": "Complaint Categories",
+        "complaintCategoriesDesc": "Distribution of active and past complaints",
+        "appointmentStatuses": "Appointment Statuses",
+        "appointmentStatusesDesc": "Status of appointments in the last 7 days"
     }
 }
