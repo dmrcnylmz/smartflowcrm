@@ -326,7 +326,7 @@ describe('Go-Live Check — GET /api/system/go-live-check', () => {
     const criticalEnvKeys = [
         'OPENAI_API_KEY',
         'DEEPGRAM_API_KEY',
-        'ELEVENLABS_API_KEY',
+        'CARTESIA_API_KEY',
         'LEMONSQUEEZY_API_KEY',
         'LEMONSQUEEZY_STORE_ID',
         'LEMONSQUEEZY_WEBHOOK_SECRET',

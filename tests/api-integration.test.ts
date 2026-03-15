@@ -16,6 +16,48 @@ import {
 } from '@/lib/utils/error-handler';
 
 // ─────────────────────────────────────────────
+// Mocks for Health Endpoint dependencies
+// ─────────────────────────────────────────────
+
+// Firebase Admin — prevent real Firebase initialization
+vi.mock('@/lib/auth/firebase-admin', () => ({ initAdmin: vi.fn() }));
+
+// Firestore — mock listCollections to simulate a healthy Firestore
+vi.mock('firebase-admin/firestore', () => ({
+    getFirestore: vi.fn(() => ({
+        listCollections: vi.fn().mockResolvedValue([]),
+    })),
+}));
+
+// Environment helpers
+vi.mock('@/lib/env', () => ({
+    warnMissingOptionalKeys: vi.fn(),
+    getFeatureStatus: vi.fn().mockReturnValue([]),
+}));
+
+// Cache headers
+vi.mock('@/lib/utils/cache-headers', () => ({
+    cacheHeaders: vi.fn().mockReturnValue({}),
+}));
+
+// Circuit breakers
+const mockGetState = vi.fn().mockReturnValue({ state: 'closed', failures: 0 });
+vi.mock('@/lib/voice/circuit-breaker', () => ({
+    gpuCircuitBreaker: { getState: mockGetState },
+    openaiCircuitBreaker: { getState: mockGetState },
+    groqCircuitBreaker: { getState: mockGetState },
+    cartesiaCircuitBreaker: { getState: mockGetState },
+    deepgramCircuitBreaker: { getState: mockGetState },
+    murfCircuitBreaker: { getState: mockGetState },
+    kokoroCircuitBreaker: { getState: mockGetState },
+}));
+
+// Upstream monitor
+vi.mock('@/lib/monitoring/upstream-monitor', () => ({
+    getServiceHealth: vi.fn().mockReturnValue([]),
+}));
+
+// ─────────────────────────────────────────────
 // Error Handler Unit Tests
 // ─────────────────────────────────────────────
 
@@ -210,6 +252,10 @@ describe('Validation Helpers', () => {
 // ─────────────────────────────────────────────
 
 describe('Health Endpoint', () => {
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
     it('exports GET handler', async () => {
         // Import dynamically to avoid setup issues
         const mod = await import('@/app/api/health/route');
@@ -218,7 +264,7 @@ describe('Health Endpoint', () => {
     });
 
     it('returns a valid health response structure', async () => {
-        // Mock fetch for health checks
+        // Mock fetch for health checks (personaplex check uses fetch)
         const originalFetch = globalThis.fetch;
         globalThis.fetch = vi.fn().mockRejectedValue(new Error('No server'));
 
@@ -227,6 +273,9 @@ describe('Health Endpoint', () => {
             const response = await mod.GET();
             const body = await response.json();
 
+            // With mocked Firestore (listCollections succeeds), firestore is ok.
+            // With fetch mocked to reject, personaplex is down.
+            // So status should be 'degraded' and HTTP 200.
             expect(body.status).toBeDefined();
             expect(body.timestamp).toBeDefined();
             expect(body.services).toBeDefined();
@@ -246,13 +295,12 @@ describe('Health Endpoint', () => {
             const response = await mod.GET();
             const body = await response.json();
 
-            // When fetch is mocked to reject, personaplex will be down.
-            // Firestore may or may not be reachable depending on local config.
-            // If firestore is ok but personaplex is down -> 'degraded' (200)
-            // If both are down -> 'unhealthy' (503)
-            expect(['degraded', 'unhealthy']).toContain(body.status);
+            // Firestore mock succeeds (listCollections resolves), so firestore is ok.
+            // fetch is mocked to reject, so personaplex is down.
+            // Result: firestore ok + personaplex down = 'degraded' (200)
+            expect(body.status).toBe('degraded');
             expect(body.services.personaplex.status).toBe('down');
-            expect([200, 503]).toContain(response.status);
+            expect(response.status).toBe(200);
         } finally {
             globalThis.fetch = originalFetch;
         }

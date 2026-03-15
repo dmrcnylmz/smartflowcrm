@@ -7,6 +7,10 @@
  *   - /api/voice/tts (GET/POST)
  */
 
+// Set env vars before any module imports so top-level const reads pick them up
+process.env.DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY || 'test-deepgram-key';
+process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'test-openai-key';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { createMockRequest } from './helpers/api-test-utils';
