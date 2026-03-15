@@ -8,6 +8,10 @@
  * 4. Input validation (XSS, length limits)
  * 5. i18n components use useTranslations
  * 6. Accessibility aria-labels
+ * 7. RAG search strict auth
+ * 8. Voice catalog error handling
+ * 9. Login localStorage safety
+ * 10. Translation file completeness
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
@@ -24,8 +28,6 @@ describe('Tenant API Strict Authentication', () => {
 
     it('POST uses requireStrictAuth (not weak requireAuth)', () => {
         expect(content).toContain('requireStrictAuth(request)');
-        // The old weak pattern should NOT be in POST handler
-        // requireStrictAuth is the correct pattern used in GET and PUT
     });
 
     it('GET uses requireStrictAuth', () => {
@@ -33,7 +35,6 @@ describe('Tenant API Strict Authentication', () => {
     });
 
     it('PUT uses requireStrictAuth', () => {
-        // Both GET and PUT already used it, verify it's still there
         const strictAuthCount = (content.match(/requireStrictAuth/g) || []).length;
         expect(strictAuthCount).toBeGreaterThanOrEqual(3); // POST + GET + PUT
     });
@@ -59,28 +60,23 @@ describe('Tenant API Strict Authentication', () => {
 // ─── 2. Cron Endpoints — Secret Validation ───
 
 describe('Cron Endpoint Security', () => {
-    it('webhook-retry rejects missing CRON_SECRET in production', () => {
-        const content = fs.readFileSync('app/api/cron/webhook-retry/route.ts', 'utf-8');
+    const cronRoutes = [
+        'app/api/cron/webhook-retry/route.ts',
+        'app/api/cron/appointment-reminders/route.ts',
+        'app/api/cron/gpu-shutdown/route.ts',
+    ];
+
+    it.each(cronRoutes)('%s rejects missing CRON_SECRET in production', (routePath) => {
+        const content = fs.readFileSync(routePath, 'utf-8');
         expect(content).toContain('isProduction && !cronSecret');
         expect(content).toContain('503');
         expect(content).toContain('Cron security not configured');
     });
 
-    it('webhook-retry validates bearer token', () => {
-        const content = fs.readFileSync('app/api/cron/webhook-retry/route.ts', 'utf-8');
+    it.each(cronRoutes)('%s validates bearer token', (routePath) => {
+        const content = fs.readFileSync(routePath, 'utf-8');
         expect(content).toContain('Bearer ${cronSecret}');
         expect(content).toContain('401');
-    });
-
-    it('appointment-reminders rejects missing CRON_SECRET in production', () => {
-        const content = fs.readFileSync('app/api/cron/appointment-reminders/route.ts', 'utf-8');
-        expect(content).toContain('isProduction && !cronSecret');
-        expect(content).toContain('503');
-    });
-
-    it('appointment-reminders validates bearer token', () => {
-        const content = fs.readFileSync('app/api/cron/appointment-reminders/route.ts', 'utf-8');
-        expect(content).toContain('Bearer ${cronSecret}');
     });
 });
 
@@ -102,12 +98,55 @@ describe('Public Endpoint Rate Limiting', () => {
     it('/api/chat/support uses distributed rate limiter', () => {
         const content = fs.readFileSync('app/api/chat/support/route.ts', 'utf-8');
         expect(content).toContain('checkSensitiveLimit');
-        // Should NOT have in-memory rateLimitMap anymore
         expect(content).not.toContain('rateLimitMap');
     });
 });
 
-// ─── 4. i18n — Components Use Translations ───
+// ─── 4. RAG Search — Strict Auth (Critical Fix) ───
+
+describe('RAG Search Strict Authentication', () => {
+    let content: string;
+
+    beforeAll(() => {
+        content = fs.readFileSync('app/api/ai/rag-search/route.ts', 'utf-8');
+    });
+
+    it('uses requireStrictAuth instead of header spoofing', () => {
+        expect(content).toContain('requireStrictAuth(request)');
+        // Should NOT use the old weak pattern
+        expect(content).not.toContain("request.headers.get('x-user-tenant')");
+    });
+
+    it('returns auth error when JWT is invalid', () => {
+        expect(content).toContain('auth.error');
+    });
+
+    it('gets tenantId from verified JWT claims', () => {
+        expect(content).toContain('auth.tenantId');
+    });
+
+    it('uses centralized error handler', () => {
+        expect(content).toContain('handleApiError');
+    });
+
+    it('validates query parameter', () => {
+        expect(content).toContain("typeof query !== 'string'");
+        expect(content).toContain('query.slice(0, 500)');
+    });
+});
+
+// ─── 5. Voice Catalog — Error Handling ───
+
+describe('Voice Catalog Error Handling', () => {
+    it('has try-catch block', () => {
+        const content = fs.readFileSync('app/api/voice/catalog/route.ts', 'utf-8');
+        expect(content).toContain('try {');
+        expect(content).toContain('catch');
+        expect(content).toContain('handleApiError');
+    });
+});
+
+// ─── 6. i18n — Components Use Translations ───
 
 describe('i18n Component Integration', () => {
     it('AuthGuard uses useTranslations for loading text', () => {
@@ -147,9 +186,9 @@ describe('i18n Component Integration', () => {
     });
 });
 
-// ─── 5. Translation Files Consistency ───
+// ─── 7. Translation Files Consistency ───
 
-describe('Translation Files — New Keys', () => {
+describe('Translation Files — Completeness', () => {
     const langs = ['tr', 'en', 'de', 'fr'];
 
     it('all 4 languages have "charts" namespace', () => {
@@ -185,14 +224,24 @@ describe('Translation Files — New Keys', () => {
             }
         }
     });
+
+    it('all 4 translation files have same top-level namespaces', () => {
+        const trContent = JSON.parse(fs.readFileSync('messages/tr.json', 'utf-8'));
+        const trNamespaces = Object.keys(trContent).sort();
+
+        for (const lang of ['en', 'de', 'fr']) {
+            const content = JSON.parse(fs.readFileSync(`messages/${lang}.json`, 'utf-8'));
+            const namespaces = Object.keys(content).sort();
+            expect(namespaces, `${lang}.json namespace mismatch`).toEqual(trNamespaces);
+        }
+    });
 });
 
-// ─── 6. Error Handling Improvements ───
+// ─── 8. Error Handling Improvements ───
 
 describe('Error Handling Improvements', () => {
     it('CookieConsent wraps localStorage in try-catch', () => {
         const content = fs.readFileSync('components/layout/CookieConsent.tsx', 'utf-8');
-        // Both getItem and setItem should be wrapped
         expect(content).toContain('catch');
         expect(content).toContain('Private browsing');
     });
@@ -201,5 +250,85 @@ describe('Error Handling Improvements', () => {
         const content = fs.readFileSync('components/layout/EmailVerificationBanner.tsx', 'utf-8');
         expect(content).toContain('setError(true)');
         expect(content).toContain('Gönderilemedi');
+    });
+
+    it('Login page wraps localStorage.getItem in try-catch', () => {
+        const content = fs.readFileSync('app/login/page.tsx', 'utf-8');
+        // The useEffect with localStorage.getItem should be in try-catch
+        const useEffectBlock = content.substring(
+            content.indexOf('useEffect(() => {'),
+            content.indexOf('}, []);') + 10
+        );
+        expect(useEffectBlock).toContain('try {');
+        expect(useEffectBlock).toContain('localStorage.getItem');
+        expect(useEffectBlock).toContain('catch');
+    });
+
+    it('Login page wraps localStorage.setItem in try-catch', () => {
+        const content = fs.readFileSync('app/login/page.tsx', 'utf-8');
+        // localStorage.setItem should be wrapped
+        const setItemIndex = content.indexOf('localStorage.setItem');
+        const surroundingCode = content.substring(setItemIndex - 200, setItemIndex + 100);
+        expect(surroundingCode).toContain('try');
+    });
+});
+
+// ─── 9. API Route Security Patterns ───
+
+describe('API Route Security Patterns', () => {
+    const authProtectedRoutes = [
+        'app/api/tenants/route.ts',
+        'app/api/agents/route.ts',
+        'app/api/customers/route.ts',
+        'app/api/appointments/route.ts',
+        'app/api/tickets/route.ts',
+        'app/api/knowledge/route.ts',
+        'app/api/ai/rag-search/route.ts',
+    ];
+
+    it.each(authProtectedRoutes)('%s uses requireStrictAuth', (routePath) => {
+        const content = fs.readFileSync(routePath, 'utf-8');
+        expect(content).toContain('requireStrictAuth');
+    });
+
+    it.each(authProtectedRoutes)('%s has error handling', (routePath) => {
+        const content = fs.readFileSync(routePath, 'utf-8');
+        expect(content).toContain('catch');
+    });
+
+    const publicRoutes = [
+        'app/api/health/route.ts',
+        'app/api/locale/route.ts',
+    ];
+
+    it.each(publicRoutes)('%s does NOT require auth (public endpoint)', (routePath) => {
+        const content = fs.readFileSync(routePath, 'utf-8');
+        expect(content).not.toContain('requireStrictAuth');
+    });
+});
+
+// ─── 10. Sidebar Accessibility ───
+
+describe('Sidebar Accessibility', () => {
+    let content: string;
+
+    beforeAll(() => {
+        content = fs.readFileSync('components/layout/Sidebar.tsx', 'utf-8');
+    });
+
+    it('has aria-label on mobile close button', () => {
+        expect(content).toContain("aria-label={t('closeMenu')}");
+    });
+
+    it('has aria-label on hamburger button', () => {
+        expect(content).toContain("aria-label={t('openMenu')}");
+    });
+
+    it('has aria-expanded on hamburger', () => {
+        expect(content).toContain('aria-expanded={mobileOpen}');
+    });
+
+    it('has role="dialog" on mobile drawer', () => {
+        expect(content).toContain('role="dialog"');
     });
 });

@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
     // Verify cron secret
     const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+
+    // In production, CRON_SECRET must be configured
+    if (isProduction && !cronSecret) {
+        return NextResponse.json({ error: 'Cron security not configured' }, { status: 503 });
+    }
 
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

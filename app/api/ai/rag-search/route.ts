@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchFAQ, generateAnswerWithRAG } from '@/lib/ai/rag';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 export async function POST(request: NextRequest) {
-  // Require tenant authentication
-  const tenantId = request.headers.get('x-user-tenant');
-  if (!tenantId) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
+  // Require strict JWT authentication (Firebase Admin SDK)
+  const auth = await requireStrictAuth(request);
+  if (auth.error) return auth.error;
+  const tenantId = auth.tenantId;
 
   try {
     const body = await request.json();
@@ -34,12 +35,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ results });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    console.warn('[RAG Search] Error:', errorMessage);
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return handleApiError(error, 'RAG Search');
   }
 }
 

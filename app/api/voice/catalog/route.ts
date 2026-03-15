@@ -20,8 +20,10 @@ import {
 import { getServiceAccountKey } from '@/lib/voice/tts-google';
 import { isKokoroConfigured } from '@/lib/voice/tts-kokoro';
 import { cacheHeaders } from '@/lib/utils/cache-headers';
+import { handleApiError } from '@/lib/utils/error-handler';
 
 export async function GET(request: NextRequest) {
+  try {
     const { searchParams } = new URL(request.url);
 
     const provider = searchParams.get('provider') as 'cartesia' | 'murf' | 'google' | 'kokoro' | null;
@@ -68,4 +70,7 @@ export async function GET(request: NextRequest) {
     }, {
         headers: cacheHeaders('LONG'), // Voice catalog is mostly static
     });
+  } catch (error) {
+    return handleApiError(error, 'Voice Catalog');
+  }
 }

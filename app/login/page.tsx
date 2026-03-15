@@ -86,10 +86,14 @@ export default function LoginPage() {
     const [rememberMe, setRememberMe] = useState(false);
 
     useEffect(() => {
-        const savedEmail = localStorage.getItem('callception_remembered_email');
-        if (savedEmail) {
-            setLoginData(prev => ({ ...prev, email: savedEmail }));
-            setRememberMe(true);
+        try {
+            const savedEmail = localStorage.getItem('callception_remembered_email');
+            if (savedEmail) {
+                setLoginData(prev => ({ ...prev, email: savedEmail }));
+                setRememberMe(true);
+            }
+        } catch {
+            // Private browsing or localStorage disabled — ignore
         }
     }, []);
 
@@ -102,10 +106,14 @@ export default function LoginPage() {
             return;
         }
         try {
-            if (rememberMe) {
-                localStorage.setItem('callception_remembered_email', loginData.email);
-            } else {
-                localStorage.removeItem('callception_remembered_email');
+            try {
+                if (rememberMe) {
+                    localStorage.setItem('callception_remembered_email', loginData.email);
+                } else {
+                    localStorage.removeItem('callception_remembered_email');
+                }
+            } catch {
+                // Private browsing — skip remember me
             }
             await signIn(loginData.email, loginData.password);
             trackEvent('login', { method: 'email' });
