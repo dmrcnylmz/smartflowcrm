@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
                 // Enrich with country info from compliance check
                 score.country = complianceResult.reasons.find(r => r.includes('country'))
-                    || (complianceResult as Record<string, unknown>).country as string
+                    || (complianceResult as unknown as Record<string, unknown>).country as string
                     || '';
 
                 return {

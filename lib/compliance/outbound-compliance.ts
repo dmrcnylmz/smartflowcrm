@@ -71,7 +71,7 @@ export async function runOutboundComplianceCheck(
         }
     }
 
-    const iysBlocked = iysStatus === 'RET';
+    const iysBlocked = (iysStatus as string) === 'RET';
     const overallAllowed = consentValid && callingHoursValid && !iysBlocked;
 
     return {
