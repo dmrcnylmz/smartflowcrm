@@ -299,9 +299,10 @@ describe('API Route Security Patterns', () => {
     const publicRoutes = [
         'app/api/health/route.ts',
         'app/api/locale/route.ts',
+        'app/api/voice/catalog/route.ts',
     ];
 
-    it.each(publicRoutes)('%s does NOT require auth (public endpoint)', (routePath) => {
+    it.each(publicRoutes)('%s does NOT require auth in code (auth handled by middleware)', (routePath) => {
         const content = fs.readFileSync(routePath, 'utf-8');
         expect(content).not.toContain('requireStrictAuth');
     });
