@@ -251,6 +251,14 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
                 country: 'TR',
                 localTime: 'Monday, 23:00',
             }),
+            detectCountryFromPhone: () => 'TR',
+        }));
+
+        // Mock IYS client to avoid real API calls
+        vi.doMock('@/lib/compliance/iys-client', () => ({
+            getDefaultIYSClient: () => ({
+                checkConsent: async () => ({ phoneNumber: '+905551234567', status: 'NOT_FOUND', checkedAt: new Date().toISOString() }),
+            }),
         }));
 
         // Clear cached module
@@ -264,6 +272,7 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
 
         // Restore
         vi.doUnmock('@/lib/compliance/calling-hours');
+        vi.doUnmock('@/lib/compliance/iys-client');
         vi.resetModules();
     });
 
@@ -275,6 +284,7 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
                 country: 'US',
                 localTime: 'Monday, 10:00',
             }),
+            detectCountryFromPhone: () => 'US',
         }));
 
         // Mock consent check to return valid consent
@@ -294,6 +304,13 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
             };
         });
 
+        // Mock IYS client (not needed for US numbers, but module is imported)
+        vi.doMock('@/lib/compliance/iys-client', () => ({
+            getDefaultIYSClient: () => ({
+                checkConsent: async () => ({ phoneNumber: '+14155551234', status: 'NOT_FOUND', checkedAt: new Date().toISOString() }),
+            }),
+        }));
+
         vi.resetModules();
 
         const { runOutboundComplianceCheck } = await import('@/lib/compliance/outbound-compliance');
@@ -310,6 +327,7 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
         // Restore
         vi.doUnmock('@/lib/compliance/calling-hours');
         vi.doUnmock('@/lib/compliance/consent-manager');
+        vi.doUnmock('@/lib/compliance/iys-client');
         vi.resetModules();
     });
 });

@@ -36,6 +36,7 @@ export interface OutboundComplianceCheck {
     consentValid: boolean;
     callingHoursValid: boolean;
     dncChecked: boolean;       // Did we check DNC registry?
+    iysStatus?: 'ONAY' | 'RET' | 'NOT_FOUND' | 'ERROR' | 'SKIPPED';  // IYS check result (TR only)
     overallAllowed: boolean;
     reasons: string[];
 }

@@ -4,6 +4,7 @@
  * Combines all compliance checks before an outbound call:
  * 1. Consent validation (per-contact)
  * 2. Calling hours validation (per-country)
+ * 3. IYS (Ileti Yonetim Sistemi) check for Turkey (+90 numbers)
  *
  * If ANY check fails, the call is blocked.
  */
@@ -13,7 +14,8 @@ import {
     isConsentValid,
     type OutboundComplianceCheck,
 } from '@/lib/compliance/consent-manager';
-import { isCallingAllowed } from '@/lib/compliance/calling-hours';
+import { isCallingAllowed, detectCountryFromPhone } from '@/lib/compliance/calling-hours';
+import { getDefaultIYSClient, type IYSStatus } from '@/lib/compliance/iys-client';
 
 // =============================================
 // Master Compliance Check
@@ -51,13 +53,33 @@ export async function runOutboundComplianceCheck(
         reasons.push('consentRequired');
     }
 
-    const overallAllowed = consentValid && callingHoursValid;
+    // 3. IYS check for Turkey (+90 numbers)
+    let iysStatus: 'ONAY' | 'RET' | 'NOT_FOUND' | 'ERROR' | 'SKIPPED' = 'SKIPPED';
+    const country = detectCountryFromPhone(phoneNumber);
+    if (country === 'TR') {
+        try {
+            const iysClient = getDefaultIYSClient();
+            const iysResult = await iysClient.checkConsent(phoneNumber);
+            iysStatus = iysResult.status as typeof iysStatus;
+
+            if (iysResult.status === 'RET') {
+                reasons.push("IYS'de ret kaydi var");
+            }
+        } catch (err) {
+            console.error('[OutboundCompliance] IYS check failed:', err);
+            iysStatus = 'ERROR';
+        }
+    }
+
+    const iysBlocked = iysStatus === 'RET';
+    const overallAllowed = consentValid && callingHoursValid && !iysBlocked;
 
     return {
         phoneNumber,
         consentValid,
         callingHoursValid,
         dncChecked: false, // DNC registry integration not yet implemented
+        iysStatus,
         overallAllowed,
         reasons,
     };
