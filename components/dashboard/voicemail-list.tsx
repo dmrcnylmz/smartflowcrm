@@ -12,6 +12,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import { useToast } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
@@ -54,10 +56,16 @@ function formatDuration(seconds: number): string {
     return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
-function formatDate(timestamp?: { _seconds: number }): string {
+function formatDate(timestamp: { _seconds: number } | undefined, appLocale: string): string {
     if (!timestamp?._seconds) return '—';
     const date = new Date(timestamp._seconds * 1000);
-    return date.toLocaleDateString('tr-TR', {
+    const localeMap: Record<string, string> = {
+        tr: 'tr-TR',
+        en: 'en-US',
+        de: 'de-DE',
+        fr: 'fr-FR',
+    };
+    return date.toLocaleDateString(localeMap[appLocale] || localeMap.tr, {
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -65,29 +73,32 @@ function formatDate(timestamp?: { _seconds: number }): string {
     });
 }
 
-function getStatusConfig(status: string) {
-    switch (status) {
-        case 'new':
-            return { label: 'Yeni', variant: 'default' as const, color: 'text-blue-600' };
-        case 'listened':
-            return { label: 'Dinlendi', variant: 'secondary' as const, color: 'text-muted-foreground' };
-        case 'archived':
-            return { label: 'Arşivlendi', variant: 'outline' as const, color: 'text-muted-foreground' };
-        default:
-            return { label: status, variant: 'secondary' as const, color: 'text-muted-foreground' };
-    }
-}
-
 // ─── Component ───
 
 export default function VoicemailList() {
     const authFetch = useAuthFetch();
     const { toast } = useToast();
+    const t = useTranslations('voice');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
 
     const [voicemails, setVoicemails] = useState<VoicemailRecord[]>([]);
     const [loading, setLoading] = useState(true);
     const [playingId, setPlayingId] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    function getStatusConfig(status: string) {
+        switch (status) {
+            case 'new':
+                return { label: t('statusNew'), variant: 'default' as const, color: 'text-blue-600' };
+            case 'listened':
+                return { label: t('statusListened'), variant: 'secondary' as const, color: 'text-muted-foreground' };
+            case 'archived':
+                return { label: t('statusArchived'), variant: 'outline' as const, color: 'text-muted-foreground' };
+            default:
+                return { label: status, variant: 'secondary' as const, color: 'text-muted-foreground' };
+        }
+    }
 
     // ─── Fetch ───
 
@@ -95,19 +106,19 @@ export default function VoicemailList() {
         try {
             setLoading(true);
             const res = await authFetch('/api/tenant/voicemails');
-            if (!res.ok) throw new Error('Sesli mesajlar yüklenemedi');
+            if (!res.ok) throw new Error(t('voicemailLoadError'));
             const data = await res.json();
             setVoicemails(data.voicemails || []);
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: err instanceof Error ? err.message : 'Bilinmeyen hata',
+                title: tCommon('error'),
+                description: err instanceof Error ? err.message : t('unknownError'),
                 variant: 'error',
             });
         } finally {
             setLoading(false);
         }
-    }, [authFetch, toast]);
+    }, [authFetch, toast, t, tCommon]);
 
     useEffect(() => {
         fetchVoicemails();
@@ -135,8 +146,8 @@ export default function VoicemailList() {
         audio.onended = () => setPlayingId(null);
         audio.play().catch(() => {
             toast({
-                title: 'Oynatılamadı',
-                description: 'Ses dosyası yüklenemedi.',
+                title: t('playError'),
+                description: t('playErrorDesc'),
                 variant: 'error',
             });
         });
@@ -173,16 +184,16 @@ export default function VoicemailList() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ voicemailId, status: 'archived' }),
             });
-            if (!res.ok) throw new Error('Arşivleme başarısız');
+            if (!res.ok) throw new Error(t('archiveError'));
 
             setVoicemails(prev =>
                 prev.map(v => v.id === voicemailId ? { ...v, status: 'archived' } : v)
             );
-            toast({ title: 'Arşivlendi', description: 'Sesli mesaj arşivlendi.' });
+            toast({ title: t('archived'), description: t('archivedDesc') });
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: err instanceof Error ? err.message : 'Arşivleme başarısız',
+                title: tCommon('error'),
+                description: err instanceof Error ? err.message : t('archiveError'),
                 variant: 'error',
             });
         }
@@ -202,12 +213,12 @@ export default function VoicemailList() {
                     <div className="flex items-center gap-3">
                         <Voicemail className="h-5 w-5 text-muted-foreground" />
                         <div>
-                            <CardTitle className="text-base">Sesli Mesajlar</CardTitle>
-                            <CardDescription>Mesai dışı bırakılan sesli mesajlar</CardDescription>
+                            <CardTitle className="text-base">{t('voicemails')}</CardTitle>
+                            <CardDescription>{t('voicemailsDesc')}</CardDescription>
                         </div>
                         {newCount > 0 && (
                             <Badge variant="default" className="ml-2">
-                                {newCount} yeni
+                                {t('newCount', { count: newCount })}
                             </Badge>
                         )}
                     </div>
@@ -224,7 +235,7 @@ export default function VoicemailList() {
                 ) : activeVoicemails.length === 0 ? (
                     <div className="text-center py-8">
                         <Volume2 className="h-10 w-10 mx-auto text-muted-foreground/20 mb-3" />
-                        <p className="text-sm text-muted-foreground">Henüz sesli mesaj yok.</p>
+                        <p className="text-sm text-muted-foreground">{t('noVoicemails')}</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -269,7 +280,7 @@ export default function VoicemailList() {
                                                 <Clock className="h-3 w-3" />
                                                 {formatDuration(vm.durationSeconds)}
                                             </span>
-                                            <span>{formatDate(vm.createdAt)}</span>
+                                            <span>{formatDate(vm.createdAt, locale)}</span>
                                         </div>
                                     </div>
 
@@ -281,7 +292,7 @@ export default function VoicemailList() {
                                                 size="sm"
                                                 className="h-8 w-8 p-0"
                                                 onClick={() => markAsListened(vm.id)}
-                                                title="Dinlendi olarak işaretle"
+                                                title={t('markListened')}
                                             >
                                                 <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                                             </Button>
@@ -291,7 +302,7 @@ export default function VoicemailList() {
                                             size="sm"
                                             className="h-8 w-8 p-0"
                                             onClick={() => handleArchive(vm.id)}
-                                            title="Arşivle"
+                                            title={t('archive')}
                                         >
                                             <Archive className="h-4 w-4 text-muted-foreground" />
                                         </Button>

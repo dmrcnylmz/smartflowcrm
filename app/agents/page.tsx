@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -191,6 +192,8 @@ const DEFAULT_AGENT: Omit<Agent, 'id'> = {
 export default function AgentsPage() {
     const { toast } = useToast();
     const authFetch = useAuthFetch();
+    const t = useTranslations('agents');
+    const tc = useTranslations('common');
     const { settings: tenantSettings } = useTenantSettings();
     const { hasKB: tenantHasKB } = useAgentKBCheck(undefined); // Tenant-level KB check
     const [agents, setAgents] = useState<Agent[]>([]);
@@ -223,11 +226,11 @@ export default function AgentsPage() {
         try {
             setError(null);
             const res = await authFetch('/api/agents');
-            if (!res.ok) throw new Error('Asistan verileri yüklenemedi');
+            if (!res.ok) throw new Error(t('fetchError'));
             const data = await res.json();
             setAgents(data.agents || []);
         } catch (err) {
-            setError('Asistan verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
+            setError(t('loadError'));
         }
     }, [authFetch]);
 
@@ -262,7 +265,7 @@ export default function AgentsPage() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: `${agent.name} (Kopya)`,
+                    name: `${agent.name} (${t('copyLabel')})`,
                     role: agent.role,
                     systemPrompt: agent.systemPrompt,
                     variables: agent.variables,
@@ -273,11 +276,11 @@ export default function AgentsPage() {
                     templateColor: (agent as Agent & { templateColor?: string }).templateColor,
                 }),
             });
-            if (!res.ok) throw new Error('Kopyalanamadi');
-            toast({ title: 'Kopyalandi', description: `"${agent.name}" basariyla kopyalandi.` });
+            if (!res.ok) throw new Error(t('duplicateError'));
+            toast({ title: t('duplicated'), description: t('duplicatedDesc', { name: agent.name }) });
             fetchAgents();
         } catch {
-            toast({ title: 'Hata', description: 'Asistan kopyalanirken hata olustu.', variant: 'error' });
+            toast({ title: tc('error'), description: t('duplicateError'), variant: 'error' });
         }
     }
 
@@ -298,7 +301,7 @@ export default function AgentsPage() {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.message || 'Deaktivasyon başarısız');
+                throw new Error(data.message || t('deactivationFailed'));
             }
 
             // Optimistic update
@@ -306,12 +309,12 @@ export default function AgentsPage() {
                 a.id === agent.id ? { ...a, isActive: false } : a
             ));
             toast({
-                title: 'Devre Dışı',
-                description: `"${agent.name}" pasif duruma getirildi.`,
+                title: t('deactivated'),
+                description: t('deactivatedDesc', { name: agent.name }),
             });
         } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Durum degistirilemedi.';
-            toast({ title: 'Hata', description: msg, variant: 'error' });
+            const msg = err instanceof Error ? err.message : t('statusChangeError');
+            toast({ title: tc('error'), description: msg, variant: 'error' });
         }
     }
 
@@ -332,8 +335,8 @@ export default function AgentsPage() {
 
         if (!trimmedName || !trimmedPrompt) {
             toast({
-                title: 'Eksik Bilgi',
-                description: 'Asistan adı ve sistem prompt\'u zorunludur',
+                title: t('missingInfo'),
+                description: t('nameAndPromptRequired'),
                 variant: 'error',
             });
             return;
@@ -341,8 +344,8 @@ export default function AgentsPage() {
 
         if (trimmedName.length < 2) {
             toast({
-                title: 'Geçersiz İsim',
-                description: 'Asistan adı en az 2 karakter olmalıdır',
+                title: t('invalidName'),
+                description: t('nameMinLength'),
                 variant: 'error',
             });
             return;
@@ -365,7 +368,7 @@ export default function AgentsPage() {
                 }),
             });
 
-            if (!res.ok) throw new Error('Asistan kaydedilemedi');
+            if (!res.ok) throw new Error(t('agentSaveFailed'));
 
             const result = await res.json();
 
@@ -381,8 +384,8 @@ export default function AgentsPage() {
             }
 
             toast({
-                title: isNewAgent ? 'Oluşturuldu!' : 'Güncellendi!',
-                description: `"${editingAgent.name}" başarıyla ${isNewAgent ? 'oluşturuldu' : 'güncellendi'}`,
+                title: isNewAgent ? t('created') : t('updated'),
+                description: t('savedDesc', { name: editingAgent.name || '', action: isNewAgent ? t('actionCreated') : t('actionUpdated') }),
                 variant: 'success',
             });
 
@@ -392,8 +395,8 @@ export default function AgentsPage() {
             fetchAgents();
         } catch (err) {
             toast({
-                title: 'Hata',
-                description: 'Agent kaydedilirken bir hata oluştu',
+                title: tc('error'),
+                description: t('saveError'),
                 variant: 'error',
             });
         } finally {
@@ -415,20 +418,20 @@ export default function AgentsPage() {
 
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
-                throw new Error(data.error || 'Asistan silinemedi');
+                throw new Error(data.error || t('agentDeleteFailed'));
             }
 
             toast({
-                title: 'Silindi',
-                description: 'Asistan başarıyla silindi',
+                title: t('deleted'),
+                description: t('deletedDesc'),
                 variant: 'success',
             });
 
             await fetchAgents();
         } catch (err) {
-            const message = err instanceof Error ? err.message : 'Asistan silinirken bir hata oluştu';
+            const message = err instanceof Error ? err.message : t('deleteError');
             toast({
-                title: 'Hata',
+                title: tc('error'),
                 description: message,
                 variant: 'error',
             });
@@ -507,13 +510,13 @@ export default function AgentsPage() {
                             <div className="h-9 w-9 rounded-xl bg-violet-500/10 border border-violet-500/25 flex items-center justify-center">
                                 <Bot className="h-5 w-5 text-violet-400" />
                             </div>
-                            Sesli Asistanlar
+                            {t('pageTitle')}
                             {agents.length > 0 && (
                                 <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-white/[0.06] text-white/40">{agents.length}</span>
                             )}
                         </h1>
                         <p className="text-muted-foreground mt-1 text-sm">
-                            Sesli asistan promptlarini ve davranislarini yapilandirin
+                            {t('pageSubtitle')}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -521,7 +524,7 @@ export default function AgentsPage() {
                             <div className="relative">
                                 <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                    placeholder="Asistan ara..."
+                                    placeholder={t('searchPlaceholder')}
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-9 w-48 h-9 rounded-xl bg-white/[0.04] border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40"
@@ -533,7 +536,7 @@ export default function AgentsPage() {
                             className="gap-2"
                         >
                             <Wand2 className="h-4 w-4" />
-                            Yeni Asistan
+                            {t('newAgent')}
                         </Button>
                     </div>
                 </div>
@@ -575,7 +578,7 @@ export default function AgentsPage() {
                     <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                         <AlertTriangle className="h-8 w-8 text-red-400/60" />
                     </div>
-                    <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+                    <h3 className="text-lg font-semibold text-white/80 mb-2">{t('errorOccurred')}</h3>
                     <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
                     <Button
                         variant="outline"
@@ -586,7 +589,7 @@ export default function AgentsPage() {
                         }}
                         className="gap-2"
                     >
-                        Tekrar Dene
+                        {tc('retry')}
                     </Button>
                 </div>
             ) : agents.length === 0 && !loading ? (
@@ -598,9 +601,9 @@ export default function AgentsPage() {
                             <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
                                 <Rocket className="h-8 w-8 text-violet-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-white/90">Baslangıc Rehberi</h3>
+                            <h3 className="text-xl font-bold text-white/90">{t('gettingStarted')}</h3>
                             <p className="text-white/40 mt-1 max-w-md mx-auto">
-                                AI asistanınızı kurmak icin iki basit adımı takip edin
+                                {t('gettingStartedDesc')}
                             </p>
 
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 max-w-lg mx-auto">
@@ -611,11 +614,11 @@ export default function AgentsPage() {
                                 >
                                     <div className="flex items-center gap-3 mb-2">
                                         <span className="h-7 w-7 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-                                        <span className="text-sm font-semibold text-white/80">Once Bilgi Bankası Olusturun</span>
+                                        <span className="text-sm font-semibold text-white/80">{t('step1CreateKB')}</span>
                                     </div>
-                                    <p className="text-xs text-white/40 ml-10">SSS, urun bilgileri veya web sitesi icerigi ekleyin</p>
+                                    <p className="text-xs text-white/40 ml-10">{t('step1Desc')}</p>
                                     <div className="mt-3 ml-10 text-xs text-violet-400 group-hover:text-violet-300 flex items-center gap-1">
-                                        Bilgi Ekle <ChevronRight className="h-3 w-3" />
+                                        {t('addKnowledge')} <ChevronRight className="h-3 w-3" />
                                     </div>
                                 </button>
 
@@ -623,9 +626,9 @@ export default function AgentsPage() {
                                 <div className="flex-1 w-full p-5 rounded-xl border border-white/[0.06] bg-white/[0.02] opacity-50 text-left">
                                     <div className="flex items-center gap-3 mb-2">
                                         <span className="h-7 w-7 rounded-full bg-white/10 text-white/40 text-xs font-bold flex items-center justify-center">2</span>
-                                        <span className="text-sm font-semibold text-white/40">Sonra Asistan Olusturun</span>
+                                        <span className="text-sm font-semibold text-white/40">{t('step2CreateAgent')}</span>
                                     </div>
-                                    <p className="text-xs text-white/25 ml-10">Bilgi bankası eklendikten sonra asistan olusturabilirsiniz</p>
+                                    <p className="text-xs text-white/25 ml-10">{t('step2Desc')}</p>
                                 </div>
                             </div>
                         </div>
@@ -635,9 +638,9 @@ export default function AgentsPage() {
                             <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-violet-500/10 mb-4">
                                 <Wand2 className="h-8 w-8 text-violet-500" />
                             </div>
-                            <h3 className="text-xl font-bold text-white/90">İlk Asistanınızı Oluşturun</h3>
+                            <h3 className="text-xl font-bold text-white/90">{t('createFirstAgent')}</h3>
                             <p className="text-white/40 mt-1 max-w-md mx-auto">
-                                Sektörünüze uygun bir şablon seçin ve adım adım asistanınızı oluşturun
+                                {t('createFirstAgentDesc')}
                             </p>
                         </div>
                     )}
@@ -706,15 +709,15 @@ export default function AgentsPage() {
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); handleToggleActive(agent); }}
                                                 className={`transition-colors ${!agent.isActive ? 'flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600/10 hover:bg-violet-600/20 border border-violet-600/30' : ''}`}
-                                                title={agent.isActive ? 'Devre Dışı Bırak' : 'Canlıya Al'}
-                                                aria-label={agent.isActive ? 'Devre Dışı Bırak' : 'Canlıya Al'}
+                                                title={agent.isActive ? t('deactivate') : t('goLive')}
+                                                aria-label={agent.isActive ? t('deactivate') : t('goLive')}
                                             >
                                                 {agent.isActive ? (
                                                     <ToggleRight className="h-6 w-6 text-emerald-500" />
                                                 ) : (
                                                     <>
                                                         <Zap className="h-3 w-3 text-violet-500" />
-                                                        <span className="text-[10px] font-semibold text-violet-500">Canlıya Al</span>
+                                                        <span className="text-[10px] font-semibold text-violet-500">{t('goLive')}</span>
                                                     </>
                                                 )}
                                             </button>
@@ -729,13 +732,13 @@ export default function AgentsPage() {
                                         {agent.variables && agent.variables.length > 0 && (
                                             <span className="flex items-center gap-1">
                                                 <Code2 className="h-3 w-3" />
-                                                {agent.variables.length} degisken
+                                                {agent.variables.length} {t('variables')}
                                             </span>
                                         )}
                                         {agent.fallbackRules && agent.fallbackRules.length > 0 && (
                                             <span className="flex items-center gap-1">
                                                 <AlertTriangle className="h-3 w-3" />
-                                                {agent.fallbackRules.length} kural
+                                                {agent.fallbackRules.length} {t('rules')}
                                             </span>
                                         )}
                                         {template && (
@@ -752,7 +755,7 @@ export default function AgentsPage() {
                                             onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); }}
                                         >
                                             <MessageCircle className="h-3 w-3" />
-                                            Test
+                                            {t('test')}
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -761,7 +764,7 @@ export default function AgentsPage() {
                                             onClick={(e) => { e.stopPropagation(); handleDuplicate(agent); }}
                                         >
                                             <Copy className="h-3 w-3" />
-                                            Kopyala
+                                            {t('duplicate')}
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -770,7 +773,7 @@ export default function AgentsPage() {
                                             onClick={(e) => { e.stopPropagation(); handleEdit(agent); }}
                                         >
                                             <Edit3 className="h-3 w-3" />
-                                            Duzenle
+                                            {t('editBtn')}
                                         </Button>
                                         <div className="relative group/del">
                                             <Button
@@ -782,13 +785,13 @@ export default function AgentsPage() {
                                                 }`}
                                                 onClick={(e) => { e.stopPropagation(); if (!agent.isActive) setDeleteConfirmId(agent.id); }}
                                                 disabled={deletingId === agent.id || agent.isActive}
-                                                aria-label={agent.isActive ? 'Aktif asistan silinemez' : 'Sil'}
+                                                aria-label={agent.isActive ? t('cannotDeleteActive') : tc('delete')}
                                             >
                                                 {deletingId === agent.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                                             </Button>
                                             {agent.isActive && (
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-popover border rounded-md shadow-md text-[10px] text-muted-foreground whitespace-nowrap opacity-0 group-hover/del:opacity-100 transition-opacity pointer-events-none z-50">
-                                                    Silmek için önce pasif yapın
+                                                    {t('deactivateFirst')}
                                                 </div>
                                             )}
                                         </div>
@@ -806,10 +809,10 @@ export default function AgentsPage() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Wand2 className="h-5 w-5 text-violet-500" />
-                            {isNewAgent ? 'Yeni Asistan Oluştur' : `"${editingAgent.name}" Düzenle`}
+                            {isNewAgent ? t('editAgentTitle') : t('editAgentTitleEdit', { name: editingAgent.name || '' })}
                         </DialogTitle>
                         <DialogDescription>
-                            Asistanınızın prompt, değişken, ses ve davranış ayarlarını yapılandırın.
+                            {t('editAgentDesc')}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -817,10 +820,10 @@ export default function AgentsPage() {
                         {/* Tabs */}
                         <div className="flex border-b mb-4 gap-1">
                             {[
-                                { id: 'prompt', label: 'Prompt', icon: Sparkles },
-                                { id: 'variables', label: 'Değişkenler', icon: Code2 },
-                                { id: 'voice', label: 'Ses & Dil', icon: Volume2 },
-                                { id: 'rules', label: 'Kurallar', icon: AlertTriangle },
+                                { id: 'prompt', label: t('tabPrompt'), icon: Sparkles },
+                                { id: 'variables', label: t('tabVariables'), icon: Code2 },
+                                { id: 'voice', label: t('tabVoice'), icon: Volume2 },
+                                { id: 'rules', label: t('tabRules'), icon: AlertTriangle },
                             ].map((tab) => {
                                 const Icon = tab.icon;
                                 return (
@@ -847,7 +850,7 @@ export default function AgentsPage() {
                                     {/* Templates */}
                                     {isNewAgent && (
                                         <div>
-                                            <Label className="text-sm font-medium mb-2 block">Hızlı Şablon</Label>
+                                            <Label className="text-sm font-medium mb-2 block">{t('quickTemplate')}</Label>
                                             <div className="flex gap-2 flex-wrap">
                                                 {PROMPT_TEMPLATES.map((t, i) => (
                                                     <Button
@@ -867,17 +870,17 @@ export default function AgentsPage() {
 
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <Label htmlFor="agent-name">Asistan Adı</Label>
+                                            <Label htmlFor="agent-name">{t('agentNameLabel')}</Label>
                                             <Input
                                                 id="agent-name"
                                                 value={editingAgent.name || ''}
                                                 onChange={(e) => setEditingAgent(prev => ({ ...prev, name: e.target.value }))}
-                                                placeholder="Örn: Resepsiyonist, Destek Uzmanı..."
+                                                placeholder={t('agentNamePlaceholder')}
                                                 className="mt-1"
                                             />
                                         </div>
                                         <div>
-                                            <Label htmlFor="agent-role">Rol</Label>
+                                            <Label htmlFor="agent-role">{t('roleLabel')}</Label>
                                             <Select
                                                 value={editingAgent.role || 'assistant'}
                                                 onValueChange={(v) => setEditingAgent(prev => ({ ...prev, role: v }))}
@@ -886,39 +889,39 @@ export default function AgentsPage() {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="receptionist">Resepsiyonist</SelectItem>
-                                                    <SelectItem value="support">Müşteri Destek</SelectItem>
-                                                    <SelectItem value="sales">Satış Danışmanı</SelectItem>
-                                                    <SelectItem value="assistant">Genel Asistan</SelectItem>
-                                                    <SelectItem value="custom">Özel</SelectItem>
+                                                    <SelectItem value="receptionist">{t('roleReceptionist')}</SelectItem>
+                                                    <SelectItem value="support">{t('roleSupport')}</SelectItem>
+                                                    <SelectItem value="sales">{t('roleSales')}</SelectItem>
+                                                    <SelectItem value="assistant">{t('roleAssistant')}</SelectItem>
+                                                    <SelectItem value="custom">{t('roleCustom')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <Label htmlFor="system-prompt">Sistem Promptu</Label>
+                                        <Label htmlFor="system-prompt">{t('systemPromptLabel')}</Label>
                                         <Textarea
                                             id="system-prompt"
                                             value={editingAgent.systemPrompt || ''}
                                             onChange={(e) => setEditingAgent(prev => ({ ...prev, systemPrompt: e.target.value }))}
-                                            placeholder="Asistanınızın davranışını tanımlayan sistem promptunu yazın..."
+                                            placeholder={t('systemPromptPlaceholder')}
                                             rows={14}
                                             className="mt-1 font-mono text-sm"
                                         />
                                         <div className="flex items-center justify-between mt-1">
                                             <p className="text-xs text-muted-foreground">
-                                                {editingAgent.systemPrompt?.length || 0} karakter •
-                                                Değişkenler: {'{'}değişken_adı{'}'}
+                                                {editingAgent.systemPrompt?.length || 0} {t('characters')} •
+                                                {t('variablesHint', { format: '{variable_name}' })}
                                             </p>
                                             <div className="flex items-center gap-2">
                                                 <CircleDot className={`h-3 w-3 ${editingAgent.isActive ? 'text-emerald-500' : 'text-gray-400'}`} />
                                                 <button
                                                     className="text-xs text-muted-foreground hover:text-foreground"
                                                     onClick={() => setEditingAgent(prev => ({ ...prev, isActive: !prev.isActive }))}
-                                                    aria-label={editingAgent.isActive ? 'Pasif yap' : 'Aktif yap'}
+                                                    aria-label={editingAgent.isActive ? t('makePassive') : t('makeActive')}
                                                 >
-                                                    {editingAgent.isActive ? 'Aktif' : 'Pasif'}
+                                                    {editingAgent.isActive ? t('active') : t('inactive')}
                                                 </button>
                                             </div>
                                         </div>
@@ -927,7 +930,7 @@ export default function AgentsPage() {
                                     {/* Preview */}
                                     {editingAgent.variables && editingAgent.variables.length > 0 && (
                                         <div>
-                                            <Label className="text-sm font-medium mb-2 block">Önizleme (değişkenler uygulanmış)</Label>
+                                            <Label className="text-sm font-medium mb-2 block">{t('previewLabel')}</Label>
                                             <div className="p-3 bg-muted rounded-lg text-sm font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
                                                 {getResolvedPrompt()}
                                             </div>
@@ -941,28 +944,28 @@ export default function AgentsPage() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h3 className="font-medium">Değişkenler</h3>
+                                            <h3 className="font-medium">{t('variablesTitle')}</h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Promptunuzda {'{'}değişken_adı{'}'} formatında kullanabilirsiniz
+                                                {t('variablesDesc', { format: '{variable_name}' })}
                                             </p>
                                         </div>
                                         <Button variant="outline" size="sm" onClick={addVariable} className="gap-1">
                                             <Plus className="h-3 w-3" />
-                                            Değişken Ekle
+                                            {t('addVariable')}
                                         </Button>
                                     </div>
 
                                     {(editingAgent.variables || []).length === 0 ? (
                                         <div className="text-center py-8 text-muted-foreground">
                                             <Code2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                            <p>Henüz değişken eklenmemiş</p>
+                                            <p>{t('noVariables')}</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
                                             {(editingAgent.variables || []).map((v, i) => (
                                                 <div key={i} className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg">
                                                     <div className="col-span-3">
-                                                        <Label className="text-xs">Anahtar</Label>
+                                                        <Label className="text-xs">{t('varKey')}</Label>
                                                         <Input
                                                             value={v.key}
                                                             onChange={(e) => updateVariable(i, 'key', e.target.value)}
@@ -971,7 +974,7 @@ export default function AgentsPage() {
                                                         />
                                                     </div>
                                                     <div className="col-span-3">
-                                                        <Label className="text-xs">Etiket</Label>
+                                                        <Label className="text-xs">{t('varLabel')}</Label>
                                                         <Input
                                                             value={v.label}
                                                             onChange={(e) => updateVariable(i, 'label', e.target.value)}
@@ -980,7 +983,7 @@ export default function AgentsPage() {
                                                         />
                                                     </div>
                                                     <div className="col-span-5">
-                                                        <Label className="text-xs">Varsayılan Değer</Label>
+                                                        <Label className="text-xs">{t('varDefaultValue')}</Label>
                                                         <Input
                                                             value={v.defaultValue}
                                                             onChange={(e) => updateVariable(i, 'defaultValue', e.target.value)}
@@ -994,7 +997,7 @@ export default function AgentsPage() {
                                                             size="icon"
                                                             className="text-red-400 hover:text-red-500 h-8 w-8"
                                                             onClick={() => removeVariable(i)}
-                                                            aria-label="Değişkeni sil"
+                                                            aria-label={t('deleteVariable')}
                                                         >
                                                             <XCircle className="h-4 w-4" />
                                                         </Button>
@@ -1013,10 +1016,10 @@ export default function AgentsPage() {
                                     <div>
                                         <div className="flex items-center gap-2 mb-3">
                                             <Volume2 className="h-4 w-4 text-primary" />
-                                            <Label className="text-base font-semibold">TTS Ses Seçimi</Label>
+                                            <Label className="text-base font-semibold">{t('ttsVoiceSelection')}</Label>
                                         </div>
                                         <p className="text-sm text-muted-foreground mb-3">
-                                            Asistanınızın telefonda konuşacağı sesi seçin. Dinlemek için ▶ butonuna tıklayın.
+                                            {t('ttsVoiceDesc')}
                                         </p>
 
                                         {/* Current voice display */}
@@ -1027,7 +1030,7 @@ export default function AgentsPage() {
                                                 <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
                                                     <div className="flex items-center gap-2 text-sm">
                                                         <CheckCircle className="h-4 w-4 text-primary" />
-                                                        <span className="font-medium">Seçili: {currentVoice.name}</span>
+                                                        <span className="font-medium">{t('selectedVoice', { name: currentVoice.name })}</span>
                                                         <Badge variant="secondary" className="text-[10px]">{currentVoice.provider}</Badge>
                                                         <span className="text-muted-foreground text-xs">{currentVoice.tone}</span>
                                                     </div>
@@ -1056,13 +1059,13 @@ export default function AgentsPage() {
                                     {/* Divider */}
                                     <div className="flex items-center gap-3">
                                         <div className="h-px flex-1 bg-border" />
-                                        <span className="text-xs text-muted-foreground">Diğer Ayarlar</span>
+                                        <span className="text-xs text-muted-foreground">{t('otherSettings')}</span>
                                         <div className="h-px flex-1 bg-border" />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-3 sm:gap-6">
                                         <div>
-                                            <Label>Konuşma Stili</Label>
+                                            <Label>{t('speakingStyle')}</Label>
                                             <Select
                                                 value={editingAgent.voiceConfig?.style || 'professional'}
                                                 onValueChange={(v) => setEditingAgent(prev => ({
@@ -1082,7 +1085,7 @@ export default function AgentsPage() {
                                         </div>
 
                                         <div>
-                                            <Label>Dil</Label>
+                                            <Label>{t('language')}</Label>
                                             <Select
                                                 value={editingAgent.voiceConfig?.language || 'tr'}
                                                 onValueChange={(v) => setEditingAgent(prev => ({
@@ -1103,7 +1106,7 @@ export default function AgentsPage() {
                                     </div>
 
                                     <div>
-                                        <Label>Yaratıcılık (Temperature): {editingAgent.voiceConfig?.temperature ?? 0.7}</Label>
+                                        <Label>{t('creativity', { value: String(editingAgent.voiceConfig?.temperature ?? 0.7) })}</Label>
                                         <input
                                             type="range"
                                             min="0"
@@ -1117,13 +1120,13 @@ export default function AgentsPage() {
                                             className="w-full mt-2"
                                         />
                                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                            <span>Tutarlı (0)</span>
-                                            <span>Yaratıcı (1)</span>
+                                            <span>{t('consistent')}</span>
+                                            <span>{t('creative')}</span>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <Label>Maksimum Token: {editingAgent.voiceConfig?.maxTokens ?? 256}</Label>
+                                        <Label>{t('maxTokens', { value: String(editingAgent.voiceConfig?.maxTokens ?? 256) })}</Label>
                                         <input
                                             type="range"
                                             min="64"
@@ -1137,8 +1140,8 @@ export default function AgentsPage() {
                                             className="w-full mt-2"
                                         />
                                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                                            <span>Kısa (64)</span>
-                                            <span>Uzun (1024)</span>
+                                            <span>{t('short')}</span>
+                                            <span>{t('long')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1149,28 +1152,28 @@ export default function AgentsPage() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <h3 className="font-medium">Yönlendirme Kuralları</h3>
+                                            <h3 className="font-medium">{t('fallbackRules')}</h3>
                                             <p className="text-sm text-muted-foreground">
-                                                Belirli durumlarda asistanın ne yapacağını belirleyin
+                                                {t('fallbackRulesDesc')}
                                             </p>
                                         </div>
                                         <Button variant="outline" size="sm" onClick={addFallbackRule} className="gap-1">
                                             <Plus className="h-3 w-3" />
-                                            Kural Ekle
+                                            {t('addRule')}
                                         </Button>
                                     </div>
 
                                     {(editingAgent.fallbackRules || []).length === 0 ? (
                                         <div className="text-center py-8 text-muted-foreground">
                                             <Zap className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                                            <p>Henüz kural eklenmemiş</p>
+                                            <p>{t('noRules')}</p>
                                         </div>
                                     ) : (
                                         <div className="space-y-3">
                                             {(editingAgent.fallbackRules || []).map((rule, i) => (
                                                 <div key={i} className="grid grid-cols-12 gap-2 items-start p-3 border rounded-lg">
                                                     <div className="col-span-4">
-                                                        <Label className="text-xs">Koşul</Label>
+                                                        <Label className="text-xs">{t('condition')}</Label>
                                                         <Select
                                                             value={rule.condition}
                                                             onValueChange={(v) => updateFallbackRule(i, 'condition', v)}
@@ -1179,17 +1182,17 @@ export default function AgentsPage() {
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="confidence < 0.3">Düşük güven ({'<'} 0.3)</SelectItem>
-                                                                <SelectItem value="sentiment < -0.5">Olumsuz duygu</SelectItem>
-                                                                <SelectItem value="topic = billing">Konu: Fatura</SelectItem>
-                                                                <SelectItem value="topic = complaint">Konu: Şikayet</SelectItem>
-                                                                <SelectItem value="repeat > 2">2+ tekrar</SelectItem>
-                                                                <SelectItem value="custom">Özel</SelectItem>
+                                                                <SelectItem value="confidence < 0.3">{t('conditionLowConfidence')}</SelectItem>
+                                                                <SelectItem value="sentiment < -0.5">{t('conditionNegativeSentiment')}</SelectItem>
+                                                                <SelectItem value="topic = billing">{t('conditionBilling')}</SelectItem>
+                                                                <SelectItem value="topic = complaint">{t('conditionComplaint')}</SelectItem>
+                                                                <SelectItem value="repeat > 2">{t('conditionRepeat')}</SelectItem>
+                                                                <SelectItem value="custom">{t('conditionCustom')}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     <div className="col-span-3">
-                                                        <Label className="text-xs">Aksiyon</Label>
+                                                        <Label className="text-xs">{t('action')}</Label>
                                                         <Select
                                                             value={rule.action}
                                                             onValueChange={(v) => updateFallbackRule(i, 'action', v)}
@@ -1198,19 +1201,19 @@ export default function AgentsPage() {
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="transfer">İnsana Aktar</SelectItem>
-                                                                <SelectItem value="escalate">Yöneticiye Bildir</SelectItem>
-                                                                <SelectItem value="message">Mesaj Gönder</SelectItem>
-                                                                <SelectItem value="end_call">Aramayı Sonlandır</SelectItem>
+                                                                <SelectItem value="transfer">{t('actionTransfer')}</SelectItem>
+                                                                <SelectItem value="escalate">{t('actionEscalate')}</SelectItem>
+                                                                <SelectItem value="message">{t('actionMessage')}</SelectItem>
+                                                                <SelectItem value="end_call">{t('actionEndCall')}</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
                                                     <div className="col-span-4">
-                                                        <Label className="text-xs">Değer / Açıklama</Label>
+                                                        <Label className="text-xs">{t('valueDescription')}</Label>
                                                         <Input
                                                             value={rule.value}
                                                             onChange={(e) => updateFallbackRule(i, 'value', e.target.value)}
-                                                            placeholder="Örn: Fatura departmanı"
+                                                            placeholder={t('valuePlaceholder')}
                                                             className="mt-1 text-sm"
                                                         />
                                                     </div>
@@ -1220,7 +1223,7 @@ export default function AgentsPage() {
                                                             size="icon"
                                                             className="text-red-400 hover:text-red-500 h-8 w-8"
                                                             onClick={() => removeFallbackRule(i)}
-                                                            aria-label="Kuralı sil"
+                                                            aria-label={t('deleteRule')}
                                                         >
                                                             <XCircle className="h-4 w-4" />
                                                         </Button>
@@ -1236,7 +1239,7 @@ export default function AgentsPage() {
                         {/* Actions */}
                         <div className="flex justify-end gap-3 pt-4 border-t mt-4">
                             <Button variant="outline" onClick={() => setEditorOpen(false)}>
-                                İptal
+                                {tc('cancel')}
                             </Button>
                             <Button
                                 onClick={handleSave}
@@ -1246,12 +1249,12 @@ export default function AgentsPage() {
                                 {saving ? (
                                     <>
                                         <Loader2 className="h-4 w-4 animate-spin" />
-                                        Kaydediliyor...
+                                        {t('saving')}
                                     </>
                                 ) : (
                                     <>
                                         <Save className="h-4 w-4" />
-                                        {isNewAgent ? 'Oluştur' : 'Güncelle'}
+                                        {isNewAgent ? t('createBtn') : t('updateBtn')}
                                     </>
                                 )}
                             </Button>
@@ -1297,15 +1300,15 @@ export default function AgentsPage() {
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-destructive">
                             <AlertTriangle className="h-5 w-5" />
-                            Asistanı Sil
+                            {t('deleteAgentTitle')}
                         </DialogTitle>
                         <DialogDescription>
-                            Bu asistan pasif durumda. Silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                            {t('deleteAgentDesc')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex justify-end gap-3 pt-4">
                         <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
-                            İptal
+                            {tc('cancel')}
                         </Button>
                         <Button
                             variant="destructive"
@@ -1314,7 +1317,7 @@ export default function AgentsPage() {
                             className="gap-2"
                         >
                             {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            Sil
+                            {tc('delete')}
                         </Button>
                     </div>
                 </DialogContent>

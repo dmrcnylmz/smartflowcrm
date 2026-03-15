@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
 import { TrendingUp, PhoneIncoming } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 // --- Types ---
 
@@ -31,6 +32,22 @@ interface ReportChartsProps {
  * out of the initial bundle.
  */
 export default function ReportCharts({ summary }: ReportChartsProps) {
+  const t = useTranslations('charts');
+
+  const barData = [
+    { name: t('answered'), value: summary.answeredCalls, fill: '#10b981' },
+    { name: t('missed'), value: summary.missedCalls, fill: '#ef4444' },
+    { name: t('appointment'), value: summary.scheduledAppointments, fill: '#3b82f6' },
+    { name: t('completed'), value: summary.completedAppointments, fill: '#6366f1' },
+    { name: t('complaint'), value: summary.totalComplaints, fill: '#f59e0b' },
+    { name: t('resolved'), value: summary.resolvedComplaints, fill: '#22c55e' },
+  ];
+
+  const pieData = [
+    { name: t('answered'), value: summary.answeredCalls },
+    { name: t('missed'), value: summary.missedCalls },
+  ];
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Bar Chart - Performance Overview */}
@@ -38,26 +55,19 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
         <CardHeader className="pb-2">
           <CardDescription className="flex items-center gap-2 font-medium">
             <TrendingUp className="h-4 w-4 text-indigo-500" />
-            Performans Dagilimi
+            {t('performanceDistribution')}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-2">
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { name: 'Yanitlanan', value: summary.answeredCalls, fill: '#10b981' },
-                { name: 'Kacirilan', value: summary.missedCalls, fill: '#ef4444' },
-                { name: 'Randevu', value: summary.scheduledAppointments, fill: '#3b82f6' },
-                { name: 'Tamamlanan', value: summary.completedAppointments, fill: '#6366f1' },
-                { name: 'Sikayet', value: summary.totalComplaints, fill: '#f59e0b' },
-                { name: 'Cozulen', value: summary.resolvedComplaints, fill: '#22c55e' },
-              ]} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <BarChart data={barData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                  formatter={(value: number) => [`${value} adet`, 'Miktar']}
+                  formatter={(value: number) => [`${value} ${t('count')}`, t('amount')]}
                 />
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {[
@@ -78,7 +88,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
         <CardHeader className="pb-2">
           <CardDescription className="flex items-center gap-2 font-medium">
             <PhoneIncoming className="h-4 w-4 text-blue-500" />
-            Cagri Dagilimi
+            {t('callDistribution')}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-2">
@@ -86,10 +96,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={[
-                    { name: 'Yanitlanan', value: summary.answeredCalls },
-                    { name: 'Kacirilan', value: summary.missedCalls },
-                  ]}
+                  data={pieData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -104,7 +111,7 @@ export default function ReportCharts({ summary }: ReportChartsProps) {
                 </Pie>
                 <Tooltip
                   contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px' }}
-                  formatter={(value: number) => [`${value} cagri`, '']}
+                  formatter={(value: number) => [`${value} ${t('callUnit')}`, '']}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </PieChart>

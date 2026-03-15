@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { useAuth } from '@/lib/firebase/auth-context';
 import {
     AlertCircle, CreditCard, Activity, Zap, Check,
@@ -138,6 +140,11 @@ function BillingPageContent() {
     const { user, role } = useAuth();
     const isSuperAdmin = isSuperAdminUser(user?.email);
     const searchParams = useSearchParams();
+    const t = useTranslations('billing');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
+    const localeMap: Record<string, string> = { tr: 'tr-TR', en: 'en-US', de: 'de-DE', fr: 'fr-FR' };
+    const dateLocaleStr = localeMap[locale] || 'tr-TR';
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [usage, setUsage] = useState<UsageStats | null>(null);
@@ -202,7 +209,7 @@ function BillingPageContent() {
                 }
             }
         } catch {
-            setError('Veriler yüklenemedi.');
+            setError(t('dataLoadError'));
         } finally {
             setLoading(false);
         }
@@ -301,10 +308,10 @@ function BillingPageContent() {
             if (data.success && data.checkoutUrl) {
                 window.location.href = data.checkoutUrl;
             } else {
-                setError(data.error || 'Ödeme sayfası oluşturulamadı.');
+                setError(data.error || t('checkoutError'));
             }
         } catch {
-            setError('Ödeme sayfası oluşturulurken bir hata oluştu.');
+            setError(t('checkoutCreateError'));
         } finally {
             setCheckoutLoading(null);
         }
@@ -331,15 +338,13 @@ function BillingPageContent() {
                 // Veri yenileme — webhook Firestore'u güncelledikten sonra
                 setTimeout(() => loadData(), 3000);
                 setError(null);
-                // Geçici başarı mesajı
                 setError(null);
-                // Başarı banner göster (error state'i kötüye kullanmak yerine)
-                alert('Plan değişikliği başarılı! Abonelik bilgileriniz birkaç saniye içinde güncellenecek.');
+                alert(t('swapSuccess'));
             } else {
-                setError(data.error || 'Plan değişikliği yapılamadı.');
+                setError(data.error || t('swapError'));
             }
         } catch {
-            setError('Plan değişikliği sırasında bir hata oluştu.');
+            setError(t('swapCreateError'));
         } finally {
             setSwapLoading(null);
         }
@@ -358,10 +363,9 @@ function BillingPageContent() {
         const isSwapLoading = swapLoading === currentKey;
         const isCheckoutLoading = checkoutLoading === plan.id;
 
-        // Abonelik yoksa → "Planı Seç"
         if (!subscription?.isActive) {
             return {
-                label: isCheckoutLoading ? 'Yönlendiriliyor...' : 'Planı Seç',
+                label: isCheckoutLoading ? t('redirecting') : t('selectPlan'),
                 icon: isCheckoutLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />,
                 action: () => handleCheckout(plan.id),
                 disabled: isLoading,
@@ -374,10 +378,9 @@ function BillingPageContent() {
         const isSamePlan = subscription.planId === plan.id;
         const isSameInterval = (subscription.billingInterval || 'monthly') === billingInterval;
 
-        // Aynı plan ve aynı interval → "Mevcut Plan ✓"
         if (isSamePlan && isSameInterval) {
             return {
-                label: 'Mevcut Plan',
+                label: t('currentPlanBadge'),
                 icon: <CheckCircle2 className="h-4 w-4" />,
                 action: () => {},
                 disabled: true,
@@ -385,10 +388,9 @@ function BillingPageContent() {
             };
         }
 
-        // Aynı plan, farklı interval → "Süreyi Değiştir"
         if (isSamePlan && !isSameInterval) {
             return {
-                label: isSwapLoading ? 'Değiştiriliyor...' : (billingInterval === 'yearly' ? 'Yıllığa Geç' : 'Aylığa Geç'),
+                label: isSwapLoading ? t('switching') : (billingInterval === 'yearly' ? t('switchToYearly') : t('switchToMonthly')),
                 icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Repeat className="h-4 w-4" />,
                 action: () => handleSwap(plan.id, billingInterval),
                 disabled: isLoading,
@@ -396,10 +398,9 @@ function BillingPageContent() {
             };
         }
 
-        // Üst plan → "Yükselt ↑"
         if (targetOrder > currentOrder) {
             return {
-                label: isSwapLoading ? 'Yükseltiliyor...' : 'Yükselt',
+                label: isSwapLoading ? t('upgrading') : t('upgrade'),
                 icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronUp className="h-4 w-4" />,
                 action: () => handleSwap(plan.id, billingInterval),
                 disabled: isLoading,
@@ -407,9 +408,8 @@ function BillingPageContent() {
             };
         }
 
-        // Alt plan → "Değiştir"
         return {
-            label: isSwapLoading ? 'Değiştiriliyor...' : 'Değiştir',
+            label: isSwapLoading ? t('switching') : t('swap'),
             icon: isSwapLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />,
             action: () => handleSwap(plan.id, billingInterval),
             disabled: isLoading,
@@ -417,7 +417,6 @@ function BillingPageContent() {
         };
     }
 
-    // Fiyatı göster — aylık veya yıllık
     function getDisplayPrice(plan: SubscriptionPlan): {
         price: number; period: string; note?: string;
         yearlyTotal?: number; monthlySaving?: number; savingPercent?: number;
@@ -428,15 +427,22 @@ function BillingPageContent() {
             const savingPercent = Math.round((monthlySaving / plan.priceTry) * 100);
             return {
                 price: monthlyEquivalent,
-                period: '/ay',
-                note: `Yıllık faturalanır`,
+                period: t('perMonth'),
+                note: t('billedYearly'),
                 yearlyTotal: plan.priceYearlyTry,
                 monthlySaving,
                 savingPercent,
             };
         }
-        return { price: plan.priceTry, period: '/ay' };
+        return { price: plan.priceTry, period: t('perMonth') };
     }
+
+    // Feature translation keys per plan
+    const planFeatureKeys: Record<string, string[]> = {
+        starter: ['featureAiAssistant', 'featureMinutes100', 'featureCalls500', 'featureBasicCrm', 'featureSessions2'],
+        professional: ['featureAiAdvanced', 'featureMinutes500', 'featureCalls2000', 'featureAdvancedCrm', 'featureSessions5', 'featureKnowledgeBase', 'featureAutomation'],
+        enterprise: ['featureAllProfessional', 'featureMinutes2000', 'featureCalls10000', 'featureCustomModel', 'featureSessions20', 'featureApi', 'featurePrioritySupport', 'featureSla'],
+    };
 
     return (
         <div className="min-h-screen bg-background p-3 sm:p-4 md:p-8 max-w-7xl mx-auto space-y-5 sm:space-y-8">
@@ -445,10 +451,10 @@ function BillingPageContent() {
                 <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
                     <CheckCircle2 className="h-5 w-5 text-emerald-400" />
                     <div>
-                        <p className="font-semibold text-emerald-300">Ödeme Başarılı!</p>
+                        <p className="font-semibold text-emerald-300">{t('paymentSuccessBanner')}</p>
                         <p className="text-sm text-emerald-400/70">
-                            {paymentPlan ? `${paymentPlan.charAt(0).toUpperCase() + paymentPlan.slice(1)} planınız aktif.` : 'Aboneliğiniz aktif.'}
-                            {paymentInterval === 'yearly' && ' (Yıllık)'}
+                            {paymentPlan ? t('planActive', { plan: paymentPlan.charAt(0).toUpperCase() + paymentPlan.slice(1) }) : t('subscriptionActive')}
+                            {paymentInterval === 'yearly' && ` ${t('yearlyLabel')}`}
                         </p>
                     </div>
                 </div>
@@ -456,7 +462,7 @@ function BillingPageContent() {
             {paymentResult === 'failed' && (
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
                     <XCircle className="h-5 w-5 text-red-400" />
-                    <p className="font-semibold text-red-300">Ödeme başarısız. Lütfen tekrar deneyin.</p>
+                    <p className="font-semibold text-red-300">{t('paymentFailedBanner')}</p>
                 </div>
             )}
             {error && (
@@ -474,10 +480,10 @@ function BillingPageContent() {
                             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
                                 <Wallet className="h-5 w-5 text-primary-foreground" />
                             </div>
-                            Faturalandırma
+                            {t('title')}
                         </h1>
                         <p className="text-muted-foreground mt-2 text-sm">
-                            Plan yönetimi, maliyet analizi ve kullanım takibi.
+                            {t('pageDesc')}
                         </p>
                     </div>
 
@@ -486,11 +492,11 @@ function BillingPageContent() {
                             <div className="bg-foreground/[0.04] border border-border rounded-2xl px-5 py-3 flex items-center gap-3">
                                 <ShieldCheck className="h-6 w-6 text-emerald-400" />
                                 <div>
-                                    <p className="text-xs text-muted-foreground">Aktif Plan</p>
+                                    <p className="text-xs text-muted-foreground">{t('activePlan')}</p>
                                     <p className="text-lg font-bold text-foreground capitalize">
                                         {subscription.planId}
                                         <span className="text-xs font-normal text-muted-foreground ml-2">
-                                            ({subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'})
+                                            ({subscription.billingInterval === 'yearly' ? t('yearly') : t('monthly')})
                                         </span>
                                     </p>
                                 </div>
@@ -503,7 +509,7 @@ function BillingPageContent() {
                                     className="px-4 py-2.5 rounded-xl bg-foreground/[0.06] border border-border text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/10 transition-colors flex items-center gap-2"
                                 >
                                     <CreditCard className="h-4 w-4" />
-                                    Aboneliği Yönet
+                                    {t('manageSubscription')}
                                 </a>
                             )}
                         </div>
@@ -513,12 +519,12 @@ function BillingPageContent() {
                 {/* Tab bar */}
                 <div className="flex gap-1 mt-6 bg-foreground/[0.03] border border-border/60 rounded-xl p-1 w-fit">
                     {[
-                        { id: 'plans' as const, label: 'Planlar', icon: CreditCard },
-                        { id: 'usage' as const, label: 'Kullanim', icon: BarChart3 },
-                        { id: 'invoices' as const, label: 'Faturalar', icon: Wallet },
+                        { id: 'plans' as const, label: t('tabPlans'), icon: CreditCard },
+                        { id: 'usage' as const, label: t('tabUsage'), icon: BarChart3 },
+                        { id: 'invoices' as const, label: t('tabInvoices'), icon: Wallet },
                         ...(isSuperAdmin ? [
-                            { id: 'pipeline' as const, label: 'Ses Pipeline', icon: Volume2 },
-                            { id: 'calculator' as const, label: 'Maliyet Hesaplama', icon: Calculator },
+                            { id: 'pipeline' as const, label: t('tabPipeline'), icon: Volume2 },
+                            { id: 'calculator' as const, label: t('tabCalculator'), icon: Calculator },
                         ] : []),
                     ].map(tab => (
                         <button
@@ -545,7 +551,7 @@ function BillingPageContent() {
                         onClick={() => { setError(null); loadData(); }}
                         className="px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-300 text-sm hover:bg-orange-500/30 transition-colors"
                     >
-                        Tekrar Dene
+                        {t('retry')}
                     </button>
                 </div>
             )}
@@ -563,11 +569,11 @@ function BillingPageContent() {
                                         <ShieldCheck className="h-5 w-5 text-emerald-400" />
                                     </div>
                                     <div>
-                                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Aktif Abonelik</p>
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wider">{t('activeSubscription')}</p>
                                         <p className="text-lg font-bold text-foreground capitalize">
                                             {subscription.planId}
                                             <span className="ml-2 text-xs font-normal bg-foreground/[0.06] px-2 py-0.5 rounded-full text-muted-foreground">
-                                                {subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'}
+                                                {subscription.billingInterval === 'yearly' ? t('yearly') : t('monthly')}
                                             </span>
                                         </p>
                                     </div>
@@ -582,7 +588,7 @@ function BillingPageContent() {
                                             className="px-3 py-2 rounded-lg bg-foreground/[0.04] border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors flex items-center gap-1.5"
                                         >
                                             <CreditCard className="h-3.5 w-3.5" />
-                                            Ödeme Yöntemi
+                                            {t('paymentMethod')}
                                         </a>
                                     )}
                                     {subscription.customerPortalUrl && (
@@ -593,7 +599,7 @@ function BillingPageContent() {
                                             className="px-3 py-2 rounded-lg bg-foreground/[0.04] border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-colors flex items-center gap-1.5"
                                         >
                                             <ExternalLink className="h-3.5 w-3.5" />
-                                            Müşteri Portalı
+                                            {t('customerPortal')}
                                         </a>
                                     )}
                                 </div>
@@ -602,36 +608,36 @@ function BillingPageContent() {
                             {/* Subscription details row */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                 <div className="bg-foreground/[0.03] rounded-xl px-4 py-3">
-                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Durum</p>
+                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('statusLabel')}</p>
                                     <p className={`text-sm font-semibold mt-0.5 ${
                                         subscription.status === 'active' ? 'text-emerald-400' :
                                         subscription.status === 'cancelled' ? 'text-amber-400' :
                                         subscription.status === 'past_due' ? 'text-red-400' :
                                         'text-muted-foreground'
                                     }`}>
-                                        {subscription.status === 'active' ? 'Aktif' :
-                                         subscription.status === 'cancelled' ? 'İptal Edildi' :
-                                         subscription.status === 'past_due' ? 'Ödeme Gecikmiş' :
-                                         subscription.status === 'on_trial' ? 'Deneme' :
+                                        {subscription.status === 'active' ? t('statusActive') :
+                                         subscription.status === 'cancelled' ? t('statusCancelled') :
+                                         subscription.status === 'past_due' ? t('statusPastDue') :
+                                         subscription.status === 'on_trial' ? t('statusOnTrial') :
                                          subscription.status}
                                     </p>
                                 </div>
                                 <div className="bg-foreground/[0.03] rounded-xl px-4 py-3">
-                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Yenilenme Tarihi</p>
+                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('renewalDate')}</p>
                                     <p className="text-sm font-semibold text-foreground mt-0.5">
                                         {subscription.currentPeriodEnd
-                                            ? new Date(subscription.currentPeriodEnd).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+                                            ? new Date(subscription.currentPeriodEnd).toLocaleDateString(dateLocaleStr, { day: 'numeric', month: 'long', year: 'numeric' })
                                             : '—'}
                                     </p>
                                 </div>
                                 <div className="bg-foreground/[0.03] rounded-xl px-4 py-3">
-                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ödeme Döngüsü</p>
+                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('billingCycle')}</p>
                                     <p className="text-sm font-semibold text-foreground mt-0.5">
-                                        {subscription.billingInterval === 'yearly' ? 'Yıllık' : 'Aylık'}
+                                        {subscription.billingInterval === 'yearly' ? t('yearly') : t('monthly')}
                                     </p>
                                 </div>
                                 <div className="bg-foreground/[0.03] rounded-xl px-4 py-3">
-                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Ödeme Yöntemi</p>
+                                    <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('paymentMethod')}</p>
                                     <p className="text-sm font-semibold text-foreground mt-0.5">
                                         {subscription.cardBrand && subscription.cardLastFour
                                             ? `${subscription.cardBrand} •••• ${subscription.cardLastFour}`
@@ -645,10 +651,9 @@ function BillingPageContent() {
                                 <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3">
                                     <AlertCircle className="h-5 w-5 text-amber-400 mt-0.5 shrink-0" />
                                     <div>
-                                        <p className="text-sm font-semibold text-amber-300">Aboneliğiniz iptal edildi</p>
+                                        <p className="text-sm font-semibold text-amber-300">{t('subscriptionCancelled')}</p>
                                         <p className="text-xs text-amber-400/70 mt-1">
-                                            {new Date(subscription.endsAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            {' '}tarihine kadar erişiminiz devam edecektir. Yeniden abone olmak için bir plan seçin.
+                                            {t('cancelledAccessDesc', { date: new Date(subscription.endsAt).toLocaleDateString(dateLocaleStr, { day: 'numeric', month: 'long', year: 'numeric' }) })}
                                         </p>
                                     </div>
                                 </div>
@@ -659,9 +664,9 @@ function BillingPageContent() {
                                 <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex items-start gap-3">
                                     <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
                                     <div>
-                                        <p className="text-sm font-semibold text-red-300">Ödeme gecikmiş</p>
+                                        <p className="text-sm font-semibold text-red-300">{t('paymentOverdue')}</p>
                                         <p className="text-xs text-red-400/70 mt-1">
-                                            Son ödemeniz alınamadı. Lütfen ödeme yönteminizi güncelleyin, aksi halde aboneliğiniz askıya alınabilir.
+                                            {t('paymentOverdueDesc')}
                                         </p>
                                     </div>
                                 </div>
@@ -680,7 +685,7 @@ function BillingPageContent() {
                                         : 'text-muted-foreground hover:text-muted-foreground'
                                 }`}
                             >
-                                Aylık
+                                {t('monthly')}
                             </button>
                             <button
                                 onClick={() => setBillingInterval('yearly')}
@@ -690,9 +695,9 @@ function BillingPageContent() {
                                         : 'text-muted-foreground hover:text-muted-foreground'
                                 }`}
                             >
-                                Yıllık
+                                {t('yearly')}
                                 <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                    2 Ay Hediye
+                                    {t('twoMonthsFree')}
                                 </span>
                             </button>
                         </div>
@@ -704,20 +709,20 @@ function BillingPageContent() {
                         <div className="flex items-start gap-3">
                             <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                             <div>
-                                <p className="text-sm font-semibold text-foreground/90 mb-2">Çağrı Başına Maliyet Formülü</p>
+                                <p className="text-sm font-semibold text-foreground/90 mb-2">{t('costPerCallFormula')}</p>
                                 <div className="flex flex-wrap items-center gap-2 text-xs">
                                     <span className="bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-lg font-mono">
                                         C = Twilio + TTS + LLM
                                     </span>
                                     <span className="text-muted-foreground/70">=</span>
-                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">$0.01/dk</span>
+                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">{t('costPerMin')}</span>
                                     <span className="text-muted-foreground/70">+</span>
-                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">$0.15/1K karakter</span>
+                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">{t('costPerKChars')}</span>
                                     <span className="text-muted-foreground/70">+</span>
-                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">~$0.02/çağrı</span>
+                                    <span className="bg-foreground/[0.06] text-muted-foreground px-2.5 py-1 rounded-lg">{t('costPerCallFormulaPart')}</span>
                                 </div>
                                 <p className="text-xs text-muted-foreground/70 mt-2">
-                                    Ortalama 3 dakikalık çağrı maliyeti: <span className="text-muted-foreground font-semibold">$0.35 – $0.50</span>
+                                    {t('avgCallCostNote')} <span className="text-muted-foreground font-semibold">$0.35 – $0.50</span>
                                 </p>
                             </div>
                         </div>
@@ -753,7 +758,7 @@ function BillingPageContent() {
                                 >
                                     {isPro && (
                                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider px-4 py-1 rounded-full">
-                                            En Popüler
+                                            {t('mostPopular')}
                                         </div>
                                     )}
 
@@ -761,21 +766,21 @@ function BillingPageContent() {
                                         <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${gradients[plan.id]} flex items-center justify-center text-white mb-4`}>
                                             {icons[plan.id]}
                                         </div>
-                                        <h3 className="text-lg font-bold text-foreground">{plan.nameTr}</h3>
-                                        <p className="text-muted-foreground text-sm mt-1">{plan.description}</p>
+                                        <h3 className="text-lg font-bold text-foreground">{t(`${plan.id}Name`)}</h3>
+                                        <p className="text-muted-foreground text-sm mt-1">{t(`${plan.id}Desc`)}</p>
 
                                         <div className="mt-4 mb-1">
                                             {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
                                                 <>
                                                     <span className="text-3xl font-bold text-foreground">
-                                                        {displayPrice.yearlyTotal.toLocaleString('tr-TR')}
+                                                        {displayPrice.yearlyTotal.toLocaleString(dateLocaleStr)}
                                                     </span>
-                                                    <span className="text-muted-foreground ml-1">₺/yıl</span>
+                                                    <span className="text-muted-foreground ml-1">₺{t('perYear')}</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <span className="text-3xl font-bold text-foreground">
-                                                        {displayPrice.price.toLocaleString('tr-TR')}
+                                                        {displayPrice.price.toLocaleString(dateLocaleStr)}
                                                     </span>
                                                     <span className="text-muted-foreground ml-1">₺{displayPrice.period}</span>
                                                 </>
@@ -784,13 +789,13 @@ function BillingPageContent() {
                                         {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
                                             <div className="mb-4 space-y-1">
                                                 <p className="text-xs text-muted-foreground">
-                                                    Aylık {displayPrice.price.toLocaleString('tr-TR')} ₺
+                                                    {t('monthlyPrice', { price: displayPrice.price.toLocaleString(dateLocaleStr) })}
                                                     <span className="text-muted-foreground/70 mx-1">·</span>
-                                                    <span className="line-through text-muted-foreground/70">{plan.priceTry.toLocaleString('tr-TR')} ₺</span>
+                                                    <span className="line-through text-muted-foreground/70">{plan.priceTry.toLocaleString(dateLocaleStr)} ₺</span>
                                                 </p>
                                                 {displayPrice.savingPercent && displayPrice.savingPercent > 0 && (
                                                     <p className="text-[11px] text-emerald-400 font-semibold">
-                                                        %{displayPrice.savingPercent} tasarruf · Ayda {displayPrice.monthlySaving?.toLocaleString('tr-TR')} ₺ kazanç
+                                                        {t('savingPercent', { percent: displayPrice.savingPercent, saving: displayPrice.monthlySaving?.toLocaleString(dateLocaleStr) })}
                                                     </p>
                                                 )}
                                             </div>
@@ -801,21 +806,21 @@ function BillingPageContent() {
                                         {/* Quota summary */}
                                         <div className="grid grid-cols-2 gap-3 mb-6">
                                             <div className="bg-foreground/[0.04] rounded-lg px-3 py-2">
-                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Dakika</p>
+                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('minutes')}</p>
                                                 <p className="text-sm font-bold text-foreground">{plan.includedMinutes}</p>
                                             </div>
                                             <div className="bg-foreground/[0.04] rounded-lg px-3 py-2">
-                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">Çağrı</p>
+                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider">{t('calls')}</p>
                                                 <p className="text-sm font-bold text-foreground">{plan.includedCalls.toLocaleString()}</p>
                                             </div>
                                         </div>
 
                                         {/* Features */}
                                         <div className="space-y-2 mb-6">
-                                            {plan.features.map((f, i) => (
+                                            {(planFeatureKeys[plan.id] || []).map((key, i) => (
                                                 <div key={i} className="flex items-start gap-2 text-sm">
                                                     <Check className="h-4 w-4 text-emerald-400 mt-0.5 shrink-0" />
-                                                    <span className="text-muted-foreground">{f}</span>
+                                                    <span className="text-muted-foreground">{t(key)}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -872,34 +877,36 @@ function BillingPageContent() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <StatCard
                                     icon={Phone}
-                                    label="Toplam Çağrı"
+                                    label={t('totalCalls')}
                                     value={usage?.totalCalls || 0}
                                     suffix=""
                                     color="blue"
                                     percent={limits?.callPercent}
                                     limit={tierInfo?.includedCalls}
-                                    limitLabel="çağrı"
+                                    limitLabel={t('calls').toLowerCase()}
+                                    includedLabel={t('included')}
                                 />
                                 <StatCard
                                     icon={Activity}
-                                    label="Konuşma Süresi"
+                                    label={t('callDuration')}
                                     value={usage?.totalMinutes || 0}
-                                    suffix="dk"
+                                    suffix={t('dk')}
                                     color="emerald"
                                     percent={limits?.usagePercent}
                                     limit={tierInfo?.includedMinutes}
-                                    limitLabel="dk"
+                                    limitLabel={t('dk')}
+                                    includedLabel={t('included')}
                                 />
                                 <StatCard
                                     icon={Volume2}
-                                    label="TTS Karakter"
+                                    label={t('ttsChars')}
                                     value={usage?.ttsChars ? Math.round(usage.ttsChars / 1000) : 0}
                                     suffix="K"
                                     color="purple"
                                 />
                                 <StatCard
                                     icon={Zap}
-                                    label="LLM Token"
+                                    label={t('llmTokens')}
                                     value={usage?.tokensUsed ? Math.round(usage.tokensUsed / 1000) : 0}
                                     suffix="K"
                                     color="amber"
@@ -913,15 +920,15 @@ function BillingPageContent() {
                                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
                                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
                                             <DollarSign className="h-4 w-4 text-primary" />
-                                            Ortalama Çağrı Maliyeti
+                                            {t('avgCallCost')}
                                         </h3>
                                         {perCallCost && (
                                             <div className="space-y-3">
-                                                <CostRow label="Ses (Telekom)" value={perCallCost.voice} color="bg-blue-500" />
+                                                <CostRow label={t('voiceTelecom')} value={perCallCost.voice} color="bg-blue-500" />
                                                 <CostRow label="Cartesia (TTS)" value={perCallCost.tts} color="bg-purple-500" />
                                                 <CostRow label="Groq/Gemini (LLM)" value={perCallCost.llm} color="bg-amber-500" />
                                                 <div className="border-t border-border/60 pt-3 flex items-center justify-between">
-                                                    <span className="text-sm font-semibold text-foreground">Toplam / Çağrı</span>
+                                                    <span className="text-sm font-semibold text-foreground">{t('totalPerCall')}</span>
                                                     <span className="text-lg font-bold text-primary">${perCallCost.total}</span>
                                                 </div>
                                             </div>
@@ -930,12 +937,12 @@ function BillingPageContent() {
                                         {/* Cost distribution bar */}
                                         {perCallCost && perCallCost.total > 0 && (
                                             <div className="mt-4">
-                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mb-2">Maliyet Dağılımı</p>
+                                                <p className="text-[10px] text-muted-foreground/70 uppercase tracking-wider mb-2">{t('costDistribution')}</p>
                                                 <div className="flex h-3 rounded-full overflow-hidden bg-foreground/[0.04]">
                                                     <div
                                                         className="bg-blue-500 transition-all"
                                                         style={{ width: `${(perCallCost.voice / perCallCost.total) * 100}%` }}
-                                                        title="Ses"
+                                                        title={t('voiceLabel')}
                                                     />
                                                     <div
                                                         className="bg-purple-500 transition-all"
@@ -950,7 +957,7 @@ function BillingPageContent() {
                                                 </div>
                                                 <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground/70">
                                                     <span className="flex items-center gap-1">
-                                                        <span className="h-2 w-2 rounded-full bg-blue-500" /> Ses
+                                                        <span className="h-2 w-2 rounded-full bg-blue-500" /> {t('voiceLabel')}
                                                     </span>
                                                     <span className="flex items-center gap-1">
                                                         <span className="h-2 w-2 rounded-full bg-purple-500" /> TTS
@@ -967,15 +974,15 @@ function BillingPageContent() {
                                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
                                         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
                                             <TrendingUp className="h-4 w-4 text-emerald-400" />
-                                            Aylık Maliyet Özeti
+                                            {t('monthlyCostSummary')}
                                         </h3>
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between py-2">
-                                                <span className="text-sm text-muted-foreground">Plan Ücreti</span>
+                                                <span className="text-sm text-muted-foreground">{t('planFee')}</span>
                                                 <span className="text-sm font-semibold text-foreground">${cost.baseCost}</span>
                                             </div>
                                             <div className="flex items-center justify-between py-2">
-                                                <span className="text-sm text-muted-foreground">Altyapı Maliyeti</span>
+                                                <span className="text-sm text-muted-foreground">{t('infraCost')}</span>
                                                 <span className="text-sm font-semibold text-red-400">-${cost.infraCost}</span>
                                             </div>
                                             <div className="flex items-center justify-between py-2">
@@ -997,7 +1004,7 @@ function BillingPageContent() {
                                                 <span className="text-sm text-muted-foreground">${cost.llmCost}</span>
                                             </div>
                                             <div className="border-t border-border/60 pt-3 flex items-center justify-between">
-                                                <span className="text-sm font-semibold text-foreground">Marj</span>
+                                                <span className="text-sm font-semibold text-foreground">{t('margin')}</span>
                                                 <span className={`text-lg font-bold ${cost.margin >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                                     ${cost.margin}
                                                 </span>
@@ -1006,7 +1013,7 @@ function BillingPageContent() {
 
                                         {cost.avgCostPerCall > 0 && (
                                             <div className="mt-4 bg-foreground/[0.04] rounded-xl px-4 py-3 flex items-center justify-between">
-                                                <span className="text-xs text-muted-foreground">Ortalama Çağrı Maliyeti</span>
+                                                <span className="text-xs text-muted-foreground">{t('avgCallCost')}</span>
                                                 <span className="text-sm font-bold text-foreground">${cost.avgCostPerCall}</span>
                                             </div>
                                         )}
@@ -1019,17 +1026,17 @@ function BillingPageContent() {
                                 <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 flex items-start gap-3">
                                     <AlertCircle className="h-5 w-5 text-red-400 mt-0.5 shrink-0" />
                                     <div>
-                                        <p className="text-sm font-semibold text-red-300">Kullanım Limiti Uyarısı</p>
+                                        <p className="text-sm font-semibold text-red-300">{t('usageLimitWarning')}</p>
                                         <p className="text-sm text-red-400/70 mt-1">
-                                            {limits.minutesExceeded && `Dakika limitiniz aşıldı (${limits.usagePercent}%). `}
-                                            {limits.callsExceeded && `Çağrı limitiniz aşıldı (${limits.callPercent}%). `}
-                                            Daha yüksek bir plana geçmeyi düşünebilirsiniz.
+                                            {limits.minutesExceeded && t('minutesExceeded', { percent: limits.usagePercent })}
+                                            {limits.callsExceeded && t('callsExceeded', { percent: limits.callPercent })}
+                                            {t('considerUpgrade')}
                                         </p>
                                         <button
                                             onClick={() => setActiveTab('plans')}
                                             className="mt-3 inline-flex items-center gap-1 text-sm text-red-300 hover:text-red-200 transition-colors"
                                         >
-                                            Planları İncele <ArrowRight className="h-3 w-3" />
+                                            {t('viewPlans')} <ArrowRight className="h-3 w-3" />
                                         </button>
                                     </div>
                                 </div>
@@ -1085,7 +1092,7 @@ function BillingPageContent() {
                     <div className="mt-6">
                         <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                             <Activity className="h-5 w-5 text-pink-400" />
-                            Pipeline Performans Analizi
+                            {t('pipelinePerformance')}
                         </h3>
                         <LatencyBreakdownChart days={7} />
                     </div>
@@ -1098,8 +1105,8 @@ function BillingPageContent() {
                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
                         <div className="flex items-center justify-between mb-6">
                             <div>
-                                <h3 className="text-lg font-bold text-foreground mb-1">Fatura & Ödeme Geçmişi</h3>
-                                <p className="text-sm text-muted-foreground">Abonelik işlemleri ve ödeme kayıtları</p>
+                                <h3 className="text-lg font-bold text-foreground mb-1">{t('invoiceHistory')}</h3>
+                                <p className="text-sm text-muted-foreground">{t('invoiceHistoryDesc')}</p>
                             </div>
                             {subscription?.customerPortalUrl && (
                                 <a
@@ -1109,7 +1116,7 @@ function BillingPageContent() {
                                     className="px-4 py-2 rounded-xl bg-foreground/[0.06] border border-border text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/10 transition-colors flex items-center gap-2"
                                 >
                                     <ExternalLink className="h-4 w-4" />
-                                    Ödeme Portalı
+                                    {t('paymentPortal')}
                                 </a>
                             )}
                         </div>
@@ -1121,7 +1128,7 @@ function BillingPageContent() {
                         ) : invoices.length === 0 ? (
                             <div className="text-center py-12">
                                 <Wallet className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
-                                <p className="text-muted-foreground text-sm">Henüz ödeme kaydı bulunmuyor</p>
+                                <p className="text-muted-foreground text-sm">{t('noPaymentRecords')}</p>
                             </div>
                         ) : (
                             <div className="space-y-3">
@@ -1130,17 +1137,17 @@ function BillingPageContent() {
                                         ? new Date(activity.createdAt)
                                         : new Date(((activity.createdAt as { _seconds?: number; seconds?: number })?._seconds || (activity.createdAt as { seconds?: number })?.seconds || 0) * 1000);
                                     const typeMap: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-                                        subscription_created: { label: 'Abonelik Başlatıldı', color: 'text-green-400', icon: CheckCircle2 },
-                                        subscription_updated: { label: 'Abonelik Güncellendi', color: 'text-blue-400', icon: RefreshCw },
-                                        subscription_cancelled: { label: 'Abonelik İptal Edildi', color: 'text-orange-400', icon: XCircle },
-                                        subscription_expired: { label: 'Abonelik Sona Erdi', color: 'text-red-400', icon: XCircle },
-                                        subscription_paused: { label: 'Abonelik Duraklatıldı', color: 'text-yellow-400', icon: Info },
-                                        subscription_resumed: { label: 'Abonelik Devam Ettirildi', color: 'text-green-400', icon: CheckCircle2 },
-                                        subscription_unpaused: { label: 'Abonelik Devam Ettirildi', color: 'text-green-400', icon: CheckCircle2 },
-                                        payment_success: { label: 'Ödeme Başarılı', color: 'text-emerald-400', icon: CheckCircle2 },
-                                        payment_failed: { label: 'Ödeme Başarısız', color: 'text-red-400', icon: XCircle },
-                                        payment_refunded: { label: 'İade Yapıldı', color: 'text-orange-400', icon: Repeat },
-                                        settings_update: { label: 'Ayar Güncellendi', color: 'text-muted-foreground', icon: Info },
+                                        subscription_created: { label: t('subscriptionCreated'), color: 'text-green-400', icon: CheckCircle2 },
+                                        subscription_updated: { label: t('subscriptionUpdated'), color: 'text-blue-400', icon: RefreshCw },
+                                        subscription_cancelled: { label: t('subscriptionCancelledEvent'), color: 'text-orange-400', icon: XCircle },
+                                        subscription_expired: { label: t('subscriptionExpired'), color: 'text-red-400', icon: XCircle },
+                                        subscription_paused: { label: t('subscriptionPaused'), color: 'text-yellow-400', icon: Info },
+                                        subscription_resumed: { label: t('subscriptionResumed'), color: 'text-green-400', icon: CheckCircle2 },
+                                        subscription_unpaused: { label: t('subscriptionResumed'), color: 'text-green-400', icon: CheckCircle2 },
+                                        payment_success: { label: t('paymentSuccess'), color: 'text-emerald-400', icon: CheckCircle2 },
+                                        payment_failed: { label: t('paymentFailed'), color: 'text-red-400', icon: XCircle },
+                                        payment_refunded: { label: t('paymentRefunded'), color: 'text-orange-400', icon: Repeat },
+                                        settings_update: { label: t('settingsUpdate'), color: 'text-muted-foreground', icon: Info },
                                     };
                                     const info = typeMap[activity.type] || { label: activity.type, color: 'text-muted-foreground', icon: Info };
                                     const Icon = info.icon;
@@ -1164,10 +1171,10 @@ function BillingPageContent() {
                                             </div>
                                             <div className="text-right shrink-0">
                                                 <p className="text-xs text-muted-foreground">
-                                                    {ts.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    {ts.toLocaleDateString(dateLocaleStr, { day: 'numeric', month: 'short', year: 'numeric' })}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground/70 mt-0.5">
-                                                    {ts.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                                    {ts.toLocaleTimeString(dateLocaleStr, { hour: '2-digit', minute: '2-digit' })}
                                                 </p>
                                             </div>
                                         </div>
@@ -1183,13 +1190,13 @@ function BillingPageContent() {
             {activeTab === 'calculator' && isSuperAdmin && (
                 <div className="space-y-6 animate-fade-in">
                     <div className="rounded-2xl bg-foreground/[0.02] border border-border p-6">
-                        <h3 className="text-lg font-bold text-foreground mb-1">Ölçeklendirme Hesaplayıcı</h3>
-                        <p className="text-sm text-muted-foreground mb-6">Kullanıcı sayısı ve çağrı hacmine göre aylık maliyet tahmini.</p>
+                        <h3 className="text-lg font-bold text-foreground mb-1">{t('scalingCalculator')}</h3>
+                        <p className="text-sm text-muted-foreground mb-6">{t('scalingCalculatorDesc')}</p>
 
                         {/* Sliders */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                             <SliderInput
-                                label="Kullanıcı Sayısı"
+                                label={t('userCount')}
                                 value={calcUsers}
                                 onChange={setCalcUsers}
                                 min={1}
@@ -1198,7 +1205,7 @@ function BillingPageContent() {
                                 suffix=""
                             />
                             <SliderInput
-                                label="Kullanıcı Başına Çağrı/Ay"
+                                label={t('callsPerUser')}
                                 value={calcCallsPerUser}
                                 onChange={setCalcCallsPerUser}
                                 min={10}
@@ -1207,23 +1214,23 @@ function BillingPageContent() {
                                 suffix=""
                             />
                             <SliderInput
-                                label="Ortalama Çağrı Süresi"
+                                label={t('avgCallDuration')}
                                 value={calcAvgDuration}
                                 onChange={setCalcAvgDuration}
                                 min={1}
                                 max={10}
                                 step={1}
-                                suffix="dk"
+                                suffix={t('dk')}
                             />
                         </div>
 
                         {/* Results */}
                         <div className="border-t border-border/60 pt-6">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                <CalcResult label="Toplam Çağrı" value={totalCalls.toLocaleString()} />
-                                <CalcResult label="Toplam Dakika" value={totalMinutes.toLocaleString()} />
-                                <CalcResult label="Çağrı Başına" value={`$${((calcInfra / totalCalls) || 0).toFixed(2)}`} />
-                                <CalcResult label="Aylık Toplam" value={`$${calcInfra.toFixed(0)}`} highlight />
+                                <CalcResult label={t('totalCallsCalc')} value={totalCalls.toLocaleString()} />
+                                <CalcResult label={t('totalMinutes')} value={totalMinutes.toLocaleString()} />
+                                <CalcResult label={t('perCall')} value={`$${((calcInfra / totalCalls) || 0).toFixed(2)}`} />
+                                <CalcResult label={t('monthlyTotal')} value={`$${calcInfra.toFixed(0)}`} highlight />
                             </div>
 
                             {/* Breakdown bars */}
@@ -1235,16 +1242,16 @@ function BillingPageContent() {
 
                             {/* Plan recommendation */}
                             <div className="mt-6 bg-foreground/[0.04] rounded-xl p-4">
-                                <p className="text-xs text-muted-foreground mb-2">Önerilen Plan</p>
+                                <p className="text-xs text-muted-foreground mb-2">{t('recommendedPlan')}</p>
                                 <p className="text-sm font-semibold text-foreground">
-                                    {totalMinutes <= 100 ? 'Başlangıç (₺990/ay)' :
-                                     totalMinutes <= 500 ? 'Profesyonel (₺2.990/ay)' :
-                                     'Kurumsal (₺7.990/ay)'}
+                                    {totalMinutes <= 100 ? t('starterPlanRec') :
+                                     totalMinutes <= 500 ? t('professionalPlanRec') :
+                                     t('enterprisePlanRec')}
                                 </p>
                                 <p className="text-xs text-muted-foreground/70 mt-1">
-                                    {totalMinutes <= 100 ? '100 dk dahil — küçük ekipler için ideal' :
-                                     totalMinutes <= 500 ? '500 dk dahil — büyüyen işletmeler için' :
-                                     '2.000 dk dahil — yüksek hacimli operasyonlar için'}
+                                    {totalMinutes <= 100 ? t('starterPlanRecDesc') :
+                                     totalMinutes <= 500 ? t('professionalPlanRecDesc') :
+                                     t('enterprisePlanRecDesc')}
                                 </p>
                             </div>
                         </div>
@@ -1254,26 +1261,26 @@ function BillingPageContent() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <StrategyCard
                             step="01"
-                            title="Erken Kullanıcı Analizi"
-                            description="İlk 10 müşteride çağrı başına maliyeti izle, fiyatlandırmayı ayarla."
+                            title={t('strategy01Title')}
+                            description={t('strategy01Desc')}
                             color="blue"
                         />
                         <StrategyCard
                             step="02"
-                            title="TTS Optimizasyonu"
-                            description="Kısa yanıtlar, cache kullanımı, karakter limiti ile TTS maliyetini %40 düşür."
+                            title={t('strategy02Title')}
+                            description={t('strategy02Desc')}
                             color="purple"
                         />
                         <StrategyCard
                             step="03"
-                            title="Rate Limiting"
-                            description="Eşzamanlı çağrı limiti, dakika kotası, aşım bildirimleri."
+                            title={t('strategy03Title')}
+                            description={t('strategy03Desc')}
                             color="amber"
                         />
                         <StrategyCard
                             step="04"
-                            title="Self-Hosted (Gelecek)"
-                            description="100+ kullanıcıda kendi TTS/LLM altyapısına geçiş, %60 maliyet düşüşü."
+                            title={t('strategy04Title')}
+                            description={t('strategy04Desc')}
                             color="emerald"
                         />
                     </div>
@@ -1287,7 +1294,7 @@ function BillingPageContent() {
 // Sub-components
 // =============================================
 
-function StatCard({ icon: Icon, label, value, suffix, color, percent, limit, limitLabel }: {
+function StatCard({ icon: Icon, label, value, suffix, color, percent, limit, limitLabel, includedLabel }: {
     icon: typeof Phone;
     label: string;
     value: number;
@@ -1296,6 +1303,7 @@ function StatCard({ icon: Icon, label, value, suffix, color, percent, limit, lim
     percent?: number;
     limit?: number;
     limitLabel?: string;
+    includedLabel?: string;
 }) {
     const colorMap: Record<string, { bg: string; text: string; bar: string }> = {
         blue: { bg: 'bg-blue-500/10', text: 'text-blue-400', bar: 'bg-blue-500' },
@@ -1331,7 +1339,7 @@ function StatCard({ icon: Icon, label, value, suffix, color, percent, limit, lim
                         />
                     </div>
                     <p className="text-[10px] text-muted-foreground/70 mt-1">
-                        {limit.toLocaleString()} {limitLabel} dahil
+                        {limit.toLocaleString()} {limitLabel} {includedLabel}
                     </p>
                 </div>
             )}

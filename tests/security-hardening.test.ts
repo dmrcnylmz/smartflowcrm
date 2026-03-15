@@ -184,6 +184,29 @@ describe('i18n Component Integration', () => {
         expect(content).toContain("t('fillAllFields')");
         expect(content).toContain("t('passwordsDoNotMatch')");
     });
+
+    it('Dashboard page uses useTranslations for all KPI cards', () => {
+        const content = fs.readFileSync('app/page.tsx', 'utf-8');
+        expect(content).toContain("useTranslations('dashboard')");
+        expect(content).toContain("t('todayCalls')");
+        expect(content).toContain("t('missedCalls')");
+        expect(content).toContain("t('openComplaints')");
+        expect(content).toContain("t('upcomingAppointments')");
+        expect(content).toContain("t('recentActivity')");
+        expect(content).toContain("t('demoMode')");
+        expect(content).toContain("t('title')");
+        expect(content).toContain("t('subtitle')");
+    });
+
+    it('DashboardCharts uses locale-neutral data keys with translated names', () => {
+        const content = fs.readFileSync('components/dashboard/DashboardCharts.tsx', 'utf-8');
+        expect(content).toContain("dataKey=\"calls\"");
+        expect(content).toContain("dataKey=\"answered\"");
+        expect(content).toContain("dataKey=\"missed\"");
+        expect(content).toContain("t('calls')");
+        expect(content).toContain("t('answered')");
+        expect(content).toContain("t('missed')");
+    });
 });
 
 // ─── 7. Translation Files Consistency ───
@@ -198,6 +221,26 @@ describe('Translation Files — Completeness', () => {
             expect(content.charts.callTrend, `${lang}.json missing "charts.callTrend"`).toBeTruthy();
             expect(content.charts.complaintCategories, `${lang}.json missing "charts.complaintCategories"`).toBeTruthy();
             expect(content.charts.appointmentStatuses, `${lang}.json missing "charts.appointmentStatuses"`).toBeTruthy();
+        }
+    });
+
+    it('all 4 languages have chart legend keys', () => {
+        const chartLegendKeys = ['calls', 'answered', 'missed', 'scheduled', 'completed', 'cancelled'];
+        for (const lang of langs) {
+            const content = JSON.parse(fs.readFileSync(`messages/${lang}.json`, 'utf-8'));
+            for (const key of chartLegendKeys) {
+                expect(content.charts[key], `${lang}.json missing "charts.${key}"`).toBeTruthy();
+            }
+        }
+    });
+
+    it('all 4 languages have dashboard KPI keys', () => {
+        const dashboardKeys = ['todayCalls', 'missedCalls', 'openComplaints', 'upcomingAppointments', 'recentActivity', 'demoMode', 'title', 'subtitle'];
+        for (const lang of langs) {
+            const content = JSON.parse(fs.readFileSync(`messages/${lang}.json`, 'utf-8'));
+            for (const key of dashboardKeys) {
+                expect(content.dashboard[key], `${lang}.json missing "dashboard.${key}"`).toBeTruthy();
+            }
         }
     });
 
@@ -331,5 +374,44 @@ describe('Sidebar Accessibility', () => {
 
     it('has role="dialog" on mobile drawer', () => {
         expect(content).toContain('role="dialog"');
+    });
+});
+
+// ─── 11. Agent Languages Alignment ───
+
+describe('Agent Languages — Aligned with App Locales', () => {
+    it('AGENT_LANGUAGES matches supported app locales (tr, en, de, fr)', () => {
+        const content = fs.readFileSync('lib/agents/types.ts', 'utf-8');
+        expect(content).toContain("value: 'tr'");
+        expect(content).toContain("value: 'en'");
+        expect(content).toContain("value: 'de'");
+        expect(content).toContain("value: 'fr'");
+        // Should NOT contain Arabic (removed)
+        expect(content).not.toContain("value: 'ar'");
+    });
+
+    it('VOICE_STYLES uses i18n-ready labelKey', () => {
+        const content = fs.readFileSync('lib/agents/types.ts', 'utf-8');
+        expect(content).toContain("labelKey: 'professional'");
+        expect(content).toContain("labelKey: 'friendly'");
+    });
+});
+
+// ─── 12. Date Locale Helper ───
+
+describe('Date Locale Helper', () => {
+    it('date-locale utility supports all 4 app locales', () => {
+        const content = fs.readFileSync('lib/utils/date-locale.ts', 'utf-8');
+        expect(content).toContain("tr");
+        expect(content).toContain("enUS");
+        expect(content).toContain("de");
+        expect(content).toContain("fr");
+    });
+
+    it('Dashboard page uses getDateLocale instead of hardcoded tr locale', () => {
+        const content = fs.readFileSync('app/page.tsx', 'utf-8');
+        expect(content).toContain('getDateLocale');
+        expect(content).toContain('useLocale');
+        expect(content).not.toContain("from 'date-fns/locale/tr'");
     });
 });

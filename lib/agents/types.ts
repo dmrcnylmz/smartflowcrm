@@ -95,19 +95,20 @@ export interface SmartVariableMapping {
 // Constants
 // =============================================
 
+/** Voice style options — labels are i18n keys, resolved at render time */
 export const VOICE_STYLES = [
-    { value: 'professional', label: 'Profesyonel' },
-    { value: 'friendly', label: 'Samimi' },
-    { value: 'formal', label: 'Resmi' },
-    { value: 'casual', label: 'Doğal' },
-    { value: 'empathetic', label: 'Empatik' },
+    { value: 'professional', labelKey: 'professional' },
+    { value: 'friendly', labelKey: 'friendly' },
+    { value: 'formal', labelKey: 'formal' },
+    { value: 'casual', labelKey: 'casual' },
+    { value: 'empathetic', labelKey: 'empathetic' },
 ] as const;
 
 export const AGENT_LANGUAGES = [
     { value: 'tr', label: '🇹🇷 Türkçe', flag: '🇹🇷' },
     { value: 'en', label: '🇬🇧 English', flag: '🇬🇧' },
     { value: 'de', label: '🇩🇪 Deutsch', flag: '🇩🇪' },
-    { value: 'ar', label: '🇸🇦 العربية', flag: '🇸🇦' },
+    { value: 'fr', label: '🇫🇷 Français', flag: '🇫🇷' },
 ] as const;
 
 export const DEFAULT_VOICE_CONFIG: AgentVoiceConfig = {

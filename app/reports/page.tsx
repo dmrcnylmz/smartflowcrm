@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { getDateLocale } from '@/lib/utils/date-locale';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,7 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Calendar, AlertCircle, PhoneIncoming, Target, CheckCircle2, PhoneOutgoing, Clock, Info, ShieldAlert, BarChart3, Activity, AlertTriangle, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
-import { tr } from 'date-fns/locale/tr';
 import { Progress } from '@/components/ui/progress';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import nextDynamic from 'next/dynamic';
@@ -42,6 +43,10 @@ interface DailyReport {
 
 export default function ReportsPage() {
   const authFetch = useAuthFetch();
+  const t = useTranslations('reports');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const dateLocale = getDateLocale(locale);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,16 +70,16 @@ export default function ReportsPage() {
         await response.text().catch(() => '');
         // User-friendly messages — never expose raw HTTP status codes
         if (response.status === 401 || response.status === 403) {
-          setError('Oturum süresi dolmuş olabilir. Lütfen sayfayı yenileyip tekrar giriş yapın.');
+          setError(t('sessionExpired'));
         } else if (response.status >= 500) {
-          setError('Sunucu şu anda yanıt veremiyor. Lütfen birkaç dakika sonra tekrar deneyin.');
+          setError(t('serverError'));
         } else {
-          setError('Rapor verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
+          setError(t('reportLoadError'));
         }
         setReport(null);
       }
     } catch (err: unknown) {
-      setError('Rapor servisine bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      setError(t('connectionError'));
       setReport(null);
     } finally {
       setLoading(false);
@@ -85,24 +90,24 @@ export default function ReportsPage() {
     if (!report) return;
 
     const csvRows = [
-      ['Tarih', 'Metrik', 'Değer'],
-      [report.date, 'Toplam Çağrı', report.summary.totalCalls],
-      [report.date, 'Yanıtlanan Çağrı', report.summary.answeredCalls],
-      [report.date, 'Kaçırılan Çağrı', report.summary.missedCalls],
-      [report.date, 'Ortalama Çağrı Süresi (sn)', report.summary.avgCallDuration],
-      [report.date, 'Açık Şikayet', report.summary.openComplaints],
-      [report.date, 'Toplam Şikayet', report.summary.totalComplaints],
-      [report.date, 'Çözülen Şikayet', report.summary.resolvedComplaints],
-      [report.date, 'Açık Bilgi Talebi', report.summary.openInfoRequests],
-      [report.date, 'Planlanan Randevu', report.summary.scheduledAppointments],
-      [report.date, 'Tamamlanan Randevu', report.summary.completedAppointments],
+      [t('csvDate'), t('csvMetric'), t('csvValue')],
+      [report.date, t('csvTotalCalls'), report.summary.totalCalls],
+      [report.date, t('csvAnsweredCalls'), report.summary.answeredCalls],
+      [report.date, t('csvMissedCalls'), report.summary.missedCalls],
+      [report.date, t('csvAvgDuration'), report.summary.avgCallDuration],
+      [report.date, t('csvOpenComplaints'), report.summary.openComplaints],
+      [report.date, t('csvTotalComplaints'), report.summary.totalComplaints],
+      [report.date, t('csvResolvedComplaints'), report.summary.resolvedComplaints],
+      [report.date, t('csvOpenInfoRequests'), report.summary.openInfoRequests],
+      [report.date, t('csvScheduledAppointments'), report.summary.scheduledAppointments],
+      [report.date, t('csvCompletedAppointments'), report.summary.completedAppointments],
     ];
 
     const csvContent = csvRows.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `callception-rapor-${selectedDate}.csv`;
+    link.download = `callception-report-${selectedDate}.csv`;
     link.click();
   }
 
@@ -121,10 +126,10 @@ export default function ReportsPage() {
             <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center">
               <BarChart3 className="h-5 w-5 text-indigo-400" />
             </div>
-            Performans Raporları
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Günlük operasyon metrikleri ve müşteri hizmetleri anlık analizleri.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -141,7 +146,7 @@ export default function ReportsPage() {
           </div>
           <div className="h-8 w-px bg-border/50"></div>
           <Button onClick={loadReport} disabled={loading} variant="ghost" className="font-medium text-primary">
-            Analiz Et
+            {t('analyze')}
           </Button>
         </div>
       </div>
@@ -149,48 +154,48 @@ export default function ReportsPage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
-          <p className="text-sm text-white/40">Veriler yükleniyor...</p>
+          <p className="text-sm text-white/40">{t('loadingData')}</p>
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
             <AlertTriangle className="h-8 w-8 text-red-400/60" />
           </div>
-          <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+          <h3 className="text-lg font-semibold text-white/80 mb-2">{t('errorOccurred')}</h3>
           <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
-          <Button variant="outline" onClick={() => { setError(null); loadReport(); }}>Tekrar Dene</Button>
+          <Button variant="outline" onClick={() => { setError(null); loadReport(); }}>{tc('retry')}</Button>
         </div>
       ) : report ? (
         <div className="space-y-6">
           <div className="flex items-center justify-between animate-fade-in-down">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Activity className="h-5 w-5 text-indigo-500" />
-              {format(new Date(report.date), 'dd MMMM yyyy, EEEE', { locale: tr })} Özeti
+              {t('dateSummary', { date: format(new Date(report.date), 'dd MMMM yyyy, EEEE', { locale: dateLocale }) })}
             </h2>
             <Button onClick={downloadCSV} variant="outline" className="gap-2">
               <Download className="h-4 w-4 text-emerald-600" />
-              Excel / CSV Aktar
+              {t('exportCSV')}
             </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
 
-            {/* Çağrı Karnesi */}
+            {/* Call Performance */}
             <Card className="rounded-2xl border border-indigo-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '0ms' }}>
               <CardHeader className="border-b border-white/[0.06] pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-indigo-400">
                   <PhoneIncoming className="h-4 w-4" />
-                  Çağrı Performansı
+                  {t('callPerformance')}
                 </CardDescription>
                 <CardTitle className="text-4xl font-bold text-white mt-2">
-                  {report.summary.totalCalls} <span className="text-base text-white/40 font-medium">çağrı</span>
+                  {report.summary.totalCalls} <span className="text-base text-white/40 font-medium">{t('calls')}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-sm mb-1.5">
-                      <span className="text-muted-foreground">Yanıtlanan (Başarılı)</span>
+                      <span className="text-muted-foreground">{t('answeredSuccess')}</span>
                       <span className="font-semibold text-emerald-600">
                         %{calculatePercent(report.summary.answeredCalls, report.summary.totalCalls)}
                       </span>
@@ -200,7 +205,7 @@ export default function ReportsPage() {
 
                   <div className="flex items-center justify-between pt-4 border-t border-white/[0.06]">
                     <div className="flex flex-col">
-                      <span className="text-xs text-white/40">Kaçırılan Çağrılar</span>
+                      <span className="text-xs text-white/40">{t('missedCalls')}</span>
                       <span className="font-medium text-red-400 flex items-center gap-1">
                         <PhoneOutgoing className="h-3 w-3" />
                         {report.summary.missedCalls}
@@ -208,10 +213,10 @@ export default function ReportsPage() {
                     </div>
                     <div className="h-8 w-px bg-white/[0.06]"></div>
                     <div className="flex flex-col items-end">
-                      <span className="text-xs text-white/40">Ort. Görüşme Süresi</span>
+                      <span className="text-xs text-white/40">{t('avgDuration')}</span>
                       <span className="font-medium text-white flex items-center gap-1">
                         <Clock className="h-3 w-3 text-indigo-400" />
-                        {report.summary.avgCallDuration} sn
+                        {report.summary.avgCallDuration} {t('sec')}
                       </span>
                     </div>
                   </div>
@@ -219,15 +224,15 @@ export default function ReportsPage() {
               </CardContent>
             </Card>
 
-            {/* Randevu Dönüşümü */}
+            {/* Appointments & Planning */}
             <Card className="rounded-2xl border border-blue-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden animate-fade-in-up" style={{ animationDelay: '80ms' }}>
               <CardHeader className="border-b border-white/[0.06] pb-4">
                 <CardDescription className="flex items-center gap-2 font-medium text-blue-400">
                   <Target className="h-4 w-4" />
-                  Randevu & Planlama
+                  {t('appointmentPlanning')}
                 </CardDescription>
                 <CardTitle className="text-4xl font-bold text-white mt-2">
-                  {report.summary.scheduledAppointments} <span className="text-base text-white/40 font-medium">randevu</span>
+                  {report.summary.scheduledAppointments} <span className="text-base text-white/40 font-medium">{t('appointments')}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
@@ -238,8 +243,8 @@ export default function ReportsPage() {
                         <CheckCircle2 className="h-5 w-5 text-blue-400" />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">Talepler</p>
-                        <p className="text-xs text-muted-foreground">Gün içi randevu girişleri</p>
+                        <p className="text-sm font-semibold">{t('requests')}</p>
+                        <p className="text-xs text-muted-foreground">{t('dailyAppointments')}</p>
                       </div>
                     </div>
                     <div className="text-xl font-bold text-blue-700 dark:text-blue-400">
@@ -249,14 +254,14 @@ export default function ReportsPage() {
 
                   <div className="flex items-center gap-2 text-xs text-white/40">
                     <Info className="h-4 w-4 text-blue-400" />
-                    <span>Tamamlanan Randevular:</span>
-                    <span className="font-semibold text-white">{report.summary.completedAppointments} adet</span>
+                    <span>{t('completedAppointments')}:</span>
+                    <span className="font-semibold text-white">{report.summary.completedAppointments} {t('count')}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Şikayet ve Talep Yönetimi */}
+            {/* Complaints & Info Requests */}
             <Card className="rounded-2xl border border-amber-500/15 bg-white/[0.02] backdrop-blur-sm overflow-hidden relative animate-fade-in-up" style={{ animationDelay: '160ms' }}>
               <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
                 <ShieldAlert className="h-32 w-32 text-white" />
@@ -264,26 +269,26 @@ export default function ReportsPage() {
               <CardHeader className="border-b border-white/[0.06] pb-4 relative z-10">
                 <CardDescription className="flex items-center gap-2 font-medium text-amber-400">
                   <ShieldAlert className="h-4 w-4" />
-                  Şikayetler & Bilgi Talebi
+                  {t('complaintsTitle')}
                 </CardDescription>
                 <CardTitle className="text-4xl font-bold text-white mt-2">
-                  {report.summary.totalComplaints} <span className="text-base text-white/40 font-medium">yeni şikayet</span>
+                  {report.summary.totalComplaints} <span className="text-base text-white/40 font-medium">{t('newComplaints')}</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 relative z-10">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-amber-500/5 border border-amber-500/15 p-4 rounded-xl">
-                    <p className="text-xs text-amber-400/80 mb-1 font-medium">Açık/Bekleyen</p>
+                    <p className="text-xs text-amber-400/80 mb-1 font-medium">{t('openPending')}</p>
                     <p className="text-2xl font-bold text-amber-400">{report.summary.openComplaints}</p>
                   </div>
                   <div className="bg-emerald-500/5 border border-emerald-500/15 p-4 rounded-xl">
-                    <p className="text-xs text-emerald-400/80 mb-1 font-medium">Çözüme Ulaşan</p>
+                    <p className="text-xs text-emerald-400/80 mb-1 font-medium">{t('resolved')}</p>
                     <p className="text-2xl font-bold text-emerald-400">{report.summary.resolvedComplaints}</p>
                   </div>
                 </div>
 
                 <div className="mt-4 flex justify-between items-center text-sm border-t border-white/[0.06] pt-4">
-                  <span className="text-white/40 font-medium">Genel Bilgi İçin Arayan:</span>
+                  <span className="text-white/40 font-medium">{t('generalInfoCaller')}:</span>
                   <Badge variant="outline" className="font-bold">{report.summary.openInfoRequests}</Badge>
                 </div>
               </CardContent>
@@ -300,11 +305,11 @@ export default function ReportsPage() {
           <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
             <BarChart3 className="h-8 w-8 text-white/20" />
           </div>
-          <h3 className="text-lg font-semibold text-white/80 mb-2">Seçili tarihte veri yok</h3>
+          <h3 className="text-lg font-semibold text-white/80 mb-2">{t('noDataTitle')}</h3>
           <p className="text-sm text-white/40 mb-6 max-w-sm">
-            {format(new Date(selectedDate), 'dd MMMM yyyy', { locale: tr })} tarihine ait işlem verisi bulunmamaktadır. Farklı bir tarih seçerek tekrar deneyebilirsiniz.
+            {t('noDataDesc', { date: format(new Date(selectedDate), 'dd MMMM yyyy', { locale: dateLocale }) })}
           </p>
-          <Button variant="outline" onClick={loadReport}>Tekrar Dene</Button>
+          <Button variant="outline" onClick={loadReport}>{tc('retry')}</Button>
         </div>
       )}
     </div>

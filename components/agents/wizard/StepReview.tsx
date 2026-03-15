@@ -10,6 +10,7 @@ import { VOICE_STYLES, AGENT_LANGUAGES } from '@/lib/agents/types';
 import { getTemplateById } from '@/lib/agents/templates';
 import { getVoiceById } from '@/lib/voice/voice-catalog';
 import { getIcon, ROLES_MAP } from './wizard-constants';
+import { useTranslations } from 'next-intl';
 
 interface StepReviewProps {
     agentName: string;
@@ -31,11 +32,28 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
     );
 }
 
+/** Map voice style values to translated labels */
+const VOICE_STYLE_LABELS: Record<string, Record<string, string>> = {
+    professional: { tr: 'Profesyonel', en: 'Professional', de: 'Professionell', fr: 'Professionnel' },
+    friendly: { tr: 'Samimi', en: 'Friendly', de: 'Freundlich', fr: 'Amical' },
+    formal: { tr: 'Resmi', en: 'Formal', de: 'Formell', fr: 'Formel' },
+    casual: { tr: 'Doğal', en: 'Casual', de: 'Locker', fr: 'Décontracté' },
+    empathetic: { tr: 'Empatik', en: 'Empathetic', de: 'Einfühlsam', fr: 'Empathique' },
+};
+
 export function StepReview({
     agentName, agentRole, language, selectedTemplateId,
     variables, voiceConfig, fallbackRules, resolvedPrompt,
 }: StepReviewProps) {
+    const t = useTranslations('agents');
+    const tc = useTranslations('common');
     const template = selectedTemplateId && selectedTemplateId !== 'scratch' ? getTemplateById(selectedTemplateId) : null;
+
+    const getStyleLabel = (styleValue: string) => {
+        const labels = VOICE_STYLE_LABELS[styleValue];
+        // Try current locale from language prop, fallback to value
+        return labels?.[language] || labels?.['en'] || styleValue;
+    };
 
     return (
         <div className="grid md:grid-cols-2 gap-4">
@@ -50,19 +68,19 @@ export function StepReview({
                         )}
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Asistan Kimliği</h3>
-                        <p className="text-xs text-white/30">Adım 1-3</p>
+                        <h3 className="font-semibold text-white text-sm">{t('agentName')}</h3>
+                        <p className="text-xs text-white/30">Step 1-3</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
-                    <ReviewItem label="Ad" value={agentName} />
-                    <ReviewItem label="Rol" value={ROLES_MAP[agentRole] || agentRole} />
-                    <ReviewItem label="Dil" value={AGENT_LANGUAGES.find(l => l.value === language)?.label || language} />
-                    {template && <ReviewItem label="Şablon" value={template.name} />}
-                    <ReviewItem label="Ses Stili" value={VOICE_STYLES.find(s => s.value === voiceConfig.style)?.label || voiceConfig.style} />
+                    <ReviewItem label={t('agentName')} value={agentName} />
+                    <ReviewItem label={t('voiceConfig')} value={ROLES_MAP[agentRole] || agentRole} />
+                    <ReviewItem label="Language" value={AGENT_LANGUAGES.find(l => l.value === language)?.label || language} />
+                    {template && <ReviewItem label="Template" value={template.name} />}
+                    <ReviewItem label={t('voiceConfig')} value={getStyleLabel(voiceConfig.style)} />
                     {voiceConfig.voiceCatalogId && (() => {
                         const cv = getVoiceById(voiceConfig.voiceCatalogId);
-                        return cv ? <ReviewItem label="TTS Ses" value={`${cv.name} (${cv.provider})`} /> : null;
+                        return cv ? <ReviewItem label="TTS" value={`${cv.name} (${cv.provider})`} /> : null;
                     })()}
                 </div>
             </div>
@@ -74,16 +92,16 @@ export function StepReview({
                         <Code2 className="h-4 w-4 text-violet-400" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Değişkenler & Kurallar</h3>
-                        <p className="text-xs text-white/30">{variables.length} değişken, {fallbackRules.length} kural</p>
+                        <h3 className="font-semibold text-white text-sm">{t('systemPrompt')}</h3>
+                        <p className="text-xs text-white/30">{variables.length} vars, {fallbackRules.length} rules</p>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
                     {variables.map((v, i) => (
-                        <ReviewItem key={i} label={v.label || v.key} value={v.defaultValue || '(boş)'} />
+                        <ReviewItem key={i} label={v.label || v.key} value={v.defaultValue || '—'} />
                     ))}
                     {variables.length === 0 && (
-                        <p className="text-xs text-white/20">Değişken tanımlanmadı</p>
+                        <p className="text-xs text-white/20">{tc('noData')}</p>
                     )}
                 </div>
             </div>
@@ -95,13 +113,13 @@ export function StepReview({
                         <Sparkles className="h-4 w-4 text-inception-teal" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-white text-sm">Sistem Prompt&apos;u</h3>
-                        <p className="text-xs text-white/30">{resolvedPrompt.length} karakter</p>
+                        <h3 className="font-semibold text-white text-sm">{t('systemPrompt')}</h3>
+                        <p className="text-xs text-white/30">{resolvedPrompt.length} chars</p>
                     </div>
                 </div>
                 <div className="bg-white/[0.02] rounded-lg border border-white/[0.04] p-4 max-h-40 overflow-y-auto">
                     <pre className="text-xs text-white/50 whitespace-pre-wrap font-mono leading-relaxed">
-                        {resolvedPrompt || 'Prompt henüz yazılmadı'}
+                        {resolvedPrompt || '—'}
                     </pre>
                 </div>
             </div>
@@ -111,10 +129,9 @@ export function StepReview({
                 <div className="flex items-start gap-3">
                     <Sparkles className="h-5 w-5 text-inception-red flex-shrink-0 mt-0.5" />
                     <div>
-                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">OLUŞTURMAYA HAZIR</h4>
+                        <h4 className="font-semibold text-white text-sm font-display tracking-wide">{t('createAgent')}</h4>
                         <p className="text-xs text-white/40 mt-1">
-                            &quot;Asistanı Oluştur&quot; butonuna tıkladığınızda asistanız kaydedilecek ve kullanıma hazır hale gelecek.
-                            Oluşturduktan sonra test edebilir ve ayarlarını düzenleyebilirsiniz.
+                            {t('testAgent')}
                         </p>
                     </div>
                 </div>

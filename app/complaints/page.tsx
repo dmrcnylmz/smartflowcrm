@@ -21,13 +21,18 @@ import { useToast } from '@/components/ui/toast';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { Customer, Complaint } from '@/lib/firebase/types';
 import { format } from 'date-fns';
-import { tr } from 'date-fns/locale/tr';
+import { useLocale, useTranslations } from 'next-intl';
+import { getDateLocale } from '@/lib/utils/date-locale';
 import { toDate } from '@/lib/utils/date-helpers';
 import { Suspense } from 'react';
 
 function ComplaintsPageContent() {
   const { data: allComplaints, loading, error, refetch: refetchComplaints } = useComplaints();
   const { toast } = useToast();
+  const t = useTranslations('complaints');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const dateLocale = getDateLocale(locale);
   const searchParams = useSearchParams();
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [updating, setUpdating] = useState<string | null>(null);
@@ -86,10 +91,10 @@ function ComplaintsPageContent() {
   const uniqueCategories = Array.from(new Set(allComplaints.map(c => c.category).filter(Boolean))) as string[];
 
   const statusOptions: FilterOption[] = [
-    { value: 'open', label: 'Açık' },
-    { value: 'investigating', label: 'İşlemde' },
-    { value: 'resolved', label: 'Çözüldü' },
-    { value: 'closed', label: 'Kapatıldı' },
+    { value: 'open', label: t('statusOpen') },
+    { value: 'investigating', label: t('statusInvestigating') },
+    { value: 'resolved', label: t('statusResolved') },
+    { value: 'closed', label: t('statusClosed') },
   ];
 
   const categoryOptions: FilterOption[] = uniqueCategories.map(cat => ({
@@ -157,7 +162,7 @@ function ComplaintsPageContent() {
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
       const exportData = exportComplaints(filteredComplaints as unknown as Array<Record<string, unknown>>, customers as unknown as Record<string, Record<string, unknown>>);
-      const filename = `sikayetler-${new Date().toISOString().split('T')[0]}`;
+      const filename = `complaints-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
         case 'csv':
@@ -167,17 +172,17 @@ function ComplaintsPageContent() {
           await exportToExcel(exportData, filename);
           break;
         case 'pdf':
-          await exportToPDF(exportData, filename, 'Şikayet Listesi');
+          await exportToPDF(exportData, filename, t('complaintList'));
           break;
       }
 
       toast({
-        title: 'Başarılı!',
-        description: `${format.toUpperCase()} dosyası indirildi`,
+        title: tc('success'),
+        description: t('exportSuccess', { format: format.toUpperCase() }),
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
+      toast({ title: tc('error'), description: t('exportError'), variant: 'error' });
     }
   }
 
@@ -186,14 +191,14 @@ function ComplaintsPageContent() {
     try {
       await updateComplaint(complaintId, { status: newStatus });
       const statusLabels = {
-        open: 'Açık',
-        investigating: 'İşlemde',
-        resolved: 'Çözüldü',
-        closed: 'Kapatıldı',
+        open: t('statusOpen'),
+        investigating: t('statusInvestigating'),
+        resolved: t('statusResolved'),
+        closed: t('statusClosed'),
       };
       toast({
-        title: 'Durum Güncellendi',
-        description: `Şikayet durumu "${statusLabels[newStatus]}" olarak değiştirildi`,
+        title: t('statusUpdated'),
+        description: t('statusChanged', { status: statusLabels[newStatus] }),
         variant: 'success',
       });
       // Update local state temporarily for snappy UI (in addition to relying on hook)
@@ -202,9 +207,9 @@ function ComplaintsPageContent() {
       }
     } catch (err) {
       console.error('Status update error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Durum güncellenirken hata oluştu';
+      const errorMessage = err instanceof Error ? err.message : t('statusUpdateError');
       toast({
-        title: 'Hata',
+        title: tc('error'),
         description: errorMessage,
         variant: 'error',
       });
@@ -228,16 +233,16 @@ function ComplaintsPageContent() {
     try {
       await updateComplaint(selectedComplaint.id, { notes });
       toast({
-        title: 'Başarılı!',
-        description: 'Müşteri operasyon notları senkronize edildi',
+        title: tc('success'),
+        description: t('notesSynced'),
         variant: 'success',
       });
       setDetailDialogOpen(false);
     } catch (error) {
       console.error('Notes save error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Notlar kaydedilirken hata oluştu';
+      const errorMessage = error instanceof Error ? error.message : t('notesSaveError');
       toast({
-        title: 'Kayıt Hatası',
+        title: t('saveError'),
         description: errorMessage,
         variant: 'error',
       });
@@ -259,10 +264,10 @@ function ComplaintsPageContent() {
         <div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground flex items-center gap-3">
             <MessageSquareWarning className="h-8 w-8 text-orange-500" />
-            Şikayet ve Talep Yönetimi
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Müşteri memnuniyetsizliklerini ve gelen talepleri proaktif olarak yönetin.
+            {t('subtitle')}
           </p>
         </div>
       </div>
@@ -274,10 +279,10 @@ function ComplaintsPageContent() {
             <div className="p-3 rounded-2xl text-indigo-500 bg-indigo-500/10">
               <LayoutList className="h-6 w-6" />
             </div>
-            <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Tümü</span>
+            <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('all')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Toplam Talep</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('totalRequests')}</h3>
             <div className="text-4xl font-bold tracking-tight text-foreground">{totalComplaints}</div>
           </div>
         </div>
@@ -287,10 +292,10 @@ function ComplaintsPageContent() {
             <div className="p-3 rounded-2xl text-rose-500 bg-rose-500/10">
               <AlertCircle className="h-6 w-6" />
             </div>
-            <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Acil</span>
+            <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('urgent')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Bekleyen (Açık)</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('pendingOpen')}</h3>
             <div className="text-4xl font-bold tracking-tight text-rose-500">{openComplaints}</div>
           </div>
         </div>
@@ -300,10 +305,10 @@ function ComplaintsPageContent() {
             <div className="p-3 rounded-2xl text-amber-500 bg-amber-500/10">
               <Clock className="h-6 w-6" />
             </div>
-            <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Devam Eden</span>
+            <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('ongoing')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">İşlemdeki Süreçler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('inProgress')}</h3>
             <div className="text-4xl font-bold tracking-tight text-amber-500">{investigatingComplaints}</div>
           </div>
         </div>
@@ -313,10 +318,10 @@ function ComplaintsPageContent() {
             <div className="p-3 rounded-2xl text-emerald-500 bg-emerald-500/10">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Başarılı</span>
+            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('successful')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Çözüme Ulaşanlar</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('resolvedTitle')}</h3>
             <div className="text-4xl font-bold tracking-tight text-emerald-500">{resolvedComplaints}</div>
           </div>
         </div>
@@ -329,7 +334,7 @@ function ComplaintsPageContent() {
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/70" />
               <Input
-                placeholder="Müşteri adı, kategori veya kelime ara..."
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 rounded-xl bg-white/[0.04] border border-white/[0.08] h-10 text-sm w-full transition-colors focus-visible:bg-background"
@@ -341,7 +346,7 @@ function ComplaintsPageContent() {
                 options={statusOptions}
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
-                placeholder="Durum Seç"
+                placeholder={t('selectStatus')}
                 className="w-full sm:w-[150px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04]"
               />
               {categoryOptions.length > 0 && (
@@ -349,7 +354,7 @@ function ComplaintsPageContent() {
                   options={categoryOptions}
                   selectedValues={categoryFilters}
                   onSelectionChange={setCategoryFilters}
-                  placeholder="Kategori Seç"
+                  placeholder={t('selectCategory')}
                   className="w-full sm:w-[180px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04]"
                 />
               )}
@@ -373,19 +378,19 @@ function ComplaintsPageContent() {
                   className="h-10 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Sıfırla
+                  {t('reset')}
                 </Button>
               )}
               <div className="h-10 w-px bg-border/50 hidden sm:block"></div>
               {filteredComplaints.length > 0 && (
                 <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
                   <SelectTrigger className="w-[130px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] hover:bg-muted text-sm font-medium transition-colors">
-                    <Download className="mr-2 h-4 w-4" /> Dışarı Aktar
+                    <Download className="mr-2 h-4 w-4" /> {t('export')}
                   </SelectTrigger>
                   <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
-                    <SelectItem value="csv">CSV İndir (.csv)</SelectItem>
-                    <SelectItem value="excel">Excel İndir (.xlsx)</SelectItem>
-                    <SelectItem value="pdf">PDF İndir (.pdf)</SelectItem>
+                    <SelectItem value="csv">{t('csvDownload')}</SelectItem>
+                    <SelectItem value="excel">{t('excelDownload')}</SelectItem>
+                    <SelectItem value="pdf">{t('pdfDownload')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -397,24 +402,24 @@ function ComplaintsPageContent() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
-              <p className="text-sm text-white/40">Şikayetler yükleniyor...</p>
+              <p className="text-sm text-white/40">{t('loadingData')}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                 <AlertTriangle className="h-8 w-8 text-red-400/60" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
-              <p className="text-sm text-white/40 mb-6 max-w-sm">{error instanceof Error ? error.message : 'Şikayet verileri yüklenirken bir sorun oluştu.'}</p>
-              <Button variant="outline" onClick={() => refetchComplaints()}>Tekrar Dene</Button>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('errorOccurred')}</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{error instanceof Error ? error.message : t('errorLoadDesc')}</p>
+              <Button variant="outline" onClick={() => refetchComplaints()}>{tc('retry')}</Button>
             </div>
           ) : paginatedComplaints.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
                 <MessageSquareWarning className="h-8 w-8 text-white/20" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz şikayet kaydı yok</h3>
-              <p className="text-sm text-white/40 mb-6 max-w-sm">Şikayet kayıtları burada listelenecektir.</p>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('noComplaintsTitle')}</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{t('noComplaintsDesc')}</p>
             </div>
           ) : (
             <div className="divide-y divide-border/50">
@@ -437,20 +442,20 @@ function ComplaintsPageContent() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-[15px] truncate mb-1">
-                          {customer?.name || 'Bilinmeyen Kullanıcı'}
+                          {customer?.name || t('unknownUser')}
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span>{format(toDate(complaint.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: tr })}</span>
+                          <span>{format(toDate(complaint.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: dateLocale })}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="w-full lg:flex-1 flex flex-col items-start px-0 lg:px-4">
                       <Badge variant="outline" className="mb-2 bg-background/50 border-white/10 text-xs text-muted-foreground">
-                        {complaint.category || 'Kategori Yok'}
+                        {complaint.category || t('noCategory')}
                       </Badge>
                       <p className="text-sm font-medium text-foreground line-clamp-2 leading-relaxed opacity-90">
-                        {complaint.description || 'Kullanıcının ekstra bir açıklaması bulunmuyor.'}
+                        {complaint.description || t('noDescription')}
                       </p>
                     </div>
 
@@ -462,9 +467,9 @@ function ComplaintsPageContent() {
                               'bg-emerald-500/10 text-emerald-500'
                           }`}
                       >
-                        {complaint.status === 'open' ? 'Açık Talep' :
-                          complaint.status === 'investigating' ? 'İşlem Görüyor' :
-                            'Bölüm Çözüldü'}
+                        {complaint.status === 'open' ? t('badgeOpen') :
+                          complaint.status === 'investigating' ? t('badgeInvestigating') :
+                            t('badgeResolved')}
                       </Badge>
 
                       <ArrowRight className="h-5 w-5 text-muted-foreground/50 hidden lg:block" />
@@ -478,11 +483,11 @@ function ComplaintsPageContent() {
           {!loading && paginatedComplaints.length > 0 && (
             <div className="p-4 border-t border-border/50 bg-background/50 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                {paginatedComplaints.length} / {filteredComplaints.length} kayıt gösteriliyor
+                {t('showingRecords', { count: paginatedComplaints.length, total: filteredComplaints.length })}
               </span>
               {hasMore && (
                 <Button variant="outline" size="sm" onClick={handleLoadMore}>
-                  Daha Fazla Yükle
+                  {t('loadMore')}
                 </Button>
               )}
             </div>
@@ -490,35 +495,35 @@ function ComplaintsPageContent() {
         </CardContent>
       </Card>
 
-      {/* Şikayet Detay Modal - Glassmorphism */}
+      {/* Complaint Detail Modal - Glassmorphism */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden border-white/10 shadow-2xl bg-card/95 backdrop-blur-2xl sm:rounded-[2rem]">
           <div className="flex flex-col md:flex-row h-full max-h-[85vh]">
 
-            {/* Sol Taraf - Talep ve Müşteri Özeti */}
+            {/* Left Side - Request and Customer Summary */}
             <div className="w-full md:w-5/12 border-r border-border/50 bg-background/30 p-8 flex flex-col overflow-y-auto">
               <div className="flex items-center gap-3 mb-8">
                 <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-bold">Talep No: {selectedComplaint?.id?.slice(-6).toUpperCase()}</DialogTitle>
-                  <p className="text-xs text-muted-foreground mt-0.5">Sistem ve Kullanıcı Kayıtları</p>
+                  <DialogTitle className="text-xl font-bold">{t('requestNo', { id: selectedComplaint?.id?.slice(-6).toUpperCase() || '' })}</DialogTitle>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t('systemRecords')}</p>
                 </div>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Müşteri Profili</h4>
+                  <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">{t('customerProfile')}</h4>
                   <div className="bg-background/50 border border-white/10 p-4 rounded-2xl flex flex-col gap-1">
-                    <span className="font-semibold text-lg">{selectedCustomer?.name || 'Gizli Müşteri'}</span>
-                    <span className="text-muted-foreground text-sm opacity-80">{selectedCustomer?.phone || 'Telefon Kaydı Yok'}</span>
+                    <span className="font-semibold text-lg">{selectedCustomer?.name || t('hiddenCustomer')}</span>
+                    <span className="text-muted-foreground text-sm opacity-80">{selectedCustomer?.phone || t('noPhone')}</span>
                     {selectedCustomer?.email && <span className="text-muted-foreground text-sm opacity-80">{selectedCustomer.email}</span>}
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Durum Akışı</h4>
+                  <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">{t('statusFlow')}</h4>
                   {/* Status Timeline */}
                   <div className="bg-background/50 border border-white/10 p-4 rounded-2xl mb-3">
                     <div className="flex items-center justify-between relative">
@@ -532,10 +537,10 @@ function ComplaintsPageContent() {
                       }} />
 
                       {[
-                        { key: 'open', label: 'Açık', icon: '🔴' },
-                        { key: 'investigating', label: 'İnceleme', icon: '🟡' },
-                        { key: 'resolved', label: 'Çözüldü', icon: '🟢' },
-                        { key: 'closed', label: 'Kapalı', icon: '✅' },
+                        { key: 'open', label: t('timelineOpen'), icon: '🔴' },
+                        { key: 'investigating', label: t('timelineInvestigating'), icon: '🟡' },
+                        { key: 'resolved', label: t('timelineResolved'), icon: '🟢' },
+                        { key: 'closed', label: t('timelineClosed'), icon: '✅' },
                       ].map((step) => {
                         const statusOrder = ['open', 'investigating', 'resolved', 'closed'];
                         const currentIdx = statusOrder.indexOf(selectedComplaint?.status || 'open');
@@ -573,7 +578,7 @@ function ComplaintsPageContent() {
                         onClick={() => handleStatusUpdate(selectedComplaint.id, 'investigating')}
                         disabled={updating === selectedComplaint?.id}
                       >
-                        <Clock className="h-3.5 w-3.5 mr-1" /> İncelemeye Al
+                        <Clock className="h-3.5 w-3.5 mr-1" /> {t('startInvestigation')}
                       </Button>
                     )}
                     {selectedComplaint?.status === 'investigating' && (
@@ -584,7 +589,7 @@ function ComplaintsPageContent() {
                         onClick={() => handleStatusUpdate(selectedComplaint.id, 'resolved')}
                         disabled={updating === selectedComplaint?.id}
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Çözüldü İşaretle
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> {t('markResolved')}
                       </Button>
                     )}
                     <Button
@@ -594,60 +599,60 @@ function ComplaintsPageContent() {
                       onClick={() => selectedComplaint && handleStatusUpdate(selectedComplaint.id, 'closed')}
                       disabled={updating === selectedComplaint?.id || selectedComplaint?.status === 'closed'}
                     >
-                      <X className="h-3.5 w-3.5 mr-1" /> Arşive Kapat
+                      <X className="h-3.5 w-3.5 mr-1" /> {t('archiveClose')}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-4 text-sm mt-4 border-t border-border/50 pt-6">
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Kayıt Tarihi</span>
-                    <span className="font-medium text-right ml-4">{selectedComplaint ? format(toDate(selectedComplaint.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm', { locale: tr }) : '-'}</span>
+                    <span className="text-muted-foreground">{t('recordDate')}</span>
+                    <span className="font-medium text-right ml-4">{selectedComplaint ? format(toDate(selectedComplaint.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm', { locale: dateLocale }) : '-'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Kategori</span>
+                    <span className="text-muted-foreground">{t('category')}</span>
                     <span className="font-medium text-right text-indigo-400">{selectedComplaint?.category || '-'}</span>
                   </div>
                   {selectedComplaint?.resolvedAt && (
                     <div className="flex justify-between items-center text-emerald-500">
-                      <span>Çözüm Tarihi</span>
-                      <span className="font-medium">{format(toDate(selectedComplaint.resolvedAt) ?? new Date(), 'dd MMM, HH:mm', { locale: tr })}</span>
+                      <span>{t('resolutionDate')}</span>
+                      <span className="font-medium">{format(toDate(selectedComplaint.resolvedAt) ?? new Date(), 'dd MMM, HH:mm', { locale: dateLocale })}</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Sağ Taraf - Konu İçeriği ve Yorumlar */}
+            {/* Right Side - Content and Comments */}
             <div className="w-full md:w-7/12 p-8 flex flex-col gap-6 overflow-y-auto">
               <div>
-                <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Müşteri Açıklaması</h3>
+                <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('customerDescription')}</h3>
                 <div className="bg-muted/30 border border-white/5 p-5 rounded-2xl text-foreground/90 leading-relaxed text-sm">
-                  {selectedComplaint?.description || <span className="italic text-muted-foreground opacity-50">Ses kaydı veya yazılı not alınmamış...</span>}
+                  {selectedComplaint?.description || <span className="italic text-muted-foreground opacity-50">{t('noRecording')}</span>}
                 </div>
               </div>
 
               <div className="flex-1 flex flex-col">
                 <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider flex items-center justify-between">
-                  Müşteri Temsilcisi Notları
-                  <span className="text-xs font-normal opacity-50 bg-background px-2 py-0.5 rounded border border-white/10">Admin Sadece</span>
+                  {t('agentNotes')}
+                  <span className="text-xs font-normal opacity-50 bg-background px-2 py-0.5 rounded border border-white/10">{t('adminOnly')}</span>
                 </h3>
 
                 <Textarea
                   className="flex-1 min-h-[150px] resize-none bg-background/50 border-white/10 rounded-2xl focus-visible:ring-indigo-500"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Müşteriye yapılan operasyonları, şikayetin kök nedenini veya telafi sürecini buraya raporlayabilirsiniz..."
+                  placeholder={t('agentNotesPlaceholder')}
                 />
 
                 <div className="mt-4 flex justify-end gap-3">
-                  <Button variant="ghost" onClick={() => setDetailDialogOpen(false)}>Kapat</Button>
+                  <Button variant="ghost" onClick={() => setDetailDialogOpen(false)}>{t('close')}</Button>
                   <Button
                     onClick={handleSaveNotes}
                     disabled={savingNotes}
                     className="gap-2 px-6"
                   >
-                    {savingNotes ? <span className="animate-pulse">Kaydediliyor...</span> : <><Save className="h-4 w-4" /> Notları Kaydet</>}
+                    {savingNotes ? <span className="animate-pulse">{t('saving')}</span> : <><Save className="h-4 w-4" /> {t('saveNotes')}</>}
                   </Button>
                 </div>
               </div>

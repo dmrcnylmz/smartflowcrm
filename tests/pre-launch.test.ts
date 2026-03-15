@@ -236,39 +236,37 @@ describe('EmptyState UI Component', () => {
 // ─── 5. Existing Empty States in Pages ───
 
 describe('Page Empty States', () => {
-    it('customers page has empty state for no data', () => {
+    it('customers page has empty state for no data (i18n)', () => {
         const content = fs.readFileSync('app/customers/page.tsx', 'utf-8');
-        expect(content).toContain('Henüz müşteri kaydı yok');
-        expect(content).toContain('Yeni Müşteri');
+        expect(content).toContain("t('noCustomersYet')");
     });
 
-    it('calls page has empty state for no calls', () => {
+    it('calls page has empty state for no calls (i18n)', () => {
         const content = fs.readFileSync('app/calls/page.tsx', 'utf-8');
-        expect(content).toContain('Henüz çağrı kaydı yok');
+        expect(content).toContain("t('noCallsTitle')");
     });
 
-    it('appointments page has empty state', () => {
+    it('appointments page has empty state (i18n)', () => {
         const content = fs.readFileSync('app/appointments/page.tsx', 'utf-8');
-        expect(content).toContain('Henüz randevu oluşturulmadı');
-        expect(content).toContain('Yeni Randevu');
+        expect(content).toContain("t('noAppointmentsTitle')");
+        expect(content).toContain("t('newAppointment')");
     });
 
-    it('knowledge page has empty state for no documents', () => {
+    it('knowledge page has empty state for no documents (i18n)', () => {
         const content = fs.readFileSync('app/knowledge/page.tsx', 'utf-8');
-        expect(content).toContain('Henüz kaynak eklenmemiş');
-        expect(content).toContain('İlk Kaynağı Ekle');
+        expect(content).toContain("t('noSourcesYet')");
+        expect(content).toContain("t('addFirstSource')");
     });
 
-    it('customers page has search-aware empty state', () => {
+    it('customers page has search-aware empty state (i18n)', () => {
         const content = fs.readFileSync('app/customers/page.tsx', 'utf-8');
-        expect(content).toContain('Müşteri bulunamadı');
-        expect(content).toContain('farklı kelimeler deneyin');
+        expect(content).toContain("t('noCustomersFound')");
     });
 
-    it('calls page has filter-aware empty state', () => {
+    it('calls page has filter-aware empty state (i18n)', () => {
         const content = fs.readFileSync('app/calls/page.tsx', 'utf-8');
-        expect(content).toContain('Sonuç bulunamadı');
-        expect(content).toContain('Filtreleri Temizle');
+        expect(content).toContain("t('noResultsTitle')");
+        expect(content).toContain("t('clearFilters')");
     });
 });
 

@@ -2,6 +2,8 @@
 
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import { useToast } from '@/components/ui/toast';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
@@ -61,6 +63,9 @@ function KnowledgePageContent() {
     const authFetch = useAuthFetch();
     const searchParams = useSearchParams();
     const isSetup = searchParams.get('setup') === 'true';
+    const t = useTranslations('knowledge');
+    const tc = useTranslations('common');
+    const locale = useLocale();
 
     const [documents, setDocuments] = useState<KBDocument[]>([]);
     const [stats, setStats] = useState<KBStats | null>(null);
@@ -103,11 +108,11 @@ function KnowledgePageContent() {
             // Cache-busting: append timestamp after successful ingest to skip stale cache
             const url = bustCache ? `/api/knowledge?_t=${Date.now()}` : '/api/knowledge';
             const res = await authFetch(url);
-            if (!res.ok) throw new Error('Belgeler yüklenemedi');
+            if (!res.ok) throw new Error(t('loadError'));
             const data = await res.json();
             setDocuments(data.documents || []);
         } catch {
-            setError('Bilgi bankası verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.');
+            setError(t('loadErrorDesc'));
         }
     }, [authFetch]);
 
@@ -129,8 +134,8 @@ function KnowledgePageContent() {
     function handleFileSelect(file: File) {
         if (file.size > MAX_FILE_SIZE) {
             toast({
-                title: 'Dosya Çok Büyük',
-                description: `Maksimum ${MAX_FILE_SIZE_MB}MB. Seçilen: ${(file.size / 1024 / 1024).toFixed(1)}MB`,
+                title: t('fileTooLargeTitle'),
+                description: t('fileTooLargeDesc', { max: MAX_FILE_SIZE_MB, selected: (file.size / 1024 / 1024).toFixed(1) }),
                 variant: 'error',
             });
             return;
@@ -163,14 +168,14 @@ function KnowledgePageContent() {
             });
             const result = await res.json();
             if (result.status === 'error') {
-                toast({ title: 'Hata', description: result.error || 'Belge işlenirken hata oluştu', variant: 'error' });
+                toast({ title: tc('error'), description: result.error || t('processError'), variant: 'error' });
             } else {
-                toast({ title: 'Başarılı!', description: `"${result.title}" eklendi (${result.chunkCount} parça)`, variant: 'success' });
+                toast({ title: tc('success'), description: t('textAddedSuccess', { title: result.title, chunks: result.chunkCount }), variant: 'success' });
                 resetAddDialog();
                 await Promise.all([fetchDocuments(true), fetchStats()]);
             }
         } catch {
-            toast({ title: 'Hata', description: 'Belge eklenirken bir hata oluştu', variant: 'error' });
+            toast({ title: tc('error'), description: t('addError'), variant: 'error' });
         } finally { setIngesting(false); }
     }
 
@@ -184,14 +189,14 @@ function KnowledgePageContent() {
             const res = await authFetch('/api/knowledge', { method: 'POST', body: formData });
             const result = await res.json();
             if (result.status === 'error') {
-                toast({ title: 'Hata', description: result.error || 'Dosya işlenirken hata oluştu', variant: 'error' });
+                toast({ title: tc('error'), description: result.error || t('fileProcessError'), variant: 'error' });
             } else {
-                toast({ title: 'Başarılı!', description: `"${result.title}" yüklendi (${result.chunkCount} parça)`, variant: 'success' });
+                toast({ title: tc('success'), description: t('fileUploadSuccess', { title: result.title, chunks: result.chunkCount }), variant: 'success' });
                 resetAddDialog();
                 await Promise.all([fetchDocuments(true), fetchStats()]);
             }
         } catch {
-            toast({ title: 'Hata', description: 'Dosya yüklenirken bir hata oluştu', variant: 'error' });
+            toast({ title: tc('error'), description: t('fileUploadError'), variant: 'error' });
         } finally { setIngesting(false); }
     }
 
@@ -208,11 +213,11 @@ function KnowledgePageContent() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ documentId }),
             });
-            if (!res.ok) throw new Error('Silinemedi');
-            toast({ title: 'Silindi', description: 'Belge başarıyla silindi', variant: 'success' });
+            if (!res.ok) throw new Error(t('deleteError'));
+            toast({ title: t('deleted'), description: t('deleteSuccess'), variant: 'success' });
             await Promise.all([fetchDocuments(true), fetchStats()]);
         } catch {
-            toast({ title: 'Hata', description: 'Belge silinirken bir hata oluştu', variant: 'error' });
+            toast({ title: tc('error'), description: t('deleteError'), variant: 'error' });
         } finally { setDeletingId(null); }
     }
 
@@ -221,11 +226,11 @@ function KnowledgePageContent() {
         setQuerying(true);
         try {
             const res = await authFetch(`/api/knowledge?query=${encodeURIComponent(queryText)}&topK=5`);
-            if (!res.ok) throw new Error('Sorgu çalıştırılamadı');
+            if (!res.ok) throw new Error(t('queryError'));
             const data = await res.json();
             setQueryResults(data.results || []);
         } catch {
-            toast({ title: 'Hata', description: 'Sorgulama sırasında bir hata oluştu', variant: 'error' });
+            toast({ title: tc('error'), description: t('queryRunError'), variant: 'error' });
         } finally { setQuerying(false); }
     }
 
@@ -241,8 +246,8 @@ function KnowledgePageContent() {
     }
 
     function formatDate(date: { _seconds: number } | string): string {
-        if (typeof date === 'string') return new Date(date).toLocaleDateString('tr-TR');
-        if (date && '_seconds' in date) return new Date(date._seconds * 1000).toLocaleDateString('tr-TR');
+        if (typeof date === 'string') return new Date(date).toLocaleDateString(locale);
+        if (date && '_seconds' in date) return new Date(date._seconds * 1000).toLocaleDateString(locale);
         return '-';
     }
 
@@ -282,16 +287,15 @@ function KnowledgePageContent() {
                             <Rocket className="h-6 w-6 text-inception-red" />
                         </div>
                         <div className="flex-1">
-                            <h2 className="text-lg font-bold text-white font-display tracking-wide">ŞİRKETİNİZ OLUŞTURULDU!</h2>
+                            <h2 className="text-lg font-bold text-white font-display tracking-wide">{t('companyCreated')}</h2>
                             <p className="text-white/50 text-sm mt-1 leading-relaxed">
-                                Harika! AI asistanınız hazır. Şimdi bilgi tabanına şirketinizle ilgili belgeler, SSS veya ürün katalogları ekleyin —
-                                asistanınız bu bilgileri kullanarak müşterilerinize daha doğru yanıtlar verecek.
+                                {t('companyCreatedDesc')}
                             </p>
                         </div>
                         <button
                             onClick={() => { const url = new URL(window.location.href); url.searchParams.delete('setup'); window.history.replaceState({}, '', url.toString()); }}
                             className="text-white/20 hover:text-white/50 transition-colors flex-shrink-0"
-                            aria-label="Kapat"
+                            aria-label={tc('close')}
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -299,9 +303,9 @@ function KnowledgePageContent() {
                     {/* Steps */}
                     <div className="relative mt-5 grid grid-cols-3 gap-3">
                         {[
-                            { step: '01', icon: Brain, label: 'Belge Ekle', desc: 'PDF, metin veya URL yükle', active: true },
-                            { step: '02', icon: Zap, label: 'AI Öğrenir', desc: 'Otomatik vektörleştirme', active: false },
-                            { step: '03', icon: MessageSquare, label: 'Hazır', desc: 'Asistan cevaplar', active: false },
+                            { step: '01', icon: Brain, label: t('addDocument'), desc: t('addDocumentDesc'), active: true },
+                            { step: '02', icon: Zap, label: t('aiLearns'), desc: t('aiLearnsDesc'), active: false },
+                            { step: '03', icon: MessageSquare, label: t('ready'), desc: t('readyDesc'), active: false },
                         ].map(({ step, icon: Icon, label, desc, active }) => (
                             <div key={step} className={`rounded-xl border p-4 ${active ? 'border-inception-red/30 bg-inception-red/5' : 'border-white/[0.06] bg-white/[0.02]'}`}>
                                 <div className="flex items-center gap-2 mb-2">
@@ -323,10 +327,10 @@ function KnowledgePageContent() {
                         <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
                             <Database className="h-5 w-5 text-inception-red" />
                         </div>
-                        Bilgi Tabanı
+                        {t('pageTitle')}
                     </h1>
                     <p className="text-muted-foreground mt-1 text-sm">
-                        AI asistanınızın öğreneceği kaynakları yönetin
+                        {t('pageSubtitle')}
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -336,14 +340,14 @@ function KnowledgePageContent() {
                         disabled={!stats?.documentCount}
                     >
                         <Search className="h-4 w-4" />
-                        Sorgula
+                        {t('query')}
                     </Button>
                     <Button
                         onClick={() => setAddDialogOpen(true)}
                         className="font-display tracking-wide"
                     >
                         <Plus className="h-4 w-4" />
-                        Kaynak Ekle
+                        {t('addSource')}
                     </Button>
                 </div>
             </div>
@@ -351,10 +355,10 @@ function KnowledgePageContent() {
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                    { title: 'Toplam Belge', value: stats?.documentCount ?? 0, sub: 'Yüklenen kaynak', icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/15' },
-                    { title: 'Parça Sayısı', value: stats?.chunkCount ?? 0, sub: 'Vektörleştirilmiş', icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/15' },
-                    { title: 'Token Kullanımı', value: stats?.totalTokens ? (stats.totalTokens / 1000).toFixed(1) + 'K' : '0', sub: 'Embedding token', icon: BarChart3, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/15' },
-                    { title: 'Kaynak Türleri', value: stats?.sourceTypes ? Object.keys(stats.sourceTypes).length : 0, sub: Object.entries(stats?.sourceTypes || {}).map(([k, v]) => `${k}:${v}`).join(', ') || 'Henüz yok', icon: Database, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/15' },
+                    { title: t('totalDocuments'), value: stats?.documentCount ?? 0, sub: t('uploadedSources'), icon: FileText, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/15' },
+                    { title: t('chunkCount'), value: stats?.chunkCount ?? 0, sub: t('vectorized'), icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/15' },
+                    { title: t('tokenUsage'), value: stats?.totalTokens ? (stats.totalTokens / 1000).toFixed(1) + 'K' : '0', sub: 'Embedding token', icon: BarChart3, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/15' },
+                    { title: t('sourceTypes'), value: stats?.sourceTypes ? Object.keys(stats.sourceTypes).length : 0, sub: Object.entries(stats?.sourceTypes || {}).map(([k, v]) => `${k}:${v}`).join(', ') || t('noneYet'), icon: Database, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/15' },
                 ].map((card, idx) => {
                     const Icon = card.icon;
                     return (
@@ -382,7 +386,7 @@ function KnowledgePageContent() {
                 <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between gap-4">
                     <h2 className="font-semibold text-white flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-white/40" />
-                        Kaynaklar
+                        {t('sources')}
                         {filteredDocuments.length > 0 && (
                             <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-white/[0.06] text-white/40">
                                 {filteredDocuments.length}
@@ -396,7 +400,7 @@ function KnowledgePageContent() {
                                 <input
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Kaynak ara..."
+                                    placeholder={t('searchSources')}
                                     className="pl-9 pr-4 py-2 text-sm rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 w-52 transition-colors"
                                 />
                             </div>
@@ -405,8 +409,8 @@ function KnowledgePageContent() {
                             variant="outline"
                             size="icon"
                             onClick={handleRetry}
-                            title="Yenile"
-                            aria-label="Yenile"
+                            title={tc('refresh')}
+                            aria-label={tc('refresh')}
                         >
                             <RefreshCw className="h-3.5 w-3.5" />
                         </Button>
@@ -418,10 +422,10 @@ function KnowledgePageContent() {
                     {error ? (
                         <div className="text-center py-14">
                             <AlertTriangle className="h-12 w-12 text-amber-500/30 mx-auto mb-4" />
-                            <p className="text-white/50 text-sm mb-4">Bilgi bankası verileri yüklenemedi.</p>
+                            <p className="text-white/50 text-sm mb-4">{t('dataLoadFailed')}</p>
                             <Button variant="outline" onClick={handleRetry} className="mx-auto">
                                 <RefreshCw className="h-3.5 w-3.5" />
-                                Tekrar Dene
+                                {tc('retry')}
                             </Button>
                         </div>
                     ) : loading ? (
@@ -442,23 +446,23 @@ function KnowledgePageContent() {
                             <div className="h-16 w-16 rounded-2xl bg-inception-red/10 border border-inception-red/20 flex items-center justify-center mx-auto mb-5">
                                 <Database className="h-8 w-8 text-inception-red/50" />
                             </div>
-                            <h3 className="text-base font-semibold text-white/70 mb-1">Henüz kaynak eklenmemiş</h3>
+                            <h3 className="text-base font-semibold text-white/70 mb-1">{t('noSourcesYet')}</h3>
                             <p className="text-sm text-white/30 mb-6 max-w-sm mx-auto">
-                                Metin, URL veya PDF kaynakları ekleyerek AI asistanınızı şirketiniz hakkında eğitin.
+                                {t('noSourcesDesc')}
                             </p>
                             <Button
                                 onClick={() => setAddDialogOpen(true)}
                                 className="mx-auto font-display tracking-wide"
                             >
                                 <Plus className="h-4 w-4" />
-                                İlk Kaynağı Ekle
+                                {t('addFirstSource')}
                             </Button>
                         </div>
                     ) : filteredDocuments.length === 0 ? (
                         <div className="text-center py-12">
                             <Search className="h-10 w-10 text-white/10 mx-auto mb-3" />
                             <p className="text-sm text-white/30">
-                                &ldquo;{debouncedSearchTerm}&rdquo; ile eşleşen kaynak yok.
+                                {t('noMatchingSource', { term: debouncedSearchTerm })}
                             </p>
                         </div>
                     ) : (
@@ -474,10 +478,10 @@ function KnowledgePageContent() {
                                             {getSourceIcon(doc.sourceType)}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <h4 className="font-medium text-white/80 truncate text-sm">{doc.title || 'Adsız Belge'}</h4>
+                                            <h4 className="font-medium text-white/80 truncate text-sm">{doc.title || t('untitledDocument')}</h4>
                                             <div className="flex items-center gap-3 text-xs text-white/25 mt-1">
                                                 <span className="uppercase">{doc.sourceType}</span>
-                                                {doc.chunkCount > 0 && <span>{doc.chunkCount} parça</span>}
+                                                {doc.chunkCount > 0 && <span>{doc.chunkCount} {t('chunks')}</span>}
                                                 {doc.totalTokens > 0 && <span>{doc.totalTokens} token</span>}
                                                 <span>{formatDate(doc.createdAt)}</span>
                                             </div>
@@ -487,24 +491,24 @@ function KnowledgePageContent() {
                                         {/* Status Badge */}
                                         {doc.status === 'ready' && (
                                             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                <CheckCircle className="h-3 w-3" /> Hazır
+                                                <CheckCircle className="h-3 w-3" /> {t('statusReady')}
                                             </span>
                                         )}
                                         {doc.status === 'processing' && (
                                             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                                <Clock className="h-3 w-3" /> İşleniyor
+                                                <Clock className="h-3 w-3" /> {t('statusProcessing')}
                                             </span>
                                         )}
                                         {doc.status === 'error' && (
                                             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                                                <XCircle className="h-3 w-3" /> Hata
+                                                <XCircle className="h-3 w-3" /> {tc('error')}
                                             </span>
                                         )}
                                         <button
-                                            onClick={() => setAssigningDoc({ id: doc.id, title: doc.title || 'Adsiz Belge' })}
+                                            onClick={() => setAssigningDoc({ id: doc.id, title: doc.title || t('untitledDocument') })}
                                             className="h-8 w-8 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-violet-500/30 hover:bg-violet-500/10 flex items-center justify-center text-white/25 hover:text-violet-400 transition-all opacity-0 group-hover:opacity-100"
-                                            aria-label="Asistana Ata"
-                                            title="Asistana Ata"
+                                            aria-label={t('assignToAgent')}
+                                            title={t('assignToAgent')}
                                         >
                                             <Bot className="h-3.5 w-3.5" />
                                         </button>
@@ -512,7 +516,7 @@ function KnowledgePageContent() {
                                             onClick={() => handleDelete(doc.id)}
                                             disabled={deletingId === doc.id}
                                             className="h-8 w-8 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:border-red-500/30 hover:bg-red-500/10 flex items-center justify-center text-white/25 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
-                                            aria-label="Sil"
+                                            aria-label={tc('delete')}
                                         >
                                             {deletingId === doc.id ? (
                                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -540,11 +544,11 @@ function KnowledgePageContent() {
                                     <Upload className="h-4 w-4 text-inception-red" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-white font-display tracking-wide">KAYNAK EKLE</h3>
-                                    <p className="text-xs text-white/30">Metin, URL veya dosya yükleme desteklenir</p>
+                                    <h3 className="font-semibold text-white font-display tracking-wide">{t('addSource').toUpperCase()}</h3>
+                                    <p className="text-xs text-white/30">{t('supportedFormats')}</p>
                                 </div>
                             </div>
-                            <Button variant="outline" size="icon" onClick={resetAddDialog} aria-label="Kapat">
+                            <Button variant="outline" size="icon" onClick={resetAddDialog} aria-label={tc('close')}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -553,9 +557,9 @@ function KnowledgePageContent() {
                             {/* Source Type Tabs */}
                             <div className="flex gap-2 p-1 bg-white/[0.03] rounded-xl border border-white/[0.06]">
                                 {[
-                                    { id: 'text' as const, icon: BookOpen, label: 'Metin' },
+                                    { id: 'text' as const, icon: BookOpen, label: t('textTab') },
                                     { id: 'url' as const, icon: Globe, label: 'URL' },
-                                    { id: 'file' as const, icon: FileUp, label: 'Dosya' },
+                                    { id: 'file' as const, icon: FileUp, label: t('fileTab') },
                                 ].map(({ id, icon: Icon, label }) => (
                                     <button
                                         key={id}
@@ -574,11 +578,11 @@ function KnowledgePageContent() {
 
                             {/* Source Name */}
                             <div>
-                                <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">Kaynak Adı <span className="text-white/25 lowercase tracking-normal">(opsiyonel)</span></label>
+                                <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">{t('sourceName')} <span className="text-white/25 lowercase tracking-normal">{t('optional')}</span></label>
                                 <input
                                     value={addFilename}
                                     onChange={(e) => setAddFilename(e.target.value)}
-                                    placeholder="Örn: Şirket Politikası, SSS, Ürün Kataloğu..."
+                                    placeholder={t('sourceNamePlaceholder')}
                                     className="w-full h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 text-sm transition-colors"
                                 />
                             </div>
@@ -586,21 +590,21 @@ function KnowledgePageContent() {
                             {/* Content Area */}
                             {addType === 'text' ? (
                                 <div>
-                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">İçerik</label>
+                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">{t('content')}</label>
                                     <textarea
                                         value={addContent}
                                         onChange={(e) => setAddContent(e.target.value)}
-                                        placeholder="Bilgi tabanına eklemek istediğiniz metni buraya yapıştırın..."
+                                        placeholder={t('contentPlaceholder')}
                                         rows={10}
                                         className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 text-sm font-mono resize-none transition-colors"
                                     />
                                     <p className="text-xs text-white/20 mt-1.5">
-                                        {addContent.length} karakter · ~{Math.ceil(addContent.length / 4)} token
+                                        {t('charCount', { chars: addContent.length, tokens: Math.ceil(addContent.length / 4) })}
                                     </p>
                                 </div>
                             ) : addType === 'url' ? (
                                 <div>
-                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">Web Sayfası URL</label>
+                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">{t('webPageUrl')}</label>
                                     <input
                                         type="url"
                                         value={addContent}
@@ -608,11 +612,11 @@ function KnowledgePageContent() {
                                         placeholder="https://www.ornek.com/bilgi-sayfasi"
                                         className="w-full h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 text-sm transition-colors"
                                     />
-                                    <p className="text-xs text-white/25 mt-1.5">Sayfa içeriği otomatik olarak çekilip işlenecektir.</p>
+                                    <p className="text-xs text-white/25 mt-1.5">{t('urlAutoScan')}</p>
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">Dosya</label>
+                                    <label className="block text-xs text-white/50 mb-2 uppercase tracking-wider">{t('fileTab')}</label>
                                     <div
                                         className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
                                             ${dragActive
@@ -647,7 +651,7 @@ function KnowledgePageContent() {
                                                     onClick={(e) => { e.stopPropagation(); setSelectedFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
                                                 >
                                                     <X className="h-3 w-3" />
-                                                    Kaldır
+                                                    {t('remove')}
                                                 </button>
                                             </div>
                                         ) : (
@@ -657,9 +661,9 @@ function KnowledgePageContent() {
                                                 </div>
                                                 <div>
                                                     <p className="text-sm text-white/50">
-                                                        {dragActive ? 'Dosyayı bırakın' : 'Sürükleyin veya tıklayın'}
+                                                        {dragActive ? t('dropFile') : t('dragOrClick')}
                                                     </p>
-                                                    <p className="text-xs text-white/20 mt-1">PDF, TXT, MD, CSV · Maks. {MAX_FILE_SIZE_MB}MB</p>
+                                                    <p className="text-xs text-white/20 mt-1">PDF, TXT, MD, CSV · {t('maxFileSize', { size: MAX_FILE_SIZE_MB })}</p>
                                                 </div>
                                             </div>
                                         )}
@@ -670,7 +674,7 @@ function KnowledgePageContent() {
                             {/* Submit */}
                             <div className="flex justify-end gap-3 pt-1">
                                 <Button variant="outline" onClick={resetAddDialog}>
-                                    İptal
+                                    {tc('cancel')}
                                 </Button>
                                 <Button
                                     onClick={handleIngest}
@@ -678,9 +682,9 @@ function KnowledgePageContent() {
                                     className="font-display tracking-wide"
                                 >
                                     {ingesting ? (
-                                        <><Loader2 className="h-4 w-4 animate-spin" /> İşleniyor...</>
+                                        <><Loader2 className="h-4 w-4 animate-spin" /> {t('processing')}</>
                                     ) : (
-                                        <><Upload className="h-4 w-4" /> {addType === 'file' ? 'Yükle ve İşle' : 'Ekle ve İşle'}</>
+                                        <><Upload className="h-4 w-4" /> {addType === 'file' ? t('uploadAndProcess') : t('addAndProcess')}</>
                                     )}
                                 </Button>
                             </div>
@@ -701,11 +705,11 @@ function KnowledgePageContent() {
                                     <MessageSquare className="h-4 w-4 text-purple-400" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-white font-display tracking-wide">BİLGİ TABANI SORGUSU</h3>
-                                    <p className="text-xs text-white/30">Bilgi tabanından en ilgili sonuçları alın</p>
+                                    <h3 className="font-semibold text-white font-display tracking-wide">{t('queryTitle')}</h3>
+                                    <p className="text-xs text-white/30">{t('querySubtitle')}</p>
                                 </div>
                             </div>
-                            <Button variant="outline" size="icon" onClick={() => setQueryDialogOpen(false)} aria-label="Kapat">
+                            <Button variant="outline" size="icon" onClick={() => setQueryDialogOpen(false)} aria-label={tc('close')}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -716,7 +720,7 @@ function KnowledgePageContent() {
                                 <input
                                     value={queryText}
                                     onChange={(e) => setQueryText(e.target.value)}
-                                    placeholder="Sormak istediğiniz soruyu yazın..."
+                                    placeholder={t('queryPlaceholder')}
                                     onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
                                     className="flex-1 h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-purple-500/40 text-sm transition-colors"
                                 />
@@ -726,7 +730,7 @@ function KnowledgePageContent() {
                                     className="flex-shrink-0"
                                 >
                                     {querying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                    Ara
+                                    {tc('search')}
                                 </Button>
                             </div>
 
@@ -737,7 +741,7 @@ function KnowledgePageContent() {
                                         <div key={result.chunkId} className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
                                             <div className="flex items-center justify-between mb-3">
                                                 <span className="text-xs text-white/30 flex items-center gap-1">
-                                                    <ChevronRight className="h-3 w-3" /> Sonuç {i + 1}
+                                                    <ChevronRight className="h-3 w-3" /> {t('result')} {i + 1}
                                                 </span>
                                                 <span className={`text-xs px-2.5 py-0.5 rounded-full border font-medium
                                                     ${result.score > 0.7
@@ -746,7 +750,7 @@ function KnowledgePageContent() {
                                                             ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                                             : 'bg-white/[0.04] text-white/30 border-white/[0.08]'
                                                     }`}>
-                                                    {(result.score * 100).toFixed(0)}% eşleşme
+                                                    {t('matchPercent', { percent: (result.score * 100).toFixed(0) })}
                                                 </span>
                                             </div>
                                             <p className="text-sm text-white/50 leading-relaxed">
@@ -757,7 +761,7 @@ function KnowledgePageContent() {
                                 ) : queryText && !querying ? (
                                     <div className="text-center py-10">
                                         <Search className="h-8 w-8 text-white/10 mx-auto mb-2" />
-                                        <p className="text-sm text-white/30">Sonuç bulunamadı. Farklı bir soru deneyin.</p>
+                                        <p className="text-sm text-white/30">{t('noQueryResults')}</p>
                                     </div>
                                 ) : null}
                             </div>
@@ -774,7 +778,7 @@ function KnowledgePageContent() {
                     documentTitle={assigningDoc.title}
                     onAssigned={() => {
                         setAssigningDoc(null);
-                        toast({ title: 'Atandı', description: 'Belge asistana basariyla atandı.' });
+                        toast({ title: t('assigned'), description: t('assignedSuccess') });
                     }}
                 />
             )}

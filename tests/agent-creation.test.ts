@@ -22,19 +22,13 @@ describe('Turkish Character Encoding', () => {
             expect(VOICE_STYLES).toHaveLength(5);
         });
 
-        it('should use native UTF-8 Turkish characters (no Unicode escapes)', () => {
-            const labels = VOICE_STYLES.map(s => s.label);
-            expect(labels).toContain('Doğal');
-            expect(labels).toContain('Profesyonel');
-            expect(labels).toContain('Samimi');
-            expect(labels).toContain('Resmi');
-            expect(labels).toContain('Empatik');
-        });
-
-        it('should not contain Unicode escape sequences in labels', () => {
-            VOICE_STYLES.forEach(style => {
-                expect(style.label).not.toMatch(/\\u[0-9a-fA-F]{4}/);
-            });
+        it('should have labelKey for each style (i18n-ready)', () => {
+            const keys = VOICE_STYLES.map(s => s.labelKey);
+            expect(keys).toContain('professional');
+            expect(keys).toContain('friendly');
+            expect(keys).toContain('formal');
+            expect(keys).toContain('casual');
+            expect(keys).toContain('empathetic');
         });
     });
 

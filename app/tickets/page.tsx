@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
+import { getDateLocale } from '@/lib/utils/date-locale';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,18 +78,18 @@ type TicketPriority = SupportTicket['priority'];
 // Config maps
 // ---------------------------------------------------------------------------
 
-const STATUS_CONFIG: Record<TicketStatus, { label: string; color: string; bgColor: string; icon: typeof AlertCircle }> = {
-  open: { label: 'Açık', color: 'text-rose-500', bgColor: 'bg-rose-500/10', icon: AlertCircle },
-  in_progress: { label: 'İşlemde', color: 'text-amber-500', bgColor: 'bg-amber-500/10', icon: Clock },
-  resolved: { label: 'Çözüldü', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', icon: CheckCircle2 },
-  closed: { label: 'Kapatıldı', color: 'text-slate-400', bgColor: 'bg-slate-400/10', icon: XCircle },
+const STATUS_CONFIG: Record<TicketStatus, { labelKey: string; color: string; bgColor: string; icon: typeof AlertCircle }> = {
+  open: { labelKey: 'open', color: 'text-rose-500', bgColor: 'bg-rose-500/10', icon: AlertCircle },
+  in_progress: { labelKey: 'inProgress', color: 'text-amber-500', bgColor: 'bg-amber-500/10', icon: Clock },
+  resolved: { labelKey: 'resolved', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', icon: CheckCircle2 },
+  closed: { labelKey: 'closed', color: 'text-slate-400', bgColor: 'bg-slate-400/10', icon: XCircle },
 };
 
-const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string; bgColor: string; borderColor: string; icon: typeof AlertTriangle }> = {
-  low: { label: 'Düşük', color: 'text-sky-500', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/20', icon: ArrowRight },
-  medium: { label: 'Orta', color: 'text-amber-500', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20', icon: AlertTriangle },
-  high: { label: 'Yüksek', color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20', icon: Flame },
-  critical: { label: 'Kritik', color: 'text-rose-500', bgColor: 'bg-rose-500/10', borderColor: 'border-rose-500/20', icon: ShieldAlert },
+const PRIORITY_CONFIG: Record<TicketPriority, { labelKey: string; color: string; bgColor: string; borderColor: string; icon: typeof AlertTriangle }> = {
+  low: { labelKey: 'low', color: 'text-sky-500', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/20', icon: ArrowRight },
+  medium: { labelKey: 'medium', color: 'text-amber-500', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20', icon: AlertTriangle },
+  high: { labelKey: 'high', color: 'text-orange-500', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20', icon: Flame },
+  critical: { labelKey: 'critical', color: 'text-rose-500', bgColor: 'bg-rose-500/10', borderColor: 'border-rose-500/20', icon: ShieldAlert },
 };
 
 const STATUS_WORKFLOW: Record<TicketStatus, TicketStatus[]> = {
@@ -96,16 +99,16 @@ const STATUS_WORKFLOW: Record<TicketStatus, TicketStatus[]> = {
   closed: [],
 };
 
-const CATEGORIES = [
-  'Teknik Destek',
-  'Fatura / Ödeme',
-  'Ürün Sorunu',
-  'Hesap Yönetimi',
-  'Genel Bilgi',
-  'Entegrasyon',
-  'Performans',
-  'Diğer',
-];
+const CATEGORY_KEYS = [
+  'categoryTechnical',
+  'categoryBilling',
+  'categoryProduct',
+  'categoryAccount',
+  'categoryGeneral',
+  'categoryIntegration',
+  'categoryPerformance',
+  'categoryOther',
+] as const;
 
 // ---------------------------------------------------------------------------
 // Demo data generator
@@ -145,6 +148,10 @@ function TicketsPageContent() {
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const t = useTranslations('tickets');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const dateLocale = getDateLocale(locale);
 
   // Data state
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -189,7 +196,7 @@ function TicketsPageContent() {
 
     try {
       const res = await authFetch('/api/tickets');
-      if (!res.ok) throw new Error('Talep verileri yüklenemedi');
+      if (!res.ok) throw new Error(t('fetchError'));
       const data = await res.json();
       const list: SupportTicket[] = Array.isArray(data) ? data : data.tickets || data.data || [];
       setTickets(list);
@@ -272,7 +279,7 @@ function TicketsPageContent() {
 
   async function handleCreateTicket() {
     if (!formTitle.trim() || !formCustomerName.trim()) {
-      toast({ title: 'Eksik Bilgi', description: 'Başlık ve müşteri adı zorunludur.', variant: 'warning' });
+      toast({ title: t('missingInfo'), description: t('titleAndNameRequired'), variant: 'warning' });
       return;
     }
 
@@ -307,15 +314,15 @@ function TicketsPageContent() {
             customerPhone: formCustomerPhone.trim() || undefined,
           }),
         });
-        if (!res.ok) throw new Error('Talep oluşturulamadı');
+        if (!res.ok) throw new Error(t('createError'));
         await fetchTickets();
       }
 
-      toast({ title: 'Başarılı', description: 'Yeni destek talebi oluşturuldu.', variant: 'success' });
+      toast({ title: tc('success'), description: t('ticketCreated'), variant: 'success' });
       setCreateDialogOpen(false);
       resetCreateForm();
     } catch (err) {
-      toast({ title: 'Hata', description: 'Talep oluşturulurken bir sorun oluştu.', variant: 'error' });
+      toast({ title: tc('error'), description: t('ticketCreateError'), variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -342,7 +349,7 @@ function TicketsPageContent() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus }),
         });
-        if (!res.ok) throw new Error('Durum güncellenemedi');
+        if (!res.ok) throw new Error(t('statusUpdateFailed'));
         await fetchTickets();
       }
 
@@ -353,11 +360,11 @@ function TicketsPageContent() {
         );
       }
 
-      const statusLabel = STATUS_CONFIG[newStatus].label;
-      toast({ title: 'Durum Güncellendi', description: `Talep durumu "${statusLabel}" olarak değiştirildi.`, variant: 'success' });
+      const statusLabel = t(STATUS_CONFIG[newStatus].labelKey);
+      toast({ title: t('statusUpdated'), description: t('statusChangedTo', { status: statusLabel }), variant: 'success' });
     } catch (err) {
       console.error('Status update error:', err);
-      toast({ title: 'Hata', description: 'Durum güncellenirken bir sorun oluştu.', variant: 'error' });
+      toast({ title: tc('error'), description: t('statusUpdateError'), variant: 'error' });
     } finally {
       setUpdatingStatus(null);
     }
@@ -375,11 +382,11 @@ function TicketsPageContent() {
         setTickets((prev) => prev.filter((t) => t.id !== ticketToDelete.id));
       } else {
         const res = await authFetch(`/api/tickets/${ticketToDelete.id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Talep silinemedi');
+        if (!res.ok) throw new Error(t('ticketDeleteFailed'));
         await fetchTickets();
       }
 
-      toast({ title: 'Silindi', description: `"${ticketToDelete.title}" talebi başarıyla silindi.`, variant: 'success' });
+      toast({ title: t('deleted'), description: t('ticketDeleted', { title: ticketToDelete.title }), variant: 'success' });
       setDeleteDialogOpen(false);
       setTicketToDelete(null);
       // Close detail dialog if the deleted ticket was open
@@ -389,7 +396,7 @@ function TicketsPageContent() {
       }
     } catch (err) {
       console.error('Delete ticket error:', err);
-      toast({ title: 'Hata', description: 'Talep silinirken bir sorun oluştu.', variant: 'error' });
+      toast({ title: tc('error'), description: t('ticketDeleteError'), variant: 'error' });
     } finally {
       setDeleting(false);
     }
@@ -421,7 +428,7 @@ function TicketsPageContent() {
   function formatDate(dateStr: string) {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     } catch {
       return dateStr;
     }
@@ -430,7 +437,7 @@ function TicketsPageContent() {
   function formatDateShort(dateStr: string) {
     try {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     } catch {
       return dateStr;
     }
@@ -507,8 +514,8 @@ function TicketsPageContent() {
       {demoMode && (
         <div className="animate-fade-in-down flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 px-5 py-3 text-sm text-amber-600 dark:text-amber-400">
           <WifiOff className="h-4 w-4 flex-shrink-0" />
-          <span className="font-medium">Demo Modu</span>
-          <span className="text-amber-500/70">Veri kaynağına ulaşılamadı. Örnek veriler gösteriliyor.</span>
+          <span className="font-medium">{t('demoMode')}</span>
+          <span className="text-amber-500/70">{t('demoModeDesc')}</span>
         </div>
       )}
 
@@ -521,10 +528,10 @@ function TicketsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
               <Ticket className="h-5 w-5 text-inception-red" />
             </div>
-            Destek Talepleri
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-2 text-lg">
-            Müşteri destek taleplerini oluşturun, takip edin ve çözüme ulaştırın.
+            {t('pageSubtitle')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -534,7 +541,7 @@ function TicketsPageContent() {
             className="h-10 w-10 border-white/[0.08]"
             onClick={() => fetchTickets(true)}
             disabled={refreshing}
-            aria-label="Yenile"
+            aria-label={t('refresh')}
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
@@ -546,7 +553,7 @@ function TicketsPageContent() {
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Yeni Talep Oluştur
+            {t('newTicket')}
           </Button>
         </div>
       </div>
@@ -562,10 +569,10 @@ function TicketsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-500">
               <LayoutList className="h-5 w-5" />
             </div>
-            <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Toplam</span>
+            <span className="text-indigo-500 bg-indigo-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('total')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Tüm Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('allTickets')}</h3>
             <div className="text-4xl font-bold tracking-tight text-foreground">{stats.total}</div>
           </div>
         </div>
@@ -579,10 +586,10 @@ function TicketsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center text-rose-500">
               <AlertCircle className="h-5 w-5" />
             </div>
-            <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Acil</span>
+            <span className="text-rose-500 bg-rose-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('urgentBadge')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Açık Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('openTickets')}</h3>
             <div className="text-4xl font-bold tracking-tight text-rose-500">{stats.open}</div>
           </div>
         </div>
@@ -596,10 +603,10 @@ function TicketsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500">
               <Clock className="h-5 w-5" />
             </div>
-            <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Devam</span>
+            <span className="text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('ongoing')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">İşlemdeki Talepler</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('inProgressTickets')}</h3>
             <div className="text-4xl font-bold tracking-tight text-amber-500">{stats.inProgress}</div>
           </div>
         </div>
@@ -613,10 +620,10 @@ function TicketsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-500">
               <CheckCircle2 className="h-5 w-5" />
             </div>
-            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Başarılı</span>
+            <span className="text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider">{t('successful')}</span>
           </div>
           <div>
-            <h3 className="text-muted-foreground font-medium mb-1">Çözüme Ulaşanlar</h3>
+            <h3 className="text-muted-foreground font-medium mb-1">{t('resolvedTickets')}</h3>
             <div className="text-4xl font-bold tracking-tight text-emerald-500">{stats.resolved}</div>
           </div>
         </div>
@@ -630,7 +637,7 @@ function TicketsPageContent() {
             <div className="flex items-center gap-3 w-full lg:w-1/3 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/70" />
               <Input
-                placeholder="Talep ara (ID, başlık, müşteri)..."
+                placeholder={t('searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 w-full text-sm transition-colors"
@@ -641,27 +648,27 @@ function TicketsPageContent() {
             <div className="flex flex-col sm:flex-row gap-3 w-full lg:flex-1 lg:justify-end">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] font-medium">
-                  <SelectValue placeholder="Durum Filtrele" />
+                  <SelectValue placeholder={t('filterStatus')} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
-                  <SelectItem value="all">Tüm Durumlar</SelectItem>
-                  <SelectItem value="open">Açık</SelectItem>
-                  <SelectItem value="in_progress">İşlemde</SelectItem>
-                  <SelectItem value="resolved">Çözüldü</SelectItem>
-                  <SelectItem value="closed">Kapatıldı</SelectItem>
+                  <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                  <SelectItem value="open">{t('open')}</SelectItem>
+                  <SelectItem value="in_progress">{t('inProgress')}</SelectItem>
+                  <SelectItem value="resolved">{t('resolved')}</SelectItem>
+                  <SelectItem value="closed">{t('closed')}</SelectItem>
                 </SelectContent>
               </Select>
 
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-full sm:w-[160px] rounded-xl h-10 border-white/[0.08] bg-white/[0.04] font-medium">
-                  <SelectValue placeholder="Öncelik Filtrele" />
+                  <SelectValue placeholder={t('filterPriority')} />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
-                  <SelectItem value="all">Tüm Öncelikler</SelectItem>
-                  <SelectItem value="critical">Kritik</SelectItem>
-                  <SelectItem value="high">Yüksek</SelectItem>
-                  <SelectItem value="medium">Orta</SelectItem>
-                  <SelectItem value="low">Düşük</SelectItem>
+                  <SelectItem value="all">{t('allPriorities')}</SelectItem>
+                  <SelectItem value="critical">{t('critical')}</SelectItem>
+                  <SelectItem value="high">{t('high')}</SelectItem>
+                  <SelectItem value="medium">{t('medium')}</SelectItem>
+                  <SelectItem value="low">{t('low')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -672,7 +679,7 @@ function TicketsPageContent() {
                   className="h-10 font-medium text-rose-500 hover:bg-rose-500/10"
                 >
                   <X className="h-4 w-4 mr-2" />
-                  Sıfırla
+                  {t('reset')}
                 </Button>
               )}
             </div>
@@ -686,21 +693,21 @@ function TicketsPageContent() {
               <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
                 <Ticket className="h-8 w-8 text-white/20" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz destek talebi yok</h3>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('noTicketsTitle')}</h3>
               <p className="text-sm text-white/40 mb-6 max-w-sm">
                 {hasActiveFilters
-                  ? 'Arama kriterlerinize uygun talep bulunamadı. Filtreleri değiştirmeyi deneyin.'
-                  : 'Müşteri destek taleplerini oluşturarak takip sürecinizi başlatın.'}
+                  ? t('noTicketsFiltered')
+                  : t('noTicketsEmpty')}
               </p>
               {hasActiveFilters ? (
                 <Button variant="outline" onClick={handleClearFilters}>
                   <X className="h-4 w-4 mr-2" />
-                  Filtreleri Temizle
+                  {t('clearFilters')}
                 </Button>
               ) : (
                 <Button onClick={() => { resetCreateForm(); setCreateDialogOpen(true); }}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Yeni Talep Oluştur
+                  {t('newTicket')}
                 </Button>
               )}
             </div>
@@ -734,7 +741,7 @@ function TicketsPageContent() {
                               className={`px-2 py-0.5 text-[10px] border-0 rounded-full font-bold shadow-none uppercase tracking-wider ${priorityCfg.bgColor} ${priorityCfg.color}`}
                             >
                               <PriorityIcon className="h-2.5 w-2.5 mr-0.5" />
-                              {priorityCfg.label}
+                              {t(priorityCfg.labelKey)}
                             </Badge>
                           </div>
                           <div className="font-semibold text-[15px] truncate">{ticket.title}</div>
@@ -751,7 +758,7 @@ function TicketsPageContent() {
                       {/* Center: Description excerpt */}
                       <div className="w-full lg:flex-1 px-0 lg:px-4 hidden md:block">
                         <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                          {ticket.description || 'Açıklama eklenmemiş.'}
+                          {ticket.description || t('noDescription')}
                         </p>
                         {ticket.category && (
                           <Badge variant="outline" className="mt-1.5 bg-white/[0.04] border-white/[0.08] text-xs text-muted-foreground">
@@ -767,7 +774,7 @@ function TicketsPageContent() {
                           variant="secondary"
                           className={`px-3 py-1 text-xs border-0 rounded-full font-semibold shadow-none ${statusCfg.bgColor} ${statusCfg.color}`}
                         >
-                          {statusCfg.label}
+                          {t(statusCfg.labelKey)}
                         </Badge>
 
                         <Button
@@ -775,7 +782,7 @@ function TicketsPageContent() {
                           size="icon"
                           className="h-8 w-8 text-muted-foreground/40 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={(e) => handleDeleteClick(e, ticket)}
-                          aria-label="Sil"
+                          aria-label={tc('delete')}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -827,7 +834,7 @@ function TicketsPageContent() {
                         {selectedTicket.id}
                       </DialogTitle>
                       <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                        Destek Talebi Detayları
+                        {t('ticketDetails')}
                       </DialogDescription>
                     </div>
                   </div>
@@ -835,7 +842,7 @@ function TicketsPageContent() {
                   <div className="space-y-6">
                     {/* Customer profile */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Müşteri Profili</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">{t('customerProfile')}</h4>
                       <div className="bg-white/[0.04] border border-white/[0.08] p-4 rounded-xl flex flex-col gap-1">
                         <span className="font-semibold text-lg">{selectedTicket.customerName}</span>
                         {selectedTicket.customerPhone && (
@@ -849,19 +856,19 @@ function TicketsPageContent() {
 
                     {/* Priority */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Öncelik Seviyesi</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">{t('priorityLevel')}</h4>
                       <Badge
                         variant="secondary"
                         className={`px-3 py-1.5 text-sm border rounded-xl font-semibold ${priorityCfg.bgColor} ${priorityCfg.color} ${priorityCfg.borderColor}`}
                       >
                         <PriorityIcon className="h-3.5 w-3.5 mr-1.5" />
-                        {priorityCfg.label}
+                        {t(priorityCfg.labelKey)}
                       </Badge>
                     </div>
 
                     {/* Status workflow */}
                     <div>
-                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">Durum Yönetimi</h4>
+                      <h4 className="text-xs uppercase font-bold tracking-wider text-muted-foreground/70 mb-3">{t('statusManagement')}</h4>
                       <div className="flex flex-wrap gap-2">
                         {nextStatuses.map((ns) => {
                           const nsCfg = STATUS_CONFIG[ns];
@@ -880,9 +887,9 @@ function TicketsPageContent() {
                               ) : (
                                 <NsIcon className="h-3.5 w-3.5 mr-1" />
                               )}
-                              {ns === 'in_progress' && 'İşleme Al'}
-                              {ns === 'resolved' && 'Çözüldü İşaretle'}
-                              {ns === 'closed' && 'Arşive Kapat'}
+                              {ns === 'in_progress' && t('takeInProgress')}
+                              {ns === 'resolved' && t('markResolved')}
+                              {ns === 'closed' && t('archiveClose')}
                             </Button>
                           );
                         })}
@@ -898,7 +905,7 @@ function TicketsPageContent() {
                             }}
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1" />
-                            Talebi Sil
+                            {t('deleteTicket')}
                           </Button>
                         )}
                       </div>
@@ -908,14 +915,14 @@ function TicketsPageContent() {
                     <div className="space-y-4 text-sm mt-4 border-t border-white/[0.06] pt-6">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground flex items-center gap-1.5">
-                          <Calendar className="h-3.5 w-3.5" /> Oluşturma
+                          <Calendar className="h-3.5 w-3.5" /> {t('createdAt')}
                         </span>
                         <span className="font-medium text-right ml-4">{formatDate(selectedTicket.createdAt)}</span>
                       </div>
                       {selectedTicket.updatedAt && (
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground flex items-center gap-1.5">
-                            <Pencil className="h-3.5 w-3.5" /> Güncelleme
+                            <Pencil className="h-3.5 w-3.5" /> {t('updatedAt')}
                           </span>
                           <span className="font-medium text-right ml-4">{formatDate(selectedTicket.updatedAt)}</span>
                         </div>
@@ -923,7 +930,7 @@ function TicketsPageContent() {
                       {selectedTicket.resolvedAt && (
                         <div className="flex justify-between items-center text-emerald-500">
                           <span className="flex items-center gap-1.5">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Çözüm
+                            <CheckCircle2 className="h-3.5 w-3.5" /> {t('resolvedAt')}
                           </span>
                           <span className="font-medium text-right ml-4">{formatDate(selectedTicket.resolvedAt)}</span>
                         </div>
@@ -931,7 +938,7 @@ function TicketsPageContent() {
                       {selectedTicket.category && (
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground flex items-center gap-1.5">
-                            <Tag className="h-3.5 w-3.5" /> Kategori
+                            <Tag className="h-3.5 w-3.5" /> {t('category')}
                           </span>
                           <span className="font-medium text-right text-indigo-400">{selectedTicket.category}</span>
                         </div>
@@ -939,7 +946,7 @@ function TicketsPageContent() {
                       {selectedTicket.assignee && (
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5" /> Atanan
+                            <User className="h-3.5 w-3.5" /> {t('assignedTo')}
                           </span>
                           <span className="font-medium text-right">{selectedTicket.assignee}</span>
                         </div>
@@ -951,22 +958,22 @@ function TicketsPageContent() {
                 {/* Right panel */}
                 <div className="w-full md:w-7/12 p-8 flex flex-col gap-6 overflow-y-auto">
                   <div>
-                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Talep Başlığı</h3>
+                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('ticketTitle')}</h3>
                     <div className="text-lg font-semibold text-foreground mb-4">{selectedTicket.title}</div>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Detaylı Açıklama</h3>
+                    <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('detailedDescription')}</h3>
                     <div className="bg-white/[0.02] border border-white/[0.06] p-5 rounded-xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
                       {selectedTicket.description || (
-                        <span className="italic text-muted-foreground opacity-50">Herhangi bir açıklama eklenmemiş...</span>
+                        <span className="italic text-muted-foreground opacity-50">{t('noDescriptionDetail')}</span>
                       )}
                     </div>
                   </div>
 
                   {selectedTicket.notes && (
                     <div>
-                      <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">Dahili Notlar</h3>
+                      <h3 className="text-sm font-bold text-muted-foreground mb-3 uppercase tracking-wider">{t('internalNotes')}</h3>
                       <div className="bg-white/[0.02] border border-white/[0.06] p-5 rounded-xl text-foreground/90 leading-relaxed text-sm whitespace-pre-wrap">
                         {selectedTicket.notes}
                       </div>
@@ -977,7 +984,7 @@ function TicketsPageContent() {
 
                   <div className="flex justify-end gap-3 pt-4 border-t border-white/[0.06]">
                     <Button variant="ghost" onClick={() => setDetailDialogOpen(false)}>
-                      Kapat
+                      {tc('close')}
                     </Button>
                   </div>
                 </div>
@@ -995,10 +1002,10 @@ function TicketsPageContent() {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <Plus className="h-5 w-5 text-indigo-500" />
-              Yeni Destek Talebi
+              {t('newTicketTitle')}
             </DialogTitle>
             <DialogDescription>
-              Müşteri talebini oluşturmak için aşağıdaki formu doldurun.
+              {t('newTicketDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -1006,11 +1013,11 @@ function TicketsPageContent() {
             {/* Title */}
             <div className="space-y-2">
               <Label htmlFor="ticket-title" className="text-sm font-semibold">
-                Talep Başlığı <span className="text-rose-500">*</span>
+                {t('ticketTitleLabel')} <span className="text-rose-500">*</span>
               </Label>
               <Input
                 id="ticket-title"
-                placeholder="Sorunu kısa ve net olarak tanımlayınız..."
+                placeholder={t('ticketTitlePlaceholder')}
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
@@ -1020,11 +1027,11 @@ function TicketsPageContent() {
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="ticket-desc" className="text-sm font-semibold">
-                Detaylı Açıklama
+                {t('detailedDescLabel')}
               </Label>
               <Textarea
                 id="ticket-desc"
-                placeholder="Sorunun detaylarını, tekrar etme koşullarını ve beklenen davranışı yazınız..."
+                placeholder={t('detailedDescPlaceholder')}
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 min-h-[100px] resize-none text-sm"
@@ -1034,28 +1041,28 @@ function TicketsPageContent() {
             {/* Priority & Category row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Öncelik</Label>
+                <Label className="text-sm font-semibold">{t('priority')}</Label>
                 <Select value={formPriority} onValueChange={(v) => setFormPriority(v as TicketPriority)}>
                   <SelectTrigger className="rounded-xl h-10 border-white/[0.08] bg-white/[0.04]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
-                    <SelectItem value="low">Düşük</SelectItem>
-                    <SelectItem value="medium">Orta</SelectItem>
-                    <SelectItem value="high">Yüksek</SelectItem>
-                    <SelectItem value="critical">Kritik</SelectItem>
+                    <SelectItem value="low">{t('low')}</SelectItem>
+                    <SelectItem value="medium">{t('medium')}</SelectItem>
+                    <SelectItem value="high">{t('high')}</SelectItem>
+                    <SelectItem value="critical">{t('critical')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Kategori</Label>
+                <Label className="text-sm font-semibold">{t('category')}</Label>
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger className="rounded-xl h-10 border-white/[0.08] bg-white/[0.04]">
-                    <SelectValue placeholder="Kategori seçin..." />
+                    <SelectValue placeholder={t('selectCategory')} />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl shadow-lg border-white/[0.08] bg-card/95 backdrop-blur-sm">
-                    {CATEGORIES.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    {CATEGORY_KEYS.map((key) => (
+                      <SelectItem key={key} value={t(key)}>{t(key)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1066,38 +1073,38 @@ function TicketsPageContent() {
             <div className="border-t border-white/[0.06] pt-4">
               <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                Müşteri Bilgileri
+                {t('customerInfo')}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="cust-name" className="text-xs text-muted-foreground">
-                    Ad Soyad <span className="text-rose-500">*</span>
+                    {t('fullName')} <span className="text-rose-500">*</span>
                   </Label>
                   <Input
                     id="cust-name"
-                    placeholder="Müşteri adı"
+                    placeholder={t('customerNamePlaceholder')}
                     value={formCustomerName}
                     onChange={(e) => setFormCustomerName(e.target.value)}
                     className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cust-email" className="text-xs text-muted-foreground">E-posta</Label>
+                  <Label htmlFor="cust-email" className="text-xs text-muted-foreground">{t('email')}</Label>
                   <Input
                     id="cust-email"
                     type="email"
-                    placeholder="ornek@mail.com"
+                    placeholder={t('emailPlaceholder')}
                     value={formCustomerEmail}
                     onChange={(e) => setFormCustomerEmail(e.target.value)}
                     className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cust-phone" className="text-xs text-muted-foreground">Telefon</Label>
+                  <Label htmlFor="cust-phone" className="text-xs text-muted-foreground">{t('phone')}</Label>
                   <Input
                     id="cust-phone"
                     type="tel"
-                    placeholder="+90 5XX XXX XX XX"
+                    placeholder={t('phonePlaceholder')}
                     value={formCustomerPhone}
                     onChange={(e) => setFormCustomerPhone(e.target.value)}
                     className="rounded-xl bg-white/[0.04] border border-white/[0.08] text-white placeholder:text-white/20 focus:outline-none focus:border-inception-red/40 h-10 text-sm"
@@ -1109,7 +1116,7 @@ function TicketsPageContent() {
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setCreateDialogOpen(false)}>
-              İptal
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleCreateTicket}
@@ -1119,12 +1126,12 @@ function TicketsPageContent() {
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Oluşturuluyor...
+                  {t('creating')}
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4" />
-                  Talebi Oluştur
+                  {t('createTicketBtn')}
                 </>
               )}
             </Button>
@@ -1141,14 +1148,14 @@ function TicketsPageContent() {
             <div className="mx-auto w-14 h-14 rounded-full bg-rose-500/10 flex items-center justify-center mb-2">
               <Trash2 className="h-7 w-7 text-rose-500" />
             </div>
-            <DialogTitle className="text-center text-xl">Talebi Silmek İstediğinizden Emin Misiniz?</DialogTitle>
+            <DialogTitle className="text-center text-xl">{t('deleteConfirmTitle')}</DialogTitle>
             <DialogDescription className="text-center">
-              <span className="font-semibold text-foreground">{ticketToDelete?.title}</span> başlığı ile kayıtlı destek talebi kalıcı olarak silinecektir. Bu işlem geri alınamaz.
+              {t('deleteConfirmDesc', { title: ticketToDelete?.title || '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="sm:justify-center gap-3 pt-2">
             <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)} className="px-6">
-              Vazgeç
+              {t('cancelBtn')}
             </Button>
             <Button
               variant="destructive"
@@ -1159,12 +1166,12 @@ function TicketsPageContent() {
               {deleting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Siliniyor...
+                  {t('deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="h-4 w-4" />
-                  Evet, Sil
+                  {t('confirmDelete')}
                 </>
               )}
             </Button>

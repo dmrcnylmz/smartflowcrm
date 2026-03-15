@@ -12,8 +12,9 @@ import { useActivityLogs } from '@/lib/firebase/hooks';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import type { CallLog, Complaint, Appointment } from '@/lib/firebase/types';
 import { format, subDays } from 'date-fns';
-import { tr } from 'date-fns/locale/tr';
 import { toDate } from '@/lib/utils/date-helpers';
+import { getDateLocale } from '@/lib/utils/date-locale';
+import { useLocale, useTranslations } from 'next-intl';
 import nextDynamic from 'next/dynamic';
 import type { CallTrendPoint, ComplaintCategoryPoint, AppointmentStatusPoint } from '@/components/dashboard/DashboardCharts';
 
@@ -72,14 +73,19 @@ const generateDemoData = () => {
 
 // Auto-refresh intervals
 const REFRESH_INTERVALS = [
-  { label: 'Kapalı', value: 0 },
-  { label: '30 sn', value: 30000 },
-  { label: '1 dk', value: 60000 },
-  { label: '5 dk', value: 300000 },
+  { label: '—', value: 0 },
+  { label: '30s', value: 30000 },
+  { label: '1m', value: 60000 },
+  { label: '5m', value: 300000 },
 ];
 
 export default function DashboardPage() {
   const authFetch = useAuthFetch();
+  const t = useTranslations('dashboard');
+  const tc = useTranslations('common');
+  const tCharts = useTranslations('charts');
+  const locale = useLocale();
+  const dateLocale = getDateLocale(locale);
   const [stats, setStats] = useState({
     todayCalls: 0,
     missedCalls: 0,
@@ -128,11 +134,11 @@ export default function DashboardPage() {
       const date = subDays(new Date(), 6 - i);
       date.setHours(0, 0, 0, 0);
       return {
-        date: format(date, 'dd MMM', { locale: tr }),
+        date: format(date, 'dd MMM', { locale: dateLocale }),
         dateObj: date,
-        çağrılar: 0,
-        yanıtlanan: 0,
-        kaçırılan: 0,
+        calls: 0,
+        answered: 0,
+        missed: 0,
       };
     });
 
@@ -147,22 +153,22 @@ export default function DashboardPage() {
       });
 
       if (dayIndex >= 0) {
-        days[dayIndex].çağrılar++;
+        days[dayIndex].calls++;
         if (call.status === 'answered') {
-          days[dayIndex].yanıtlanan++;
+          days[dayIndex].answered++;
         } else if (call.status === 'missed') {
-          days[dayIndex].kaçırılan++;
+          days[dayIndex].missed++;
         }
       }
     });
 
     return days;
-  }, [chartData.calls]);
+  }, [chartData.calls, dateLocale]);
 
   const complaintCategoryData: ComplaintCategoryPoint[] = useMemo(() => {
     const categoryMap: Record<string, number> = {};
     chartData.complaints.forEach(complaint => {
-      const category = complaint.category || 'Kategori Yok';
+      const category = complaint.category || tc('noData');
       categoryMap[category] = (categoryMap[category] || 0) + 1;
     });
 
@@ -177,22 +183,22 @@ export default function DashboardPage() {
 
   const appointmentStatusData: AppointmentStatusPoint[] = useMemo(() => {
     const statusMap: Record<string, number> = {
-      'Planlandı': 0,
-      'Tamamlandı': 0,
-      'İptal': 0,
+      [tCharts('scheduled')]: 0,
+      [tCharts('completed')]: 0,
+      [tCharts('cancelled')]: 0,
     };
 
     chartData.appointments.forEach(apt => {
-      if (apt.status === 'scheduled') statusMap['Planlandı']++;
-      else if (apt.status === 'completed') statusMap['Tamamlandı']++;
-      else if (apt.status === 'cancelled') statusMap['İptal']++;
+      if (apt.status === 'scheduled') statusMap[tCharts('scheduled')]++;
+      else if (apt.status === 'completed') statusMap[tCharts('completed')]++;
+      else if (apt.status === 'cancelled') statusMap[tCharts('cancelled')]++;
     });
 
     return Object.entries(statusMap).map(([name, value]) => ({
       name,
       value,
     }));
-  }, [chartData.appointments]);
+  }, [chartData.appointments, tCharts]);
 
   // Try server-side dashboard API first, fallback to client-side
   const loadFromServerAPI = useCallback(async (): Promise<boolean> => {
@@ -283,7 +289,7 @@ export default function DashboardPage() {
           limitCount: 500
         });
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Çağrı verileri yüklenemedi';
+        const errorMsg = err instanceof Error ? err.message : t('callDataError');
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
       }
@@ -293,7 +299,7 @@ export default function DashboardPage() {
       try {
         allComplaints = await getComplaints();
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Şikayet verileri yüklenemedi';
+        const errorMsg = err instanceof Error ? err.message : t('complaintDataError');
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
       }
@@ -305,7 +311,7 @@ export default function DashboardPage() {
           dateFrom: sevenDaysAgo,
         });
       } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : 'Randevu verileri yüklenemedi';
+        const errorMsg = err instanceof Error ? err.message : t('appointmentDataError');
         errors.push(errorMsg);
         if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
       }
@@ -405,7 +411,7 @@ export default function DashboardPage() {
 
   const kpiCards = [
     {
-      title: 'Bugünkü Çağrılar',
+      title: t('todayCalls'),
       value: stats.todayCalls,
       icon: PhoneIncoming,
       borderColor: 'border-blue-500/15',
@@ -414,7 +420,7 @@ export default function DashboardPage() {
       trendUp: (callsTrend ?? 0) >= 0,
     },
     {
-      title: 'Kaçırılan Çağrılar',
+      title: t('missedCalls'),
       value: stats.missedCalls,
       icon: Phone,
       borderColor: 'border-rose-500/15',
@@ -423,7 +429,7 @@ export default function DashboardPage() {
       trendUp: (missedTrend ?? 0) <= 0, // fewer missed = good
     },
     {
-      title: 'Açık Şikayetler',
+      title: t('openComplaints'),
       value: stats.openComplaints,
       icon: MessageSquareWarning,
       borderColor: 'border-amber-500/15',
@@ -432,7 +438,7 @@ export default function DashboardPage() {
       trendUp: false,
     },
     {
-      title: 'Yaklaşan Randevular',
+      title: t('upcomingAppointments'),
       value: stats.upcomingAppointments,
       icon: Calendar,
       borderColor: 'border-emerald-500/15',
@@ -443,7 +449,7 @@ export default function DashboardPage() {
     // Voice Pipeline KPIs (only show when data available)
     ...(voicePipeline ? [
       {
-        title: 'Ort. Yanit Suresi',
+        title: t('avgResponseTime'),
         value: voicePipeline.avgPipelineMs ? parseFloat((voicePipeline.avgPipelineMs / 1000).toFixed(1)) : 0,
         icon: Zap,
         borderColor: 'border-purple-500/15',
@@ -453,7 +459,7 @@ export default function DashboardPage() {
         suffix: 's',
       },
       {
-        title: 'Bu Ay Cagri',
+        title: t('monthlyCallCount'),
         value: voicePipeline.totalCalls || 0,
         icon: Activity,
         borderColor: voicePipeline.emergencyModeActive
@@ -475,7 +481,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3 rounded-xl border border-amber-500/20 bg-amber-950/20 px-4 py-3 text-sm text-amber-300 animate-fade-in-down">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>
-            <strong>Demo Modu</strong> — Firebase bağlantısı kurulamadı. Gösterilen veriler demo amaçlıdır.
+            <strong>{t('demoMode')}</strong> — {t('demoModeDesc')}
           </span>
         </div>
       )}
@@ -487,10 +493,10 @@ export default function DashboardPage() {
             <div className="h-9 w-9 rounded-xl bg-inception-red/10 border border-inception-red/25 flex items-center justify-center">
               <TrendingUp className="h-5 w-5 text-inception-red" />
             </div>
-            Genel Bakış
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Sistemin anlık durumu ve özet istatistikler.
+            {t('subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -503,7 +509,7 @@ export default function DashboardPage() {
             )}
             {lastUpdated && (
               <span>
-                {format(lastUpdated, 'HH:mm:ss', { locale: tr })}
+                {format(lastUpdated, 'HH:mm:ss', { locale: dateLocale })}
               </span>
             )}
           </div>
@@ -519,7 +525,7 @@ export default function DashboardPage() {
             <SelectContent>
               {REFRESH_INTERVALS.map(opt => (
                 <SelectItem key={opt.value} value={String(opt.value)}>
-                  {opt.value === 0 ? 'Manuel' : `\u27F3 ${opt.label}`}
+                  {opt.value === 0 ? t('off') : `\u27F3 ${opt.label}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -533,7 +539,7 @@ export default function DashboardPage() {
             disabled={refreshing}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Yenile
+            {tc('refresh')}
           </Button>
 
           <VoiceAIStatus />
@@ -551,7 +557,7 @@ export default function DashboardPage() {
             onClick={handleRefresh}
             className="ml-2"
           >
-            Tekrar Dene
+            {tc('retry')}
           </Button>
         </div>
       )}
@@ -604,8 +610,8 @@ export default function DashboardPage() {
         {/* Activity Logs */}
         <Card className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm overflow-hidden flex flex-col animate-fade-in-up" style={{ animationDelay: '860ms' }}>
           <CardHeader className="border-b border-white/[0.06]">
-            <CardTitle className="text-base font-semibold text-white">Son Aktiviteler</CardTitle>
-            <CardDescription className="text-white/40">Sistemdeki en son 10 işlem anlık olarak gösteriliyor.</CardDescription>
+            <CardTitle className="text-base font-semibold text-white">{t('recentActivity')}</CardTitle>
+            <CardDescription className="text-white/40">{t('recentActivityDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-auto max-h-[400px]">
             {(loading || activityLoading) ? (
@@ -623,11 +629,11 @@ export default function DashboardPage() {
             ) : activityError ? (
               <div className="flex justify-center items-center h-full min-h-[200px] text-amber-600 dark:text-amber-400">
                 <AlertCircle className="w-5 h-5 mr-2" />
-                Aktivite verileri şu anda görüntülenemiyor
+                {t('activityLoadError')}
               </div>
             ) : activity.length === 0 ? (
               <div className="flex justify-center items-center h-full min-h-[200px] text-muted-foreground">
-                Henüz aktivite bulunmuyor
+                {t('noActivity')}
               </div>
             ) : (
               <div className="divide-y divide-white/5">
@@ -642,7 +648,7 @@ export default function DashboardPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{log.desc || log.description || ''}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(toDate(log.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: tr })}
+                        {format(toDate(log.createdAt) ?? new Date(), 'dd MMM HH:mm', { locale: dateLocale })}
                       </p>
                     </div>
                     <div className="shrink-0 bg-secondary px-2.5 py-1 rounded-full text-[10px] font-medium tracking-wider uppercase">

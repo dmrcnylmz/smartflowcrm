@@ -260,10 +260,10 @@ describe('Agent Activation System', () => {
             expect(content).toContain('AgentActivationFlow');
         });
 
-        it('agents page has Canlıya Al button', async () => {
+        it('agents page has go-live button (i18n)', async () => {
             const fs = await import('fs');
             const content = fs.readFileSync('app/agents/page.tsx', 'utf-8');
-            expect(content).toContain('Canlıya Al');
+            expect(content).toContain("t('goLive')");
         });
     });
 

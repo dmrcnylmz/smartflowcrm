@@ -114,14 +114,14 @@ export function StepCustomize({
                 <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xs font-semibold text-white/50 uppercase tracking-widest flex items-center gap-2">
                         <div className="h-px w-8 bg-white/[0.06]" />
-                        Sistem Prompt&apos;u
+                        System Prompt
                     </h3>
                     <button
                         onClick={() => setShowPrompt(!showPrompt)}
                         className="text-xs text-white/40 hover:text-white/70 flex items-center gap-1 transition-colors"
                     >
                         {showPrompt ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                        {showPrompt ? 'Gizle' : 'Düzenle'}
+                        {showPrompt ? '▲' : '▼'}
                     </button>
                 </div>
 
@@ -201,19 +201,19 @@ export function StepCustomize({
                             {/* Other voice settings */}
                             <div className="grid sm:grid-cols-3 gap-3">
                                 <div>
-                                    <Label className="text-white/50 text-xs mb-1">Konuşma Stili</Label>
+                                    <Label className="text-white/50 text-xs mb-1">Voice Style</Label>
                                     <select
                                         value={voiceConfig.style}
                                         onChange={(e) => setVoiceConfig({ ...voiceConfig, style: e.target.value })}
                                         className="w-full h-9 rounded-lg bg-white/[0.04] border border-white/[0.08] text-white text-sm px-3 focus:outline-none focus:border-inception-red/50"
                                     >
                                         {VOICE_STYLES.map(s => (
-                                            <option key={s.value} value={s.value}>{s.label}</option>
+                                            <option key={s.value} value={s.value}>{s.value.charAt(0).toUpperCase() + s.value.slice(1)}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div>
-                                    <Label className="text-white/50 text-xs mb-1">Sıcaklık ({voiceConfig.temperature})</Label>
+                                    <Label className="text-white/50 text-xs mb-1">Temperature ({voiceConfig.temperature})</Label>
                                     <input
                                         type="range"
                                         min="0"

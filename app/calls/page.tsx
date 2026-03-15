@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import { getDateLocale } from '@/lib/utils/date-locale';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -23,13 +25,16 @@ import { updateCallLog } from '@/lib/firebase/db';
 import { useToast } from '@/components/ui/toast';
 import type { Customer, CallLog } from '@/lib/firebase/types';
 import { format } from 'date-fns';
-import { tr } from 'date-fns/locale/tr';
 import { toDate } from '@/lib/utils/date-helpers';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
 function CallsPageContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const t = useTranslations('calls');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const dateLocale = getDateLocale(locale);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const debouncedSearch = useDebounce(searchInput, 300);
@@ -82,9 +87,9 @@ function CallsPageContent() {
   );
 
   const statusOptions: FilterOption[] = [
-    { value: 'answered', label: 'Yanıtlanan' },
-    { value: 'missed', label: 'Kaçırılan' },
-    { value: 'voicemail', label: 'Sesli Mesaj' },
+    { value: 'answered', label: t('statusAnswered') },
+    { value: 'missed', label: t('statusMissed') },
+    { value: 'voicemail', label: t('statusVoicemail') },
   ];
 
   const intentOptions: FilterOption[] = useMemo(
@@ -134,15 +139,15 @@ function CallsPageContent() {
     try {
       await updateCallLog(selectedCall.id, { notes });
       toast({
-        title: 'Başarılı!',
-        description: 'Notlar kaydedildi',
+        title: tc('success'),
+        description: t('notesSaved'),
         variant: 'success',
       });
     } catch (error) {
       console.error('Notes save error:', error);
       toast({
-        title: 'Hata',
-        description: 'Notlar kaydedilirken hata oluştu',
+        title: tc('error'),
+        description: t('notesSaveError'),
         variant: 'error',
       });
     } finally {
@@ -167,18 +172,18 @@ function CallsPageContent() {
   }, [calls]);
 
   const error = callsError
-    ? 'Çağrı verileri şu anda yüklenemiyor. Lütfen daha sonra tekrar deneyin.'
+    ? t('callLoadError')
     : null;
 
   const getStatusBadge = useCallback((status: string) => {
     const variants: Record<string, { variant: 'default' | 'destructive' | 'secondary' | 'outline'; label: string, colorClass: string }> = {
-      answered: { variant: 'default' as const, label: 'Yanıtlandı', colorClass: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300' },
-      missed: { variant: 'destructive' as const, label: 'Kaçırıldı', colorClass: 'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/50 dark:text-red-300' },
-      voicemail: { variant: 'secondary' as const, label: 'Sesli Mesaj', colorClass: 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/50 dark:text-amber-300' },
+      answered: { variant: 'default' as const, label: t('badgeAnswered'), colorClass: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300' },
+      missed: { variant: 'destructive' as const, label: t('badgeMissed'), colorClass: 'bg-red-100 text-red-800 hover:bg-red-100 dark:bg-red-900/50 dark:text-red-300' },
+      voicemail: { variant: 'secondary' as const, label: t('badgeVoicemail'), colorClass: 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/50 dark:text-amber-300' },
     };
     const config = variants[status] || { variant: 'outline' as const, label: status, colorClass: '' };
     return <Badge className={`shadow-none ${config.colorClass}`} variant={config.variant}>{config.label}</Badge>;
-  }, []);
+  }, [t]);
 
   const getIntentBadge = useCallback((intent: string) => {
     const colors: Record<string, string> = {
@@ -259,7 +264,7 @@ function CallsPageContent() {
   async function handleExport(format: 'csv' | 'excel' | 'pdf') {
     try {
       const exportData = exportCalls(filteredCalls as unknown as Array<Record<string, unknown>>, customers as unknown as Record<string, Record<string, unknown>>);
-      const filename = `cagrilar-${new Date().toISOString().split('T')[0]}`;
+      const filename = `calls-${new Date().toISOString().split('T')[0]}`;
 
       switch (format) {
         case 'csv':
@@ -269,17 +274,17 @@ function CallsPageContent() {
           await exportToExcel(exportData, filename);
           break;
         case 'pdf':
-          await exportToPDF(exportData, filename, 'Çağrı Listesi');
+          await exportToPDF(exportData, filename, t('callList'));
           break;
       }
 
       toast({
-        title: 'Başarılı!',
-        description: `${format.toUpperCase()} dosyası indirildi`,
+        title: tc('success'),
+        description: t('exportSuccess', { format: format.toUpperCase() }),
         variant: 'success',
       });
     } catch {
-      toast({ title: 'Hata', description: 'Dışa aktarma başarısız oldu.', variant: 'error' });
+      toast({ title: tc('error'), description: t('exportError'), variant: 'error' });
     }
   }
 
@@ -288,8 +293,8 @@ function CallsPageContent() {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <FileText className="h-10 w-10 text-muted-foreground/20 mb-3" />
-          <p className="text-sm font-medium text-muted-foreground">Deşifre (Transcript) bulunamadı</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">Görüşme çok kısa sürmüş veya kayıt devre dışı bırakılmış olabilir.</p>
+          <p className="text-sm font-medium text-muted-foreground">{t('noTranscript')}</p>
+          <p className="text-xs text-muted-foreground/70 mt-1">{t('noTranscriptReason')}</p>
         </div>
       );
     }
@@ -324,7 +329,7 @@ function CallsPageContent() {
       if (customerPatterns.test(trimmed)) {
         const content = trimmed.replace(customerPatterns, '');
         const speakerMatch = trimmed.match(customerPatterns);
-        const speaker = speakerMatch ? speakerMatch[1] : 'Müşteri';
+        const speaker = speakerMatch ? speakerMatch[1] : 'Customer';
         return (
           <div key={`cust-${index}-${content.slice(0, 16)}`} className="flex justify-end">
             <div className="max-w-[80%]">
@@ -357,10 +362,10 @@ function CallsPageContent() {
             <div className="h-9 w-9 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center">
               <Phone className="h-5 w-5 text-emerald-500" />
             </div>
-            Çağrı Geçmişi
+            {t('title')}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            AI Asistan görüşmeleri, ses kayıtları ve müşteri etkileşim logları.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -368,12 +373,12 @@ function CallsPageContent() {
           {filteredCalls.length > 0 && (
             <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
               <SelectTrigger className="w-[140px] bg-white/[0.04] border-white/[0.08] rounded-xl">
-                <SelectValue placeholder="Dışa Aktar" />
+                <SelectValue placeholder={t('export')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="csv">CSV İndir</SelectItem>
-                <SelectItem value="excel">Excel İndir</SelectItem>
-                <SelectItem value="pdf">PDF İndir</SelectItem>
+                <SelectItem value="csv">{t('csvDownload')}</SelectItem>
+                <SelectItem value="excel">{t('excelDownload')}</SelectItem>
+                <SelectItem value="pdf">{t('pdfDownload')}</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -383,7 +388,7 @@ function CallsPageContent() {
             className="bg-emerald-600 hover:bg-emerald-700 gap-2 text-white"
           >
             <Mic className="h-4 w-4" />
-            Sesli AI Simülasyonu
+            {t('voiceSimulation')}
           </Button>
         </div>
       </div>
@@ -392,7 +397,7 @@ function CallsPageContent() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
         <div className="rounded-2xl border border-slate-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-white/40 font-medium">Toplam Gelen-Giden</span>
+            <span className="text-xs text-white/40 font-medium">{t('totalInOut')}</span>
             <div className="h-8 w-8 rounded-lg bg-slate-500/10 flex items-center justify-center">
               <Phone className="h-4 w-4 text-slate-400" />
             </div>
@@ -401,7 +406,7 @@ function CallsPageContent() {
         </div>
         <div className="rounded-2xl border border-emerald-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '80ms' }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-white/40 font-medium">Yanıtlanan (Başarılı)</span>
+            <span className="text-xs text-white/40 font-medium">{t('answeredSuccess')}</span>
             <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
               <PhoneIncoming className="h-4 w-4 text-emerald-400" />
             </div>
@@ -410,7 +415,7 @@ function CallsPageContent() {
         </div>
         <div className="rounded-2xl border border-red-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '160ms' }}>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs text-white/40 font-medium">Kaçırılan (Ulaşılamayan)</span>
+            <span className="text-xs text-white/40 font-medium">{t('missedUnreachable')}</span>
             <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
               <PhoneOutgoing className="h-4 w-4 text-red-400" />
             </div>
@@ -423,13 +428,13 @@ function CallsPageContent() {
         <div className="px-6 py-4 border-b border-white/[0.06] space-y-4">
           {/* Filters */}
           <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            <Filter className="h-4 w-4" /> Gelişmiş Filtreleme
+            <Filter className="h-4 w-4" /> {t('advancedFilter')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="relative md:col-span-4">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="İsim, telefon veya not ara..."
+                placeholder={t('searchPlaceholder')}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-10 rounded-xl bg-background border-border/60"
@@ -440,19 +445,19 @@ function CallsPageContent() {
                 options={statusOptions}
                 selectedValues={statusFilters}
                 onSelectionChange={setStatusFilters}
-                placeholder="Durum Seç"
+                placeholder={t('selectStatus')}
                 className="w-full bg-background rounded-xl border-border/60"
               />
             </div>
             <div className="md:col-span-2">
               <Select value={directionFilter} onValueChange={setDirectionFilter}>
                 <SelectTrigger className="w-full bg-background rounded-xl border-border/60">
-                  <SelectValue placeholder="Yön" />
+                  <SelectValue placeholder={t('direction')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tüm Yönler</SelectItem>
-                  <SelectItem value="inbound">Gelen Aramalar</SelectItem>
-                  <SelectItem value="outbound">Giden Aramalar</SelectItem>
+                  <SelectItem value="all">{t('allDirections')}</SelectItem>
+                  <SelectItem value="inbound">{t('inboundCalls')}</SelectItem>
+                  <SelectItem value="outbound">{t('outboundCalls')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -475,7 +480,7 @@ function CallsPageContent() {
                   options={intentOptions}
                   selectedValues={intentFilters}
                   onSelectionChange={setIntentFilters}
-                  placeholder="Intent (Niyet) Kategori Seçimi"
+                  placeholder={t('intentFilter')}
                   className="w-full bg-background rounded-xl border-border/60"
                 />
               </div>
@@ -486,7 +491,7 @@ function CallsPageContent() {
             <div className="flex justify-start">
               <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-muted-foreground hover:text-foreground text-xs h-8">
                 <X className="h-3 w-3 mr-1" />
-                Tüm filtreleri sıfırla
+                {t('clearAllFilters')}
               </Button>
             </div>
           )}
@@ -496,33 +501,33 @@ function CallsPageContent() {
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="h-8 w-8 text-white/40 animate-spin mb-4" />
-              <p className="text-sm text-white/40">Veriler yükleniyor...</p>
+              <p className="text-sm text-white/40">{t('loadingData')}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                 <AlertTriangle className="h-8 w-8 text-red-400/60" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Bir hata oluştu</h3>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('errorOccurred')}</h3>
               <p className="text-sm text-white/40 mb-6 max-w-sm">{error}</p>
-              <Button variant="outline" onClick={() => refetchCalls()}>Tekrar Dene</Button>
+              <Button variant="outline" onClick={() => refetchCalls()}>{tc('retry')}</Button>
             </div>
           ) : filteredCalls.length === 0 && calls.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
                 <Phone className="h-8 w-8 text-white/20" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Henüz çağrı kaydı yok</h3>
-              <p className="text-sm text-white/40 mb-6 max-w-sm">Çağrılar otomatik olarak burada listelenecektir.</p>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('noCallsTitle')}</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{t('noCallsDesc')}</p>
             </div>
           ) : filteredCalls.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="h-16 w-16 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
                 <Search className="h-8 w-8 text-white/20" />
               </div>
-              <h3 className="text-lg font-semibold text-white/80 mb-2">Sonuç bulunamadı</h3>
-              <p className="text-sm text-white/40 mb-6 max-w-sm">Filtrelerinize uygun çağrı kaydı yok. Filtreleri temizleyip tekrar deneyin.</p>
-              <Button variant="outline" onClick={handleClearFilters}>Filtreleri Temizle</Button>
+              <h3 className="text-lg font-semibold text-white/80 mb-2">{t('noResultsTitle')}</h3>
+              <p className="text-sm text-white/40 mb-6 max-w-sm">{t('noResultsDesc')}</p>
+              <Button variant="outline" onClick={handleClearFilters}>{t('clearFilters')}</Button>
             </div>
           ) : (
             <>
@@ -530,11 +535,11 @@ function CallsPageContent() {
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="font-semibold text-foreground/80 pl-6 shrink-0 min-w-[200px]">Müşteri Profili</TableHead>
-                      <TableHead className="font-semibold text-foreground/80 hidden lg:table-cell cursor-pointer">Durum</TableHead>
-                      <TableHead className="font-semibold text-foreground/80 cursor-pointer">Tip</TableHead>
-                      <TableHead className="font-semibold text-foreground/80 hidden md:table-cell cursor-pointer">Süre / Etiket</TableHead>
-                      <TableHead className="font-semibold text-foreground/80 text-right pr-6">Aksiyon</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 pl-6 shrink-0 min-w-[200px]">{t('customerProfile')}</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 hidden lg:table-cell cursor-pointer">{t('status')}</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 cursor-pointer">{t('type')}</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 hidden md:table-cell cursor-pointer">{t('durationTag')}</TableHead>
+                      <TableHead className="font-semibold text-foreground/80 text-right pr-6">{t('action')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -561,10 +566,10 @@ function CallsPageContent() {
                         >
                           <TableCell className="pl-6 py-4">
                             <div className="flex flex-col">
-                              <span className="font-semibold text-foreground">{customer?.name || call.customerName || 'Anonim Arayan'}</span>
+                              <span className="font-semibold text-foreground">{customer?.name || call.customerName || t('anonymousCaller')}</span>
                               <span className="text-xs text-muted-foreground mt-0.5">{customer?.phone || call.customerPhone || call.customerId || '-'}</span>
                               <span className="text-[10px] bg-muted w-fit px-1.5 py-0.5 rounded text-muted-foreground mt-1.5">
-                                {format(toDate(timestamp) ?? new Date(), 'dd MMM yyyy, HH:mm', { locale: tr })}
+                                {format(toDate(timestamp) ?? new Date(), 'dd MMM yyyy, HH:mm', { locale: dateLocale })}
                               </span>
                             </div>
                           </TableCell>
@@ -575,14 +580,14 @@ function CallsPageContent() {
                             <div className="flex flex-col gap-1 items-start">
                               <Badge variant={direction === 'inbound' ? 'default' : 'secondary'} className="shadow-none flex items-center gap-1 bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300">
                                 {direction === 'inbound' ? <PhoneIncoming className="h-3 w-3" /> : <PhoneOutgoing className="h-3 w-3" />}
-                                {direction === 'inbound' ? 'Gelen' : 'Giden'}
+                                {direction === 'inbound' ? t('inbound') : t('outbound')}
                               </Badge>
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             <div className="flex flex-col gap-1.5 items-start">
                               <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                                <Clock className="h-3 w-3 text-primary/70" /> {duration} saniye
+                                <Clock className="h-3 w-3 text-primary/70" /> {duration} {t('seconds')}
                               </span>
                               {call.intent && getIntentBadge(call.intent)}
                             </div>
@@ -602,11 +607,11 @@ function CallsPageContent() {
                 {!loading && filteredCalls.length > 0 && (
                   <>
                     <p className="text-sm text-muted-foreground">
-                      {filteredCalls.length} / {totalAvailable} çağrı gösteriliyor
+                      {t('showingCalls', { count: filteredCalls.length, total: totalAvailable })}
                     </p>
                     {hasMore && (
                       <Button variant="outline" size="sm" onClick={handleLoadMore}>
-                        Daha Fazla Yükle
+                        {t('loadMore')}
                       </Button>
                     )}
                   </>
@@ -625,11 +630,11 @@ function CallsPageContent() {
               <div>
                 <DialogTitle className="text-2xl font-bold flex items-center gap-3">
                   <span className="bg-primary/10 p-2 rounded-xl text-primary border border-primary/20"><Phone className="h-6 w-6" /></span>
-                  Çağrı Dökümü
+                  {t('callDetails')}
                 </DialogTitle>
                 <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  {selectedCall && format(toDate(selectedCall.timestamp || selectedCall.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm:ss', { locale: tr })}
+                  {selectedCall && format(toDate(selectedCall.timestamp || selectedCall.createdAt) ?? new Date(), 'dd MMMM yyyy, HH:mm:ss', { locale: dateLocale })}
                 </p>
               </div>
             </div>
@@ -640,14 +645,14 @@ function CallsPageContent() {
               {/* Left Side: Attributes */}
               <div className="w-full md:w-1/3 bg-muted/10 p-6 overflow-y-auto border-r border-border/40 space-y-6">
                 <div>
-                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">Müşteri Bilgisi</p>
+                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">{t('customerInfo')}</p>
                   <div className="bg-background rounded-xl p-4 shadow-sm border border-border/50">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="h-10 w-10 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-500 font-bold">
                         <User className="h-5 w-5" />
                       </div>
                       <div className="truncate">
-                        <p className="font-semibold text-sm truncate">{selectedCustomer?.name || selectedCall.customerName || 'Anonim'}</p>
+                        <p className="font-semibold text-sm truncate">{selectedCustomer?.name || selectedCall.customerName || t('anonymous')}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">{selectedCustomer?.phone || selectedCall.customerPhone || selectedCall.customerId}</p>
                       </div>
                     </div>
@@ -655,38 +660,38 @@ function CallsPageContent() {
                 </div>
 
                 <div>
-                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">Durum Metrikleri</p>
+                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">{t('statusMetrics')}</p>
                   <div className="flex flex-wrap gap-2">
                     {getStatusBadge(selectedCall.status)}
                     <Badge variant={selectedCall.direction === 'inbound' ? 'default' : 'secondary'} className="shadow-none bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300">
-                      {selectedCall.direction === 'inbound' ? 'Gelen Arama' : 'Giden Arama'}
+                      {selectedCall.direction === 'inbound' ? t('inboundCall') : t('outboundCall')}
                     </Badge>
                     <Badge variant="outline" className="shadow-none border-blue-200 text-blue-700 bg-blue-50/50">
-                      {selectedCall.durationSec ?? selectedCall.duration ?? 0} saniye
+                      {selectedCall.durationSec ?? selectedCall.duration ?? 0} {t('seconds')}
                     </Badge>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">Yapay Zeka Karnesi</p>
+                  <p className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-3">{t('aiReport')}</p>
                   {selectedCall.intent ? (
                     getIntentBadge(selectedCall.intent)
                   ) : (
-                    <span className="text-xs text-muted-foreground italic">Analiz edilmemiş.</span>
+                    <span className="text-xs text-muted-foreground italic">{t('notAnalyzed')}</span>
                   )}
                 </div>
 
                 <div className="pt-4 border-t border-border/50">
-                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2 flex">Operatör/Genel Notlar</Label>
+                  <Label className="text-xs uppercase tracking-wider font-semibold text-muted-foreground mb-2 flex">{t('operatorNotes')}</Label>
                   <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="text-sm bg-background border-border/50 shadow-sm mt-2 rounded-xl min-h-[100px]"
-                    placeholder="Bu çağrı hakkında alınan notlar..."
+                    placeholder={t('notesPlaceholder')}
                   />
                   <div className="flex justify-end mt-3">
                     <Button onClick={handleSaveNotes} disabled={savingNotes} size="sm" className="rounded-lg">
-                      {savingNotes ? 'Kaydediliyor...' : 'Notu Kaydet'}
+                      {savingNotes ? tc('loading') : t('saveNote')}
                     </Button>
                   </div>
                 </div>
@@ -696,10 +701,10 @@ function CallsPageContent() {
               <div className="w-full md:w-2/3 p-6 overflow-y-auto bg-background bg-grid-slate-100/30 dark:bg-grid-slate-900/30">
                 <div className="mb-6 bg-indigo-50/50 dark:bg-indigo-950/20 border-l-4 border-indigo-500 rounded-r-xl p-4 shadow-sm">
                   <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2 mb-1.5 flex items-center">
-                    <MessageSquare className="h-4 w-4" /> Yapay Zeka Özeti
+                    <MessageSquare className="h-4 w-4" /> {t('aiSummary')}
                   </h4>
                   <p className="text-sm text-indigo-800 dark:text-indigo-200/80 leading-relaxed">
-                    {selectedCall.summary || 'Bu görüşme için AI tarafından üretilmiş özet bulunmuyor.'}
+                    {selectedCall.summary || t('noAiSummary')}
                   </p>
                 </div>
 
@@ -715,7 +720,7 @@ function CallsPageContent() {
                 <div>
                   <h4 className="text-sm font-bold flex items-center gap-2 mb-4 text-slate-700 dark:text-slate-300">
                     <FileText className="h-4 w-4" />
-                    Görüşme Dökümü (Transcript)
+                    {t('transcriptTitle')}
                   </h4>
                   <div className="bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-4 border shadow-inner min-h-[250px] max-h-[400px] overflow-y-auto space-y-3">
                     {renderTranscript(selectedCall.transcript)}
@@ -733,11 +738,10 @@ function CallsPageContent() {
         onOpenChange={setVoiceCallOpen}
         onCallEnd={(summary) => {
           toast({
-            title: 'Görüşme Tamamlandı',
-            description: `${Math.round(summary.duration_seconds)}s sürdü, ${summary.metrics.turn_count} konuşma dönüşü`,
+            title: t('callCompleted'),
+            description: `${Math.round(summary.duration_seconds)}s, ${summary.metrics.turn_count} turns`,
             variant: 'success',
           });
-          // Çağrı kaydı Firestore'a yazıldıktan sonra listeyi yenile
           setTimeout(() => refetchCalls(), 1500);
         }}
       />
@@ -758,6 +762,7 @@ function RecordingPlayer({
   wavUrl?: string;
   duration?: number;
 }) {
+  const t = useTranslations('calls');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -809,7 +814,7 @@ function RecordingPlayer({
     <div className="mb-6 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl p-4 border shadow-sm">
       <h4 className="text-sm font-bold flex items-center gap-2 mb-3 text-slate-700 dark:text-slate-300">
         <Volume2 className="h-4 w-4" />
-        Kayıt
+        {t('recording')}
       </h4>
       <div className="flex items-center gap-3">
         <button
@@ -842,7 +847,7 @@ function RecordingPlayer({
             href={wavUrl}
             download
             className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
-            title="İndir"
+            title="Download"
           >
             <Download className="h-4 w-4" />
           </a>

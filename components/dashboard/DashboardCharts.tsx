@@ -12,9 +12,9 @@ import { useTranslations } from 'next-intl';
 
 export interface CallTrendPoint {
   date: string;
-  çağrılar: number;
-  yanıtlanan: number;
-  kaçırılan: number;
+  calls: number;
+  answered: number;
+  missed: number;
 }
 
 export interface ComplaintCategoryPoint {
@@ -76,9 +76,9 @@ export default function DashboardCharts({
                       <YAxis axisLine={false} tickLine={false} tick={{ fill: '#888' }} dx={-10} />
                       <Tooltip contentStyle={tooltipStyle} itemStyle={{ color: '#fff' }} />
                       <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                      <Line type="monotone" dataKey="çağrılar" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey="yanıtlanan" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey="kaçırılan" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="calls" name={t('calls')} stroke="#3b82f6" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="answered" name={t('answered')} stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="missed" name={t('missed')} stroke="#ef4444" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
