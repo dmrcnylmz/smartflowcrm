@@ -29,11 +29,11 @@ function getDb() {
     return db;
 }
 
-/** Collection → retention policy field mapping */
+/** Collection → retention policy field mapping (maps to RetentionPolicy keys) */
 const RETENTION_COLLECTIONS = [
-    { collection: 'recordings', policyField: 'recordings' as const, timestampField: 'createdAt' },
-    { collection: 'calls', policyField: 'transcripts' as const, timestampField: 'startedAt' },
-    { collection: 'voicemails', policyField: 'voicemails' as const, timestampField: 'createdAt' },
+    { collection: 'recordings', retentionDaysKey: 'callRecordingsDays' as const, timestampField: 'createdAt' },
+    { collection: 'calls', retentionDaysKey: 'transcriptsDays' as const, timestampField: 'startedAt' },
+    { collection: 'voicemails', retentionDaysKey: 'callRecordingsDays' as const, timestampField: 'createdAt' },
 ] as const;
 
 export async function GET(request: NextRequest) {
@@ -69,8 +69,8 @@ export async function GET(request: NextRequest) {
                 // Get tenant-specific retention policy
                 const policy = await getRetentionPolicy(database, tenantId);
 
-                for (const { collection, policyField, timestampField } of RETENTION_COLLECTIONS) {
-                    const retentionDays = policy[policyField] ?? 365;
+                for (const { collection, retentionDaysKey, timestampField } of RETENTION_COLLECTIONS) {
+                    const retentionDays = policy[retentionDaysKey] ?? 365;
 
                     // Skip if retention is 0 (keep forever)
                     if (retentionDays <= 0) continue;
