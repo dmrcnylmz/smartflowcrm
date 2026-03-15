@@ -418,6 +418,9 @@ export default function AdminPage() {
                                         >
                                             <option value="tr">🇹🇷 Türkçe</option>
                                             <option value="en">🇬🇧 English</option>
+                                            <option value="de">🇩🇪 Deutsch</option>
+                                            <option value="fr">🇫🇷 Français</option>
+                                            <option value="tr-en">🇹🇷🇬🇧 Türkçe + English</option>
                                         </select>
                                         <ChevronDown className="absolute right-3 top-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                                     </div>

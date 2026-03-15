@@ -356,7 +356,7 @@ const FRENCH_RULES: KeywordRule[] = [
 
 // --- Language Detection ---
 
-function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'fr' {
+export function detectLanguage(text: string): 'tr' | 'en' | 'de' | 'fr' {
     // Turkish-specific characters (ç/Ç removed — shared with French)
     const turkishChars = /[ğışĞİŞ]/; // ğ, ı, ş are unique to Turkish
     if (turkishChars.test(text)) return 'tr';
