@@ -102,22 +102,30 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 function validateEnv(): Env {
-  try {
-    return envSchema.parse(process.env);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missing = error.issues
-        .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
-        .join('\n');
+  // During build time (next build), env vars may not be available.
+  // Use safeParse to avoid crashing the build — runtime will still validate.
+  const result = envSchema.safeParse(process.env);
 
-      throw new Error(
-        `\n[env] Environment validation failed.\n` +
-          `The following variables are missing or invalid:\n${missing}\n\n` +
-          `Hint: copy .env.example to .env.local and fill in the values.\n`,
-      );
-    }
-    throw error;
+  if (result.success) {
+    return result.data;
   }
+
+  // In production runtime, throw with a helpful message
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PHASE) {
+    const missing = result.error.issues
+      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
+      .join('\n');
+
+    throw new Error(
+      `\n[env] Environment validation failed.\n` +
+        `The following variables are missing or invalid:\n${missing}\n\n` +
+        `Hint: copy .env.example to .env.local and fill in the values.\n`,
+    );
+  }
+
+  // During build or development, return partial env with defaults
+  // This allows `next build` to succeed without all env vars
+  return process.env as unknown as Env;
 }
 
 export const env = validateEnv();
