@@ -124,7 +124,16 @@ describe('API Tenants CRUD', () => {
             expect(mockCreateTenant).not.toHaveBeenCalled();
         });
 
-        it('should return 401 when x-user-uid header is missing', async () => {
+        it('should return 401 when auth fails (no valid token)', async () => {
+            // Mock requireStrictAuth to return an auth error
+            const { NextResponse } = await import('next/server');
+            mockRequireStrictAuth.mockResolvedValueOnce({
+                error: NextResponse.json(
+                    { error: 'Unauthorized', message: 'Bu endpoint için kimlik doğrulaması gereklidir.' },
+                    { status: 401 }
+                ),
+            });
+
             const { POST } = await import('@/app/api/tenants/route');
             const request = createMockRequest('/api/tenants', {
                 method: 'POST',

@@ -11,8 +11,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/lib/firebase/auth-context';
 import { useTrackEvent } from '@/lib/hooks/useActivityTracker';
 import { Mail, Lock, User, AlertCircle, Loader2, Phone } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+function getPasswordStrength(password: string, t: (key: string) => string): { score: number; label: string; color: string } {
     if (!password) return { score: 0, label: '', color: '' };
     let score = 0;
     if (password.length >= 6) score++;
@@ -21,11 +22,11 @@ function getPasswordStrength(password: string): { score: number; label: string; 
     if (/[0-9]/.test(password)) score++;
     if (/[^A-Za-z0-9]/.test(password)) score++;
 
-    if (score <= 1) return { score: 20, label: 'Çok Zayıf', color: 'bg-red-500' };
-    if (score === 2) return { score: 40, label: 'Zayıf', color: 'bg-orange-500' };
-    if (score === 3) return { score: 60, label: 'Orta', color: 'bg-yellow-500' };
-    if (score === 4) return { score: 80, label: 'Güçlü', color: 'bg-emerald-500' };
-    return { score: 100, label: 'Çok Güçlü', color: 'bg-emerald-600' };
+    if (score <= 1) return { score: 20, label: t('passwordVeryWeak'), color: 'bg-red-500' };
+    if (score === 2) return { score: 40, label: t('passwordWeak'), color: 'bg-orange-500' };
+    if (score === 3) return { score: 60, label: t('passwordMedium'), color: 'bg-yellow-500' };
+    if (score === 4) return { score: 80, label: t('passwordStrong'), color: 'bg-emerald-500' };
+    return { score: 100, label: t('passwordVeryStrong'), color: 'bg-emerald-600' };
 }
 
 /* SVG circuit board pattern — drawn inline for Inception aesthetic */
@@ -73,6 +74,7 @@ export default function LoginPage() {
     const router = useRouter();
     const { signIn, signInWithGoogle, signUp, resetPassword, loading, error, clearError } = useAuth();
     const trackEvent = useTrackEvent();
+    const t = useTranslations('auth');
     const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
     const [showResetPassword, setShowResetPassword] = useState(false);
     const [resetEmailSent, setResetEmailSent] = useState(false);
@@ -96,7 +98,7 @@ export default function LoginPage() {
         setFormError(null);
         clearError();
         if (!loginData.email || !loginData.password) {
-            setFormError('Lütfen tüm alanları doldurun.');
+            setFormError(t('fillAllFields'));
             return;
         }
         try {
@@ -126,15 +128,15 @@ export default function LoginPage() {
         setFormError(null);
         clearError();
         if (!registerData.name || !registerData.email || !registerData.password) {
-            setFormError('Lütfen tüm alanları doldurun.');
+            setFormError(t('fillAllFields'));
             return;
         }
         if (registerData.password !== registerData.confirmPassword) {
-            setFormError('Şifreler eşleşmiyor.');
+            setFormError(t('passwordsDoNotMatch'));
             return;
         }
         if (registerData.password.length < 6) {
-            setFormError('Şifre en az 6 karakter olmalıdır.');
+            setFormError(t('passwordMinLength'));
             return;
         }
         try {
@@ -148,7 +150,7 @@ export default function LoginPage() {
         setFormError(null);
         clearError();
         if (!resetEmail) {
-            setFormError('Lütfen e-posta adresinizi girin.');
+            setFormError(t('enterEmail'));
             return;
         }
         try {
@@ -187,11 +189,11 @@ export default function LoginPage() {
 
                 <Card className="w-full max-w-md relative z-10 glass-card animate-scale-in border-white/[0.06]">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-2xl font-display text-gradient">Şifre Sıfırlama</CardTitle>
+                        <CardTitle className="text-2xl font-display text-gradient">{t('resetPassword')}</CardTitle>
                         <CardDescription className="text-muted-foreground">
                             {resetEmailSent
-                                ? 'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi.'
-                                : 'E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.'}
+                                ? t('resetPasswordSent')
+                                : t('resetPasswordDesc')}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -199,7 +201,7 @@ export default function LoginPage() {
                             <div className="space-y-4">
                                 <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-center">
                                     <p className="text-emerald-400 text-sm">
-                                        E-posta gönderildi! Spam klasörünü kontrol etmeyi unutmayın.
+                                        {t('resetPasswordEmailSent')}
                                     </p>
                                 </div>
                                 <Button
@@ -207,7 +209,7 @@ export default function LoginPage() {
                                     className="w-full border-white/10 hover:bg-white/5"
                                     onClick={() => { setShowResetPassword(false); setResetEmailSent(false); }}
                                 >
-                                    Giriş Sayfasına Dön
+                                    {t('backToLogin')}
                                 </Button>
                             </div>
                         ) : (
@@ -219,7 +221,7 @@ export default function LoginPage() {
                                     </div>
                                 )}
                                 <div className="space-y-2">
-                                    <Label htmlFor="reset-email" className="text-sm text-muted-foreground">E-posta</Label>
+                                    <Label htmlFor="reset-email" className="text-sm text-muted-foreground">{t('email')}</Label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
@@ -227,7 +229,7 @@ export default function LoginPage() {
                                             name="email"
                                             type="email"
                                             autoComplete="email"
-                                            placeholder="ornek@email.com"
+                                            placeholder={t('emailPlaceholder')}
                                             value={resetEmail}
                                             onChange={(e) => setResetEmail(e.target.value)}
                                             className="pl-10 bg-white/[0.03] border-white/10 focus:border-inception-red/50 focus:ring-inception-red/20"
@@ -236,11 +238,11 @@ export default function LoginPage() {
                                 </div>
                                 <Button type="submit" className="w-full bg-inception-red hover:bg-inception-red-light text-white" disabled={loading}>
                                     {loading ? (
-                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Gönderiliyor...</>
-                                    ) : 'Şifre Sıfırlama Linki Gönder'}
+                                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('sending')}</>
+                                    ) : t('sendResetLink')}
                                 </Button>
                                 <Button type="button" variant="ghost" className="w-full text-muted-foreground hover:text-foreground" onClick={() => setShowResetPassword(false)}>
-                                    Geri Dön
+                                    {t('goBack')}
                                 </Button>
                             </form>
                         )}
@@ -265,7 +267,7 @@ export default function LoginPage() {
                         CALLCEPTION
                     </h1>
                     <p className="text-sm text-muted-foreground tracking-wide">
-                        AI Destekli Çağrı Yönetimi Platformu
+                        {t('platformSubtitle')}
                     </p>
                     <SoundWave className="justify-center mt-2" />
                 </div>
@@ -276,10 +278,10 @@ export default function LoginPage() {
                         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'register')}>
                             <TabsList className="grid w-full grid-cols-2 mb-6 bg-white/[0.03] border border-white/[0.06]">
                                 <TabsTrigger value="login" className="data-[state=active]:bg-inception-red data-[state=active]:text-white data-[state=active]:shadow-lg text-muted-foreground font-medium">
-                                    Giriş Yap
+                                    {t('login')}
                                 </TabsTrigger>
                                 <TabsTrigger value="register" className="data-[state=active]:bg-inception-red data-[state=active]:text-white data-[state=active]:shadow-lg text-muted-foreground font-medium">
-                                    Kayıt Ol
+                                    {t('register')}
                                 </TabsTrigger>
                             </TabsList>
 
@@ -293,7 +295,7 @@ export default function LoginPage() {
                                     )}
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="login-email" className="text-sm text-muted-foreground">E-posta</Label>
+                                        <Label htmlFor="login-email" className="text-sm text-muted-foreground">{t('email')}</Label>
                                         <div className="relative">
                                             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -301,7 +303,7 @@ export default function LoginPage() {
                                                 name="email"
                                                 type="email"
                                                 autoComplete="email"
-                                                placeholder="ornek@email.com"
+                                                placeholder={t('emailPlaceholder')}
                                                 value={loginData.email}
                                                 onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                                                 className="pl-10 bg-white/[0.03] border-white/10 focus:border-inception-red/50 focus:ring-inception-red/20 placeholder:text-white/20"
@@ -310,7 +312,7 @@ export default function LoginPage() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="login-password" className="text-sm text-muted-foreground">Şifre</Label>
+                                        <Label htmlFor="login-password" className="text-sm text-muted-foreground">{t('password')}</Label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -334,19 +336,19 @@ export default function LoginPage() {
                                             className="border-white/20 data-[state=checked]:bg-inception-red data-[state=checked]:border-inception-red"
                                         />
                                         <Label htmlFor="remember-me" className="text-sm font-normal text-muted-foreground cursor-pointer">
-                                            Beni Hatırla
+                                            {t('rememberMe')}
                                         </Label>
                                     </div>
 
                                     <Button type="submit" className="w-full bg-inception-red hover:bg-inception-red-light text-white font-semibold shadow-lg shadow-inception-red/20 transition-all hover:shadow-inception-red/30" disabled={loading}>
                                         {loading ? (
-                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Giriş yapılıyor...</>
-                                        ) : 'Giriş Yap'}
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('loggingIn')}</>
+                                        ) : t('login')}
                                     </Button>
 
                                     <div className="relative my-4 flex items-center">
                                         <div className="flex-grow border-t border-white/10"></div>
-                                        <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-wider">veya</span>
+                                        <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase tracking-wider">{t('or')}</span>
                                         <div className="flex-grow border-t border-white/10"></div>
                                     </div>
 
@@ -363,7 +365,7 @@ export default function LoginPage() {
                                             <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                                             <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                         </svg>
-                                        Google ile Giriş Yap
+                                        {t('loginWithGoogle')}
                                     </Button>
 
                                     <div className="text-center mt-4">
@@ -372,7 +374,7 @@ export default function LoginPage() {
                                             className="text-sm text-muted-foreground hover:text-inception-red transition-colors"
                                             onClick={() => setShowResetPassword(true)}
                                         >
-                                            Şifremi unuttum
+                                            {t('forgotPassword')}
                                         </button>
                                     </div>
                                 </form>
@@ -388,7 +390,7 @@ export default function LoginPage() {
                                     )}
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="register-name" className="text-sm text-muted-foreground">Ad Soyad</Label>
+                                        <Label htmlFor="register-name" className="text-sm text-muted-foreground">{t('fullName')}</Label>
                                         <div className="relative">
                                             <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -396,7 +398,7 @@ export default function LoginPage() {
                                                 name="name"
                                                 type="text"
                                                 autoComplete="name"
-                                                placeholder="Ad Soyad"
+                                                placeholder={t('fullName')}
                                                 value={registerData.name}
                                                 onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
                                                 className="pl-10 bg-white/[0.03] border-white/10 focus:border-inception-red/50 focus:ring-inception-red/20 placeholder:text-white/20"
@@ -405,7 +407,7 @@ export default function LoginPage() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="register-email" className="text-sm text-muted-foreground">E-posta</Label>
+                                        <Label htmlFor="register-email" className="text-sm text-muted-foreground">{t('email')}</Label>
                                         <div className="relative">
                                             <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -413,7 +415,7 @@ export default function LoginPage() {
                                                 name="email"
                                                 type="email"
                                                 autoComplete="email"
-                                                placeholder="ornek@email.com"
+                                                placeholder={t('emailPlaceholder')}
                                                 value={registerData.email}
                                                 onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                                                 className="pl-10 bg-white/[0.03] border-white/10 focus:border-inception-red/50 focus:ring-inception-red/20 placeholder:text-white/20"
@@ -422,7 +424,7 @@ export default function LoginPage() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="register-password" className="text-sm text-muted-foreground">Şifre</Label>
+                                        <Label htmlFor="register-password" className="text-sm text-muted-foreground">{t('password')}</Label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -443,26 +445,26 @@ export default function LoginPage() {
                                                         <div
                                                             key={segment}
                                                             className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                                                                getPasswordStrength(registerData.password).score >= segment * 20
-                                                                    ? getPasswordStrength(registerData.password).color
+                                                                getPasswordStrength(registerData.password, t).score >= segment * 20
+                                                                    ? getPasswordStrength(registerData.password, t).color
                                                                     : 'bg-white/10'
                                                             }`}
                                                         />
                                                     ))}
                                                 </div>
                                                 <p className={`text-xs font-medium transition-colors ${
-                                                    getPasswordStrength(registerData.password).score <= 40 ? 'text-red-400' :
-                                                    getPasswordStrength(registerData.password).score <= 60 ? 'text-yellow-400' :
+                                                    getPasswordStrength(registerData.password, t).score <= 40 ? 'text-red-400' :
+                                                    getPasswordStrength(registerData.password, t).score <= 60 ? 'text-yellow-400' :
                                                     'text-emerald-400'
                                                 }`}>
-                                                    {getPasswordStrength(registerData.password).label}
+                                                    {getPasswordStrength(registerData.password, t).label}
                                                 </p>
                                             </div>
                                         )}
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Label htmlFor="register-confirm-password" className="text-sm text-muted-foreground">Şifre Tekrar</Label>
+                                        <Label htmlFor="register-confirm-password" className="text-sm text-muted-foreground">{t('confirmPassword')}</Label>
                                         <div className="relative">
                                             <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                             <Input
@@ -480,8 +482,8 @@ export default function LoginPage() {
 
                                     <Button type="submit" className="w-full bg-inception-red hover:bg-inception-red-light text-white font-semibold shadow-lg shadow-inception-red/20" disabled={loading}>
                                         {loading ? (
-                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Kayıt yapılıyor...</>
-                                        ) : 'Kayıt Ol'}
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t('registering')}</>
+                                        ) : t('register')}
                                     </Button>
                                 </form>
                             </TabsContent>

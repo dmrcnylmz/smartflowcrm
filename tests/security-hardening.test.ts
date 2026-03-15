@@ -129,6 +129,22 @@ describe('i18n Component Integration', () => {
         expect(content).toContain("t('complaintCategories')");
         expect(content).toContain("t('appointmentStatuses')");
     });
+
+    it('LoginPage uses useTranslations for all user-facing text', () => {
+        const content = fs.readFileSync('app/login/page.tsx', 'utf-8');
+        expect(content).toContain("useTranslations('auth')");
+        expect(content).toContain("t('login')");
+        expect(content).toContain("t('register')");
+        expect(content).toContain("t('email')");
+        expect(content).toContain("t('password')");
+        expect(content).toContain("t('rememberMe')");
+        expect(content).toContain("t('forgotPassword')");
+        expect(content).toContain("t('loginWithGoogle')");
+        expect(content).toContain("t('resetPassword')");
+        expect(content).toContain("t('platformSubtitle')");
+        expect(content).toContain("t('fillAllFields')");
+        expect(content).toContain("t('passwordsDoNotMatch')");
+    });
 });
 
 // ─── 5. Translation Files Consistency ───
@@ -157,6 +173,16 @@ describe('Translation Files — New Keys', () => {
         for (const lang of langs) {
             const content = JSON.parse(fs.readFileSync(`messages/${lang}.json`, 'utf-8'));
             expect(content.common, `${lang}.json missing "common"`).toBeDefined();
+        }
+    });
+
+    it('all 4 languages have auth login page keys', () => {
+        const requiredKeys = ['login', 'register', 'fullName', 'confirmPassword', 'rememberMe', 'forgotPassword', 'loginWithGoogle', 'resetPassword', 'platformSubtitle', 'emailPlaceholder', 'passwordVeryWeak', 'passwordStrong'];
+        for (const lang of langs) {
+            const content = JSON.parse(fs.readFileSync(`messages/${lang}.json`, 'utf-8'));
+            for (const key of requiredKeys) {
+                expect(content.auth[key], `${lang}.json missing "auth.${key}"`).toBeTruthy();
+            }
         }
     });
 });

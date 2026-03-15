@@ -111,7 +111,13 @@ vi.mock('@/lib/ai/llm-fallback-chain', () => ({
 vi.mock('@/lib/n8n/client', () => ({ sendWebhook: vi.fn().mockResolvedValue(undefined) }));
 
 // ── Env mock ──
-vi.mock('@/lib/env', () => ({ warnMissingOptionalKeys: vi.fn() }));
+vi.mock('@/lib/env', () => ({
+    warnMissingOptionalKeys: vi.fn(),
+    getFeatureStatus: vi.fn().mockReturnValue([
+        { name: 'Voice Pipeline (STT)', ready: true, detail: 'Deepgram configured' },
+        { name: 'LLM (Primary)', ready: true, detail: 'Groq configured' },
+    ]),
+}));
 
 // ── Admin-db mocks ──
 vi.mock('@/lib/firebase/admin-db', () => ({
