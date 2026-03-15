@@ -155,7 +155,7 @@ export async function generateAnswerWithRAG(
   query: string,
   provider: string = 'local',
   tenantId: string = 'default',
-  options: { maxChunks?: number; maxTokens?: number; temperature?: number; language?: string } = {},
+  options: { maxChunks?: number; maxTokens?: number; temperature?: number; language?: 'tr' | 'en' | 'de' | 'fr' } = {},
 ): Promise<string> {
   const {
     maxChunks = 3,
