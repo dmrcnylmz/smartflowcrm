@@ -17,6 +17,7 @@ import {
 import { isCallingAllowed, detectCountryFromPhone, checkCallFrequencyLimit } from '@/lib/compliance/calling-hours';
 import { getDefaultIYSClient, type IYSStatus } from '@/lib/compliance/iys-client';
 import { classifyCallPurpose, type CallPurpose } from '@/lib/compliance/call-types';
+import { checkDNC } from '@/lib/compliance/dnc-registry';
 
 // =============================================
 // Master Compliance Check
@@ -87,15 +88,35 @@ export async function runOutboundComplianceCheck(
         }
     }
 
+    // 5. DNC registry check (US/UK/FR — only for call types that require it)
+    let dncChecked = false;
+    let dncBlocked = false;
+    if (rules.dncCheckRequired) {
+        dncChecked = true;
+        try {
+            const dncResult = await checkDNC(phoneNumber);
+            if (dncResult && dncResult.isRegistered) {
+                dncBlocked = true;
+                reasons.push(`DNC registry (${dncResult.registry}): number is registered — do not call`);
+            }
+            // dncResult === null means no DNC client for this country (e.g. TR, DE) — that's fine
+        } catch (err) {
+            console.error('[OutboundCompliance] DNC check failed:', err);
+            // Fail-open but mark as checked
+        }
+    } else {
+        dncChecked = true; // Not required, so considered checked/clean
+    }
+
     const iysBlocked = (iysStatus as string) === 'RET';
-    const overallAllowed = consentValid && callingHoursValid && callFrequencyValid && !iysBlocked;
+    const overallAllowed = consentValid && callingHoursValid && callFrequencyValid && !iysBlocked && !dncBlocked;
 
     return {
         phoneNumber,
         consentValid,
         callingHoursValid,
         callFrequencyValid,
-        dncChecked: false, // DNC registry integration not yet implemented
+        dncChecked,
         iysStatus,
         overallAllowed,
         reasons,
