@@ -125,6 +125,16 @@
         "portfolio": "Kundenportfolio",
         "portfolioDesc": "Verwalten Sie Ihre Kunden und überprüfen Sie deren Interaktionshistorie.",
         "newCustomer": "Neuer Kunde",
+        "importCSV": "CSV importieren",
+        "selectCSVFile": "CSV-Datei auswählen oder hierher ziehen",
+        "csvFormatHint": "Unterstützte Spalten: name, phone, email, company, notes",
+        "csvColumns": "Unterstützte Spalten",
+        "csvMaxRows": "Maximal {max} Zeilen",
+        "importComplete": "Import abgeschlossen!",
+        "importSummary": "Gesamt {total} Datensätze: {imported} hinzugefügt, {skipped} übersprungen (Duplikate)",
+        "importFailed": "Import fehlgeschlagen",
+        "importing": "Wird importiert...",
+        "startImport": "Importieren",
         "addNewCustomer": "Neuen Kunden hinzufügen",
         "fullName": "Vollständiger Name",
         "fullNameRequired": "Vollständiger Name *",
@@ -896,6 +906,9 @@
     "reports": {
         "title": "Leistungsberichte",
         "subtitle": "Tägliche Betriebskennzahlen und Echtzeit-Analysen des Kundenservice.",
+        "periodDaily": "Täglich",
+        "periodWeekly": "Wöchentlich",
+        "periodMonthly": "Monatlich",
         "analyze": "Analysieren",
         "loadingData": "Daten werden geladen...",
         "errorOccurred": "Ein Fehler ist aufgetreten",
@@ -1080,5 +1093,14 @@
         "exportSuccess": "{format}-Datei heruntergeladen",
         "exportError": "Export fehlgeschlagen.",
         "complaintList": "Beschwerdeliste"
+    },
+    "cookieConsent": {
+        "title": "Cookie-Nutzung",
+        "description": "Callception verwendet Cookies zur Verbesserung der Servicequalität. Notwendige Cookies sind für den Betrieb der Plattform erforderlich. Analyse-Cookies helfen uns, Ihre Erfahrung zu verbessern.",
+        "acceptAll": "Alle akzeptieren",
+        "essentialOnly": "Nur notwendige",
+        "customize": "Anpassen",
+        "privacyLink": "Lesen Sie unsere Datenschutzrichtlinie",
+        "privacyPolicy": "Datenschutzrichtlinie"
     }
 }

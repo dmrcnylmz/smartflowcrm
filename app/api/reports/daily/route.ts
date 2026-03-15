@@ -33,12 +33,24 @@ export async function GET(request: NextRequest) {
 
     if (tenantId) {
       try {
-        [calls, complaints, infoRequests, appointments] = await Promise.all([
+        let allComplaints: Complaint[];
+        let allInfoRequests: InfoRequest[];
+        [calls, allComplaints, allInfoRequests, appointments] = await Promise.all([
           getCallLogs(tenantId, { dateFrom: startOfDay, dateTo: endOfDay }) as Promise<CallLog[]>,
           getComplaints(tenantId) as Promise<Complaint[]>,
           getInfoRequests(tenantId) as Promise<InfoRequest[]>,
           getAppointments(tenantId, { dateFrom: startOfDay, dateTo: endOfDay }) as Promise<Appointment[]>,
         ]);
+
+        // Filter complaints and info requests to today's date range in-memory
+        complaints = allComplaints.filter((c) => {
+          const d = toDate(c.createdAt);
+          return d && d >= startOfDay && d <= endOfDay;
+        });
+        infoRequests = allInfoRequests.filter((i) => {
+          const d = toDate(i.createdAt);
+          return d && d >= startOfDay && d <= endOfDay;
+        });
       } catch (error: unknown) {
         const err = error as { message?: string; code?: string };
         if (err?.message?.includes('permission') || err?.code === 'permission-denied') {

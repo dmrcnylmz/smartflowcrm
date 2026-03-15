@@ -17,6 +17,7 @@ interface StrictAuthSuccess {
     uid: string;
     email?: string;
     tenantId: string;
+    role?: string;
     error?: undefined;
 }
 
@@ -80,5 +81,6 @@ export async function requireStrictAuth(request: NextRequest): Promise<StrictAut
         uid: result.payload.uid,
         email: result.payload.email,
         tenantId,
+        role: result.payload.role,
     };
 }

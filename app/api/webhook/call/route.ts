@@ -104,8 +104,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
 
-    // Webhook authentication — validate API key if configured
+    // Webhook authentication — validate API key
     const webhookKey = process.env.WEBHOOK_API_KEY;
+    if (!webhookKey && process.env.NODE_ENV === 'production') {
+      // In production, WEBHOOK_API_KEY must be configured
+      return NextResponse.json(
+        { error: 'Webhook authentication not configured' },
+        { status: 503 },
+      );
+    }
     if (webhookKey) {
       const providedKey = request.headers.get('x-webhook-key');
       if (providedKey !== webhookKey) {

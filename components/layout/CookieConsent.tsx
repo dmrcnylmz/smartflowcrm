@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Cookie, X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 /**
  * CookieConsent — KVKK uyumlu cerez onay banneri
@@ -30,6 +31,7 @@ export function getCookieConsent(): CookieConsentValue {
 
 export function CookieConsent() {
     const [visible, setVisible] = useState(false);
+    const t = useTranslations('cookieConsent');
 
     useEffect(() => {
         // Banner yalnizca tercih yapilmamissa gorunur
@@ -64,14 +66,12 @@ export function CookieConsent() {
                     </div>
                     <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-foreground mb-1">
-                            Çerez Kullanımı
+                            {t('title')}
                         </h3>
                         <p className="text-xs text-muted-foreground leading-relaxed">
-                            Callception, hizmet kalitesini artırmak için çerezler kullanmaktadır.
-                            Zorunlu çerezler platformun çalışması için gereklidir.
-                            Analitik çerezler ise deneyiminizi iyileştirmemize yardımcı olur.{' '}
+                            {t('description')}{' '}
                             <Link href="/privacy" className="text-violet-600 hover:underline">
-                                Gizlilik Politikası
+                                {t('privacyPolicy')}
                             </Link>
                         </p>
                         <div className="flex items-center gap-2 mt-3">
@@ -79,20 +79,20 @@ export function CookieConsent() {
                                 onClick={() => handleAccept('all')}
                                 className="px-4 py-2 text-xs font-medium rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition-colors"
                             >
-                                Tümünü Kabul Et
+                                {t('acceptAll')}
                             </button>
                             <button
                                 onClick={() => handleAccept('essential')}
                                 className="px-4 py-2 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-muted-foreground hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                             >
-                                Sadece Zorunlu
+                                {t('essentialOnly')}
                             </button>
                         </div>
                     </div>
                     <button
                         onClick={() => handleAccept('essential')}
                         className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
-                        aria-label="Kapat"
+                        aria-label={t('essentialOnly')}
                     >
                         <X className="h-4 w-4 text-muted-foreground" />
                     </button>

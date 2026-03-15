@@ -47,6 +47,8 @@ export async function verifyTokenStrict(
                     : String(decodedToken.aud),
                 iss: decodedToken.iss,
                 sub: decodedToken.sub,
+                tenantId: (decodedToken as Record<string, unknown>).tenantId as string | undefined,
+                role: (decodedToken as Record<string, unknown>).role as string | undefined,
             },
         };
     } catch (err) {

@@ -125,6 +125,16 @@
         "portfolio": "Customer Portfolio",
         "portfolioDesc": "Manage your customers and review their interaction history.",
         "newCustomer": "New Customer",
+        "importCSV": "Import CSV",
+        "selectCSVFile": "Select or drag and drop a CSV file",
+        "csvFormatHint": "Supports name, phone, email, company, notes columns",
+        "csvColumns": "Supported columns",
+        "csvMaxRows": "Maximum {max} rows",
+        "importComplete": "Import complete!",
+        "importSummary": "Total {total} records: {imported} added, {skipped} skipped (duplicates)",
+        "importFailed": "Import failed",
+        "importing": "Importing...",
+        "startImport": "Import",
         "addNewCustomer": "Add New Customer",
         "fullName": "Full Name",
         "fullNameRequired": "Full Name *",
@@ -896,6 +906,9 @@
     "reports": {
         "title": "Performance Reports",
         "subtitle": "Daily operation metrics and customer service real-time analytics.",
+        "periodDaily": "Daily",
+        "periodWeekly": "Weekly",
+        "periodMonthly": "Monthly",
         "analyze": "Analyze",
         "loadingData": "Loading data...",
         "errorOccurred": "An error occurred",
@@ -1080,5 +1093,14 @@
         "exportSuccess": "{format} file downloaded",
         "exportError": "Export failed.",
         "complaintList": "Complaint List"
+    },
+    "cookieConsent": {
+        "title": "Cookie Usage",
+        "description": "Callception uses cookies to improve service quality. Essential cookies are required for the platform to function. Analytics cookies help us improve your experience.",
+        "acceptAll": "Accept All",
+        "essentialOnly": "Essential Only",
+        "customize": "Customize",
+        "privacyLink": "Review our privacy policy",
+        "privacyPolicy": "Privacy Policy"
     }
 }

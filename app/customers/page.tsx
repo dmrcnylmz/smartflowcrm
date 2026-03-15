@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { exportCustomers, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
-import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck, Loader2 } from 'lucide-react';
+import { Plus, AlertCircle, Users, Search, Mail, Phone as PhoneIcon, Edit, Phone, Calendar, FileText, AlertTriangle, X, ChevronRight, Activity, Clock, ShieldCheck, Loader2, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { createCustomer, getCallLogs, getAppointments, getComplaints, getInfoRequests, updateCustomer } from '@/lib/firebase/db';
 import { useCustomers } from '@/lib/firebase/hooks';
@@ -24,6 +24,7 @@ import { format } from 'date-fns';
 import { getDateLocale } from '@/lib/utils/date-locale';
 import { toDate } from '@/lib/utils/date-helpers';
 import type { Customer, CallLog, Appointment, Complaint, InfoRequest } from '@/lib/firebase/types';
+import { CsvImportDialog } from '@/components/customers/CsvImportDialog';
 
 function CustomersPageContent() {
   const { data: customers, loading, error: customersError, refetch: refetchCustomers } = useCustomers();
@@ -34,6 +35,7 @@ function CustomersPageContent() {
   const locale = useLocale();
   const dateLocale = getDateLocale(locale);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerHistory, setCustomerHistory] = useState<{
@@ -320,6 +322,11 @@ function CustomersPageContent() {
               </SelectContent>
             </Select>
           )}
+
+          <Button variant="outline" className="gap-2" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="h-4 w-4" />
+            {t('importCSV')}
+          </Button>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -844,6 +851,13 @@ function CustomersPageContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* CSV Import Dialog */}
+      <CsvImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onComplete={() => { refetchCustomers(); }}
+      />
     </div>
   );
 }

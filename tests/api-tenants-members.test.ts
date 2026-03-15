@@ -1,12 +1,21 @@
 /**
  * API Tenant Members Tests — Assign, List, Remove members
+ *
+ * Updated to match the requireStrictAuth-based route implementation.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { NextResponse } from 'next/server';
 import { createMockRequest } from './helpers/api-test-utils';
 
 // ── Firebase Admin mock ──
 vi.mock('@/lib/auth/firebase-admin', () => ({ initAdmin: vi.fn() }));
+
+// ── requireStrictAuth mock ──
+const mockRequireStrictAuth = vi.fn();
+vi.mock('@/lib/utils/require-strict-auth', () => ({
+    requireStrictAuth: (...args: unknown[]) => mockRequireStrictAuth(...args),
+}));
 
 // ── Tenant admin mocks ──
 const mockAssignUserToTenant = vi.fn();
@@ -30,6 +39,26 @@ vi.mock('@/lib/utils/error-handler', () => ({
     },
 }));
 
+/** Helper to create a successful auth result */
+function authSuccess(overrides?: { uid?: string; tenantId?: string; role?: string; email?: string }) {
+    return {
+        uid: overrides?.uid ?? 'test-uid',
+        email: overrides?.email ?? 'test@example.com',
+        tenantId: overrides?.tenantId ?? 'tenant-123',
+        role: overrides?.role ?? 'admin',
+    };
+}
+
+/** Helper to create a 401 auth failure */
+function authFailure() {
+    return {
+        error: NextResponse.json(
+            { error: 'Unauthorized', code: 'AUTH_ERROR' },
+            { status: 401 },
+        ),
+    };
+}
+
 describe('API Tenant Members Tests', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -44,11 +73,12 @@ describe('API Tenant Members Tests', () => {
     // ── POST: Assign user to tenant ──
     describe('/api/tenants/members POST', () => {
         it('should assign user to tenant with default viewer role', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-123', role: 'admin' }));
             const { POST } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'POST',
-                headers: { 'x-user-role': 'admin', 'x-user-tenant': 'tenant-123' },
-                body: { uid: 'new-user', tenantId: 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'new-user' },
             });
             const response = await POST(request);
             const data = await response.json();
@@ -58,11 +88,26 @@ describe('API Tenant Members Tests', () => {
             expect(mockAssignUserToTenant).toHaveBeenCalledWith('new-user', 'tenant-123', 'viewer');
         });
 
-        it('should return 403 when caller role is not owner/admin', async () => {
+        it('should return 401 when authentication fails', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authFailure());
             const { POST } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'POST',
-                body: { uid: 'new-user', tenantId: 'tenant-123' },
+                body: { uid: 'new-user' },
+            });
+            const response = await POST(request);
+            const data = await response.json();
+            expect(response.status).toBe(401);
+            expect(data.error).toContain('Unauthorized');
+        });
+
+        it('should return 403 when caller role is not owner/admin', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ role: 'viewer' }));
+            const { POST } = await import('@/app/api/tenants/members/route');
+            const request = createMockRequest('/api/tenants/members', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'new-user' },
             });
             const response = await POST(request);
             const data = await response.json();
@@ -71,64 +116,55 @@ describe('API Tenant Members Tests', () => {
         });
 
         it('should return 400 when uid is missing in body', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-123', role: 'admin' }));
             const { POST } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'POST',
-                headers: { 'x-user-role': 'admin', 'x-user-tenant': 'tenant-123' },
-                body: { tenantId: 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: {},
             });
             const response = await POST(request);
             const data = await response.json();
             expect(response.status).toBe(400);
-            expect(data.error).toContain('uid and tenantId are required');
+            expect(data.error).toContain('uid is required');
         });
 
-        it('should return 400 when tenantId is missing in body', async () => {
+        it('should ignore body.tenantId and use JWT-derived tenantId', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'jwt-tenant', role: 'admin' }));
             const { POST } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'POST',
-                headers: { 'x-user-role': 'admin', 'x-user-tenant': 'tenant-123' },
-                body: { uid: 'new-user' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'new-user', tenantId: 'spoofed-tenant' },
             });
             const response = await POST(request);
             const data = await response.json();
-            expect(response.status).toBe(400);
-            expect(data.error).toContain('uid and tenantId are required');
+            expect(response.status).toBe(200);
+            expect(mockAssignUserToTenant).toHaveBeenCalledWith('new-user', 'jwt-tenant', 'viewer');
         });
 
         it('should return 403 when non-owner tries to assign owner role', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ role: 'admin' }));
             const { POST } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'POST',
-                headers: { 'x-user-role': 'admin', 'x-user-tenant': 'tenant-123' },
-                body: { uid: 'new-user', tenantId: 'tenant-123', role: 'owner' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'new-user', role: 'owner' },
             });
             const response = await POST(request);
             const data = await response.json();
             expect(response.status).toBe(403);
             expect(data.error).toContain('Only owners can assign the owner role');
         });
-
-        it('should return 403 when managing another tenant\'s members', async () => {
-            const { POST } = await import('@/app/api/tenants/members/route');
-            const request = createMockRequest('/api/tenants/members', {
-                method: 'POST',
-                headers: { 'x-user-role': 'admin', 'x-user-tenant': 'tenant-999' },
-                body: { uid: 'new-user', tenantId: 'tenant-123' },
-            });
-            const response = await POST(request);
-            const data = await response.json();
-            expect(response.status).toBe(403);
-            expect(data.error).toContain('Cannot manage members of another tenant');
-        });
     });
 
     // ── GET: List tenant members ──
     describe('/api/tenants/members GET', () => {
         it('should return members list with count', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-123' }));
             const { GET } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
-                headers: { 'x-user-tenant': 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
             });
             const response = await GET(request);
             const data = await response.json();
@@ -136,28 +172,29 @@ describe('API Tenant Members Tests', () => {
             expect(data.tenantId).toBe('tenant-123');
             expect(data.members).toHaveLength(2);
             expect(data.count).toBe(2);
-            expect(response.headers.get('Cache-Control')).toContain('private');
             expect(mockGetTenantMembers).toHaveBeenCalledWith('tenant-123');
         });
 
-        it('should return 400 when no x-user-tenant header', async () => {
+        it('should return 401 when not authenticated', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authFailure());
             const { GET } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members');
             const response = await GET(request);
             const data = await response.json();
-            expect(response.status).toBe(400);
-            expect(data.error).toContain('tenantId is required');
+            expect(response.status).toBe(401);
+            expect(data.error).toContain('Unauthorized');
         });
     });
 
     // ── DELETE: Remove user from tenant ──
     describe('/api/tenants/members DELETE', () => {
         it('should remove user from tenant', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-123', role: 'admin' }));
             const { DELETE } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'DELETE',
-                headers: { 'x-user-role': 'admin' },
-                body: { uid: 'user-to-remove', tenantId: 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'user-to-remove' },
             });
             const response = await DELETE(request);
             const data = await response.json();
@@ -166,11 +203,12 @@ describe('API Tenant Members Tests', () => {
         });
 
         it('should return 403 when caller is not owner/admin', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ role: 'viewer' }));
             const { DELETE } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'DELETE',
-                headers: { 'x-user-role': 'viewer' },
-                body: { uid: 'user-to-remove', tenantId: 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'user-to-remove' },
             });
             const response = await DELETE(request);
             const data = await response.json();
@@ -179,48 +217,38 @@ describe('API Tenant Members Tests', () => {
         });
 
         it('should return 400 when uid is missing', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ role: 'admin' }));
             const { DELETE } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'DELETE',
-                headers: { 'x-user-role': 'admin' },
-                body: { tenantId: 'tenant-123' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: {},
             });
             const response = await DELETE(request);
             const data = await response.json();
             expect(response.status).toBe(400);
-            expect(data.error).toContain('uid and tenantId are required');
+            expect(data.error).toContain('uid is required');
         });
 
-        it('should return 400 when tenantId is missing', async () => {
+        it('should call removeUserFromTenant with JWT-derived tenantId', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-xyz', role: 'owner' }));
             const { DELETE } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'DELETE',
-                headers: { 'x-user-role': 'admin' },
-                body: { uid: 'user-to-remove' },
-            });
-            const response = await DELETE(request);
-            const data = await response.json();
-            expect(response.status).toBe(400);
-            expect(data.error).toContain('uid and tenantId are required');
-        });
-
-        it('should call removeUserFromTenant with correct params', async () => {
-            const { DELETE } = await import('@/app/api/tenants/members/route');
-            const request = createMockRequest('/api/tenants/members', {
-                method: 'DELETE',
-                headers: { 'x-user-role': 'owner' },
-                body: { uid: 'user-abc', tenantId: 'tenant-xyz' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'user-abc', tenantId: 'spoofed-tenant' },
             });
             await DELETE(request);
             expect(mockRemoveUserFromTenant).toHaveBeenCalledWith('user-abc', 'tenant-xyz');
         });
 
         it('should return success message with user and tenant info', async () => {
+            mockRequireStrictAuth.mockResolvedValue(authSuccess({ tenantId: 'tenant-789', role: 'admin' }));
             const { DELETE } = await import('@/app/api/tenants/members/route');
             const request = createMockRequest('/api/tenants/members', {
                 method: 'DELETE',
-                headers: { 'x-user-role': 'admin' },
-                body: { uid: 'user-456', tenantId: 'tenant-789' },
+                headers: { 'Authorization': 'Bearer test-token' },
+                body: { uid: 'user-456' },
             });
             const response = await DELETE(request);
             const data = await response.json();

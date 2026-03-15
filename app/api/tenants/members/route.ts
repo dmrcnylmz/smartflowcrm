@@ -12,6 +12,7 @@ import {
     removeUserFromTenant,
     getTenantMembers,
 } from '@/lib/tenant/admin';
+import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { cacheHeaders } from '@/lib/utils/cache-headers';
 
@@ -21,8 +22,10 @@ import { cacheHeaders } from '@/lib/utils/cache-headers';
 
 export async function POST(request: NextRequest) {
     try {
-        const callerRole = request.headers.get('x-user-role');
-        const callerTenant = request.headers.get('x-user-tenant');
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+
+        const { uid: callerUid, tenantId, role: callerRole } = auth;
 
         if (!callerRole || !['owner', 'admin'].includes(callerRole)) {
             return NextResponse.json(
@@ -32,11 +35,11 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { uid, tenantId, role } = body;
+        const { uid, role } = body;
 
-        if (!uid || !tenantId) {
+        if (!uid) {
             return NextResponse.json(
-                { error: 'uid and tenantId are required' },
+                { error: 'uid is required' },
                 { status: 400 },
             );
         }
@@ -45,14 +48,6 @@ export async function POST(request: NextRequest) {
         if (role === 'owner' && callerRole !== 'owner') {
             return NextResponse.json(
                 { error: 'Only owners can assign the owner role' },
-                { status: 403 },
-            );
-        }
-
-        // Can only manage own tenant unless super-admin
-        if (callerTenant && callerTenant !== tenantId) {
-            return NextResponse.json(
-                { error: 'Cannot manage members of another tenant' },
                 { status: 403 },
             );
         }
@@ -74,15 +69,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
-        // Only allow tenant from verified JWT header, not query params
-        const tenantId = request.headers.get('x-user-tenant');
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
 
-        if (!tenantId) {
-            return NextResponse.json(
-                { error: 'tenantId is required' },
-                { status: 400 },
-            );
-        }
+        const { tenantId } = auth;
 
         const members = await getTenantMembers(tenantId);
 
@@ -105,7 +95,10 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
-        const callerRole = request.headers.get('x-user-role');
+        const auth = await requireStrictAuth(request);
+        if (auth.error) return auth.error;
+
+        const { tenantId, role: callerRole } = auth;
 
         if (!callerRole || !['owner', 'admin'].includes(callerRole)) {
             return NextResponse.json(
@@ -114,11 +107,11 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        const { uid, tenantId } = await request.json();
+        const { uid } = await request.json();
 
-        if (!uid || !tenantId) {
+        if (!uid) {
             return NextResponse.json(
-                { error: 'uid and tenantId are required' },
+                { error: 'uid is required' },
                 { status: 400 },
             );
         }

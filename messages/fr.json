@@ -125,6 +125,16 @@
         "portfolio": "Portefeuille clients",
         "portfolioDesc": "Gérez vos clients et consultez leur historique d'interactions.",
         "newCustomer": "Nouveau client",
+        "importCSV": "Importer CSV",
+        "selectCSVFile": "Sélectionnez ou déposez un fichier CSV",
+        "csvFormatHint": "Colonnes supportées : name, phone, email, company, notes",
+        "csvColumns": "Colonnes supportées",
+        "csvMaxRows": "Maximum {max} lignes",
+        "importComplete": "Import terminé !",
+        "importSummary": "Total {total} enregistrements : {imported} ajoutés, {skipped} ignorés (doublons)",
+        "importFailed": "Échec de l'import",
+        "importing": "Import en cours...",
+        "startImport": "Importer",
         "addNewCustomer": "Ajouter un nouveau client",
         "fullName": "Nom complet",
         "fullNameRequired": "Nom complet *",
@@ -896,6 +906,9 @@
     "reports": {
         "title": "Rapports de performance",
         "subtitle": "Métriques opérationnelles quotidiennes et analyses en temps réel du service client.",
+        "periodDaily": "Quotidien",
+        "periodWeekly": "Hebdomadaire",
+        "periodMonthly": "Mensuel",
         "analyze": "Analyser",
         "loadingData": "Chargement des données...",
         "errorOccurred": "Une erreur est survenue",
@@ -1080,5 +1093,14 @@
         "exportSuccess": "Fichier {format} téléchargé",
         "exportError": "Échec de l'exportation.",
         "complaintList": "Liste des réclamations"
+    },
+    "cookieConsent": {
+        "title": "Utilisation des cookies",
+        "description": "Callception utilise des cookies pour améliorer la qualité du service. Les cookies essentiels sont nécessaires au fonctionnement de la plateforme. Les cookies analytiques nous aident à améliorer votre expérience.",
+        "acceptAll": "Tout accepter",
+        "essentialOnly": "Essentiels uniquement",
+        "customize": "Personnaliser",
+        "privacyLink": "Consultez notre politique de confidentialité",
+        "privacyPolicy": "Politique de confidentialité"
     }
 }

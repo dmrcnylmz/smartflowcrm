@@ -253,7 +253,7 @@ export async function getAppointmentsPaginated(options?: {
 
 // ─── Complaints ─────────────────────────────────────────────────────────────
 
-export async function getComplaints(options?: { customerId?: string; status?: string }): Promise<Complaint[]> {
+export async function getComplaints(options?: { customerId?: string; status?: string; limitCount?: number }): Promise<Complaint[]> {
   const tid = await getTenantId();
   const constraints: QueryConstraint[] = [];
 
@@ -265,6 +265,7 @@ export async function getComplaints(options?: { customerId?: string; status?: st
   }
 
   constraints.push(orderBy('createdAt', 'desc'));
+  constraints.push(firestoreLimit(options?.limitCount ?? 500));
 
   const q = buildQuery(tid, 'complaints', constraints);
   const snapshot = await getDocs(q);
@@ -292,7 +293,7 @@ export async function updateComplaint(id: string, data: Partial<Complaint>): Pro
 
 // ─── Info Requests ──────────────────────────────────────────────────────────
 
-export async function getInfoRequests(options?: { customerId?: string; status?: string }): Promise<InfoRequest[]> {
+export async function getInfoRequests(options?: { customerId?: string; status?: string; limitCount?: number }): Promise<InfoRequest[]> {
   const tid = await getTenantId();
   const constraints: QueryConstraint[] = [];
 
@@ -304,6 +305,7 @@ export async function getInfoRequests(options?: { customerId?: string; status?: 
   }
 
   constraints.push(orderBy('createdAt', 'desc'));
+  constraints.push(firestoreLimit(options?.limitCount ?? 500));
 
   const q = buildQuery(tid, 'info_requests', constraints);
   const snapshot = await getDocs(q);
@@ -371,11 +373,12 @@ export async function batchWriteActivityLogs(
 
 // ─── Customers ──────────────────────────────────────────────────────────────
 
-export async function getCustomers(): Promise<Customer[]> {
+export async function getCustomers(options?: { limitCount?: number }): Promise<Customer[]> {
   const tid = await getTenantId();
   const q = query(
     tenantCollection(tid, 'customers'),
-    orderBy('createdAt', 'desc')
+    orderBy('createdAt', 'desc'),
+    firestoreLimit(options?.limitCount ?? 500)
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Customer));
@@ -427,9 +430,13 @@ export async function updateCustomer(id: string, data: Partial<Customer>): Promi
 
 // ─── Documents (Knowledge Base / RAG) ───────────────────────────────────────
 
-export async function getDocuments(): Promise<Array<{ id: string; title?: string; content?: string; category?: string; [key: string]: unknown }>> {
+export async function getDocuments(options?: { limitCount?: number }): Promise<Array<{ id: string; title?: string; content?: string; category?: string; [key: string]: unknown }>> {
   const tid = await getTenantId();
-  const snapshot = await getDocs(tenantCollection(tid, 'documents'));
+  const q = query(
+    tenantCollection(tid, 'documents'),
+    firestoreLimit(options?.limitCount ?? 200)
+  );
+  const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 

@@ -41,6 +41,8 @@ interface DailyReport {
   };
 }
 
+type ReportPeriod = 'daily' | 'weekly' | 'monthly';
+
 export default function ReportsPage() {
   const authFetch = useAuthFetch();
   const t = useTranslations('reports');
@@ -51,17 +53,18 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [period, setPeriod] = useState<ReportPeriod>('daily');
 
   useEffect(() => {
     loadReport();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDate]);
+  }, [selectedDate, period]);
 
   async function loadReport() {
     setLoading(true);
     setError(null);
     try {
-      const response = await authFetch(`/api/reports/daily?date=${selectedDate}`);
+      const response = await authFetch(`/api/reports/${period}?date=${selectedDate}`);
       if (response.ok) {
         const data = await response.json();
         setReport(data);
@@ -133,21 +136,40 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2">
-          <div className="relative">
-            <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="date"
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="pl-10 border-none bg-transparent shadow-none"
-            />
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Period Tabs */}
+          <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+            {(['daily', 'weekly', 'monthly'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                  period === p
+                    ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t(p === 'daily' ? 'periodDaily' : p === 'weekly' ? 'periodWeekly' : 'periodMonthly')}
+              </button>
+            ))}
           </div>
-          <div className="h-8 w-px bg-border/50"></div>
-          <Button onClick={loadReport} disabled={loading} variant="ghost" className="font-medium text-primary">
-            {t('analyze')}
-          </Button>
+
+          <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-2">
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="date"
+                type={period === 'monthly' ? 'month' : 'date'}
+                value={period === 'monthly' ? selectedDate.slice(0, 7) : selectedDate}
+                onChange={(e) => setSelectedDate(period === 'monthly' ? `${e.target.value}-01` : e.target.value)}
+                className="pl-10 border-none bg-transparent shadow-none"
+              />
+            </div>
+            <div className="h-8 w-px bg-border/50"></div>
+            <Button onClick={loadReport} disabled={loading} variant="ghost" className="font-medium text-primary">
+              {t('analyze')}
+            </Button>
+          </div>
         </div>
       </div>
 

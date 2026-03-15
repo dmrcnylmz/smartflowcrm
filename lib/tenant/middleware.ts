@@ -76,11 +76,9 @@ function resolvetenantId(req: NextRequest): string | null {
     const fromMiddleware = req.headers.get('x-user-tenant');
     if (fromMiddleware) return fromMiddleware;
 
-    // Priority 2: Explicit header (service-to-service, API key)
-    const fromHeader = req.headers.get('x-tenant-id');
-    if (fromHeader) return fromHeader;
+    // Priority 2 (removed): x-tenant-id header was spoofable — do NOT trust client-supplied headers.
 
-    // Priority 3: Query param (dev/testing only)
+    // Priority 2: Query param (dev/testing only)
     if (process.env.NODE_ENV === 'development') {
         const fromQuery = req.nextUrl.searchParams.get('tenantId');
         if (fromQuery) return fromQuery;
@@ -89,6 +87,14 @@ function resolvetenantId(req: NextRequest): string | null {
     return null;
 }
 
+/**
+ * Resolve user role from the Edge middleware lightweight JWT decode.
+ *
+ * WARNING: This value comes from the Edge middleware's lightweight (non-cryptographic)
+ * JWT decode and should NOT be used for authorization-critical decisions.
+ * Routes that need verified role information should use `requireStrictAuth()` instead,
+ * which performs full Firebase Admin SDK signature verification.
+ */
 function resolveUserRole(req: NextRequest): 'owner' | 'admin' | 'agent' | 'viewer' {
     const role = req.headers.get('x-user-role');
     if (role && ['owner', 'admin', 'agent', 'viewer'].includes(role)) {

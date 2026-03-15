@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Phone, AlertCircle, Calendar, PhoneIncoming, MessageSquareWarning, ArrowUpRight, TrendingUp, RefreshCw, Wifi, WifiOff, Zap, Activity } from 'lucide-react';
 import { VoiceAIStatus } from '@/components/voice/VoiceAIStatus';
-import { getCallLogs, getComplaints, getAppointments } from '@/lib/firebase/db';
 import { useActivityLogs } from '@/lib/firebase/hooks';
 import { useAuthFetch } from '@/lib/hooks/useAuthFetch';
 import type { CallLog, Complaint, Appointment } from '@/lib/firebase/types';
@@ -200,7 +199,7 @@ export default function DashboardPage() {
     }));
   }, [chartData.appointments, tCharts]);
 
-  // Try server-side dashboard API first, fallback to client-side
+  // Load all dashboard data from the server API
   const loadFromServerAPI = useCallback(async (): Promise<boolean> => {
     try {
       const res = await authFetch('/api/dashboard');
@@ -220,13 +219,51 @@ export default function DashboardPage() {
         setVoicePipeline(data.voicePipeline);
       }
 
-      // Convert server data to chart format if available
+      // Build chart data from server response
+      // Convert server callTrend to CallLog-like objects for the chart memo
       if (data.callTrend && Array.isArray(data.callTrend)) {
-        // Server trend data is already summarized
+        const syntheticCalls: CallLog[] = [];
+        for (const day of data.callTrend) {
+          const dayDate = new Date(day.date);
+          for (let i = 0; i < (day.answered || 0); i++) {
+            syntheticCalls.push({
+              id: `srv-call-${day.date}-a-${i}`,
+              status: 'answered',
+              timestamp: Timestamp.fromDate(dayDate),
+              createdAt: Timestamp.fromDate(dayDate),
+            } as CallLog);
+          }
+          for (let i = 0; i < (day.missed || 0); i++) {
+            syntheticCalls.push({
+              id: `srv-call-${day.date}-m-${i}`,
+              status: 'missed',
+              timestamp: Timestamp.fromDate(dayDate),
+              createdAt: Timestamp.fromDate(dayDate),
+            } as CallLog);
+          }
+        }
+        setChartData(prev => ({ ...prev, calls: syntheticCalls }));
+      }
+
+      // Convert server complaintCategories to Complaint-like objects for the chart memo
+      if (data.complaintCategories && Array.isArray(data.complaintCategories)) {
+        const syntheticComplaints: Complaint[] = [];
+        for (const cat of data.complaintCategories) {
+          for (let i = 0; i < cat.value; i++) {
+            syntheticComplaints.push({
+              id: `srv-comp-${cat.name}-${i}`,
+              category: cat.name,
+              status: 'open',
+              createdAt: Timestamp.fromDate(new Date()),
+            } as Complaint);
+          }
+        }
+        setChartData(prev => ({ ...prev, complaints: syntheticComplaints }));
       }
 
       setLastUpdated(new Date());
       setIsLive(true);
+      setIsDemoMode(!!data.error);
       return true;
     } catch (err) {
       console.warn('[Dashboard] Failed to load server data:', err instanceof Error ? err.message : err);
@@ -238,11 +275,23 @@ export default function DashboardPage() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     const serverOk = await loadFromServerAPI();
-    if (!serverOk) {
-      await loadDashboardData();
+    if (!serverOk && !isDemoMode) {
+      // Server API failed — switch to demo mode
+      setIsDemoMode(true);
+      const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayCalls = demoCalls.filter(c => (toDate(c.timestamp || c.createdAt) ?? new Date(0)) >= today);
+      setStats({
+        todayCalls: todayCalls.length,
+        missedCalls: demoCalls.filter(c => c.status === 'missed').length,
+        openComplaints: demoComplaints.filter(c => c.status === 'open').length,
+        upcomingAppointments: demoAppointments.filter(a => a.status === 'scheduled').length,
+      });
+      setChartData({ calls: demoCalls, complaints: demoComplaints, appointments: demoAppointments });
     }
     setRefreshing(false);
-  }, [loadFromServerAPI]);
+  }, [loadFromServerAPI, isDemoMode]);
 
   // Auto-refresh timer
   useEffect(() => {
@@ -265,140 +314,29 @@ export default function DashboardPage() {
   }, [refreshInterval, handleRefresh]);
 
   useEffect(() => {
-    loadDashboardData();
-    // Also try server API for stats
-    loadFromServerAPI();
-  }, [loadFromServerAPI]);
-
-  async function loadDashboardData() {
-    try {
-      setError(null);
+    async function initDashboard() {
       setLoading(true);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const sevenDaysAgo = subDays(today, 7);
-
-      const errors: string[] = [];
-      let permissionErrors = 0;
-
-      // Load calls for last 7 days (for charts)
-      let allCalls: CallLog[] = [];
-      try {
-        allCalls = await getCallLogs({
-          dateFrom: sevenDaysAgo,
-          limitCount: 500
-        });
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : t('callDataError');
-        errors.push(errorMsg);
-        if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-      }
-
-      // Load all complaints (for pie chart)
-      let allComplaints: Complaint[] = [];
-      try {
-        allComplaints = await getComplaints();
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : t('complaintDataError');
-        errors.push(errorMsg);
-        if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-      }
-
-      // Load all appointments (for bar chart)
-      let allAppointments: Appointment[] = [];
-      try {
-        allAppointments = await getAppointments({
-          dateFrom: sevenDaysAgo,
-        });
-      } catch (err: unknown) {
-        const errorMsg = err instanceof Error ? err.message : t('appointmentDataError');
-        errors.push(errorMsg);
-        if (errorMsg.includes('permission') || errorMsg.includes('Permission')) permissionErrors++;
-      }
-
-      // If all queries failed with permission errors, switch to demo mode
-      if (permissionErrors >= 3 && !isDemoMode) {
-        // Demo mode activated silently when Firebase permissions unavailable
-        setIsDemoMode(true);
-        const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
-        allCalls = demoCalls;
-        allComplaints = demoComplaints;
-        allAppointments = demoAppointments;
-      }
-
-      // Today's calls for stats
-      const todayCalls = allCalls.filter(c => {
-        const callDate = toDate(c.timestamp || c.createdAt) ?? new Date(0);
-        return callDate >= today;
-      });
-      const missedCalls = allCalls.filter(c => c.status === 'missed');
-      const openComplaints = allComplaints.filter(c => c.status === 'open');
-      const upcoming = allAppointments.filter(apt =>
-        apt.dateTime && (toDate(apt.dateTime) ?? new Date(0)) >= today && apt.status === 'scheduled'
-      );
-
-      // Yesterday's stats for trend comparison
-      const yesterday = subDays(today, 1);
-      const yesterdayCalls = allCalls.filter(c => {
-        const callDate = toDate(c.timestamp || c.createdAt) ?? new Date(0);
-        return callDate >= yesterday && callDate < today;
-      });
-      const yesterdayMissed = yesterdayCalls.filter(c => c.status === 'missed');
-      setYesterdayStats({
-        todayCalls: yesterdayCalls.length,
-        missedCalls: yesterdayMissed.length,
-      });
-
-      setStats({
-        todayCalls: todayCalls.length,
-        missedCalls: missedCalls.length,
-        openComplaints: openComplaints.length,
-        upcomingAppointments: upcoming.length,
-      });
-
-      setChartData({
-        calls: allCalls,
-        complaints: allComplaints,
-        appointments: allAppointments,
-      });
-
-      // Partial failure — log but don't block UI (demo mode handles full failure)
-      if (!isDemoMode && errors.length > 0 && errors.length < 3) {
-        // Partial failure - log but don't block UI
-      }
-    } catch (error: unknown) {
-      // Fallback to demo mode on any critical error
-      if (!isDemoMode) {
+      setError(null);
+      const serverOk = await loadFromServerAPI();
+      if (!serverOk) {
+        // Server API failed — switch to demo mode
         setIsDemoMode(true);
         const { demoCalls, demoComplaints, demoAppointments } = generateDemoData();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
         const todayCalls = demoCalls.filter(c => (toDate(c.timestamp || c.createdAt) ?? new Date(0)) >= today);
-        const missedCalls = demoCalls.filter(c => c.status === 'missed');
-        const openComplaints = demoComplaints.filter(c => c.status === 'open');
-        const upcoming = demoAppointments.filter(apt =>
-          apt.dateTime && (toDate(apt.dateTime) ?? new Date(0)) >= today && apt.status === 'scheduled'
-        );
-
         setStats({
           todayCalls: todayCalls.length,
-          missedCalls: missedCalls.length,
-          openComplaints: openComplaints.length,
-          upcomingAppointments: upcoming.length,
+          missedCalls: demoCalls.filter(c => c.status === 'missed').length,
+          openComplaints: demoComplaints.filter(c => c.status === 'open').length,
+          upcomingAppointments: demoAppointments.filter(a => a.status === 'scheduled').length,
         });
-
-        setChartData({
-          calls: demoCalls,
-          complaints: demoComplaints,
-          appointments: demoAppointments,
-        });
+        setChartData({ calls: demoCalls, complaints: demoComplaints, appointments: demoAppointments });
       }
-    } finally {
       setLoading(false);
-      setLastUpdated(new Date());
     }
-  }
+    initDashboard();
+  }, [loadFromServerAPI]);
 
   // Compute trend percentage (today vs yesterday). Returns null when no baseline.
   const computeTrend = (today: number, yesterday: number | undefined): number | null => {

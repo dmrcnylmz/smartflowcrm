@@ -125,6 +125,16 @@
         "portfolio": "Müşteri Portföyü",
         "portfolioDesc": "Müşterilerinizi yönetin, etkileşim geçmişlerini inceleyin.",
         "newCustomer": "Yeni Müşteri",
+        "importCSV": "CSV İçe Aktar",
+        "selectCSVFile": "CSV dosyası seçin veya sürükleyip bırakın",
+        "csvFormatHint": "name, phone, email, company, notes sütunları desteklenir",
+        "csvColumns": "Desteklenen sütunlar",
+        "csvMaxRows": "Maksimum {max} satır",
+        "importComplete": "İçe aktarma tamamlandı!",
+        "importSummary": "Toplam {total} kayıt: {imported} eklendi, {skipped} atlandı (mükerrer)",
+        "importFailed": "İçe aktarma başarısız oldu",
+        "importing": "İçe aktarılıyor...",
+        "startImport": "İçe Aktar",
         "addNewCustomer": "Yeni Müşteri Ekle",
         "fullName": "İsim Soyisim",
         "fullNameRequired": "İsim Soyisim *",
@@ -896,6 +906,9 @@
     "reports": {
         "title": "Performans Raporları",
         "subtitle": "Günlük operasyon metrikleri ve müşteri hizmetleri anlık analizleri.",
+        "periodDaily": "Günlük",
+        "periodWeekly": "Haftalık",
+        "periodMonthly": "Aylık",
         "analyze": "Analiz Et",
         "loadingData": "Veriler yükleniyor...",
         "errorOccurred": "Bir hata oluştu",
@@ -1080,5 +1093,14 @@
         "exportSuccess": "{format} dosyası indirildi",
         "exportError": "Dışa aktarma başarısız oldu.",
         "complaintList": "Şikayet Listesi"
+    },
+    "cookieConsent": {
+        "title": "Çerez Kullanımı",
+        "description": "Callception, hizmet kalitesini artırmak için çerezler kullanmaktadır. Zorunlu çerezler platformun çalışması için gereklidir. Analitik çerezler ise deneyiminizi iyileştirmemize yardımcı olur.",
+        "acceptAll": "Tümünü Kabul Et",
+        "essentialOnly": "Sadece Zorunlu",
+        "customize": "Özelleştir",
+        "privacyLink": "Gizlilik politikamızı inceleyin",
+        "privacyPolicy": "Gizlilik Politikası"
     }
 }
