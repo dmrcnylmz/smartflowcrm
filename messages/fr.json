@@ -1213,5 +1213,29 @@
         "consentNeeded": "Ce type d'appel necessite un consentement prealable",
         "exemptionBasis": "Base d'exemption",
         "serviceCallExemption": "Les appels de service sont exemptes de la reglementation marketing"
+    },
+    "pricing": {
+        "title": "Plans et Tarifs",
+        "subtitle": "Choisissez le plan adapte a votre entreprise",
+        "monthly": "Mensuel",
+        "yearly": "Annuel",
+        "perMonth": "/mois",
+        "perYear": "/an",
+        "savings": "{percent}% d'economie",
+        "getStarted": "Commencer",
+        "mostPopular": "Le plus populaire",
+        "enterprise": "Entreprise",
+        "contactUs": "Contactez-nous",
+        "faqTitle": "Questions frequemment posees",
+        "faq1q": "Puis-je changer de plan plus tard ?",
+        "faq1a": "Oui, vous pouvez mettre a niveau ou reduire votre plan a tout moment.",
+        "faq2q": "Y a-t-il un essai gratuit ?",
+        "faq2a": "Oui, tous les plans commencent avec un essai gratuit de 14 jours.",
+        "faq3q": "Quelle est la politique d'annulation ?",
+        "faq3a": "Vous pouvez annuler a tout moment. Vous continuerez a avoir acces pour la periode restante.",
+        "faq4q": "Quels modes de paiement acceptez-vous ?",
+        "faq4a": "Nous acceptons les cartes de credit, les cartes de debit et les virements bancaires.",
+        "includedFeatures": "Fonctionnalites incluses",
+        "allPlansInclude": "Tous les plans incluent : Assistant vocal IA, CRM, Support 4 langues"
     }
 }

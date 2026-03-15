@@ -1213,5 +1213,29 @@
         "consentNeeded": "Bu arama tipi önceden rıza gerektirir",
         "exemptionBasis": "Muafiyet Dayanağı",
         "serviceCallExemption": "Hizmet aramaları ticari ileti kapsamında değildir"
+    },
+    "pricing": {
+        "title": "Planlar ve Fiyatlandırma",
+        "subtitle": "İşletmenize uygun planı seçin",
+        "monthly": "Aylık",
+        "yearly": "Yıllık",
+        "perMonth": "/ay",
+        "perYear": "/yıl",
+        "savings": "{percent}% tasarruf",
+        "getStarted": "Başla",
+        "mostPopular": "En Popüler",
+        "enterprise": "Kurumsal",
+        "contactUs": "Bize Ulaşın",
+        "faqTitle": "Sıkça Sorulan Sorular",
+        "faq1q": "Planımı sonradan değiştirebilir miyim?",
+        "faq1a": "Evet, istediğiniz zaman planınızı yükseltebilir veya düşürebilirsiniz.",
+        "faq2q": "Ücretsiz deneme var mı?",
+        "faq2a": "Evet, tüm planlar 14 günlük ücretsiz deneme ile başlar.",
+        "faq3q": "İptal politikası nedir?",
+        "faq3a": "İstediğiniz zaman iptal edebilirsiniz. Kalan süre için kullanmaya devam edersiniz.",
+        "faq4q": "Hangi ödeme yöntemlerini kabul ediyorsunuz?",
+        "faq4a": "Kredi kartı, banka kartı ve banka havalesi ile ödeme yapabilirsiniz.",
+        "includedFeatures": "Dahil Özellikler",
+        "allPlansInclude": "Tüm planlarda: AI Sesli Asistan, CRM, 4 Dil Desteği"
     }
 }

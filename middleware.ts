@@ -39,7 +39,7 @@ const PUBLIC_API_PATHS = [
     '/api/twilio/gather',
     '/api/twilio/outbound-answer',
     '/api/twilio/recording',
-    '/api/voice/tts/phone',  // Twilio <Play> fetches this without auth — HMAC imzayla korumalı
+    '/api/voice/tts/phone',  // Twilio <Play> fetches this without auth — protected by HMAC signature
     '/api/billing/webhook',
     '/api/cron/appointment-reminders',
     '/api/cron/gpu-shutdown',
@@ -111,7 +111,7 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 /** Page routes that are public (no login required) */
-const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy'];
+const PUBLIC_PAGE_PATHS = ['/login', '/landing', '/privacy', '/pricing'];
 
 // Sensitive endpoints get stricter limits
 const SENSITIVE_PREFIXES = ['/api/voice/connect', '/api/voice/session'];
@@ -217,7 +217,7 @@ export async function middleware(req: NextRequest) {
             return NextResponse.json(
                 {
                     error: 'Rate limit exceeded',
-                    message: 'Çok fazla istek gönderdiniz. Lütfen bekleyin.',
+                    message: 'Too many requests. Please wait.',
                     retryAfter,
                 },
                 {
@@ -243,7 +243,7 @@ export async function middleware(req: NextRequest) {
                 return NextResponse.json(
                     {
                         error: 'Unauthorized',
-                        message: 'Bu endpoint için kimlik doğrulaması gereklidir.',
+                        message: 'Authentication is required for this endpoint.',
                     },
                     { status: 401 },
                 );
@@ -256,7 +256,7 @@ export async function middleware(req: NextRequest) {
                 return NextResponse.json(
                     {
                         error: 'Unauthorized',
-                        message: result.error || 'Geçersiz kimlik bilgisi.',
+                        message: result.error || 'Invalid credentials.',
                     },
                     { status: 401 },
                 );
@@ -270,7 +270,7 @@ export async function middleware(req: NextRequest) {
                     return NextResponse.json(
                         {
                             error: 'Tenant rate limit exceeded',
-                            message: 'Bu hesap için istek limiti aşıldı. Lütfen bekleyin.',
+                            message: 'Tenant rate limit exceeded. Please wait.',
                             retryAfter,
                         },
                         {

@@ -134,6 +134,7 @@ export default function LandingPage() {
                             <a href="#features" className="text-sm text-slate-300 hover:text-white transition-colors">Özellikler</a>
                             <a href="#how-it-works" className="text-sm text-slate-300 hover:text-white transition-colors">Nasıl Çalışır</a>
                             <a href="#pricing" className="text-sm text-slate-300 hover:text-white transition-colors">Fiyatlandırma</a>
+                            <Link href="/pricing" className="text-sm text-slate-300 hover:text-white transition-colors">Pricing</Link>
                             <a href="#faq" className="text-sm text-slate-300 hover:text-white transition-colors">SSS</a>
                         </div>
 
@@ -164,6 +165,7 @@ export default function LandingPage() {
                         <a href="#features" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Özellikler</a>
                         <a href="#how-it-works" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Nasıl Çalışır</a>
                         <a href="#pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Fiyatlandırma</a>
+                        <Link href="/pricing" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>Pricing</Link>
                         <a href="#faq" className="block text-sm text-slate-300 hover:text-white py-2" onClick={() => setMobileMenuOpen(false)}>SSS</a>
                         <div className="pt-4 space-y-3 border-t border-white/10">
                             <Link href="/login" className="block">

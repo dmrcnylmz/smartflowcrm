@@ -1213,5 +1213,29 @@
         "consentNeeded": "This call type requires prior consent",
         "exemptionBasis": "Exemption Basis",
         "serviceCallExemption": "Service calls are exempt from marketing regulations"
+    },
+    "pricing": {
+        "title": "Plans & Pricing",
+        "subtitle": "Choose the plan that fits your business",
+        "monthly": "Monthly",
+        "yearly": "Yearly",
+        "perMonth": "/mo",
+        "perYear": "/yr",
+        "savings": "{percent}% savings",
+        "getStarted": "Get Started",
+        "mostPopular": "Most Popular",
+        "enterprise": "Enterprise",
+        "contactUs": "Contact Us",
+        "faqTitle": "Frequently Asked Questions",
+        "faq1q": "Can I change my plan later?",
+        "faq1a": "Yes, you can upgrade or downgrade your plan at any time.",
+        "faq2q": "Is there a free trial?",
+        "faq2a": "Yes, all plans start with a 14-day free trial.",
+        "faq3q": "What is the cancellation policy?",
+        "faq3a": "You can cancel at any time. You will continue to have access for the remaining period.",
+        "faq4q": "What payment methods do you accept?",
+        "faq4a": "We accept credit cards, debit cards, and bank transfers.",
+        "includedFeatures": "Included Features",
+        "allPlansInclude": "All plans include: AI Voice Assistant, CRM, 4-Language Support"
     }
 }

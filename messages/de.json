@@ -1213,5 +1213,29 @@
         "consentNeeded": "Dieser Anruftyp erfordert eine vorherige Einwilligung",
         "exemptionBasis": "Ausnahmegrund",
         "serviceCallExemption": "Serviceanrufe sind von Marketingvorschriften ausgenommen"
+    },
+    "pricing": {
+        "title": "Tarife & Preise",
+        "subtitle": "Wahlen Sie den passenden Tarif fur Ihr Unternehmen",
+        "monthly": "Monatlich",
+        "yearly": "Jahrlich",
+        "perMonth": "/Monat",
+        "perYear": "/Jahr",
+        "savings": "{percent}% Ersparnis",
+        "getStarted": "Jetzt starten",
+        "mostPopular": "Beliebteste",
+        "enterprise": "Enterprise",
+        "contactUs": "Kontaktieren Sie uns",
+        "faqTitle": "Haufig gestellte Fragen",
+        "faq1q": "Kann ich meinen Tarif spater andern?",
+        "faq1a": "Ja, Sie konnen Ihren Tarif jederzeit upgraden oder downgraden.",
+        "faq2q": "Gibt es eine kostenlose Testphase?",
+        "faq2a": "Ja, alle Tarife beginnen mit einer 14-tagigen kostenlosen Testphase.",
+        "faq3q": "Was ist die Kundigungsrichtlinie?",
+        "faq3a": "Sie konnen jederzeit kundigen. Sie haben weiterhin Zugang fur den verbleibenden Zeitraum.",
+        "faq4q": "Welche Zahlungsmethoden akzeptieren Sie?",
+        "faq4a": "Wir akzeptieren Kreditkarten, Debitkarten und Bankuberweisungen.",
+        "includedFeatures": "Enthaltene Funktionen",
+        "allPlansInclude": "Alle Tarife beinhalten: KI-Sprachassistent, CRM, 4-Sprachen-Unterstutzung"
     }
 }
