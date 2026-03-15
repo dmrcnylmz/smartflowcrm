@@ -166,7 +166,7 @@ function getTimeInTimezone(timezone: string, now?: Date): {
  */
 export function isCallingAllowed(phoneNumber: string, now?: Date): CallingAllowedResult {
     const country = detectCountryFromPhone(phoneNumber);
-    const timezone = getTimezoneForCountry(country);
+    const timezone = getTimezoneForPhone(phoneNumber, country);
     const { hour, minute, dayOfWeek, formatted } = getTimeInTimezone(timezone, now);
     const rules = CALLING_HOURS[country];
 
@@ -218,6 +218,260 @@ export function isCallingAllowed(phoneNumber: string, now?: Date): CallingAllowe
 // =============================================
 // Next Allowed Window Calculator
 // =============================================
+
+// =============================================
+// US Area Code → Timezone Mapping
+// =============================================
+
+const US_TIMEZONE_MAP: Record<string, string> = {
+    // Eastern (UTC-5)
+    '201': 'America/New_York',   // NJ
+    '202': 'America/New_York',   // DC
+    '203': 'America/New_York',   // CT
+    '212': 'America/New_York',   // NYC
+    '213': 'America/Los_Angeles', // LA
+    '215': 'America/New_York',   // Philadelphia
+    '216': 'America/New_York',   // Cleveland
+    '224': 'America/Chicago',    // IL
+    '229': 'America/New_York',   // GA
+    '239': 'America/New_York',   // FL
+    '240': 'America/New_York',   // MD
+    '248': 'America/New_York',   // MI
+    '267': 'America/New_York',   // Philadelphia
+    '301': 'America/New_York',   // MD
+    '302': 'America/New_York',   // DE
+    '303': 'America/Denver',     // Denver
+    '304': 'America/New_York',   // WV
+    '305': 'America/New_York',   // Miami
+    '310': 'America/Los_Angeles', // LA
+    '312': 'America/Chicago',    // Chicago
+    '313': 'America/New_York',   // Detroit
+    '314': 'America/Chicago',    // St. Louis
+    '315': 'America/New_York',   // NY
+    '316': 'America/Chicago',    // Wichita
+    '317': 'America/New_York',   // Indianapolis
+    '318': 'America/Chicago',    // LA (Louisiana)
+    '319': 'America/Chicago',    // IA
+    '320': 'America/Chicago',    // MN
+    '321': 'America/New_York',   // FL
+    '323': 'America/Los_Angeles', // LA
+    '330': 'America/New_York',   // OH
+    '346': 'America/Chicago',    // Houston
+    '347': 'America/New_York',   // NYC
+    '385': 'America/Denver',     // UT
+    '404': 'America/New_York',   // Atlanta
+    '405': 'America/Chicago',    // Oklahoma City
+    '407': 'America/New_York',   // Orlando
+    '408': 'America/Los_Angeles', // San Jose
+    '410': 'America/New_York',   // Baltimore
+    '412': 'America/New_York',   // Pittsburgh
+    '414': 'America/Chicago',    // Milwaukee
+    '415': 'America/Los_Angeles', // SF
+    '469': 'America/Chicago',    // Dallas
+    '470': 'America/New_York',   // Atlanta
+    '480': 'America/Phoenix',    // Phoenix (no DST)
+    '484': 'America/New_York',   // PA
+    '501': 'America/Chicago',    // Little Rock
+    '502': 'America/New_York',   // Louisville
+    '503': 'America/Los_Angeles', // Portland
+    '504': 'America/Chicago',    // New Orleans
+    '505': 'America/Denver',     // Albuquerque
+    '507': 'America/Chicago',    // MN
+    '510': 'America/Los_Angeles', // Oakland
+    '512': 'America/Chicago',    // Austin
+    '513': 'America/New_York',   // Cincinnati
+    '515': 'America/Chicago',    // Des Moines
+    '516': 'America/New_York',   // Long Island
+    '518': 'America/New_York',   // Albany
+    '520': 'America/Phoenix',    // Tucson
+    '530': 'America/Los_Angeles', // CA
+    '540': 'America/New_York',   // VA
+    '541': 'America/Los_Angeles', // OR
+    '551': 'America/New_York',   // NJ
+    '559': 'America/Los_Angeles', // Fresno
+    '561': 'America/New_York',   // FL
+    '562': 'America/Los_Angeles', // Long Beach
+    '571': 'America/New_York',   // VA
+    '602': 'America/Phoenix',    // Phoenix
+    '603': 'America/New_York',   // NH
+    '609': 'America/New_York',   // NJ
+    '610': 'America/New_York',   // PA
+    '612': 'America/Chicago',    // Minneapolis
+    '614': 'America/New_York',   // Columbus
+    '615': 'America/Chicago',    // Nashville
+    '616': 'America/New_York',   // Grand Rapids
+    '617': 'America/New_York',   // Boston
+    '619': 'America/Los_Angeles', // San Diego
+    '623': 'America/Phoenix',    // Phoenix
+    '626': 'America/Los_Angeles', // Pasadena
+    '630': 'America/Chicago',    // IL
+    '631': 'America/New_York',   // Long Island
+    '646': 'America/New_York',   // NYC
+    '650': 'America/Los_Angeles', // CA
+    '651': 'America/Chicago',    // St. Paul
+    '657': 'America/Los_Angeles', // CA
+    '660': 'America/Chicago',    // MO
+    '678': 'America/New_York',   // Atlanta
+    '702': 'America/Los_Angeles', // Las Vegas
+    '703': 'America/New_York',   // VA
+    '704': 'America/New_York',   // Charlotte
+    '706': 'America/New_York',   // GA
+    '708': 'America/Chicago',    // IL
+    '713': 'America/Chicago',    // Houston
+    '714': 'America/Los_Angeles', // Orange County
+    '718': 'America/New_York',   // NYC
+    '720': 'America/Denver',     // Denver
+    '725': 'America/Los_Angeles', // Las Vegas
+    '727': 'America/New_York',   // FL
+    '732': 'America/New_York',   // NJ
+    '737': 'America/Chicago',    // Austin
+    '740': 'America/New_York',   // OH
+    '747': 'America/Los_Angeles', // LA
+    '754': 'America/New_York',   // FL
+    '757': 'America/New_York',   // VA
+    '760': 'America/Los_Angeles', // CA
+    '763': 'America/Chicago',    // MN
+    '770': 'America/New_York',   // GA
+    '773': 'America/Chicago',    // Chicago
+    '786': 'America/New_York',   // Miami
+    '801': 'America/Denver',     // Salt Lake City
+    '802': 'America/New_York',   // VT
+    '803': 'America/New_York',   // SC
+    '804': 'America/New_York',   // Richmond
+    '805': 'America/Los_Angeles', // CA
+    '808': 'Pacific/Honolulu',   // Hawaii
+    '810': 'America/New_York',   // MI
+    '813': 'America/New_York',   // Tampa
+    '814': 'America/New_York',   // PA
+    '815': 'America/Chicago',    // IL
+    '816': 'America/Chicago',    // Kansas City
+    '818': 'America/Los_Angeles', // LA
+    '828': 'America/New_York',   // NC
+    '830': 'America/Chicago',    // TX
+    '831': 'America/Los_Angeles', // CA
+    '832': 'America/Chicago',    // Houston
+    '843': 'America/New_York',   // SC
+    '845': 'America/New_York',   // NY
+    '847': 'America/Chicago',    // IL
+    '848': 'America/New_York',   // NJ
+    '856': 'America/New_York',   // NJ
+    '857': 'America/New_York',   // Boston
+    '858': 'America/Los_Angeles', // San Diego
+    '860': 'America/New_York',   // CT
+    '862': 'America/New_York',   // NJ
+    '901': 'America/Chicago',    // Memphis
+    '903': 'America/Chicago',    // TX
+    '904': 'America/New_York',   // Jacksonville
+    '907': 'America/Anchorage',  // Alaska
+    '908': 'America/New_York',   // NJ
+    '909': 'America/Los_Angeles', // CA
+    '910': 'America/New_York',   // NC
+    '912': 'America/New_York',   // GA
+    '913': 'America/Chicago',    // Kansas City KS
+    '914': 'America/New_York',   // Westchester
+    '915': 'America/Denver',     // El Paso
+    '916': 'America/Los_Angeles', // Sacramento
+    '917': 'America/New_York',   // NYC
+    '918': 'America/Chicago',    // Tulsa
+    '919': 'America/New_York',   // Raleigh
+    '920': 'America/Chicago',    // WI
+    '925': 'America/Los_Angeles', // CA
+    '929': 'America/New_York',   // NYC
+    '936': 'America/Chicago',    // TX
+    '940': 'America/Chicago',    // TX
+    '941': 'America/New_York',   // FL
+    '949': 'America/Los_Angeles', // Irvine
+    '951': 'America/Los_Angeles', // CA
+    '952': 'America/Chicago',    // MN
+    '954': 'America/New_York',   // FL
+    '956': 'America/Chicago',    // TX
+    '971': 'America/Los_Angeles', // Portland
+    '972': 'America/Chicago',    // Dallas
+    '973': 'America/New_York',   // NJ
+    '978': 'America/New_York',   // MA
+    '979': 'America/Chicago',    // TX
+    '980': 'America/New_York',   // Charlotte
+};
+
+/**
+ * Get IANA timezone for a US phone number based on area code.
+ * Falls back to America/New_York if area code is not mapped.
+ */
+export function getUSTimezone(phoneNumber: string): string {
+    const normalized = phoneNumber.replace(/[\s\-()]/g, '');
+    // E.164 US number: +1XXXXXXXXXX — area code is digits 3-5 (0-indexed: chars at index 2,3,4)
+    if (normalized.startsWith('+1') && normalized.length >= 5) {
+        const areaCode = normalized.substring(2, 5);
+        return US_TIMEZONE_MAP[areaCode] || 'America/New_York';
+    }
+    return 'America/New_York';
+}
+
+/**
+ * Get IANA timezone for a phone number, considering country-specific
+ * timezone variations (e.g., US area codes).
+ */
+export function getTimezoneForPhone(phoneNumber: string, country?: CallingCountry): string {
+    const resolvedCountry = country || detectCountryFromPhone(phoneNumber);
+    if (resolvedCountry === 'US') {
+        return getUSTimezone(phoneNumber);
+    }
+    return COUNTRY_TIMEZONES[resolvedCountry];
+}
+
+// =============================================
+// Call Frequency Limit (France: max 4/month)
+// =============================================
+
+export interface CallFrequencyResult {
+    allowed: boolean;
+    callsMade: number;
+    maxAllowed: number;
+}
+
+/**
+ * Check if a phone number has exceeded the monthly call frequency limit.
+ * Currently only France enforces a limit (4 calls/month per number).
+ *
+ * @param phoneNumber - E.164 phone number
+ * @param tenantId - Tenant ID for Firestore query
+ * @param db - Firestore instance
+ * @returns Whether the call is allowed, how many calls were made, and the limit
+ */
+export async function checkCallFrequencyLimit(
+    phoneNumber: string,
+    tenantId: string,
+    db: FirebaseFirestore.Firestore,
+): Promise<CallFrequencyResult> {
+    const country = detectCountryFromPhone(phoneNumber);
+    const rules = CALLING_HOURS[country];
+
+    // Only check frequency if the country has a maxCallsPerMonth limit
+    if (!rules.maxCallsPerMonth) {
+        return { allowed: true, callsMade: 0, maxAllowed: Infinity };
+    }
+
+    // Query outbound calls to this number this month
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const callsSnap = await db
+        .collection('tenants').doc(tenantId)
+        .collection('calls')
+        .where('to', '==', phoneNumber)
+        .where('direction', '==', 'outbound')
+        .where('startedAt', '>=', firstOfMonth)
+        .get();
+
+    const callsMade = callsSnap.size;
+    const maxAllowed = rules.maxCallsPerMonth;
+
+    return {
+        allowed: callsMade < maxAllowed,
+        callsMade,
+        maxAllowed,
+    };
+}
 
 /**
  * Calculate when the next allowed calling window opens for a country.

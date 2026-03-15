@@ -84,7 +84,8 @@
         "openMenu": "Menü öffnen",
         "closeMenu": "Menü schließen",
         "mobileNav": "Mobiles Navigationsmenü",
-        "user": "Benutzer"
+        "user": "Benutzer",
+        "campaigns": "Kampagnen"
     },
     "dashboard": {
         "title": "Übersicht",
@@ -911,7 +912,19 @@
         "callPurpose": "Anrufzweck",
         "callInitiated": "Anruf erfolgreich gestartet",
         "callQueued": "Anruf in Warteschlange",
-        "selectAgent": "Agent auswählen"
+        "selectAgent": "Agent auswählen",
+        "newCall": "Neuer Anruf",
+        "initiateCall": "Anruf starten",
+        "callNotes": "Anrufnotizen",
+        "preflightCheck": "Compliance-Prüfung",
+        "checking": "Wird geprüft...",
+        "callable": "Anrufbar",
+        "notCallable": "Nicht anrufbar",
+        "scheduleAt": "Planen um: {time}",
+        "localTime": "Ortszeit",
+        "destinationCountry": "Zielland",
+        "callStarted": "Anruf gestartet",
+        "callFailed": "Anruf konnte nicht gestartet werden"
     },
     "reports": {
         "title": "Leistungsberichte",
@@ -1182,6 +1195,23 @@
         "country": "Land",
         "overallScore": "Gesamtbewertung",
         "noCampaigns": "Noch keine Kampagnen",
-        "createFirst": "Erstellen Sie Ihre erste Kampagne"
+        "createFirst": "Erstellen Sie Ihre erste Kampagne",
+        "callPurpose": "Anrufzweck",
+        "appointmentReminder": "Terminerinnerung",
+        "paymentReminder": "Zahlungserinnerung",
+        "deliveryNotification": "Lieferbenachrichtigung",
+        "serviceFollowup": "Service-Nachverfolgung",
+        "surveyFeedback": "Umfrage / Feedback",
+        "contractRenewal": "Vertragserneuerung",
+        "b2bOutreach": "B2B-Kontaktaufnahme",
+        "marketingCall": "Marketing-Anruf",
+        "customCall": "Benutzerdefinierter Anruf",
+        "transactional": "Transaktional",
+        "service": "Service",
+        "marketing": "Marketing",
+        "noConsentNeeded": "Dieser Anruftyp erfordert keine Einwilligung",
+        "consentNeeded": "Dieser Anruftyp erfordert eine vorherige Einwilligung",
+        "exemptionBasis": "Ausnahmegrund",
+        "serviceCallExemption": "Serviceanrufe sind von Marketingvorschriften ausgenommen"
     }
 }

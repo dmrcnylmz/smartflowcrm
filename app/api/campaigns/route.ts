@@ -13,6 +13,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { requireStrictAuth } from '@/lib/utils/require-strict-auth';
 import { handleApiError } from '@/lib/utils/error-handler';
 import { runOutboundComplianceCheck } from '@/lib/compliance/outbound-compliance';
+import { classifyCallPurpose, type CallPurpose } from '@/lib/compliance/call-types';
 import {
     calculateComplianceScore,
     calculateCampaignSummary,
@@ -42,7 +43,9 @@ export async function POST(request: NextRequest) {
         if (auth.error) return auth.error;
 
         const body = await request.json();
-        const { name, agentId, contacts, fromNumber, scheduledTime, consentConfirmed } = body;
+        const { name, agentId, contacts, fromNumber, scheduledTime, consentConfirmed, purpose: rawPurpose } = body;
+        const purpose: CallPurpose = rawPurpose || 'custom';
+        const callTypeRules = classifyCallPurpose(purpose);
 
         // Validation
         if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -66,7 +69,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (!consentConfirmed) {
+        // Consent confirmation only required for marketing calls
+        if (callTypeRules.consentRequired && !consentConfirmed) {
             return NextResponse.json(
                 { error: 'Consent confirmation is required' },
                 { status: 400 },
@@ -81,6 +85,7 @@ export async function POST(request: NextRequest) {
                     contact.phoneNumber,
                     'en',
                     getDb(),
+                    purpose,
                 );
 
                 const callingHoursSchedulable = !complianceResult.callingHoursValid;
@@ -110,9 +115,11 @@ export async function POST(request: NextRequest) {
         const campaignData = {
             name: name.trim(),
             agentId,
+            purpose,
+            callCategory: callTypeRules.category,
             fromNumber: fromNumber || null,
             scheduledTime: scheduledTime || null,
-            consentConfirmed: true,
+            consentConfirmed: callTypeRules.consentRequired ? true : false,
             contacts: checkedContacts,
             summary,
             status: 'draft',

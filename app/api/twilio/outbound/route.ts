@@ -17,10 +17,11 @@ import { createOutboundCall } from '@/lib/twilio/outbound';
 import { getTwilioConfig } from '@/lib/twilio/telephony';
 import { checkCallAllowed } from '@/lib/billing/usage-guard';
 import { getSubscription, isSubscriptionActive } from '@/lib/billing/lemonsqueezy';
-import { isCallingAllowed } from '@/lib/compliance/calling-hours';
+import { isCallingAllowed, checkCallFrequencyLimit } from '@/lib/compliance/calling-hours';
 import { checkOutboundConsent, isConsentValid } from '@/lib/compliance/consent-manager';
 import { logAudit } from '@/lib/compliance/audit';
 import { runOutboundComplianceCheck } from '@/lib/compliance/outbound-compliance';
+import { classifyCallPurpose, type CallPurpose } from '@/lib/compliance/call-types';
 import { createLogger } from '@/lib/utils/logger';
 
 const log = createLogger('twilio:outbound');
@@ -48,7 +49,9 @@ export async function POST(request: NextRequest) {
         const { tenantId } = auth;
 
         const body = await request.json();
-        const { toNumber, agentId, fromNumber, context, language } = body;
+        const { toNumber, agentId, fromNumber, context, language, purpose: rawPurpose } = body;
+        const purpose: CallPurpose = rawPurpose || 'custom';
+        const callTypeRules = classifyCallPurpose(purpose);
 
         // Validate required fields
         if (!toNumber) {
@@ -129,9 +132,52 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // ── Compliance: Call Frequency Limit (France: max 4/month) ──
+        // Skip frequency check for call types that are exempt
+        if (callTypeRules.frequencyLimitApplies) {
+            const freqCheck = await checkCallFrequencyLimit(toNumber, tenantId, getDb());
+            if (!freqCheck.allowed) {
+                log.warn('outbound:blocked_frequency_limit', {
+                    tenantId,
+                    to: toNumber,
+                    callsMade: freqCheck.callsMade,
+                    maxAllowed: freqCheck.maxAllowed,
+                });
+                return NextResponse.json(
+                    {
+                        error: `Monthly call limit reached for this number (max ${freqCheck.maxAllowed}/month for France)`,
+                        callsMade: freqCheck.callsMade,
+                        maxAllowed: freqCheck.maxAllowed,
+                    },
+                    { status: 403 },
+                );
+            }
+        }
+
         // ── Compliance: Consent Check ────────────────────────────
-        const consentRecord = await checkOutboundConsent(getDb(), tenantId, toNumber);
-        const hasValidConsent = isConsentValid(consentRecord);
+        // Skip consent check for transactional/service calls (not required)
+        let hasValidConsent = true;
+        if (callTypeRules.consentRequired) {
+            const consentRecord = await checkOutboundConsent(getDb(), tenantId, toNumber);
+            hasValidConsent = isConsentValid(consentRecord);
+
+            if (!hasValidConsent) {
+                log.warn('outbound:blocked_no_consent', {
+                    tenantId,
+                    to: toNumber,
+                    purpose,
+                });
+                return NextResponse.json(
+                    {
+                        error: 'No valid consent found for this number',
+                        reason: consentRecord
+                            ? `Consent status: ${consentRecord.consentStatus}`
+                            : 'No consent record exists',
+                    },
+                    { status: 403 },
+                );
+            }
+        }
 
         // Log full compliance check to audit (fire-and-forget)
         logAudit(getDb(), {
@@ -143,24 +189,11 @@ export async function POST(request: NextRequest) {
                 phoneNumber: toNumber,
                 consentValid: hasValidConsent,
                 callingHoursAllowed: complianceCheck.allowed,
+                callPurpose: purpose,
+                exemptionBasis: callTypeRules.exemptionBasis,
+                consentSkipped: !callTypeRules.consentRequired,
             },
         }).catch(() => {});
-
-        if (!hasValidConsent) {
-            log.warn('outbound:blocked_no_consent', {
-                tenantId,
-                to: toNumber,
-            });
-            return NextResponse.json(
-                {
-                    error: 'No valid consent found for this number',
-                    reason: consentRecord
-                        ? `Consent status: ${consentRecord.consentStatus}`
-                        : 'No consent record exists',
-                },
-                { status: 403 },
-            );
-        }
 
         // Resolve fromNumber: use provided, or find tenant's provisioned number
         let resolvedFromNumber = fromNumber;
@@ -234,6 +267,9 @@ export async function POST(request: NextRequest) {
                 agentId,
                 context: context || null,
                 language: language || 'tr',
+                callPurpose: purpose,
+                callCategory: callTypeRules.category,
+                exemptionBasis: callTypeRules.exemptionBasis,
                 startedAt: FieldValue.serverTimestamp(),
                 conversationHistory: [],
                 initiatedBy: auth.uid,

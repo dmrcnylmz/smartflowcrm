@@ -252,12 +252,29 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
                 localTime: 'Monday, 23:00',
             }),
             detectCountryFromPhone: () => 'TR',
+            checkCallFrequencyLimit: async () => ({
+                allowed: true,
+                callsMade: 0,
+                maxAllowed: Infinity,
+            }),
         }));
 
         // Mock IYS client to avoid real API calls
         vi.doMock('@/lib/compliance/iys-client', () => ({
             getDefaultIYSClient: () => ({
                 checkConsent: async () => ({ phoneNumber: '+905551234567', status: 'NOT_FOUND', checkedAt: new Date().toISOString() }),
+            }),
+        }));
+
+        // Mock call-types
+        vi.doMock('@/lib/compliance/call-types', () => ({
+            classifyCallPurpose: () => ({
+                category: 'marketing',
+                consentRequired: true,
+                iysRequired: true,
+                dncCheckRequired: true,
+                frequencyLimitApplies: false,
+                exemptionBasis: 'No exemption',
             }),
         }));
 
@@ -273,6 +290,7 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
         // Restore
         vi.doUnmock('@/lib/compliance/calling-hours');
         vi.doUnmock('@/lib/compliance/iys-client');
+        vi.doUnmock('@/lib/compliance/call-types');
         vi.resetModules();
     });
 
@@ -285,6 +303,23 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
                 localTime: 'Monday, 10:00',
             }),
             detectCountryFromPhone: () => 'US',
+            checkCallFrequencyLimit: async () => ({
+                allowed: true,
+                callsMade: 0,
+                maxAllowed: Infinity,
+            }),
+        }));
+
+        // Mock call-types (used by outbound-compliance)
+        vi.doMock('@/lib/compliance/call-types', () => ({
+            classifyCallPurpose: () => ({
+                category: 'marketing',
+                consentRequired: true,
+                iysRequired: true,
+                dncCheckRequired: true,
+                frequencyLimitApplies: true,
+                exemptionBasis: 'No exemption',
+            }),
         }));
 
         // Mock consent check to return valid consent
@@ -328,6 +363,7 @@ describe('Consent Management — runOutboundComplianceCheck', () => {
         vi.doUnmock('@/lib/compliance/calling-hours');
         vi.doUnmock('@/lib/compliance/consent-manager');
         vi.doUnmock('@/lib/compliance/iys-client');
+        vi.doUnmock('@/lib/compliance/call-types');
         vi.resetModules();
     });
 });

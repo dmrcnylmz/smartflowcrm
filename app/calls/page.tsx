@@ -19,6 +19,7 @@ import { MultiSelectFilter, type FilterOption } from '@/components/ui/multi-sele
 import { exportCalls, exportToCSV, exportToExcel, exportToPDF } from '@/lib/utils/export-helpers';
 import { AlertCircle, Phone, PhoneIncoming, PhoneOutgoing, Search, Clock, User, MessageSquare, FileText, X, Download, Mic, ChevronRight, Filter, Bot, AlertTriangle, Loader2, Play, Pause, Volume2 } from 'lucide-react';
 import { VoiceCallModal } from '@/components/voice/VoiceCallModal';
+import OutboundCallModal from '@/components/calls/OutboundCallModal';
 import { useCalls } from '@/lib/firebase/hooks';
 import { getCustomersBatch, extractCustomerIds, getCustomer } from '@/lib/firebase/batch-helpers';
 import { updateCallLog } from '@/lib/firebase/db';
@@ -55,6 +56,7 @@ function CallsPageContent() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [limit, setLimit] = useState(50);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
+  const [showOutboundModal, setShowOutboundModal] = useState(false);
 
   // Real-time calls with limit
   const { data: calls, loading, error: callsError, refetch: refetchCalls } = useCalls();
@@ -382,6 +384,14 @@ function CallsPageContent() {
               </SelectContent>
             </Select>
           )}
+
+          <Button
+            onClick={() => setShowOutboundModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 gap-2 text-white"
+          >
+            <PhoneOutgoing className="h-4 w-4" />
+            {t('newCall')}
+          </Button>
 
           <Button
             onClick={() => setVoiceCallOpen(true)}
@@ -731,6 +741,15 @@ function CallsPageContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Outbound Call Modal */}
+      <OutboundCallModal
+        isOpen={showOutboundModal}
+        onClose={() => setShowOutboundModal(false)}
+        onCallInitiated={() => {
+          setTimeout(() => refetchCalls(), 1500);
+        }}
+      />
 
       {/* Voice Call Modal */}
       <VoiceCallModal

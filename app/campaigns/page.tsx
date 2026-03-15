@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/toast';
 import {
     Phone, CheckCircle, XCircle, Clock, AlertTriangle, Upload,
-    Play, Pause, Trash2, Plus, FileText, ArrowLeft, Loader2, Users,
+    Play, Pause, Trash2, Plus, FileText, ArrowLeft, Loader2, Users, Info,
 } from 'lucide-react';
 import type {
     ComplianceScoreResult,
@@ -22,6 +22,7 @@ import type {
     ComplianceLevel,
 } from '@/lib/compliance/compliance-score';
 import { getComplianceLevelColor } from '@/lib/compliance/compliance-score';
+import { getAllCallPurposes, classifyCallPurpose, getExemptionText, type CallPurpose, type CallCategory } from '@/lib/compliance/call-types';
 
 // =============================================
 // Types
@@ -194,6 +195,7 @@ function CampaignsPageContent() {
     const [selectedAgent, setSelectedAgent] = useState('');
     const [fromNumber, setFromNumber] = useState('');
     const [consentConfirmed, setConsentConfirmed] = useState(false);
+    const [callPurpose, setCallPurpose] = useState<CallPurpose>('custom');
     const [manualPhone, setManualPhone] = useState('');
     const [manualName, setManualName] = useState('');
     const [newContacts, setNewContacts] = useState<Array<{ phoneNumber: string; name?: string; context?: string }>>([]);
@@ -271,9 +273,12 @@ function CampaignsPageContent() {
     }, [manualPhone, manualName]);
 
     // Create campaign
+    const purposeRules = classifyCallPurpose(callPurpose);
+
     const handleCreate = useCallback(async () => {
         if (!campaignName.trim() || !selectedAgent || newContacts.length === 0) return;
-        if (!consentConfirmed) {
+        const currentRules = classifyCallPurpose(callPurpose);
+        if (currentRules.consentRequired && !consentConfirmed) {
             toast({
                 title: tc('error'),
                 description: t('consentRequired'),
@@ -292,7 +297,8 @@ function CampaignsPageContent() {
                     agentId: selectedAgent,
                     contacts: newContacts,
                     fromNumber: fromNumber || undefined,
-                    consentConfirmed,
+                    purpose: callPurpose,
+                    consentConfirmed: currentRules.consentRequired ? consentConfirmed : true,
                 }),
             });
 
@@ -315,7 +321,7 @@ function CampaignsPageContent() {
         } finally {
             setCreating(false);
         }
-    }, [campaignName, selectedAgent, newContacts, fromNumber, consentConfirmed, toast, tc, t, fetchCampaigns]);
+    }, [campaignName, selectedAgent, newContacts, fromNumber, consentConfirmed, callPurpose, toast, tc, t, fetchCampaigns]);
 
     // Execute campaign
     const handleExecute = useCallback(async (campaignId: string) => {
@@ -394,6 +400,7 @@ function CampaignsPageContent() {
         setCampaignName('');
         setSelectedAgent('');
         setFromNumber('');
+        setCallPurpose('custom');
         setConsentConfirmed(false);
         setNewContacts([]);
         setManualPhone('');
@@ -739,6 +746,53 @@ function CampaignsPageContent() {
                             />
                         </div>
 
+                        {/* Call Purpose */}
+                        <div>
+                            <Label className="text-sm font-medium">{t('callPurpose')}</Label>
+                            <Select value={callPurpose} onValueChange={(v) => setCallPurpose(v as CallPurpose)}>
+                                <SelectTrigger className="mt-1.5 rounded-xl">
+                                    <SelectValue placeholder={t('callPurpose')} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getAllCallPurposes().map(p => (
+                                        <SelectItem key={p.value} value={p.value}>
+                                            <span className="flex items-center gap-2">
+                                                {t(p.labelKey as Parameters<typeof t>[0])}
+                                                <Badge className={`ml-1 shadow-none text-[10px] px-1.5 py-0 ${
+                                                    p.category === 'transactional'
+                                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300'
+                                                        : p.category === 'service'
+                                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300'
+                                                        : 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300'
+                                                }`}>
+                                                    {t(p.category as Parameters<typeof t>[0])}
+                                                </Badge>
+                                            </span>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            {/* Purpose info message */}
+                            {purposeRules.category !== 'marketing' && (
+                                <div className="mt-2 flex items-start gap-2 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+                                    <Info className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                                    <div>
+                                        <p className="text-sm text-emerald-800 dark:text-emerald-300">{t('noConsentNeeded')}</p>
+                                        <p className="text-xs text-emerald-700/70 dark:text-emerald-400/70 mt-0.5">
+                                            {t('exemptionBasis')}: {getExemptionText(callPurpose, 'TR')}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                            {purposeRules.category === 'marketing' && (
+                                <div className="mt-2 flex items-start gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/20">
+                                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                                    <p className="text-sm text-red-800 dark:text-red-300">{t('consentNeeded')}</p>
+                                </div>
+                            )}
+                        </div>
+
                         {/* CSV Upload */}
                         <div>
                             <Label className="text-sm font-medium">{t('uploadCsv')}</Label>
@@ -822,26 +876,28 @@ function CampaignsPageContent() {
                             </div>
                         )}
 
-                        {/* Consent Checkbox */}
-                        <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
-                            <input
-                                type="checkbox"
-                                id="consent"
-                                checked={consentConfirmed}
-                                onChange={(e) => setConsentConfirmed(e.target.checked)}
-                                className="mt-0.5 h-4 w-4 rounded border-amber-500/50 text-amber-600 focus:ring-amber-500"
-                            />
-                            <label htmlFor="consent" className="text-sm">
-                                <span className="font-medium text-amber-800 dark:text-amber-300">{t('consentConfirmation')}</span>
-                                <br />
-                                <span className="text-xs text-amber-700/70 dark:text-amber-400/70">{t('consentRequired')}</span>
-                            </label>
-                        </div>
+                        {/* Consent Checkbox — hidden for transactional/service calls */}
+                        {purposeRules.consentRequired && (
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                                <input
+                                    type="checkbox"
+                                    id="consent"
+                                    checked={consentConfirmed}
+                                    onChange={(e) => setConsentConfirmed(e.target.checked)}
+                                    className="mt-0.5 h-4 w-4 rounded border-amber-500/50 text-amber-600 focus:ring-amber-500"
+                                />
+                                <label htmlFor="consent" className="text-sm">
+                                    <span className="font-medium text-amber-800 dark:text-amber-300">{t('consentConfirmation')}</span>
+                                    <br />
+                                    <span className="text-xs text-amber-700/70 dark:text-amber-400/70">{t('consentRequired')}</span>
+                                </label>
+                            </div>
+                        )}
 
                         {/* Submit */}
                         <Button
                             onClick={handleCreate}
-                            disabled={creating || !campaignName.trim() || !selectedAgent || newContacts.length === 0 || !consentConfirmed}
+                            disabled={creating || !campaignName.trim() || !selectedAgent || newContacts.length === 0 || (purposeRules.consentRequired && !consentConfirmed)}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2"
                         >
                             {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}

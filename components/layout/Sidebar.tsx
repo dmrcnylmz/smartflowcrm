@@ -17,6 +17,7 @@ import {
   LogOut,
   User,
   CreditCard,
+  Megaphone,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -42,6 +43,7 @@ const baseNavSections: NavSection[] = [
     items: [
       { href: '/', labelKey: 'dashboard', icon: LayoutDashboard },
       { href: '/calls', labelKey: 'calls', icon: Phone },
+      { href: '/campaigns', labelKey: 'campaigns', icon: Megaphone },
       { href: '/customers', labelKey: 'customers', icon: Users },
     ],
   },

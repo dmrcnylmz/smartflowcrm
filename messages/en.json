@@ -84,7 +84,8 @@
         "openMenu": "Open menu",
         "closeMenu": "Close menu",
         "mobileNav": "Mobile navigation menu",
-        "user": "User"
+        "user": "User",
+        "campaigns": "Campaigns"
     },
     "dashboard": {
         "title": "Overview",
@@ -911,7 +912,19 @@
         "callPurpose": "Call Purpose",
         "callInitiated": "Call initiated successfully",
         "callQueued": "Call queued",
-        "selectAgent": "Select Agent"
+        "selectAgent": "Select Agent",
+        "newCall": "New Call",
+        "initiateCall": "Initiate Call",
+        "callNotes": "Call Notes",
+        "preflightCheck": "Compliance Check",
+        "checking": "Checking...",
+        "callable": "Callable",
+        "notCallable": "Not Callable",
+        "scheduleAt": "Schedule at: {time}",
+        "localTime": "Local Time",
+        "destinationCountry": "Destination Country",
+        "callStarted": "Call started",
+        "callFailed": "Failed to initiate call"
     },
     "reports": {
         "title": "Performance Reports",
@@ -1182,6 +1195,23 @@
         "country": "Country",
         "overallScore": "Overall Score",
         "noCampaigns": "No campaigns yet",
-        "createFirst": "Create your first campaign"
+        "createFirst": "Create your first campaign",
+        "callPurpose": "Call Purpose",
+        "appointmentReminder": "Appointment Reminder",
+        "paymentReminder": "Payment Reminder",
+        "deliveryNotification": "Delivery Notification",
+        "serviceFollowup": "Service Follow-up",
+        "surveyFeedback": "Survey / Feedback",
+        "contractRenewal": "Contract Renewal",
+        "b2bOutreach": "B2B Outreach",
+        "marketingCall": "Marketing Call",
+        "customCall": "Custom Call",
+        "transactional": "Transactional",
+        "service": "Service",
+        "marketing": "Marketing",
+        "noConsentNeeded": "This call type does not require consent",
+        "consentNeeded": "This call type requires prior consent",
+        "exemptionBasis": "Exemption Basis",
+        "serviceCallExemption": "Service calls are exempt from marketing regulations"
     }
 }

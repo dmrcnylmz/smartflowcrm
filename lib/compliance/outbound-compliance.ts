@@ -14,8 +14,9 @@ import {
     isConsentValid,
     type OutboundComplianceCheck,
 } from '@/lib/compliance/consent-manager';
-import { isCallingAllowed, detectCountryFromPhone } from '@/lib/compliance/calling-hours';
+import { isCallingAllowed, detectCountryFromPhone, checkCallFrequencyLimit } from '@/lib/compliance/calling-hours';
 import { getDefaultIYSClient, type IYSStatus } from '@/lib/compliance/iys-client';
+import { classifyCallPurpose, type CallPurpose } from '@/lib/compliance/call-types';
 
 // =============================================
 // Master Compliance Check
@@ -30,8 +31,10 @@ export async function runOutboundComplianceCheck(
     phoneNumber: string,
     _language: string,
     db?: FirebaseFirestore.Firestore,
-): Promise<OutboundComplianceCheck> {
+    purpose?: CallPurpose,
+): Promise<OutboundComplianceCheck & { callPurpose?: CallPurpose; exemptionBasis?: string }> {
     const reasons: string[] = [];
+    const rules = classifyCallPurpose(purpose || 'custom');
 
     // 1. Calling hours check (uses existing calling-hours module)
     const hoursCheck = isCallingAllowed(phoneNumber);
@@ -40,9 +43,12 @@ export async function runOutboundComplianceCheck(
         reasons.push(hoursCheck.reason || 'callingHoursBlocked');
     }
 
-    // 2. Consent check (requires Firestore)
+    // 2. Consent check (skip if not required by call type rules)
     let consentValid = false;
-    if (db) {
+    if (!rules.consentRequired) {
+        // Transactional/service calls or B2B — consent not required
+        consentValid = true;
+    } else if (db) {
         const consent = await checkOutboundConsent(db, tenantId, phoneNumber);
         consentValid = isConsentValid(consent);
         if (!consentValid) {
@@ -53,10 +59,20 @@ export async function runOutboundComplianceCheck(
         reasons.push('consentRequired');
     }
 
-    // 3. IYS check for Turkey (+90 numbers)
+    // 3. Call frequency limit check (skip if not applicable for call type)
+    let callFrequencyValid = true;
+    if (rules.frequencyLimitApplies && db) {
+        const freqCheck = await checkCallFrequencyLimit(phoneNumber, tenantId, db);
+        callFrequencyValid = freqCheck.allowed;
+        if (!callFrequencyValid) {
+            reasons.push(`Monthly call limit reached (${freqCheck.callsMade}/${freqCheck.maxAllowed} calls this month)`);
+        }
+    }
+
+    // 4. IYS check for Turkey (+90 numbers) — skip if not required by call type
     let iysStatus: 'ONAY' | 'RET' | 'NOT_FOUND' | 'ERROR' | 'SKIPPED' = 'SKIPPED';
     const country = detectCountryFromPhone(phoneNumber);
-    if (country === 'TR') {
+    if (rules.iysRequired && country === 'TR') {
         try {
             const iysClient = getDefaultIYSClient();
             const iysResult = await iysClient.checkConsent(phoneNumber);
@@ -72,15 +88,18 @@ export async function runOutboundComplianceCheck(
     }
 
     const iysBlocked = (iysStatus as string) === 'RET';
-    const overallAllowed = consentValid && callingHoursValid && !iysBlocked;
+    const overallAllowed = consentValid && callingHoursValid && callFrequencyValid && !iysBlocked;
 
     return {
         phoneNumber,
         consentValid,
         callingHoursValid,
+        callFrequencyValid,
         dncChecked: false, // DNC registry integration not yet implemented
         iysStatus,
         overallAllowed,
         reasons,
+        callPurpose: purpose || 'custom',
+        exemptionBasis: rules.exemptionBasis,
     };
 }

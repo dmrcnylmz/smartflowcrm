@@ -84,7 +84,8 @@
         "openMenu": "Menüyü aç",
         "closeMenu": "Menüyü kapat",
         "mobileNav": "Mobil navigasyon menüsü",
-        "user": "Kullanıcı"
+        "user": "Kullanıcı",
+        "campaigns": "Kampanyalar"
     },
     "dashboard": {
         "title": "Genel Bakış",
@@ -911,7 +912,19 @@
         "callPurpose": "Arama Amacı",
         "callInitiated": "Arama başarıyla başlatıldı",
         "callQueued": "Arama sıraya alındı",
-        "selectAgent": "Ajan Seçin"
+        "selectAgent": "Ajan Seçin",
+        "newCall": "Yeni Arama",
+        "initiateCall": "Aramayı Başlat",
+        "callNotes": "Arama Notları",
+        "preflightCheck": "Uygunluk Kontrolü",
+        "checking": "Kontrol ediliyor...",
+        "callable": "Aranabilir",
+        "notCallable": "Aranamaz",
+        "scheduleAt": "Planlayın: {time}",
+        "localTime": "Yerel Saat",
+        "destinationCountry": "Hedef Ülke",
+        "callStarted": "Arama başlatıldı",
+        "callFailed": "Arama başlatılamadı"
     },
     "reports": {
         "title": "Performans Raporları",
@@ -1182,6 +1195,23 @@
         "country": "Ülke",
         "overallScore": "Genel Skor",
         "noCampaigns": "Henüz kampanya yok",
-        "createFirst": "İlk kampanyanızı oluşturun"
+        "createFirst": "İlk kampanyanızı oluşturun",
+        "callPurpose": "Arama Amacı",
+        "appointmentReminder": "Randevu Hatırlatma",
+        "paymentReminder": "Ödeme Hatırlatma",
+        "deliveryNotification": "Teslimat Bildirimi",
+        "serviceFollowup": "Servis Takibi",
+        "surveyFeedback": "Anket / Geri Bildirim",
+        "contractRenewal": "Sözleşme Yenileme",
+        "b2bOutreach": "B2B İletişim",
+        "marketingCall": "Pazarlama Araması",
+        "customCall": "Özel Arama",
+        "transactional": "İşlemsel",
+        "service": "Hizmet",
+        "marketing": "Pazarlama",
+        "noConsentNeeded": "Bu arama tipi rıza gerektirmez",
+        "consentNeeded": "Bu arama tipi önceden rıza gerektirir",
+        "exemptionBasis": "Muafiyet Dayanağı",
+        "serviceCallExemption": "Hizmet aramaları ticari ileti kapsamında değildir"
     }
 }

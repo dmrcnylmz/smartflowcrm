@@ -84,7 +84,8 @@
         "openMenu": "Ouvrir le menu",
         "closeMenu": "Fermer le menu",
         "mobileNav": "Menu de navigation mobile",
-        "user": "Utilisateur"
+        "user": "Utilisateur",
+        "campaigns": "Campagnes"
     },
     "dashboard": {
         "title": "Vue d'ensemble",
@@ -911,7 +912,19 @@
         "callPurpose": "Objet de l'appel",
         "callInitiated": "Appel lance avec succes",
         "callQueued": "Appel en file d'attente",
-        "selectAgent": "Selectionner un agent"
+        "selectAgent": "Selectionner un agent",
+        "newCall": "Nouvel appel",
+        "initiateCall": "Lancer l'appel",
+        "callNotes": "Notes d'appel",
+        "preflightCheck": "Verification de conformite",
+        "checking": "Verification en cours...",
+        "callable": "Joignable",
+        "notCallable": "Non joignable",
+        "scheduleAt": "Planifier a : {time}",
+        "localTime": "Heure locale",
+        "destinationCountry": "Pays de destination",
+        "callStarted": "Appel lance",
+        "callFailed": "Impossible de lancer l'appel"
     },
     "reports": {
         "title": "Rapports de performance",
@@ -1182,6 +1195,23 @@
         "country": "Pays",
         "overallScore": "Score global",
         "noCampaigns": "Pas encore de campagnes",
-        "createFirst": "Creez votre premiere campagne"
+        "createFirst": "Creez votre premiere campagne",
+        "callPurpose": "Objectif de l'appel",
+        "appointmentReminder": "Rappel de rendez-vous",
+        "paymentReminder": "Rappel de paiement",
+        "deliveryNotification": "Notification de livraison",
+        "serviceFollowup": "Suivi de service",
+        "surveyFeedback": "Enquete / Retour d'information",
+        "contractRenewal": "Renouvellement de contrat",
+        "b2bOutreach": "Prospection B2B",
+        "marketingCall": "Appel marketing",
+        "customCall": "Appel personnalise",
+        "transactional": "Transactionnel",
+        "service": "Service",
+        "marketing": "Marketing",
+        "noConsentNeeded": "Ce type d'appel ne necessite pas de consentement",
+        "consentNeeded": "Ce type d'appel necessite un consentement prealable",
+        "exemptionBasis": "Base d'exemption",
+        "serviceCallExemption": "Les appels de service sont exemptes de la reglementation marketing"
     }
 }

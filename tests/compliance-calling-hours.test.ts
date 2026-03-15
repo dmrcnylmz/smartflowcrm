@@ -246,28 +246,29 @@ describe('isCallingAllowed', () => {
     });
 
     describe('US (+1)', () => {
+        // Use a New York area code (212) so timezone matches test expectations
         it('allows calls during business hours (14:00 any day)', () => {
             const time = createDateInTimezone('America/New_York', 14, 0, 3);
-            const result = isCallingAllowed('+14155551234', time);
+            const result = isCallingAllowed('+12125551234', time);
             expect(result.allowed).toBe(true);
             expect(result.country).toBe('US');
         });
 
         it('allows calls on weekends', () => {
             const time = createDateInTimezone('America/New_York', 12, 0, 0); // Sunday
-            const result = isCallingAllowed('+14155551234', time);
+            const result = isCallingAllowed('+12125551234', time);
             expect(result.allowed).toBe(true);
         });
 
         it('blocks calls before 08:00', () => {
             const time = createDateInTimezone('America/New_York', 6, 0, 1);
-            const result = isCallingAllowed('+14155551234', time);
+            const result = isCallingAllowed('+12125551234', time);
             expect(result.allowed).toBe(false);
         });
 
         it('blocks calls at/after 21:00', () => {
             const time = createDateInTimezone('America/New_York', 22, 0, 1);
-            const result = isCallingAllowed('+14155551234', time);
+            const result = isCallingAllowed('+12125551234', time);
             expect(result.allowed).toBe(false);
         });
     });
