@@ -123,6 +123,7 @@ export async function meterCallEnd(
     durationSeconds: number,
     ttsChars: number = 0,
     providerType?: string,
+    direction?: 'inbound' | 'outbound',
 ): Promise<void> {
     const minutes = Math.ceil(durationSeconds / 60);
     const currentPeriod = getCurrentPeriod();
@@ -133,10 +134,14 @@ export async function meterCallEnd(
     // Provider-specific minute tracking for accurate cost calculation
     const providerMinuteField = isSipTrunk ? 'sipTrunkMinutes' : 'twilioMinutes';
 
+    // Direction-specific counter (outboundCalls or inboundCalls)
+    const directionField = direction === 'outbound' ? 'outboundCalls' : 'inboundCalls';
+
     const baseUpdate = {
         totalMinutes: FieldValue.increment(minutes),
         [providerMinuteField]: FieldValue.increment(minutes),
         totalCalls: FieldValue.increment(1),
+        [directionField]: FieldValue.increment(1),
         lastCallEndAt: FieldValue.serverTimestamp(),
         ...(ttsChars > 0 ? { ttsChars: FieldValue.increment(ttsChars) } : {}),
     };

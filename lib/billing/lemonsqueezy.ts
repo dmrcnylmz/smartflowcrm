@@ -20,6 +20,7 @@
  */
 
 import crypto from 'crypto';
+import type { SupportedCurrency } from './currency';
 
 // =============================================
 // Types
@@ -57,6 +58,7 @@ export interface SubscriptionRecord {
     cardLastFour?: string;
     trialEndsAt?: number;
     cancelledAt?: number;
+    currency?: SupportedCurrency;            // Currency used for this subscription
     billingInterval: BillingInterval;        // 'monthly' or 'yearly'
     endsAt?: number;                        // When subscription fully expires
     limits: {
@@ -75,8 +77,12 @@ export interface PlanConfig {
     name: string;
     nameTr: string;
     description: string;
+    /** @deprecated Use prices[currency].monthly instead */
     priceTry: number;                       // Monthly price in TRY
+    /** @deprecated Use prices[currency].yearly instead */
     priceYearlyTry: number;                 // Yearly price in TRY
+    /** Multi-currency prices (monthly & yearly per currency) */
+    prices: Record<SupportedCurrency, { monthly: number; yearly: number }>;
     variantIdEnvKey: string;                // Key in process.env for monthly variant ID
     variantIdYearlyEnvKey: string;          // Key in process.env for yearly variant ID
     includedMinutes: number;
@@ -135,6 +141,7 @@ export interface LsWebhookPayload {
             plan_id?: string;
             user_id?: string;
             company_name?: string;
+            currency?: string;
         };
     };
     data: {
@@ -170,6 +177,12 @@ export const PLANS: Record<string, PlanConfig> = {
         description: 'Girişimler ve küçük işletmeler için ideal AI paket.',
         priceTry: 990,
         priceYearlyTry: 9490,
+        prices: {
+            TRY: { monthly: 990, yearly: 9490 },
+            EUR: { monthly: 24, yearly: 230 },
+            USD: { monthly: 26, yearly: 250 },
+            GBP: { monthly: 21, yearly: 202 },
+        },
         variantIdEnvKey: 'LEMONSQUEEZY_VARIANT_STARTER',
         variantIdYearlyEnvKey: 'LEMONSQUEEZY_VARIANT_STARTER_YEARLY',
         includedMinutes: 100,
@@ -190,6 +203,12 @@ export const PLANS: Record<string, PlanConfig> = {
         description: 'Büyüyen işletmeler için gelişmiş özellikler.',
         priceTry: 2990,
         priceYearlyTry: 28690,
+        prices: {
+            TRY: { monthly: 2990, yearly: 28690 },
+            EUR: { monthly: 69, yearly: 662 },
+            USD: { monthly: 75, yearly: 720 },
+            GBP: { monthly: 59, yearly: 566 },
+        },
         variantIdEnvKey: 'LEMONSQUEEZY_VARIANT_PROFESSIONAL',
         variantIdYearlyEnvKey: 'LEMONSQUEEZY_VARIANT_PROFESSIONAL_YEARLY',
         includedMinutes: 500,
@@ -212,6 +231,12 @@ export const PLANS: Record<string, PlanConfig> = {
         description: 'Kurumsal düzeyde tam çözüm, özel destek.',
         priceTry: 7990,
         priceYearlyTry: 76590,
+        prices: {
+            TRY: { monthly: 7990, yearly: 76590 },
+            EUR: { monthly: 179, yearly: 1718 },
+            USD: { monthly: 195, yearly: 1872 },
+            GBP: { monthly: 155, yearly: 1488 },
+        },
         variantIdEnvKey: 'LEMONSQUEEZY_VARIANT_ENTERPRISE',
         variantIdYearlyEnvKey: 'LEMONSQUEEZY_VARIANT_ENTERPRISE_YEARLY',
         includedMinutes: 2000,
@@ -293,6 +318,37 @@ export function getBillingIntervalFromVariantId(variantId: string | number): Bil
     return 'monthly';
 }
 
+/**
+ * Get the price for a plan in a specific currency and billing interval.
+ * Falls back to TRY if currency is not found.
+ */
+export function getPriceForCurrency(
+    planId: string,
+    currency: SupportedCurrency,
+    interval: BillingInterval = 'monthly',
+): number | null {
+    const plan = PLANS[planId];
+    if (!plan) return null;
+    const currencyPrices = plan.prices[currency];
+    if (!currencyPrices) return null;
+    return interval === 'yearly' ? currencyPrices.yearly : currencyPrices.monthly;
+}
+
+/**
+ * Get the variant ID for a plan/currency/interval combination.
+ * Currently all currencies share the same LS variant (pricing handled at display level).
+ * In the future, separate variants per currency can be added.
+ */
+export function getVariantForCurrency(
+    planId: string,
+    currency: SupportedCurrency,
+    interval: BillingInterval = 'monthly',
+): string | null {
+    // For now, all currencies use the same variant — LS handles currency at checkout
+    void currency; // reserved for future per-currency variant mapping
+    return getVariantId(planId, interval);
+}
+
 /** Get plan limits by plan ID */
 export function getPlanLimits(planId: string): SubscriptionRecord['limits'] | null {
     const plan = PLANS[planId];
@@ -319,11 +375,12 @@ export async function createCheckout(options: {
     tenantId: string;
     planId: string;
     billingInterval?: BillingInterval;
+    currency?: SupportedCurrency;
     userEmail: string;
     userId: string;
     redirectUrl: string;
 }): Promise<CheckoutResult> {
-    const { tenantId, planId, billingInterval = 'monthly', userEmail, userId, redirectUrl } = options;
+    const { tenantId, planId, billingInterval = 'monthly', currency, userEmail, userId, redirectUrl } = options;
 
     // Validate plan exists
     const plan = PLANS[planId];
@@ -364,6 +421,7 @@ export async function createCheckout(options: {
                                 tenant_id: tenantId,
                                 plan_id: planId,
                                 user_id: userId,
+                                ...(currency ? { currency } : {}),
                             },
                         },
                         product_options: {
@@ -521,9 +579,13 @@ export function buildSubscriptionRecord(
     payload: LsWebhookPayload,
 ): SubscriptionRecord {
     const attrs = payload.data.attributes;
+    const customData = payload.meta?.custom_data;
     const now = Date.now();
     const limits = getPlanLimits(planId);
     const billingInterval = getBillingIntervalFromVariantId(attrs.variant_id);
+
+    // Extract currency from custom_data if provided
+    const currency = customData?.currency as SupportedCurrency | undefined;
 
     return {
         tenantId,
@@ -544,6 +606,7 @@ export function buildSubscriptionRecord(
         updatePaymentMethodUrl: attrs.urls?.update_payment_method,
         cardBrand: attrs.card_brand || undefined,
         cardLastFour: attrs.card_last_four || undefined,
+        currency,
         billingInterval,
         trialEndsAt: attrs.trial_ends_at ? new Date(attrs.trial_ends_at).getTime() : undefined,
         cancelledAt: attrs.cancelled ? now : undefined,

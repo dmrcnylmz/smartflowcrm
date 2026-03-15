@@ -193,7 +193,7 @@ async function handleSubscriptionCreated(
         email: attrs.user_email,
     });
 
-    // Build and save subscription record
+    // Build and save subscription record (currency extracted inside buildSubscriptionRecord from custom_data)
     const record = buildSubscriptionRecord(tenantId, planId, payload);
     await upsertSubscription(getDb(), tenantId, record);
 

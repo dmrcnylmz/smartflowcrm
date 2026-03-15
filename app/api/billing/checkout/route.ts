@@ -24,6 +24,7 @@ import { createCheckout, PLANS, type BillingInterval } from '@/lib/billing/lemon
 import { handleApiError } from '@/lib/utils/error-handler';
 import { getAppUrl } from '@/lib/utils/get-app-url';
 import { z } from 'zod';
+import type { SupportedCurrency } from '@/lib/billing/currency';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ function checkCheckoutRateLimit(key: string): boolean {
 const checkoutSchema = z.object({
     planId: z.enum(['starter', 'professional', 'enterprise']),
     billingInterval: z.enum(['monthly', 'yearly']).default('monthly'),
+    currency: z.enum(['TRY', 'EUR', 'USD', 'GBP']).optional(),
 });
 
 /**
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const { planId, billingInterval } = parsed.data;
+        const { planId, billingInterval, currency } = parsed.data;
 
         // Build redirect URL (runtime read — avoids Next.js build-time inlining)
         const appUrl = getAppUrl();
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
             tenantId,
             planId,
             billingInterval,
+            currency: currency as SupportedCurrency | undefined,
             userEmail: userEmail || '',
             userId,
             redirectUrl,
@@ -127,24 +130,37 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET: Return available plans for pricing display
+ * GET: Return available plans for pricing display.
+ * Accepts optional ?currency=EUR query param to return prices in that currency.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const plans = Object.values(PLANS).map(plan => ({
-            id: plan.id,
-            name: plan.name,
-            nameTr: plan.nameTr,
-            description: plan.description,
-            priceTry: plan.priceTry,
-            priceYearlyTry: plan.priceYearlyTry,
-            includedMinutes: plan.includedMinutes,
-            includedCalls: plan.includedCalls,
-            maxConcurrentSessions: plan.maxConcurrentSessions,
-            features: plan.features,
-        }));
+        const currencyParam = request.nextUrl.searchParams.get('currency') as SupportedCurrency | null;
+        const currency: SupportedCurrency = currencyParam && ['TRY', 'EUR', 'USD', 'GBP'].includes(currencyParam)
+            ? currencyParam
+            : 'TRY';
 
-        return NextResponse.json({ plans });
+        const plans = Object.values(PLANS).map(plan => {
+            const currencyPrices = plan.prices[currency] || plan.prices.TRY;
+            return {
+                id: plan.id,
+                name: plan.name,
+                nameTr: plan.nameTr,
+                description: plan.description,
+                priceTry: plan.priceTry,
+                priceYearlyTry: plan.priceYearlyTry,
+                priceMonthly: currencyPrices.monthly,
+                priceYearly: currencyPrices.yearly,
+                prices: plan.prices,
+                currency,
+                includedMinutes: plan.includedMinutes,
+                includedCalls: plan.includedCalls,
+                maxConcurrentSessions: plan.maxConcurrentSessions,
+                features: plan.features,
+            };
+        });
+
+        return NextResponse.json({ plans, currency });
     } catch {
         return NextResponse.json(
             { error: 'Plan listesi yüklenemedi.' },

@@ -401,7 +401,8 @@ export async function POST(request: NextRequest) {
                 // İlk cümle hazır olur olmaz Cartesia başlar → kullanıcı ~700ms'de sesi duyar
                 // (önceki mimari: LLM tamamlandıktan sonra TTS → ~1400ms)
                 const llmStart = Date.now();
-                const phoneMessages = buildPhoneMessages(speechResult, tenantData, language, activeAgent, history);
+                const callDirection = callData?.direction || 'inbound';
+                const phoneMessages = buildPhoneMessages(speechResult, tenantData, language, activeAgent, history, callDirection);
 
                 const pipelineResult = await streamLLMWithChunkedTTS(phoneMessages, {
                     lang: cartesiaLang,
@@ -535,8 +536,17 @@ function buildPhoneMessages(
     language: string,
     activeAgent?: FirebaseFirestore.DocumentData | null,
     existingHistory?: Array<{ role: string; content: string }>,
+    callDirection?: string,
 ): Array<{ role: 'system' | 'user' | 'assistant'; content: string }> {
     let systemPrompt: string;
+
+    // Outbound call context — added to system prompt when direction is outbound
+    const outboundContext: Record<string, string> = {
+        tr: '\n\nBu aramayı sen başlattın. Müşteriye ulaşmak için aradın. Profesyonel ve nazik ol.',
+        en: '\n\nYou initiated this call to the customer. Be professional and courteous.',
+        de: '\n\nSie haben diesen Anruf an den Kunden initiiert. Seien Sie professionell und höflich.',
+        fr: '\n\nVous avez initié cet appel au client. Soyez professionnel et courtois.',
+    };
 
     // Language-specific phone call rules
     const phoneRules: Record<string, string> = {
@@ -639,6 +649,11 @@ Règles :
         systemPrompt = systemTemplates[language] || systemTemplates.en;
     }
 
+    // Add outbound call context to system prompt
+    if (callDirection === 'outbound') {
+        systemPrompt += outboundContext[language] || outboundContext.en;
+    }
+
     const chatHistory = (existingHistory || [])
         .slice(-6) // Son 3 tur
         .map((turn: { role: string; content: string }) => ({
@@ -672,7 +687,7 @@ async function generateLLMResponse(
     void tenantId; void callSid; // Gelecekte kullanılabilir (linting)
     try {
         // buildPhoneMessages ile mesaj dizisini oluştur (streaming pipeline ile aynı prompt)
-        const messages = buildPhoneMessages(userMessage, tenantData, language, activeAgent, existingHistory);
+        const messages = buildPhoneMessages(userMessage, tenantData, language, activeAgent, existingHistory, 'inbound');
 
         // Fallback zinciri: Groq → Gemini → OpenAI → graceful
         // maxTokens: 150 — kısa yanıta ZORLAMIYORUZ, LLM doğal uzunluğu seçer

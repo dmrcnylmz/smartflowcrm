@@ -27,6 +27,8 @@ const LatencyBreakdownChart = nextDynamic(() => import('@/components/dashboard/L
 });
 import EmergencyModeCard from '@/components/billing/EmergencyModeCard';
 import VoicePipelineStats from '@/components/billing/VoicePipelineStats';
+import { formatPrice, getDefaultCurrency, SUPPORTED_CURRENCIES, type SupportedCurrency } from '@/lib/billing/currency';
+import { PLANS } from '@/lib/billing/lemonsqueezy';
 
 // =============================================
 // Types
@@ -87,6 +89,7 @@ interface SubscriptionPlan {
     description: string;
     priceTry: number;
     priceYearlyTry: number;
+    prices: Record<SupportedCurrency, { monthly: number; yearly: number }>;
     includedMinutes: number;
     includedCalls: number;
     maxConcurrentSessions: number;
@@ -152,7 +155,22 @@ function BillingPageContent() {
     const [perCallCost, setPerCallCost] = useState<PerCallCost | null>(null);
     const [limits, setLimits] = useState<UsageLimits | null>(null);
     const [tierInfo, setTierInfo] = useState<TierInfo | null>(null);
-    const [plans] = useState<SubscriptionPlan[]>(defaultPlans);
+    const [plans] = useState<SubscriptionPlan[]>(() =>
+        Object.values(PLANS).map(p => ({
+            id: p.id,
+            name: p.name,
+            nameTr: p.nameTr,
+            description: p.description,
+            priceTry: p.priceTry,
+            priceYearlyTry: p.priceYearlyTry,
+            prices: p.prices,
+            includedMinutes: p.includedMinutes,
+            includedCalls: p.includedCalls,
+            maxConcurrentSessions: p.maxConcurrentSessions,
+            features: p.features,
+        }))
+    );
+    const [currency, setCurrency] = useState<SupportedCurrency>(() => getDefaultCurrency(locale));
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
     const [swapLoading, setSwapLoading] = useState<string | null>(null);
@@ -302,7 +320,7 @@ function BillingPageContent() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ planId, billingInterval }),
+                body: JSON.stringify({ planId, billingInterval, currency }),
             });
             const data = await res.json();
             if (data.success && data.checkoutUrl) {
@@ -420,21 +438,32 @@ function BillingPageContent() {
     function getDisplayPrice(plan: SubscriptionPlan): {
         price: number; period: string; note?: string;
         yearlyTotal?: number; monthlySaving?: number; savingPercent?: number;
+        formattedPrice: string; formattedYearlyTotal?: string; formattedOldPrice?: string;
+        formattedSaving?: string;
     } {
+        const currencyPrices = plan.prices[currency] || plan.prices.TRY;
         if (billingInterval === 'yearly') {
-            const monthlyEquivalent = Math.round(plan.priceYearlyTry / 12);
-            const monthlySaving = plan.priceTry - monthlyEquivalent;
-            const savingPercent = Math.round((monthlySaving / plan.priceTry) * 100);
+            const monthlyEquivalent = Math.round(currencyPrices.yearly / 12);
+            const monthlySaving = currencyPrices.monthly - monthlyEquivalent;
+            const savingPercent = Math.round((monthlySaving / currencyPrices.monthly) * 100);
             return {
                 price: monthlyEquivalent,
                 period: t('perMonth'),
                 note: t('billedYearly'),
-                yearlyTotal: plan.priceYearlyTry,
+                yearlyTotal: currencyPrices.yearly,
                 monthlySaving,
                 savingPercent,
+                formattedPrice: formatPrice(monthlyEquivalent, currency, locale),
+                formattedYearlyTotal: formatPrice(currencyPrices.yearly, currency, locale),
+                formattedOldPrice: formatPrice(currencyPrices.monthly, currency, locale),
+                formattedSaving: formatPrice(monthlySaving, currency, locale),
             };
         }
-        return { price: plan.priceTry, period: t('perMonth') };
+        return {
+            price: currencyPrices.monthly,
+            period: t('perMonth'),
+            formattedPrice: formatPrice(currencyPrices.monthly, currency, locale),
+        };
     }
 
     // Feature translation keys per plan
@@ -674,8 +703,8 @@ function BillingPageContent() {
                         </div>
                     )}
 
-                    {/* ── Billing Interval Toggle ── */}
-                    <div className="flex items-center justify-center gap-3">
+                    {/* ── Billing Interval Toggle + Currency Selector ── */}
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                         <div className="bg-foreground/[0.03] border border-border/60 rounded-xl p-1 flex items-center">
                             <button
                                 onClick={() => setBillingInterval('monthly')}
@@ -700,6 +729,23 @@ function BillingPageContent() {
                                     {t('twoMonthsFree')}
                                 </span>
                             </button>
+                        </div>
+
+                        {/* Currency selector */}
+                        <div className="bg-foreground/[0.03] border border-border/60 rounded-xl p-1 flex items-center">
+                            {SUPPORTED_CURRENCIES.map(cur => (
+                                <button
+                                    key={cur}
+                                    onClick={() => setCurrency(cur)}
+                                    className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                        currency === cur
+                                            ? 'bg-foreground/10 text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground/70'
+                                    }`}
+                                >
+                                    {cur}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -773,29 +819,29 @@ function BillingPageContent() {
                                             {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
                                                 <>
                                                     <span className="text-3xl font-bold text-foreground">
-                                                        {displayPrice.yearlyTotal.toLocaleString(dateLocaleStr)}
+                                                        {displayPrice.formattedYearlyTotal}
                                                     </span>
-                                                    <span className="text-muted-foreground ml-1">₺{t('perYear')}</span>
+                                                    <span className="text-muted-foreground ml-1">{t('perYear')}</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <span className="text-3xl font-bold text-foreground">
-                                                        {displayPrice.price.toLocaleString(dateLocaleStr)}
+                                                        {displayPrice.formattedPrice}
                                                     </span>
-                                                    <span className="text-muted-foreground ml-1">₺{displayPrice.period}</span>
+                                                    <span className="text-muted-foreground ml-1">{displayPrice.period}</span>
                                                 </>
                                             )}
                                         </div>
                                         {billingInterval === 'yearly' && displayPrice.yearlyTotal ? (
                                             <div className="mb-4 space-y-1">
                                                 <p className="text-xs text-muted-foreground">
-                                                    {t('monthlyPrice', { price: displayPrice.price.toLocaleString(dateLocaleStr) })}
+                                                    {t('monthlyPrice', { price: displayPrice.formattedPrice })}
                                                     <span className="text-muted-foreground/70 mx-1">·</span>
-                                                    <span className="line-through text-muted-foreground/70">{plan.priceTry.toLocaleString(dateLocaleStr)} ₺</span>
+                                                    <span className="line-through text-muted-foreground/70">{displayPrice.formattedOldPrice}</span>
                                                 </p>
                                                 {displayPrice.savingPercent && displayPrice.savingPercent > 0 && (
                                                     <p className="text-[11px] text-emerald-400 font-semibold">
-                                                        {t('savingPercent', { percent: displayPrice.savingPercent, saving: (displayPrice.monthlySaving ?? 0).toLocaleString(dateLocaleStr) })}
+                                                        {t('savingPercent', { percent: displayPrice.savingPercent, saving: displayPrice.formattedSaving || '' })}
                                                     </p>
                                                 )}
                                             </div>

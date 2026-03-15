@@ -53,9 +53,9 @@ vi.mock('@/lib/utils/require-strict-auth', () => ({
 vi.mock('@/lib/billing/lemonsqueezy', () => ({
     createCheckout: vi.fn().mockResolvedValue({ success: true, checkoutUrl: 'https://checkout.example.com' }),
     PLANS: {
-        starter: { id: 'starter', name: 'Starter', nameTr: 'Başlangıç', description: 'Basic', priceTry: 299, priceYearlyTry: 2990, includedMinutes: 60, includedCalls: 100, maxConcurrentSessions: 1, features: [] },
-        professional: { id: 'professional', name: 'Professional', nameTr: 'Profesyonel', description: 'Pro', priceTry: 799, priceYearlyTry: 7990, includedMinutes: 300, includedCalls: 500, maxConcurrentSessions: 3, features: [] },
-        enterprise: { id: 'enterprise', name: 'Enterprise', nameTr: 'Kurumsal', description: 'Ent', priceTry: 1999, priceYearlyTry: 19990, includedMinutes: 1000, includedCalls: 2000, maxConcurrentSessions: 10, features: [] },
+        starter: { id: 'starter', name: 'Starter', nameTr: 'Başlangıç', description: 'Basic', priceTry: 299, priceYearlyTry: 2990, prices: { TRY: { monthly: 299, yearly: 2990 }, EUR: { monthly: 24, yearly: 230 }, USD: { monthly: 26, yearly: 250 }, GBP: { monthly: 21, yearly: 202 } }, includedMinutes: 60, includedCalls: 100, maxConcurrentSessions: 1, features: [] },
+        professional: { id: 'professional', name: 'Professional', nameTr: 'Profesyonel', description: 'Pro', priceTry: 799, priceYearlyTry: 7990, prices: { TRY: { monthly: 799, yearly: 7990 }, EUR: { monthly: 69, yearly: 662 }, USD: { monthly: 75, yearly: 720 }, GBP: { monthly: 59, yearly: 566 } }, includedMinutes: 300, includedCalls: 500, maxConcurrentSessions: 3, features: [] },
+        enterprise: { id: 'enterprise', name: 'Enterprise', nameTr: 'Kurumsal', description: 'Ent', priceTry: 1999, priceYearlyTry: 19990, prices: { TRY: { monthly: 1999, yearly: 19990 }, EUR: { monthly: 179, yearly: 1718 }, USD: { monthly: 195, yearly: 1872 }, GBP: { monthly: 155, yearly: 1488 } }, includedMinutes: 1000, includedCalls: 2000, maxConcurrentSessions: 10, features: [] },
     },
     getSubscription: vi.fn().mockResolvedValue(null),
     isSubscriptionActive: vi.fn().mockReturnValue(true),
@@ -176,7 +176,8 @@ describe('API Billing Tests', () => {
     describe('/api/billing/checkout GET', () => {
         it('should return available plans', async () => {
             const { GET } = await import('@/app/api/billing/checkout/route');
-            const response = await GET();
+            const request = createMockRequest('/api/billing/checkout', { method: 'GET' });
+            const response = await GET(request);
             const data = await response.json();
             expect(response.status).toBe(200);
             expect(data.plans).toBeDefined();
