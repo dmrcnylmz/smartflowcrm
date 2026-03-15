@@ -466,7 +466,7 @@ function CampaignsPageContent() {
                 </div>
 
                 {/* Compliance Score Dashboard */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in-up">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
                     {/* Overall Score */}
                     <Card className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-6">
                         <p className="text-sm text-muted-foreground text-center mb-3 font-medium">{t('overallScore')}</p>

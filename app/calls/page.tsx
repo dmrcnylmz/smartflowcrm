@@ -371,7 +371,7 @@ function CallsPageContent() {
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           {filteredCalls.length > 0 && (
             <Select onValueChange={(v: 'csv' | 'excel' | 'pdf') => handleExport(v)}>
               <SelectTrigger className="w-[140px] bg-white/[0.04] border-white/[0.08] rounded-xl">
@@ -404,7 +404,7 @@ function CallsPageContent() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         <div className="rounded-2xl border border-slate-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-white/40 font-medium">{t('totalInOut')}</span>
@@ -613,7 +613,7 @@ function CallsPageContent() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="p-4 border-t bg-muted/10 flex items-center justify-between">
+              <div className="p-4 border-t bg-muted/10 flex flex-wrap items-center justify-between gap-2">
                 {!loading && filteredCalls.length > 0 && (
                   <>
                     <p className="text-sm text-muted-foreground">

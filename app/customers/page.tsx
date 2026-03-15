@@ -403,7 +403,7 @@ function CustomersPageContent() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         <div className="rounded-2xl border border-blue-500/15 bg-white/[0.02] p-4 backdrop-blur-sm animate-fade-in-up" style={{ animationDelay: '100ms' }}>
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-white/40 font-medium">{t('totalCustomers')}</span>
@@ -576,9 +576,9 @@ function CustomersPageContent() {
 
       {/* Modern Customer Detail Drawer-like Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-4xl p-0 gap-0 overflow-hidden bg-background rounded-2xl shadow-2xl">
-          <DialogHeader className="p-6 pb-0">
-            <div className="flex items-center justify-between pb-4 border-b border-border/40">
+        <DialogContent className="w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-4xl p-0 gap-0 overflow-hidden bg-background rounded-2xl shadow-2xl max-h-[90vh]">
+          <DialogHeader className="p-4 sm:p-6 pb-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/40">
               <div className="flex items-center gap-4">
                 <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xl font-bold">
                   {selectedCustomer?.name.charAt(0).toUpperCase()}
@@ -878,7 +878,7 @@ function CustomersPageSkeleton() {
       </div>
 
       {/* Stat cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}

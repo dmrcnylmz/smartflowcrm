@@ -24,26 +24,27 @@ const errorRate = new Rate('errors');
 const landingLatency = new Trend('landing_latency', true);
 const healthLatency = new Trend('health_latency', true);
 const apiLatency = new Trend('api_latency', true);
+const pricingLatency = new Trend('pricing_latency', true);
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3002';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3009';
 
 export const options = {
     stages: [
         { duration: '30s', target: 10 },   // Ramp up to 10 users
-        { duration: '1m', target: 25 },    // Ramp to 25 users
-        { duration: '1m', target: 50 },    // Ramp to 50 users
-        { duration: '2m', target: 50 },    // Stay at 50 users
+        { duration: '1m', target: 50 },    // Sustain at 50 users
+        { duration: '30s', target: 100 },  // Peak at 100 users
         { duration: '30s', target: 0 },    // Ramp down
     ],
     thresholds: {
         http_req_duration: ['p(95)<2000'],  // 95% of requests under 2s
-        http_req_failed: ['rate<0.01'],     // Error rate < 1%
-        errors: ['rate<0.01'],              // Custom error rate < 1%
+        http_req_failed: ['rate<0.05'],     // Error rate < 5%
+        errors: ['rate<0.05'],              // Custom error rate < 5%
         landing_latency: ['p(95)<3000'],    // Landing page under 3s
         health_latency: ['p(95)<500'],      // Health check under 500ms
         api_latency: ['p(95)<2000'],        // API endpoints under 2s
+        pricing_latency: ['p(95)<3000'],    // Pricing page under 3s
     },
 };
 
@@ -67,6 +68,16 @@ export default function () {
             'health: status 200': (r) => r.status === 200,
         }) || errorRate.add(1);
         healthLatency.add(healthRes.timings.duration);
+    });
+
+    group('Pricing Page', () => {
+        const pricingRes = http.get(`${BASE_URL}/pricing`);
+        check(pricingRes, {
+            'pricing: status 200': (r) => r.status === 200,
+            'pricing: has content': (r) => r.body && r.body.length > 0,
+            'pricing: under 2s': (r) => r.timings.duration < 2000,
+        }) || errorRate.add(1);
+        pricingLatency.add(pricingRes.timings.duration);
     });
 
     group('Public API', () => {

@@ -732,7 +732,7 @@ function BillingPageContent() {
                         </div>
 
                         {/* Currency selector */}
-                        <div className="bg-foreground/[0.03] border border-border/60 rounded-xl p-1 flex items-center">
+                        <div className="bg-foreground/[0.03] border border-border/60 rounded-xl p-1 flex flex-wrap items-center">
                             {SUPPORTED_CURRENCIES.map(cur => (
                                 <button
                                     key={cur}

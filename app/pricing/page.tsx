@@ -116,7 +116,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Currency Selector */}
-                <div className="flex items-center justify-center gap-2 mb-12">
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-12">
                     {SUPPORTED_CURRENCIES.map((cur) => (
                         <button
                             key={cur}
