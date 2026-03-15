@@ -13,7 +13,10 @@ import {
   updateDoc,
   QueryConstraint,
   DocumentReference,
-  Query
+  Query,
+  startAfter,
+  DocumentSnapshot,
+  writeBatch
 } from 'firebase/firestore';
 import { db, auth } from './config';
 import type {
@@ -24,6 +27,13 @@ import type {
   ActivityLog,
   Customer
 } from './types';
+
+// ─── Paginated result type ────────────────────────────────────────────────
+export interface PaginatedResult<T> {
+    data: T[];
+    lastDoc: DocumentSnapshot | null;
+    hasMore: boolean;
+}
 
 // ─── Tenant-aware collection helpers ───────────────────────────────────────
 // Firestore rules require data under /tenants/{tenantId}/collection.
@@ -109,6 +119,40 @@ export async function updateCallLog(id: string, data: Partial<CallLog>): Promise
   await updateDoc(docRef, updateData);
 }
 
+export async function getCallLogsPaginated(options?: {
+    customerId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    status?: string;
+    pageSize?: number;
+    cursor?: DocumentSnapshot;
+}): Promise<PaginatedResult<CallLog>> {
+    const tid = await getTenantId();
+    const pageSize = options?.pageSize || 25;
+    const constraints: QueryConstraint[] = [];
+
+    if (options?.customerId) constraints.push(where('customerId', '==', options.customerId));
+    if (options?.dateFrom) constraints.push(where('createdAt', '>=', Timestamp.fromDate(options.dateFrom)));
+    if (options?.dateTo) constraints.push(where('createdAt', '<=', Timestamp.fromDate(options.dateTo)));
+    if (options?.status) constraints.push(where('status', '==', options.status));
+
+    constraints.push(orderBy('createdAt', 'desc'));
+    if (options?.cursor) constraints.push(startAfter(options.cursor));
+    constraints.push(firestoreLimit(pageSize + 1)); // Fetch one extra to check hasMore
+
+    const q = buildQuery(tid, 'calls', constraints);
+    const snapshot = await getDocs(q);
+    const docs = snapshot.docs;
+    const hasMore = docs.length > pageSize;
+    const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+
+    return {
+        data: resultDocs.map(d => ({ id: d.id, ...d.data() } as CallLog)),
+        lastDoc: resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null,
+        hasMore,
+    };
+}
+
 // ─── Appointments ───────────────────────────────────────────────────────────
 
 export async function getAppointments(options?: {
@@ -163,6 +207,40 @@ export async function deleteAppointment(id: string): Promise<void> {
   const tid = await getTenantId();
   const docRef = tenantDoc(tid, 'appointments', id);
   await deleteDoc(docRef);
+}
+
+export async function getAppointmentsPaginated(options?: {
+    customerId?: string;
+    status?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    pageSize?: number;
+    cursor?: DocumentSnapshot;
+}): Promise<PaginatedResult<Appointment>> {
+    const tid = await getTenantId();
+    const pageSize = options?.pageSize || 25;
+    const constraints: QueryConstraint[] = [];
+
+    if (options?.customerId) constraints.push(where('customerId', '==', options.customerId));
+    if (options?.status) constraints.push(where('status', '==', options.status));
+    if (options?.dateFrom) constraints.push(where('dateTime', '>=', Timestamp.fromDate(options.dateFrom)));
+    if (options?.dateTo) constraints.push(where('dateTime', '<=', Timestamp.fromDate(options.dateTo)));
+
+    constraints.push(orderBy('dateTime', 'desc'));
+    if (options?.cursor) constraints.push(startAfter(options.cursor));
+    constraints.push(firestoreLimit(pageSize + 1));
+
+    const q = buildQuery(tid, 'appointments', constraints);
+    const snapshot = await getDocs(q);
+    const docs = snapshot.docs;
+    const hasMore = docs.length > pageSize;
+    const resultDocs = hasMore ? docs.slice(0, pageSize) : docs;
+
+    return {
+        data: resultDocs.map(d => ({ id: d.id, ...d.data() } as Appointment)),
+        lastDoc: resultDocs.length > 0 ? resultDocs[resultDocs.length - 1] : null,
+        hasMore,
+    };
 }
 
 // ─── Complaints ─────────────────────────────────────────────────────────────
@@ -262,6 +340,25 @@ export async function addActivityLog(data: Omit<ActivityLog, 'id' | 'createdAt'>
     ...data,
     createdAt: Timestamp.now(),
   });
+}
+
+export async function batchWriteActivityLogs(
+    logs: Array<Omit<ActivityLog, 'id' | 'createdAt'>>
+): Promise<void> {
+    if (logs.length === 0) return;
+    const tid = await getTenantId();
+    const batch = writeBatch(db);
+    const col = tenantCollection(tid, 'activity_logs');
+
+    for (const logData of logs) {
+        const docRef = doc(col);
+        batch.set(docRef, {
+            ...logData,
+            createdAt: Timestamp.now(),
+        });
+    }
+
+    await batch.commit();
 }
 
 // ─── Customers ──────────────────────────────────────────────────────────────

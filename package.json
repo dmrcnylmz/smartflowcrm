@@ -23,6 +23,7 @@
     "dev:3002": "rm -f .next/dev/lock 2>/dev/null; PORT=3002 next dev",
     "dev:clean": "rm -rf .next && PORT=3002 next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
@@ -96,6 +97,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.1.6",
     "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -114,5 +116,8 @@
     "typescript": "5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
+  },
+  "optionalDependencies": {
+    "@swc/helpers": "^0.5.19"
   }
 }

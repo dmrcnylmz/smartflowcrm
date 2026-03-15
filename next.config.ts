@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from 'next-intl/plugin';
 import { withSentryConfig } from '@sentry/nextjs';
+import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const withNextIntl = createNextIntlPlugin('./lib/i18n/request.ts');
+const analyzeBundles = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -36,7 +40,7 @@ const nextConfig: NextConfig = {
   typedRoutes: false,
 };
 
-export default withSentryConfig(withNextIntl(nextConfig), {
+export default withSentryConfig(analyzeBundles(withNextIntl(nextConfig)), {
   // Sentry build options
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
