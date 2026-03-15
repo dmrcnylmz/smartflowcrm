@@ -81,3 +81,4 @@ card_backup.txt
 
 # Firestore backups
 /backups/
+.metadata_never_index
