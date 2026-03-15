@@ -676,7 +676,7 @@ async function generateLLMResponse(
 
         // Fallback zinciri: Groq → Gemini → OpenAI → graceful
         // maxTokens: 150 — kısa yanıta ZORLAMIYORUZ, LLM doğal uzunluğu seçer
-        const result = await generateWithFallback(messages, { maxTokens: 150, temperature: 0.3, language });
+        const result = await generateWithFallback(messages, { maxTokens: 150, temperature: 0.3, language: language as 'tr' | 'en' | 'de' | 'fr' });
 
         const noResponseMessages: Record<string, string> = {
             tr: 'Yanıt oluşturulamadı.',
