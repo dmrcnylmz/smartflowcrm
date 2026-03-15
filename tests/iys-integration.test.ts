@@ -205,7 +205,7 @@ describe('outbound-compliance IYS integration', () => {
         const filePath = join(process.cwd(), 'lib/compliance/outbound-compliance.ts');
         const { readFileSync } = require('fs');
         const content = readFileSync(filePath, 'utf-8');
-        expect(content).toContain("iysStatus === 'RET'");
+        expect(content).toContain("=== 'RET'");
         expect(content).toContain("IYS'de ret kaydi var");
     });
 });
