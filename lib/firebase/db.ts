@@ -14,10 +14,15 @@ import {
   QueryConstraint,
   DocumentReference,
   Query,
-  startAfter,
-  DocumentSnapshot,
   writeBatch
 } from 'firebase/firestore';
+
+// startAfter type workaround — firebase v11 exports it at runtime
+// but some TS configurations don't resolve the type export.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { startAfter } = require('firebase/firestore') as {
+  startAfter: (...fieldValues: unknown[]) => QueryConstraint;
+};
 import { db, auth } from './config';
 import type {
   CallLog,
@@ -29,9 +34,11 @@ import type {
 } from './types';
 
 // ─── Paginated result type ────────────────────────────────────────────────
+// Using 'unknown' for lastDoc to avoid DocumentSnapshot import issues
+// Consumers should pass the lastDoc value back opaquely as cursor
 export interface PaginatedResult<T> {
     data: T[];
-    lastDoc: DocumentSnapshot | null;
+    lastDoc: unknown;
     hasMore: boolean;
 }
 
@@ -125,7 +132,7 @@ export async function getCallLogsPaginated(options?: {
     dateTo?: Date;
     status?: string;
     pageSize?: number;
-    cursor?: DocumentSnapshot;
+    cursor?: unknown;
 }): Promise<PaginatedResult<CallLog>> {
     const tid = await getTenantId();
     const pageSize = options?.pageSize || 25;
@@ -215,7 +222,7 @@ export async function getAppointmentsPaginated(options?: {
     dateFrom?: Date;
     dateTo?: Date;
     pageSize?: number;
-    cursor?: DocumentSnapshot;
+    cursor?: unknown;
 }): Promise<PaginatedResult<Appointment>> {
     const tid = await getTenantId();
     const pageSize = options?.pageSize || 25;
